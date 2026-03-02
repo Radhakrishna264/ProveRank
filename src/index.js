@@ -19,11 +19,13 @@ mongoose.connect(process.env.MONGODB_URI)
   .catch(err => console.log('MongoDB Error:', err));
 
 const questionRoutes = require('./routes/question');
+const uploadRoutes = require('./routes/upload');
 
 app.use('/api/auth', require('./routes/auth'));
 const questionAdvancedRoutes = require('./routes/questionAdvanced');
 const questionAIRoutes = require('./routes/questionAI');
 app.use('/api/questions-advanced', questionAdvancedRoutes);
+app.use('/api/upload', uploadRoutes);
 app.use('/api/questions-advanced', questionAIRoutes);
 const questionExtraRoutes = require('./routes/questionExtra');
 app.use('/api/questions', questionExtraRoutes);
