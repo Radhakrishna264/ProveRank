@@ -44,3 +44,6 @@ router.post('/pdf/questions', verifyToken, isSuperAdmin, upload.single('file'), 
 router.post('/copypaste/questions', verifyToken, isSuperAdmin, copyPasteQuestions);
 
 module.exports = router;
+// Phase 2.4 - Step 5+6: Validate + Result Link
+const { validateAndLink } = require('../controllers/uploadController');
+router.post('/copypaste/validate', verifyToken, isSuperAdmin, validateAndLink);

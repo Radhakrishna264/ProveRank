@@ -456,3 +456,103 @@ exports.copyPasteQuestions = async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
+// =============================================
+// PHASE 2.4 - STEP 5+6: Result Calculation Auto-link + Validation
+// =============================================
+exports.validateAndLink = async (req, res) => {
+  try {
+    const { questionsText, answerKeyText, subject, chapter, topic, difficulty, examId } = req.body;
+
+    if (!questionsText) return res.status(400).json({ success: false, message: 'Questions text required' });
+
+    // Parse questions
+    const lines = questionsText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const questions = [];
+    const validationErrors = [];
+    let currentQ = null;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const qMatch = line.match(/^(?:Q\.?|)([0-9]+)[.\)]\s*(.+)/i);
+      if (qMatch) {
+        if (currentQ) questions.push(currentQ);
+        currentQ = { num: parseInt(qMatch[1]), text: qMatch[2].trim(), options: [], correct: [], warnings: [] };
+        continue;
+      }
+      const optMatch = line.match(/^[\[\(]?([A-Da-d])[\]\)\.\:]?\s*(.+)/);
+      if (optMatch && currentQ) {
+        currentQ.options.push(optMatch[2].trim());
+        continue;
+      }
+      if (currentQ && currentQ.options.length === 0) currentQ.text += ' ' + line;
+    }
+    if (currentQ) questions.push(currentQ);
+
+    // Parse answer key
+    const ansMap = {};
+    if (answerKeyText) {
+      const ansLines = answerKeyText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      ansLines.forEach(line => {
+        const m = line.match(/([0-9]+)[-.\s:]+([A-Da-d])/i);
+        if (m) {
+          const map = { A:0, B:1, C:2, D:3, a:0, b:1, c:2, d:3 };
+          ansMap[parseInt(m[1])] = [map[m[2]]];
+        }
+      });
+      questions.forEach(q => {
+        if (ansMap[q.num] !== undefined) q.correct = ansMap[q.num];
+        else q.warnings.push('Answer key mein answer nahi mila');
+      });
+    }
+
+    // STEP 6: Validation with error highlighting
+    questions.forEach(q => {
+      if (!q.text || q.text.length < 5) validationErrors.push({ qNum: q.num, error: 'Question text bahut chhota hai', severity: 'error' });
+      if (q.options.length < 2) validationErrors.push({ qNum: q.num, error: `Sirf ${q.options.length} options hain — kam se kam 2 chahiye`, severity: 'error' });
+      if (q.options.length < 4) q.warnings.push(`${q.options.length} options hi parse hue (4 expected)`);
+      if (q.correct.length === 0) validationErrors.push({ qNum: q.num, error: 'Correct answer missing', severity: 'warning' });
+    });
+
+    // STEP 5: Result calculation link — exam se attach karo
+    let examLink = null;
+    if (examId) {
+      const Exam = require('../models/Exam');
+      const exam = await Exam.findById(examId);
+      if (exam) {
+        examLink = { examId: exam._id, examTitle: exam.title, linked: true };
+      } else {
+        examLink = { examId, linked: false, message: 'Exam nahi mila' };
+      }
+    }
+
+    // Summary
+    const validQuestions = questions.filter(q => q.options.length >= 2 && q.text.length >= 5);
+    const withAnswers = validQuestions.filter(q => q.correct.length > 0);
+
+    return res.json({
+      success: true,
+      summary: {
+        totalParsed: questions.length,
+        validQuestions: validQuestions.length,
+        withAnswers: withAnswers.length,
+        withoutAnswers: validQuestions.length - withAnswers.length,
+        validationErrors: validationErrors.length,
+        warnings: questions.reduce((acc, q) => acc + q.warnings.length, 0)
+      },
+      validationErrors,
+      examLink,
+      questions: questions.map(q => ({
+        num: q.num,
+        text: q.text.substring(0, 100),
+        optionsCount: q.options.length,
+        options: q.options,
+        hasAnswer: q.correct.length > 0,
+        correct: q.correct,
+        warnings: q.warnings,
+        isValid: q.options.length >= 2 && q.text.length >= 5
+      }))
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
