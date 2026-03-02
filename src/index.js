@@ -40,3 +40,7 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`ProveRank server running at http://0.0.0.0:${PORT}`);
 });
+
+// Phase 2.2 - Excel Upload Routes
+const excelUploadRoutes = require('./routes/excelUpload');
+app.use('/api/excel', excelUploadRoutes);
