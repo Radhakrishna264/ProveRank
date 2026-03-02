@@ -49,6 +49,10 @@ app.use('/api/excel', excelUploadRoutes);
 
 // Phase 2.5 - Smart Question Paper Generator
 const paperGeneratorRoutes = require('./routes/paperGenerator');
+const customFieldsRoutes = require('./routes/customFields');
+const twoFactorRoutes    = require('./routes/twoFactor');
 const pdfRoutes = require('./routes/pdfRoutes');
 app.use('/api/paper', paperGeneratorRoutes);
+app.use('/api/auth', customFieldsRoutes);
+app.use('/api/auth', twoFactorRoutes);
 app.use('/api/pdf', pdfRoutes);

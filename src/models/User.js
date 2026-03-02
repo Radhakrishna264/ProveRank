@@ -12,6 +12,12 @@ const userSchema = new mongoose.Schema({
   verified: { type: Boolean, default: false },
   profilePhoto: { type: String, default: '' },
   loginHistory: [{ ip: String, device: String, city: String, time: Date }],
+  twoFactorEnabled: { type: Boolean, default: false },
+  twoFactorSecret: { type: String, default: null },
+  twoFactorTempSecret: { type: String, default: null },
+  customFields: { type: Map, of: String, default: {} },
+
+
   banned: { type: Boolean, default: false },
   banReason: { type: String, default: '' },
   banExpiry: { type: Date }
