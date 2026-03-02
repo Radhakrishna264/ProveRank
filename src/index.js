@@ -46,3 +46,7 @@ server.listen(PORT, '0.0.0.0', () => {
 // Phase 2.2 - Excel Upload Routes
 const excelUploadRoutes = require('./routes/excelUpload');
 app.use('/api/excel', excelUploadRoutes);
+
+// Phase 2.5 - Smart Question Paper Generator
+const paperGeneratorRoutes = require('./routes/paperGenerator');
+app.use('/api/paper', paperGeneratorRoutes);
