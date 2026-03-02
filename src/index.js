@@ -18,10 +18,19 @@ mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB Connected:', mongoose.connection.host))
   .catch(err => console.log('MongoDB Error:', err));
 
+const questionRoutes = require('./routes/question');
+
 app.use('/api/auth', require('./routes/auth'));
+const questionAdvancedRoutes = require('./routes/questionAdvanced');
+const questionAIRoutes = require('./routes/questionAI');
+app.use('/api/questions-advanced', questionAdvancedRoutes);
+app.use('/api/questions-advanced', questionAIRoutes);
+const questionExtraRoutes = require('./routes/questionExtra');
+app.use('/api/questions', questionExtraRoutes);
+app.use('/api/questions', questionRoutes);
+app.use('/api/exams', require('./routes/exam'));
 app.use('/api/exams', require('./routes/examExtra'));
 app.use('/api/admin', require('./routes/admin'));
-app.use('/api/exams', require('./routes/exam'));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });
