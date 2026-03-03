@@ -443,13 +443,25 @@ exports.copyPasteQuestions = async (req, res) => {
 
     const skipped = questions.length - toInsert.length;
 
+    // Phase 2.4 Step 5 - Auto-link to exam if examId provided
+    let examLink = null;
+    if (req.body.examId) {
+      try {
+        const Exam = require('../models/Exam');
+        const exam = await Exam.findById(req.body.examId);
+        if (exam) examLink = { examId: exam._id, examTitle: exam.title, linked: true };
+        else examLink = { examId: req.body.examId, linked: false, message: 'Exam nahi mila' };
+      } catch(e) { examLink = { linked: false, error: e.message }; }
+    }
     return res.json({
       success: true,
       message: 'Copy-paste questions saved!',
       inserted: savedCount,
       skipped,
       errors: errors.length,
-      total: questions.length
+      total: questions.length,
+      examLink: examLink,
+      savedToExam: examLink?.linked || false
     });
 
   } catch (err) {

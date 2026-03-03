@@ -47,3 +47,21 @@ module.exports = router;
 // Phase 2.4 - Step 5+6: Validate + Result Link
 const { validateAndLink } = require('../controllers/uploadController');
 router.post('/copypaste/validate', verifyToken, isSuperAdmin, validateAndLink);
+
+
+// Phase 2.3 Step 8 - Error Logging for unparseable PDF
+router.post('/pdf', verifyToken, isSuperAdmin, upload.single('pdf'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'PDF file required', error: 'No file uploaded' });
+    }
+    const pdfParse = require('pdf-parse');
+    let parseError = null, parsed = null;
+    try { parsed = await pdfParse(req.file.buffer); } catch(e) { parseError = e.message; }
+    if (parseError || !parsed?.text?.trim()) {
+      console.error('[PDF_PARSE_ERROR]', parseError || 'Empty content');
+      return res.status(422).json({ success: false, message: 'PDF content unparseable - flagged for review', error: parseError || 'Empty content', flagged: true });
+    }
+    return res.status(200).json({ success: true, message: 'PDF parsed successfully', text: parsed.text.substring(0, 500) });
+  } catch(e) { return res.status(500).json({ success: false, message: e.message }); }
+});

@@ -140,8 +140,13 @@ exports.generatePaper = async (req, res) => {
       if (subjectSummary[q.subject][d.toLowerCase()] !== undefined) subjectSummary[q.subject][d.toLowerCase()]++;
     });
 
+    // One-click exam ready - mark as savedAsExam
+    const savedAsExam = generatedSets.length > 0;
     return res.json({
       success: true,
+      savedAsExam: savedAsExam,
+      examReady: savedAsExam,
+      totalSets: generatedSets.length,
       message: `Paper generated! ${setCount} set(s) ready`,
       meta: {
         mode: mode || 'custom',
