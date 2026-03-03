@@ -83,6 +83,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/excel', excelUploadRoutes);
 app.use('/api/paper', paperGeneratorRoutes);
 app.use('/api/pdf', pdfRoutes);
+app.use('/api/exam-instances', require('./routes/examInstance'));
 if (permissionTestRoutes) app.use('/api/permission', permissionTestRoutes);
 
 // ── Start Server ──────────────────────────────────────────────
