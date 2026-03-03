@@ -19,6 +19,7 @@ const pdfRoutes              = require('./routes/pdfRoutes');
 
 // ── New Feature Routes (load BEFORE conflicting base routes) ──
 const examFeaturesRoutes     = require('./routes/examFeatures');
+const examPaperRoutes = require('./routes/examPaper');
 const adminSystemRoutes      = require('./routes/adminSystem');
 const adminManagementRoutes  = require('./routes/adminManagement');
 const questionFeaturesRoutes = require('./routes/questionFeatures');
@@ -72,6 +73,7 @@ if (questionExtraRoutes)    app.use('/api/questions', questionExtraRoutes);
 
 // ── Exam Routes ───────────────────────────────────────────────
 app.use('/api/exams', examFeaturesRoutes);             // S5/S75/S85/S26/S62/S31/S96
+app.use('/api/exam-paper', examPaperRoutes);
 app.use('/api/exams', examRoutes);
 app.use('/api/exams', examExtraRoutes);
 if (examSubmissionRoutes) app.use('/api/exams', examSubmissionRoutes);

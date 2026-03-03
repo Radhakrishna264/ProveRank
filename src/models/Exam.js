@@ -53,6 +53,9 @@ const examSchema = new mongoose.Schema({
 
   maxAttempts:    { type: Number, default: 1 },
   reattemptCount: { type: String, enum: ['best', 'last'], default: 'last' },
+  questionSnapshot:  { type: Array, default: [] },
+  snapshotLocked:    { type: Boolean, default: false },
+  snapshotLockedAt:  { type: Date, default: null },
 
   whitelistEnabled:    { type: Boolean, default: false },
   whitelistedStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
