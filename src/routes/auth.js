@@ -65,6 +65,14 @@ router.post('/login', async (req, res) => {
     user.loginHistory.push({ ip, device: req.headers['user-agent'], time: new Date() });
     await user.save();
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+const AuditLog = require('../models/AuditLog');
+
+    await AuditLog.create({
+      action: 'LOGIN',
+      performedBy: user._id,
+      details: 'Login successful',
+      ip: ip
+    });
     setSession(user._id.toString(), token);
     res.json({ message: 'Login successful', token, role: user.role });
   } catch (err) {

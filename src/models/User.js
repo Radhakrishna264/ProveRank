@@ -1,26 +1,62 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
-  name: { type: String, required: true, trim: true },
-  email: { type: String, required: true, unique: true, lowercase: true },
-  phone: { type: String, trim: true },
-  password: { type: String, required: true },
-  role: { type: String, enum: ['superadmin', 'admin', 'student'], default: 'student' },
-  group: { type: String, default: '' },
-  otp: { type: String },
-  otpExpiry: { type: Date },
-  verified: { type: Boolean, default: false },
-  profilePhoto: { type: String, default: '' },
-  loginHistory: [{ ip: String, device: String, city: String, time: Date }],
-  twoFactorEnabled: { type: Boolean, default: false },
-  twoFactorSecret: { type: String, default: null },
-  twoFactorTempSecret: { type: String, default: null },
-  customFields: { type: Map, of: String, default: {} },
 
+  name: { type: String, required: true },
+
+  email: { type: String, required: true, unique: true },
+
+  phone: { type: String },
+
+  password: { type: String, required: true },
+
+  role: {
+    type: String,
+    enum: ['superadmin', 'admin', 'student'],
+    default: 'student'
+  },
+
+  // 🔹 Granular Permission System (S37)
+  permissions: {
+    type: Map,
+    of: Boolean,
+    default: {}
+  },
+
+  // 🔹 Admin Freeze Control (S72)
+  adminFrozen: {
+    type: Boolean,
+    default: false
+  },
+
+  group: { type: String },
+
+  otp: { type: String },
+
+  otpExpiry: { type: Date },
+
+  verified: { type: Boolean, default: false },
+
+  profilePhoto: { type: String },
+
+  loginHistory: [
+    {
+      ip: String,
+      device: String,
+      time: { type: Date, default: Date.now }
+    }
+  ],
+
+  customFields: { type: Object },
 
   banned: { type: Boolean, default: false },
-  banReason: { type: String, default: '' },
-  banExpiry: { type: Date }
+
+  banReason: { type: String },
+
+  banExpiry: { type: Date },
+
+  parentEmail: { type: String }
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

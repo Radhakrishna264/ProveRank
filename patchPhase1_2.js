@@ -1,62 +1,11 @@
-const express = require('express');
-const router = express.Router();
-const User = require('../models/User');
-const { verifyToken, isSuperAdmin, isAdmin } = require('../middleware/auth');
+const fs = require('fs');
+const path = require('path');
 
-// BAN STUDENT
-router.post('/ban/:userId', verifyToken, isAdmin, async (req, res) => {
-  try {
-    const { reason, expiry } = req.body;
-    const user = await User.findByIdAndUpdate(
-      req.params.userId,
-      { banned: true, banReason: reason, banExpiry: expiry || null },
-      { new: true }
-    );
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json({ message: 'User banned', user: user.email });
-  } catch (err) {
-    res.status(500).json({ message: 'Error', error: err.message });
-  }
-});
+const adminPath = path.join(__dirname, 'src/routes/admin.js');
+let content = fs.readFileSync(adminPath, 'utf8');
 
-// UNBAN STUDENT
-router.post('/unban/:userId', verifyToken, isAdmin, async (req, res) => {
-  try {
-    const user = await User.findByIdAndUpdate(
-      req.params.userId,
-      { banned: false, banReason: '', banExpiry: null },
-      { new: true }
-    );
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json({ message: 'User unbanned', user: user.email });
-  } catch (err) {
-    res.status(500).json({ message: 'Error', error: err.message });
-  }
-});
-
-// GET ALL STUDENTS
-router.get('/students', verifyToken, isAdmin, async (req, res) => {
-  try {
-    const students = await User.find({ role: 'student' })
-      .select('-password -otp');
-    res.json({ students });
-  } catch (err) {
-    res.status(500).json({ message: 'Error', error: err.message });
-  }
-});
-
-// GET LOGIN HISTORY
-router.get('/login-history/:userId', verifyToken, isAdmin, async (req, res) => {
-  try {
-    const user = await User.findById(req.params.userId).select('loginHistory email');
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json({ email: user.email, loginHistory: user.loginHistory });
-  } catch (err) {
-    res.status(500).json({ message: 'Error', error: err.message });
-  }
-});
-
-
+// ─── S72: Permission Control ───────────────────────────────────────
+const s72Code = `
 
 // ─── S72: SuperAdmin Permission Control ──────────────────────────────
 router.post('/:adminId/permissions', verifyToken, isSuperAdmin, async (req, res) => {
@@ -76,7 +25,7 @@ router.post('/:adminId/permissions', verifyToken, isSuperAdmin, async (req, res)
       action: 'PERMISSION_UPDATE',
       performedBy: req.user.id,
       targetUser: adminId,
-      details: `Permissions updated: ${JSON.stringify(permissions)}`,
+      details: \`Permissions updated: \${JSON.stringify(permissions)}\`,
       ip: req.ip
     }).catch(() => {});
     
@@ -104,19 +53,22 @@ router.post('/:adminId/freeze', verifyToken, isSuperAdmin, async (req, res) => {
       action: admin.isFrozen ? 'ADMIN_FROZEN' : 'ADMIN_UNFROZEN',
       performedBy: req.user.id,
       targetUser: adminId,
-      details: `Admin ${admin.email} ${admin.isFrozen ? 'frozen' : 'unfrozen'}`,
+      details: \`Admin \${admin.email} \${admin.isFrozen ? 'frozen' : 'unfrozen'}\`,
       ip: req.ip
     }).catch(() => {});
     
     res.json({ 
-      message: `Admin ${admin.isFrozen ? 'frozen' : 'unfrozen'} successfully`,
+      message: \`Admin \${admin.isFrozen ? 'frozen' : 'unfrozen'} successfully\`,
       isFrozen: admin.isFrozen 
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
+`;
 
+// ─── M4: Student Impersonate ────────────────────────────────────────
+const m4Code = `
 
 // ─── M4: SuperAdmin Impersonate Student (No Password Needed) ─────────
 router.get('/impersonate/:studentId', verifyToken, isSuperAdmin, async (req, res) => {
@@ -145,7 +97,7 @@ router.get('/impersonate/:studentId', verifyToken, isSuperAdmin, async (req, res
       action: 'STUDENT_IMPERSONATE',
       performedBy: req.user.id,
       targetUser: studentId,
-      details: `SuperAdmin impersonated student: ${student.email}`,
+      details: \`SuperAdmin impersonated student: \${student.email}\`,
       ip: req.ip
     }).catch(() => {});
     
@@ -164,32 +116,39 @@ router.get('/impersonate/:studentId', verifyToken, isSuperAdmin, async (req, res
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
+`;
 
+// ─── Check karo already exist karta hai kya ────────────────────────
+const alreadyHasS72 = content.includes("/:adminId/permissions");
+const alreadyHasFreeze = content.includes("/:adminId/freeze");
+const alreadyHasM4 = content.includes("/impersonate/:studentId");
 
+// ─── Insert before module.exports ──────────────────────────────────
+const exportLine = 'module.exports = router;';
+if (!content.includes(exportLine)) {
+  console.log('❌ ERROR: module.exports = router; not found in admin.js');
+  process.exit(1);
+}
 
-// ─── S93: Platform Audit Trail (Tamper-Proof) ─────────────────────
-router.get('/audit-trail', verifyToken, isSuperAdmin, async (req, res) => {
-  try {
-    const AuditLog = require('../models/AuditLog');
-    const { page = 1, limit = 50, action, adminId } = req.query;
-    
-    const filter = {};
-    if (action) filter.action = action;
-    if (adminId) filter.performedBy = adminId;
-    
-    const logs = await AuditLog.find(filter)
-      .populate('performedBy', 'name email role')
-      .populate('targetUser', 'name email role')
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-    
-    const total = await AuditLog.countDocuments(filter);
-    
-    res.json({ logs, total, page: Number(page), pages: Math.ceil(total / limit) });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
+let newCode = '';
+if (!alreadyHasS72 || !alreadyHasFreeze) {
+  newCode += s72Code;
+  console.log('✅ S72: Permission + Freeze routes added');
+} else {
+  console.log('ℹ️  S72: Already exists — skip');
+}
 
-module.exports = router;
+if (!alreadyHasM4) {
+  newCode += m4Code;
+  console.log('✅ M4: Impersonate route added');
+} else {
+  console.log('ℹ️  M4: Already exists — skip');
+}
+
+if (newCode) {
+  content = content.replace(exportLine, newCode + '\n' + exportLine);
+  fs.writeFileSync(adminPath, content);
+  console.log('\n✅ admin.js patched successfully!');
+} else {
+  console.log('\nℹ️  No changes needed — all routes exist');
+}

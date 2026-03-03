@@ -1,4 +1,6 @@
+const fs = require('fs');
 
+const cleanSchema = `
 const mongoose = require('mongoose');
 
 const questionSchema = new mongoose.Schema({
@@ -35,12 +37,6 @@ const questionSchema = new mongoose.Schema({
     default: null
   },
 
-    isPYQ:          { type: Boolean, default: false },
-  pyqYear:        { type: Number, default: null },
-    approvalStatus: { type: String, enum: ['pending','approved','rejected'], default: 'approved' },
-  approvedBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-  approvedAt:     { type: Date, default: null },
-  rejectionReason:{ type: String, default: null },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -58,3 +54,8 @@ questionSchema.pre('save', async function () {
 });
 
 module.exports = mongoose.model('Question', questionSchema);
+`;
+
+fs.writeFileSync('./src/models/Question.js', cleanSchema);
+
+console.log("✔ Question model fully rebuilt cleanly");
