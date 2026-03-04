@@ -1,0 +1,176 @@
+const express = require('express');
+const router = express.Router();
+const Exam = require('../models/Exam');
+const { verifyToken, isAdmin } = require('../middleware/auth');
+
+// CREATE EXAM
+router.post('/', verifyToken, isAdmin, async (req, res) => {
+  try {
+    const exam = await Exam.create({ ...req.body, createdBy: req.user.id });
+    res.status(201).json({ message: 'Exam created', exam });
+  } catch (err) {
+    res.status(500).json({ message: 'Error', error: err.message });
+  }
+});
+
+// GET ALL EXAMS
+router.get('/', verifyToken, async (req, res) => {
+  try {
+    const { batch, category, status } = req.query;
+    const filter = {};
+    if (batch) filter.batch = batch;
+    if (category) filter.category = category;
+    if (status) filter.status = status;
+    const exams = await Exam.find(filter).populate('createdBy', 'name email');
+    res.json({ exams });
+  } catch (err) {
+    res.status(500).json({ message: 'Error', error: err.message });
+  }
+});
+
+// GET SINGLE EXAM
+router.get('/:id', verifyToken, async (req, res) => {
+  try {
+    const exam = await Exam.findById(req.params.id);
+    if (!exam) return res.status(404).json({ message: 'Exam not found' });
+    res.json({ exam });
+  } catch (err) {
+    res.status(500).json({ message: 'Error', error: err.message });
+  }
+});
+
+// UPDATE EXAM
+router.put('/:id', verifyToken, isAdmin, async (req, res) => {
+  try {
+    const exam = await Exam.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json({ message: 'Exam updated', exam });
+  } catch (err) {
+    res.status(500).json({ message: 'Error', error: err.message });
+  }
+});
+
+// DELETE EXAM
+router.delete('/:id', verifyToken, isAdmin, async (req, res) => {
+  try {
+    await Exam.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Exam deleted' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error', error: err.message });
+  }
+});
+
+module.exports = router;
+
+// S97 - Student Rank Prediction
+router.get('/:examId/rank-prediction', async (req, res) => {
+  try {
+    const { examId } = req.params;
+    const { studentId } = req.query;
+    if (!studentId) return res.status(400).json({ message: 'studentId required' });
+    const Attempt = require('../models/Attempt');
+    const pastAttempts = await Attempt.find({ student: studentId }).sort({ createdAt: -1 }).limit(5).lean();
+    let predictedRank = 'N/A';
+    let confidence = 'low';
+    if (pastAttempts.length > 0) {
+      const avgScore = pastAttempts.reduce((sum, a) => sum + (a.totalScore || 0), 0) / pastAttempts.length;
+      const totalAttempts = await Attempt.countDocuments({ exam: examId });
+      const betterThan = await Attempt.countDocuments({ exam: examId, totalScore: { $lt: avgScore } });
+      predictedRank = totalAttempts > 0 ? Math.max(1, totalAttempts - betterThan + 1) : 1;
+      confidence = pastAttempts.length >= 3 ? 'high' : 'medium';
+    }
+    res.json({ predictedRank, confidence, basedOnAttempts: pastAttempts.length });
+  } catch (err) { console.log('STEP6 ERROR:', err.message, err.stack); res.status(500).json({ message: err.message }); }
+});
+
+// M6 - Exam Waiting Room
+router.post('/:examId/waiting-room', async (req, res) => {
+  try {
+    const { examId } = req.params;
+    const mongoose = require('mongoose');
+    const studentId = new mongoose.Types.ObjectId(req.user.id);
+    if (!studentId) return res.status(400).json({ message: 'studentId required' });
+    const Exam = require('../models/Exam');
+    const exam = await Exam.findById(examId).lean();
+    if (exam) { exam.sections = exam.sections || []; exam.accessWhitelist = exam.accessWhitelist || []; }
+    if (!exam) return res.status(404).json({ message: 'Exam not found' });
+    const now = new Date();
+    const examStart = new Date(exam.startTime || exam.scheduledAt || now);
+    const diffMs = examStart - now;
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins > 10) return res.status(403).json({ message: `Waiting room opens 10 min before exam. Opens in ${diffMins - 10} minutes.` });
+    res.json({ waitingRoom: true, examName: exam.title, countdown: Math.max(0, diffMs), countdownMinutes: Math.max(0, diffMins), message: diffMins <= 0 ? 'Exam has started!' : `Exam starts in ${diffMins} minutes` });
+  } catch (err) { console.log('STEP6 ERROR:', err.message, err.stack); res.status(500).json({ message: err.message }); }
+});
+
+// Instructions Page
+router.get('/:examId/instructions', async (req, res) => {
+  try {
+    const Exam = require('../models/Exam');
+    const exam = await Exam.findById(req.params.examId).lean();
+    if (!exam) return res.status(404).json({ message: 'Exam not found' });
+    res.json({ instructions: exam.instructions || 'Read all questions carefully before answering.', examName: exam.title, duration: exam.duration || 200, totalQuestions: exam.totalQuestions || 180, marking: { correct: exam.correctMarks || 4, wrong: exam.negativeMarks || -1 }, sections: exam.sections || ['Physics', 'Chemistry', 'Biology'], agreementText: 'I have read all instructions and I agree to attempt this exam honestly.' });
+  } catch (err) { console.log('STEP6 ERROR:', err.message, err.stack); res.status(500).json({ message: err.message }); }
+});
+
+// S91 - Terms & Conditions Acceptance
+router.post('/:examId/accept-terms', async (req, res) => {
+  try {
+    const { examId } = req.params;
+    const { studentId, accepted } = req.body;
+    if (!studentId) return res.status(400).json({ message: 'studentId required' });
+    if (!accepted) return res.status(403).json({ message: 'You must accept Terms & Conditions to proceed.' });
+    const Student = require('../models/User');
+    await Student.findByIdAndUpdate(studentId, { $set: { [`termsAccepted.${examId}`]: { accepted: true, acceptedAt: new Date() } } });
+    res.json({ success: true, message: 'Terms accepted. You may proceed.' });
+  } catch (err) { console.log('STEP6 ERROR:', err.message, err.stack); res.status(500).json({ message: err.message }); }
+});
+
+// S31 - Check Attempt Limit
+router.get('/:examId/check-attempt-limit', async (req, res) => {
+  try {
+    const { examId } = req.params;
+    const { studentId } = req.query;
+    if (!studentId) return res.status(400).json({ message: 'studentId required' });
+    const Exam = require('../models/Exam');
+    const Attempt = require('../models/Attempt');
+    const exam = await Exam.findById(examId).lean();
+    if (!exam) return res.status(404).json({ message: 'Exam not found' });
+    const sections = exam.sections || []; const maxAttempts = exam.maxAttempts || exam.reAttemptLimit || 99;
+    const usedAttempts = await Attempt.countDocuments({ examId: examObjId, studentId: studentId });
+    const attemptsRemaining = Math.max(0, maxAttempts - usedAttempts);
+    res.json({ canAttempt: attemptsRemaining > 0, usedAttempts, maxAttempts, attemptsRemaining, allowed: attemptsRemaining > 0 });
+  } catch (err) { console.log('STEP6 ERROR:', err.message, err.stack); res.status(500).json({ message: err.message }); }
+});
+
+// Step 6+7+8 - Start Attempt with IP and Timestamp
+router.post('/:examId/start-attempt', verifyToken, async (req, res) => {
+  try {
+    const { examId } = req.params;
+    const mongoose = require('mongoose');
+    const studentId = new mongoose.Types.ObjectId(String(req.user.id));
+    const examObjId = new mongoose.Types.ObjectId(String(examId));
+    if (!studentId) return res.status(400).json({ message: 'studentId required' });
+    const Exam = require('../models/Exam');
+    const Attempt = require('../models/Attempt');
+    const exam = await Exam.findById(examId).lean();
+    if (!exam) return res.status(404).json({ message: 'Exam not found' });
+    const sections = exam.sections || []; const maxAttempts = exam.maxAttempts || exam.reAttemptLimit || 99;
+    studentId: new mongoose.Types.ObjectId(req.user.id)
+    console.log("DEBUG:", {usedAttempts, maxAttempts, studentId: studentId.toString(), examObjId: examObjId.toString()}); if (usedAttempts >= maxAttempts) return res.status(403).json({ message: 'Attempt limit reached.' });
+    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress || 'unknown';
+    const attempt = await Attempt.create({ examId: examObjId, studentId: studentId, startedAt: new Date(), ipAddress, status: 'active', answers: [], totalScore: 0, sections: (exam && exam.sections) || [] });
+    res.json({ success: true, attemptId: attempt._id, startTime: attempt.startedAt, ipAddress });
+  } catch (err) { console.log('STEP6 ERROR:', err.message, err.stack); res.status(500).json({ message: err.message }); }
+});
+
+// Step 7+8 - Get Attempt by ID
+router.get('/attempt/:attemptId', verifyToken, async (req, res) => {
+  try {
+    const Attempt = require('../models/Attempt');
+    const attempt = await Attempt.findById(req.params.attemptId).lean();
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    res.json({ success: true, attempt, ipAddress: attempt.ipAddress, startTime: attempt.startedAt });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});

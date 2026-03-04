@@ -9,6 +9,7 @@ const { initSocket } = require('./config/socket');
 // ── Route Imports ─────────────────────────────────────────────
 const authRoutes             = require('./routes/auth');
 const adminRoutes            = require('./routes/admin');
+const examPatchRoutes = require('./routes/exam_patch');
 const examRoutes             = require('./routes/exam');
 const examExtraRoutes        = require('./routes/examExtra');
 const questionRoutes         = require('./routes/question');
@@ -72,7 +73,9 @@ if (questionAdvancedRoutes) app.use('/api/questions-advanced', questionAdvancedR
 if (questionExtraRoutes)    app.use('/api/questions', questionExtraRoutes);
 
 // ── Exam Routes ───────────────────────────────────────────────
-app.use('/api/exams', examFeaturesRoutes);             // S5/S75/S85/S26/S62/S31/S96
+app.use('/api/exams', examFeaturesRoutes);
+app.use('/api/exams', examPatchRoutes);
+             // S5/S75/S85/S26/S62/S31/S96
 app.use('/api/exam-paper', examPaperRoutes);
 app.use('/api/exams', examRoutes);
 app.use('/api/exams', examExtraRoutes);
@@ -84,6 +87,7 @@ app.use('/api/excel', excelUploadRoutes);
 app.use('/api/paper', paperGeneratorRoutes);
 app.use('/api/pdf', pdfRoutes);
 app.use('/api/exam-instances', require('./routes/examInstance'));
+try { const attemptRoutes = require('./routes/attemptRoutes'); app.use('/api/attempts', attemptRoutes); } catch(e) {}
 if (permissionTestRoutes) app.use('/api/permission', permissionTestRoutes);
 
 // ── Start Server ──────────────────────────────────────────────

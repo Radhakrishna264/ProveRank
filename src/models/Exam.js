@@ -41,7 +41,9 @@ const examSchema = new mongoose.Schema({
 
   reviewWindow: {
     enabled:         { type: Boolean, default: false },
-    durationMinutes: { type: Number, default: 0 }
+    durationMinutes: { type: Number, default: 0 },
+  fullscreenForce: { type: Boolean, default: false },
+  fullscreenWarnings: { type: Number, default: 0 }
   },
 
   template:   { type: String, default: '' },

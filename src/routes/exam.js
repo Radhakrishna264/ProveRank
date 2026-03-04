@@ -60,3 +60,24 @@ router.delete('/:id', verifyToken, isAdmin, async (req, res) => {
 });
 
 module.exports = router;
+
+router.post('/exams/:examId/start-attempt', verifyToken, async (req, res) => {
+  try {
+    const { examId } = req.params;
+    const studentId = req.user.id;
+    const examObjId = new mongoose.Types.ObjectId(examId);
+    const studentObjId = new mongoose.Types.ObjectId(studentId);
+    const exam = await Exam.findById(examObjId);
+    if (!exam) return res.status(404).json({ error: 'Exam not found' });
+    const usedAttempts = await Attempt.countDocuments({ examId: examObjId, studentId: studentObjId });
+    if (usedAttempts >= exam.maxAttempts) return res.status(403).json({ error: 'Attempt limit reached' });
+    const student = await Student.findById(studentObjId);
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    if (!student.termsAccepted) return res.status(403).json({ error: 'Terms not accepted' });
+    const newAttempt = new Attempt({ examId: examObjId, studentId: studentObjId, startTime: new Date(), status: 'in-progress', ipAddress: req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown' });
+    await newAttempt.save();
+    res.status(200).json({ success: true, attemptId: newAttempt._id, message: 'Attempt started' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});

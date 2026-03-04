@@ -59,4 +59,4 @@ const userSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-module.exports = mongoose.model('User', userSchema);
+if(mongoose.models.User) delete mongoose.connection.models["User"]; module.exports = mongoose.model("User", userSchema, "students");
