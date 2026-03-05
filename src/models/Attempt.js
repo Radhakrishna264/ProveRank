@@ -10,9 +10,6 @@ const attemptSchema = new mongoose.Schema({
   submittedAt: { type: Date },
   termsAccepted: { type: Boolean, default: false },
   termsAcceptedAt: { type: Date },
-  predictedRank: { type: Number },
-  predictedScore: { type: Number },
-  predictionConfidence: { type: String, enum: ['low', 'medium', 'high'] },
   admitCardVerified: { type: Boolean, default: false },
   admitCardVerifiedAt: { type: Date },
   fullscreenWarnings: { type: Number, default: 0 },
@@ -22,12 +19,18 @@ const attemptSchema = new mongoose.Schema({
     selectedOption: mongoose.Schema.Types.Mixed,
     isMarkedForReview: { type: Boolean, default: false },
     timeTaken: { type: Number, default: 0 },
-    savedAt: Date
+    savedAt: { type: Date }
   }],
   attemptNumber: { type: Number, default: 1 },
   score: { type: Number },
   rank: { type: Number },
-  percentile: { type: Number }
+  percentile: { type: Number },
+  predictedRank: { type: Number },
+  predictedScore: { type: Number },
+  predictionConfidence: { type: String, enum: ['low', 'medium', 'high'] },
+  deviceSessionId: { type: String, default: null },
+  isPaused: { type: Boolean, default: false },
+  pausedAt: { type: Date }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Attempt', attemptSchema);

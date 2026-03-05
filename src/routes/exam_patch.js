@@ -25,12 +25,12 @@ router.get('/:examId/rank-prediction', verifyToken, async (req, res) => {
 // M6 - Step 2: Waiting Room
 router.get('/:examId/waiting-room', verifyToken, async (req, res) => {
   try {
-    const exam = await Exam.findById(req.params.examId).select('title startTime duration status');
+    const exam = await Exam.findById(new mongoose.Types.ObjectId(req.params.examId)).select('title startTime duration status');
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
     const now = new Date();
     const start = new Date(exam.startTime);
     const opens = new Date(start.getTime() - 10 * 60 * 1000);
-    if (now < opens) return res.status(403).json({ success: false, message: 'Waiting room 10 min pehle khulta hai', opensAt: opens });
+    if (now < opens) res.status(403).json({ success: false, message: 'Waiting room 10 min pehle khulta hai', opensAt: opens });
     const countdown = Math.max(0, Math.floor((start - now) / 1000));
     res.json({ success: true, exam, countdown, serverTime: now });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
@@ -39,12 +39,11 @@ router.get('/:examId/waiting-room', verifyToken, async (req, res) => {
 // Step 3: Instructions Page
 router.get('/:examId/instructions', verifyToken, async (req, res) => {
   try {
-    const exam = await Exam.findById(req.params.examId).select('title duration totalQuestions totalMarks negativeMarking instructions');
+    const exam = await Exam.findById(new mongoose.Types.ObjectId(req.params.examId)).select('title duration totalQuestions totalMarks negativeMarking instructions');
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
     res.json({ success: true, instructions: {
       title: exam.title, duration: exam.duration,
-      totalQuestions: exam.totalQuestions,
-      totalMarks: exam.totalMarks,
+      totalQuestions: exam.totalQuestions, totalMarks: exam.totalMarks,
       negativeMarking: exam.negativeMarking,
       custom: exam.instructions || 'Sabhi questions dhyan se padho.',
       rules: ['Exam pause nahi hoga', 'Fullscreen compulsory hai', '3 warnings = auto submit']
@@ -55,7 +54,7 @@ router.get('/:examId/instructions', verifyToken, async (req, res) => {
 // S91 - Step 4: T&C Accept/Reject
 router.post('/:examId/accept-terms', verifyToken, async (req, res) => {
   try {
-    const exam = await Exam.findById(req.params.examId);
+    const exam = await Exam.findById(new mongoose.Types.ObjectId(req.params.examId));
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
     if (!req.body.accepted) return res.status(403).json({ success: false, message: 'Terms reject. Entry blocked.' });
     await User.findByIdAndUpdate(req.user.id, { termsAccepted: true });
@@ -66,7 +65,7 @@ router.post('/:examId/accept-terms', verifyToken, async (req, res) => {
 // S31 - Step 5: Attempt Limit Check
 router.get('/:examId/attempt-limit', verifyToken, async (req, res) => {
   try {
-    const exam = await Exam.findById(req.params.examId).select('maxAttempts');
+    const exam = await Exam.findById(new mongoose.Types.ObjectId(req.params.examId)).select('maxAttempts');
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
     const count = await Attempt.countDocuments({ examId: req.params.examId, studentId: req.user.id, status: 'completed' });
     const max = exam.maxAttempts || 1;
@@ -74,46 +73,10 @@ router.get('/:examId/attempt-limit', verifyToken, async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-// Steps 6+7+8: Start Attempt + IP + Timestamp
-router.post('/:examId/start-attempt', verifyToken, async (req, res) => {
-  try {
-    const examObjId = new mongoose.Types.ObjectId(req.params.examId);
-    const studentObjId = new mongoose.Types.ObjectId(req.user.id);
-    const exam = await Exam.findById(examObjId);
-    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
-    const usedAttempts = await Attempt.countDocuments({ examId: examObjId, studentId: studentObjId, status: 'completed' });
-    if (usedAttempts >= (exam.maxAttempts || 1)) return res.status(403).json({ success: false, message: 'Attempt limit reached' });
-    const ipAddress = req.headers['x-forwarded-for'] || req.ip || 'unknown';
-    const newAttempt = new Attempt({
-      examId: examObjId,
-      studentId: studentObjId,
-      startedAt: new Date(),
-      status: 'active',
-      ipAddress: ipAddress
-    });
-    await newAttempt.save();
-    res.json({ success: true, message: 'Attempt started', attemptId: newAttempt._id, startedAt: newAttempt.startedAt, ipAddress: newAttempt.ipAddress });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
-
-// Steps 7+8: GET Attempt by ID — startTime + ipAddress verify
-router.get('/attempt/:attemptId', verifyToken, async (req, res) => {
-  try {
-    const attempt = await Attempt.findById(req.params.attemptId);
-    if (!attempt) return res.status(404).json({ success: false, message: 'Attempt not found' });
-    res.json({
-      success: true,
-      attempt,
-      startTime: attempt.startedAt,
-      ipAddress: attempt.ipAddress
-    });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
-
 // S85 - Step 9: Exam Access Whitelist
 router.get('/:examId/whitelist-check', verifyToken, async (req, res) => {
   try {
-    const exam = await Exam.findById(req.params.examId).select('whitelistEnabled accessWhitelist');
+    const exam = await Exam.findById(new mongoose.Types.ObjectId(req.params.examId)).select('whitelistEnabled accessWhitelist');
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
     if (!exam.whitelistEnabled) return res.json({ success: true, allowed: true, message: 'Whitelist off - sabko access' });
     const allowed = (exam.accessWhitelist || []).some(id => id.toString() === req.user.id.toString());
@@ -139,7 +102,7 @@ router.post('/:examId/verify-admit-card', verifyToken, async (req, res) => {
 // S32 - Step 11: Fullscreen Force
 router.get('/:examId/fullscreen-setting', verifyToken, async (req, res) => {
   try {
-    const exam = await Exam.findById(req.params.examId).select('fullscreenForce fullscreenWarnings');
+    const exam = await Exam.findById(new mongoose.Types.ObjectId(req.params.examId)).select('fullscreenForce fullscreenWarnings');
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
     res.json({ success: true, fullscreenForce: exam.fullscreenForce || false, maxWarnings: exam.fullscreenWarnings || 3 });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }

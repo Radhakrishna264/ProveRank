@@ -46,7 +46,7 @@ app.use(cors());
 app.use(express.json());
 
 // ── MongoDB ───────────────────────────────────────────────────
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB Connected:', mongoose.connection.host))
   .catch(err => console.log('MongoDB Error:', err));
 
@@ -73,11 +73,11 @@ if (questionAdvancedRoutes) app.use('/api/questions-advanced', questionAdvancedR
 if (questionExtraRoutes)    app.use('/api/questions', questionExtraRoutes);
 
 // ── Exam Routes ───────────────────────────────────────────────
+app.use('/api/exams', examRoutes);
 app.use('/api/exams', examFeaturesRoutes);
 app.use('/api/exams', examPatchRoutes);
              // S5/S75/S85/S26/S62/S31/S96
 app.use('/api/exam-paper', examPaperRoutes);
-app.use('/api/exams', examRoutes);
 app.use('/api/exams', examExtraRoutes);
 if (examSubmissionRoutes) app.use('/api/exams', examSubmissionRoutes);
 
@@ -87,7 +87,8 @@ app.use('/api/excel', excelUploadRoutes);
 app.use('/api/paper', paperGeneratorRoutes);
 app.use('/api/pdf', pdfRoutes);
 app.use('/api/exam-instances', require('./routes/examInstance'));
-try { const attemptRoutes = require('./routes/attemptRoutes'); app.use('/api/attempts', attemptRoutes); } catch(e) {}
+const attemptRoutes = require('./routes/attemptRoutes');
+app.use('/api/attempts', attemptRoutes);
 if (permissionTestRoutes) app.use('/api/permission', permissionTestRoutes);
 
 // ── Start Server ──────────────────────────────────────────────

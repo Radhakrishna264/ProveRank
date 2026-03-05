@@ -1,6 +1,9 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const Exam = require('../models/Exam');
+const User = require('../models/User');
+const Attempt = require('../models/Attempt');
 const { verifyToken, isAdmin } = require('../middleware/auth');
 
 // CREATE EXAM
@@ -61,7 +64,7 @@ router.delete('/:id', verifyToken, isAdmin, async (req, res) => {
 
 module.exports = router;
 
-router.post('/exams/:examId/start-attempt', verifyToken, async (req, res) => {
+router.post('/:examId/start-attempt', verifyToken, async (req, res) => {
   try {
     const { examId } = req.params;
     const studentId = req.user.id;
@@ -71,10 +74,10 @@ router.post('/exams/:examId/start-attempt', verifyToken, async (req, res) => {
     if (!exam) return res.status(404).json({ error: 'Exam not found' });
     const usedAttempts = await Attempt.countDocuments({ examId: examObjId, studentId: studentObjId });
     if (usedAttempts >= exam.maxAttempts) return res.status(403).json({ error: 'Attempt limit reached' });
-    const student = await Student.findById(studentObjId);
+    const student = await User.findById(studentObjId);
     if (!student) return res.status(404).json({ error: 'Student not found' });
     if (!student.termsAccepted) return res.status(403).json({ error: 'Terms not accepted' });
-    const newAttempt = new Attempt({ examId: examObjId, studentId: studentObjId, startTime: new Date(), status: 'in-progress', ipAddress: req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown' });
+    const newAttempt = new Attempt({ examId: examObjId, studentId: studentObjId, startedAt: new Date(), status: 'active', ipAddress: req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown' });
     await newAttempt.save();
     res.status(200).json({ success: true, attemptId: newAttempt._id, message: 'Attempt started' });
   } catch (error) {
