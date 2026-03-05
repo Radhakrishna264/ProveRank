@@ -4,7 +4,7 @@ const attemptSchema = new mongoose.Schema({
   examId: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam', required: true },
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   examInstanceId: { type: mongoose.Schema.Types.ObjectId, ref: 'ExamInstance' },
-  status: { type: String, enum: ['waiting', 'instructions', 'active', 'submitted', 'timeout'], default: 'waiting' },
+  status: { type: String, enum: ['waiting','instructions','active','submitted','timeout'], default: 'waiting' },
   ipAddress: { type: String },
   startedAt: { type: Date },
   submittedAt: { type: Date },
@@ -27,10 +27,20 @@ const attemptSchema = new mongoose.Schema({
   percentile: { type: Number },
   predictedRank: { type: Number },
   predictedScore: { type: Number },
-  predictionConfidence: { type: String, enum: ['low', 'medium', 'high'] },
+  predictionConfidence: { type: String, enum: ['low','medium','high'] },
   deviceSessionId: { type: String, default: null },
   isPaused: { type: Boolean, default: false },
-  pausedAt: { type: Date }
+  pausedAt: { type: Boolean },
+  totalCorrect: { type: Number, default: 0 },
+  totalIncorrect: { type: Number, default: 0 },
+  totalUnattempted: { type: Number, default: 0 },
+  subjectStats: { type: mongoose.Schema.Types.Mixed, default: {} },
+  sectionStats: { type: mongoose.Schema.Types.Mixed, default: {} },
+  resultCalculated: { type: Boolean, default: false },
+  resultCalculatedAt: { type: Date },
+  difficultyFlag: { type: Boolean, default: false },
+  ormSheetData: { type: mongoose.Schema.Types.Mixed },
+  shareCardData: { type: mongoose.Schema.Types.Mixed }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Attempt', attemptSchema);
