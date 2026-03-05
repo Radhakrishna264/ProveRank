@@ -62,6 +62,24 @@ router.delete('/:id', verifyToken, isAdmin, async (req, res) => {
   }
 });
 
+
+// GET attempt by ID - Phase 4.1 Step 7+8
+router.get('/attempt/:attemptId', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    const obj = attempt.toObject();
+    return res.status(200).json({
+      ...obj,
+      ipAddress: obj.ipAddress || null,
+      startTime: obj.startedAt || null
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 module.exports = router;
 
 router.post('/:examId/start-attempt', verifyToken, async (req, res) => {

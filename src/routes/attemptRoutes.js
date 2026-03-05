@@ -76,8 +76,9 @@ router.get('/:attemptId/timer', verifyToken, async (req, res) => {
     const totalDurationSec = (exam.duration || 200) * 60;
     const elapsedSec = Math.floor((Date.now() - new Date(attempt.startedAt).getTime()) / 1000);
     const remainingSec = Math.max(0, totalDurationSec - elapsedSec);
-    return res.status(200).json({ 
-    startedAt: attempt.startedAt, 
+    return res.status(200).json({ startedAt: attempt.startedAt, startTime: attempt.startedAt, ipAddress: attempt.ipAddress,
+      startTime: attempt.startedAt,
+      ipAddress: attempt.ipAddress, 
     totalDurationSec, elapsedSec, remainingSec,
     timeRemaining: remainingSec,
     elapsed: elapsedSec,
@@ -299,7 +300,7 @@ router.get('/:attemptId', verifyToken, async (req, res) => {
     const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
     const attempt = await Attempt.findById(attemptId);
     if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
-    return res.status(200).json({ attempt });
+    const a = attempt.toObject(); a.ipAddress = attempt.ipAddress; a.startTime = attempt.startedAt; return res.status(200).json({ attempt: a });
   } catch (err) {
     return res.status(500).json({ message: 'Server error', error: err.message });
   }
