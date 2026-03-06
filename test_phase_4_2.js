@@ -83,6 +83,10 @@ async function main() {
       {}, authH);
     attemptId = '69a84803bf3cd6ffdab84326';
     console.log(`${G}Attempt created via API ✅ | ID: ${attemptId}${X}\n`);
+      attemptId = startRes.data.attemptId;
+  console.log(`Using new attemptId: ${attemptId}`);
+  attemptId = startRes.data.attemptId || attemptId;
+    console.log("Updated attemptId:", attemptId);
     attemptId = res.data.attemptId;
   console.log(`Using new attemptId: ${attemptId}`);
   } catch (e) {
