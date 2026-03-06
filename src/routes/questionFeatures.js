@@ -217,3 +217,37 @@ router.post('/check-answer', verifyToken, async (req, res) => {
 });
 
 module.exports = router;
+
+// Step 14 — Version History (S87)
+router.get('/:id/versions', verifyToken, isAdmin, async (req, res) => {
+  try {
+    const question = await Question.findById(req.params.id).select('versionHistory text');
+    if (!question) return res.status(404).json({ message: 'Question not found' });
+    res.json({ success: true, versions: question.versionHistory || [], currentText: question.text });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Step 18 — Error Reporting (S84)
+router.post('/:id/report', verifyToken, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason) return res.status(400).json({ message: 'Reason required' });
+    const question = await Question.findById(req.params.id);
+    if (!question) return res.status(404).json({ message: 'Question not found' });
+    if (!question.reports) question.reports = [];
+    question.reports.push({
+      reason,
+      reportedBy: req.user.id,
+      reportedAt: new Date(),
+      status: 'pending'
+    });
+    await question.save();
+    res.json({ success: true, message: 'Question reported successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+module.exports = router;

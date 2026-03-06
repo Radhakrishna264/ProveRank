@@ -5,7 +5,7 @@ const { verifyToken, isAdmin } = require('../middleware/auth');
 
 router.post('/', verifyToken, isAdmin, async (req, res) => {
   try {
-    const question = new Question({ ...req.body, createdBy: req.user._id });
+    const question = new Question({ ...req.body, createdBy: req.user.id });
     await question.save();
     res.json({ success: true, message: 'Question added successfully!', question });
   } catch (err) {

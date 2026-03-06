@@ -328,7 +328,9 @@ exports.uploadPDFQuestions = async (req, res) => {
 
   } catch (err) {
     if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    return res.status(500).json({ success: false, message: err.message });
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    const isPdfErr = err.message && (err.message.toLowerCase().includes("pdf") || err.message.toLowerCase().includes("xref") || err.message.toLowerCase().includes("invalid") || err.message.toLowerCase().includes("parse"));
+    return res.status(isPdfErr ? 422 : 500).json({ success: false, message: err.message, flagged: isPdfErr });
   }
 };
 
