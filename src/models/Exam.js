@@ -28,6 +28,7 @@ const examSchema = new mongoose.Schema({
     endTime:   Date
   },
 
+    audioMonitoringEnabled: { type: Boolean, default: false },
   status: { type: String, enum: ['draft', 'scheduled', 'live', 'ended'], default: 'draft' },
 
   batch:    { type: String, default: '' },
