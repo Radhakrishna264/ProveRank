@@ -98,10 +98,12 @@ server.listen(PORT, '0.0.0.0', () => {
 });
 
 // -- Result Routes (Phase 4.3)
+const faceRoutes = require('./routes/faceRoutes');
 const audioRoutes = require('./routes/audioRoutes');
 const webcamRoutes = require('./routes/webcamRoutes');
 const antiCheatRoutes = require('./routes/antiCheatRoutes');
 const resultRoutes = require('./routes/resultRoutes');
+app.use('/api/face', faceRoutes);
 app.use('/api/audio', audioRoutes);
 app.use('/api/webcam', webcamRoutes);
 app.use('/api/anticheat', antiCheatRoutes);
