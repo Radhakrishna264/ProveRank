@@ -110,3 +110,4 @@ app.use('/api/audio', audioRoutes);
 app.use('/api/webcam', webcamRoutes);
 app.use('/api/anticheat', antiCheatRoutes);
 app.use('/api/results', resultRoutes);
+app.use('/api/admin', require('./routes/adminDashboardRoutes'));
