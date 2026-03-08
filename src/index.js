@@ -27,6 +27,10 @@ require('./models/AdminNotification');
 require('./models/Challenge');
 require('./models/ReEvaluation');
 require('./models/Grievance');
+require('./models/QuestionVersion');
+require('./models/QuestionError');
+require('./models/Doubt');
+const adminQuestionMgmtRoutes = require('./routes/adminQuestionMgmtRoutes');
 const adminResultRoutes = require('./routes/adminResultRoutes');
 const adminManagementRoutes  = require('./routes/adminManagement');
 const questionFeaturesRoutes = require('./routes/questionFeatures');
@@ -70,7 +74,8 @@ app.use('/api/auth', twoFactorRoutes);
 app.use('/api/admin/manage', adminManagementRoutes);  // S37/S72/S38/S93/M4
 app.use('/api/admin', adminSystemRoutes);
 app.use('/api/admin', adminMonitoringRoutes);  // Phase 6.2
-app.use('/api/admin', adminResultRoutes);       // Phase 6.3              // S66/N21
+app.use('/api/admin', adminResultRoutes);       // Phase 6.3
+app.use('/api/admin', adminQuestionMgmtRoutes); // Phase 6.4              // S66/N21
 app.use('/api/admin', adminRoutes);
 
 // ── Question Routes ───────────────────────────────────────────
