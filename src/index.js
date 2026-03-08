@@ -98,5 +98,7 @@ server.listen(PORT, '0.0.0.0', () => {
 });
 
 // -- Result Routes (Phase 4.3)
+const antiCheatRoutes = require('./routes/antiCheatRoutes');
 const resultRoutes = require('./routes/resultRoutes');
+app.use('/api/anticheat', antiCheatRoutes);
 app.use('/api/results', resultRoutes);
