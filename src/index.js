@@ -22,6 +22,8 @@ const pdfRoutes              = require('./routes/pdfRoutes');
 const examFeaturesRoutes     = require('./routes/examFeatures');
 const examPaperRoutes = require('./routes/examPaper');
 const adminSystemRoutes      = require('./routes/adminSystem');
+const adminMonitoringRoutes = require('./routes/adminMonitoringRoutes');
+require('./models/AdminNotification');
 const adminManagementRoutes  = require('./routes/adminManagement');
 const questionFeaturesRoutes = require('./routes/questionFeatures');
 const customFieldsRoutes     = require('./routes/customFields');
@@ -62,7 +64,8 @@ app.use('/api/auth', twoFactorRoutes);
 
 // ── Admin Routes ──────────────────────────────────────────────
 app.use('/api/admin/manage', adminManagementRoutes);  // S37/S72/S38/S93/M4
-app.use('/api/admin', adminSystemRoutes);              // S66/N21
+app.use('/api/admin', adminSystemRoutes);
+app.use('/api/admin', adminMonitoringRoutes);  // Phase 6.2              // S66/N21
 app.use('/api/admin', adminRoutes);
 
 // ── Question Routes ───────────────────────────────────────────
