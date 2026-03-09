@@ -1,3 +1,12 @@
+#!/bin/bash
+# ============================================================
+# ProveRank — Login Page FINAL FIX
+# auth.ts exports: getToken · getRole · logout · isLoggedIn
+# Token + Role directly localStorage mein store karenge
+# TOKEN_KEY = "pr_token" | ROLE_KEY = "pr_role"
+# ============================================================
+
+cat > ~/workspace/frontend/app/login/page.tsx << 'ENDOFFILE'
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -149,3 +158,21 @@ export default function LoginPage() {
     </div>
   );
 }
+ENDOFFILE
+
+echo "✅ Login page fixed!"
+echo ""
+
+# ── Verify ──
+echo "── Verify ──"
+grep "setToken\|setRole" ~/workspace/frontend/app/login/page.tsx && echo "⚠️ Abhi bhi hai!" || echo "✅ setToken/setRole — completely removed"
+grep "pr_token\|pr_role\|PRLogo" ~/workspace/frontend/app/login/page.tsx | head -3 && echo "✅ Sahi code present"
+
+# ── Git push ──
+cd ~/workspace
+git add -A
+git commit -m "fix: login page — use localStorage directly, no setToken/setRole"
+git push origin main
+
+echo ""
+echo "🎉 Done! /login refresh karo — PR4 Logo dikhega!"
