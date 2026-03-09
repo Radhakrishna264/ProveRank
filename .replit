@@ -1,51 +1,13 @@
+run = "export PATH=/nix/store/9g2w08zkmj60d97bc0ci62w6msfdi9av-nodejs-14.18.3/bin:$PATH && cd /home/runner/workspace/frontend && npm run dev"
 modules = ["nodejs-20"]
-[agent]
-expertMode = true
-
-[nix]
-channel = "stable-25_05"
-packages = ["psmisc"]
-
-[workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start application"
-
-[[workflows.workflow]]
-name = "Start application"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "node src/index.js"
-waitForPort = 3000
 
 [[ports]]
 localPort = 3000
-externalPort = 3000
-
-[[ports]]
-localPort = 3001
-externalPort = 3001
-
-[[ports]]
-localPort = 3002
-externalPort = 3002
+externalPort = 80
 
 [[ports]]
 localPort = 5904
-externalPort = 80
+externalPort = 3000
 
-[deployment]
-deploymentTarget = "autoscale"
-run = ["node", "src/index.js"]
+[agent]
+expertMode = true
