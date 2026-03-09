@@ -1,11 +1,5 @@
 require('dotenv').config();
 const express    = require('express');
-
-// ===== STAGE 8: Security Middleware =====
-const { applySecurityMiddleware } = require('./middleware/security');
-const { apiLimiter, uploadLimiter } = require('./middleware/rateLimiter');
-const { checkJWTExpiry } = require('./middleware/loginProtection');
-// ========================================
 const http       = require('http');
 const cors       = require('cors');
 const helmet     = require('helmet');
@@ -59,14 +53,6 @@ initSocket(server);
 
 app.use(helmet());
 app.use(cors());
-
-// ===== STAGE 8: Apply Security =====
-applySecurityMiddleware(app);
-app.use('/api', apiLimiter);
-app.use('/api/excel', uploadLimiter);
-app.use('/api/upload', uploadLimiter);
-app.use('/api', checkJWTExpiry);
-// ====================================
 app.use(express.json());
 
 // ── MongoDB ───────────────────────────────────────────────────

@@ -21,14 +21,14 @@ export function middleware(request: NextRequest) {
   // Protected: /admin/x7k2p → admin/superadmin only
   if (pathname.startsWith("/admin/x7k2p")) {
     if (!token || (role !== "admin" && role !== "superadmin")) {
-      return NextResponse.redirect(new URL("/admin/x7k2p", request.url));
+      return NextResponse.redirect(new URL("/login", request.url));
     }
   }
 
   // Protected: /superadmin → superadmin only
   if (pathname.startsWith("/superadmin")) {
     if (!token || role !== "superadmin") {
-      return NextResponse.redirect(new URL("/admin/x7k2p", request.url));
+      return NextResponse.redirect(new URL("/login", request.url));
     }
   }
 
