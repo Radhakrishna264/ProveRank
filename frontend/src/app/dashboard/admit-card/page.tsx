@@ -1,4 +1,5 @@
 'use client';
+import PRLogo from '@/components/PRLogo';
 import { useEffect, useRef, useState } from 'react';
 import { getToken } from '@/lib/auth';
 
@@ -56,7 +57,7 @@ export default function AdmitCardPage() {
                 </div>
                 <div ref={printRef} style={{ background:'white', color:'#0a1628', borderRadius:14, border:'3px solid #1a6fd4', padding:24, fontFamily:'Inter,sans-serif', maxWidth:600, margin:'0 auto' }}>
                   <div style={{ textAlign:'center', borderBottom:'2px solid #1a6fd4', paddingBottom:16, marginBottom:20 }}>
-                    <div style={{ fontSize:28, color:'#1a6fd4', fontWeight:900, marginBottom:4 }}>⬡ ProveRank</div>
+                    <PRLogo size={36} showName horizontal nameSize={18} />
                     <div style={{ fontSize:18, fontWeight:700 }}>HALL TICKET / ADMIT CARD</div>
                     <div style={{ fontSize:13, color:'#4a6080', marginTop:4 }}>{selected.examId?.title || selected.examTitle}</div>
                   </div>

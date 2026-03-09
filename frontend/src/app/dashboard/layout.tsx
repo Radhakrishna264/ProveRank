@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { getToken, getRole, logout } from '@/lib/auth';
+import PRLogo from '@/components/PRLogo';
 
 const NAV = [
   { href: '/dashboard',                  label: 'Dashboard',    icon: '📊', exact: true },
@@ -78,8 +79,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }}>
         {/* PR4 Logo */}
         <div style={{ display:'flex', alignItems:'center', gap:10, padding:'0 8px 24px', borderBottom:'1px solid var(--border)' }}>
-          <div style={{ fontSize:28, color:'var(--primary)', lineHeight:1 }}>⬡</div>
-          <span style={{ fontFamily:'Playfair Display,Georgia,serif', fontSize:18, color:'var(--primary)', fontWeight:700 }}>ProveRank</span>
+          <PRLogo size={32} showName horizontal nameSize={17} />
         </div>
 
         {/* Nav Links */}

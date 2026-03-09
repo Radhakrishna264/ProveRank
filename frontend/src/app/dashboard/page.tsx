@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { getToken } from '@/lib/auth';
 import Link from 'next/link';
+import PRLogo from '@/components/PRLogo';
 
 /* ── Countdown Hook ── */
 function useCountdown(d: string) {
@@ -31,7 +32,7 @@ function Tour({ onDone }: { onDone: () => void }) {
   return (
     <div style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(0,10,24,0.88)', display:'flex', alignItems:'center', justifyContent:'center' }}>
       <div style={{ background:'var(--card)', border:'1px solid var(--primary)', borderRadius:16, padding:32, maxWidth:400, width:'90%', textAlign:'center', animation:'fadeIn 0.3s ease' }}>
-        <div style={{ fontSize:40, marginBottom:8 }}>⬡</div>
+        <PRLogo size={48} showName showTag />
         <div style={{ color:'var(--muted)', fontSize:12, marginBottom:6 }}>Step {i+1} of {steps.length}</div>
         <h2 style={{ fontFamily:'Playfair Display,serif', fontSize:22, color:'var(--primary)', marginBottom:12 }}>{steps[i].title}</h2>
         <p style={{ color:'var(--text)', fontSize:14, lineHeight:1.7, marginBottom:24 }}>{steps[i].body}</p>

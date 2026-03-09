@@ -1,4 +1,5 @@
 'use client';
+import PRLogo from '@/components/PRLogo';
 import { useEffect, useRef, useState } from 'react';
 import { getToken } from '@/lib/auth';
 
@@ -77,7 +78,7 @@ export default function CertificatesPage() {
                     <div key={i} style={{ position:'absolute', fontSize:40, color:'#1a6fd4', opacity:0.15, ...(Object.fromEntries(pos.split(';').map(p => p.split(':')))) }}>⬡</div>
                   ))}
                   <div style={{ textAlign:'center', marginBottom:32 }}>
-                    <div style={{ fontSize:36, color:'#1a6fd4', fontWeight:900, fontFamily:'Playfair Display,Georgia,serif', marginBottom:4 }}>⬡ ProveRank</div>
+                    <PRLogo size={42} showName horizontal nameSize={20} />
                     <div style={{ fontSize:11, color:'#4a6080', letterSpacing:4, textTransform:'uppercase' }}>NEET Pattern Online Test Platform</div>
                   </div>
                   <div style={{ textAlign:'center', marginBottom:32 }}>
