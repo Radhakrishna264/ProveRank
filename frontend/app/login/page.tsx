@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getToken } from '@/lib/auth';
 
-// ── PR4 Logo Inline ──
 function PRLogo() {
   const size = 64; const r = 32; const cx = 32; const cy = 32;
   const outer = Array.from({length:6},(_,i)=>{const a=(Math.PI/180)*(60*i-30);return `${cx+r*0.88*Math.cos(a)},${cy+r*0.88*Math.sin(a)}`;}).join(' ');
@@ -25,7 +24,6 @@ function PRLogo() {
   );
 }
 
-// ── B1: Particles Canvas Background ──
 function ParticlesBg() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -33,41 +31,62 @@ function ParticlesBg() {
     const ctx = canvas.getContext('2d'); if (!ctx) return;
     canvas.width = window.innerWidth; canvas.height = window.innerHeight;
     const particles: {x:number;y:number;vx:number;vy:number;r:number;opacity:number}[] = [];
-    for (let i = 0; i < 80; i++) {
-      particles.push({
-        x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-        vx: (Math.random()-0.5)*0.4, vy: (Math.random()-0.5)*0.4,
-        r: Math.random()*2+1, opacity: Math.random()*0.5+0.1
-      });
-    }
+    for (let i=0;i<80;i++) particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:(Math.random()-.5)*.4,vy:(Math.random()-.5)*.4,r:Math.random()*2+1,opacity:Math.random()*.5+.1});
     let animId: number;
     const draw = () => {
       ctx.clearRect(0,0,canvas.width,canvas.height);
-      particles.forEach(p => {
-        p.x += p.vx; p.y += p.vy;
-        if (p.x<0) p.x=canvas.width; if (p.x>canvas.width) p.x=0;
-        if (p.y<0) p.y=canvas.height; if (p.y>canvas.height) p.y=0;
+      particles.forEach(p=>{
+        p.x+=p.vx; p.y+=p.vy;
+        if(p.x<0)p.x=canvas.width; if(p.x>canvas.width)p.x=0;
+        if(p.y<0)p.y=canvas.height; if(p.y>canvas.height)p.y=0;
         ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
         ctx.fillStyle=`rgba(77,159,255,${p.opacity})`; ctx.fill();
       });
-      // Connect nearby particles
-      for (let i=0;i<particles.length;i++) for (let j=i+1;j<particles.length;j++) {
-        const dx=particles[i].x-particles[j].x, dy=particles[i].y-particles[j].y;
-        const dist=Math.sqrt(dx*dx+dy*dy);
-        if (dist<120) {
-          ctx.beginPath(); ctx.moveTo(particles[i].x,particles[i].y); ctx.lineTo(particles[j].x,particles[j].y);
-          ctx.strokeStyle=`rgba(77,159,255,${0.12*(1-dist/120)})`; ctx.lineWidth=0.5; ctx.stroke();
-        }
+      for(let i=0;i<particles.length;i++) for(let j=i+1;j<particles.length;j++){
+        const dx=particles[i].x-particles[j].x,dy=particles[i].y-particles[j].y,dist=Math.sqrt(dx*dx+dy*dy);
+        if(dist<120){ctx.beginPath();ctx.moveTo(particles[i].x,particles[i].y);ctx.lineTo(particles[j].x,particles[j].y);ctx.strokeStyle=`rgba(77,159,255,${.12*(1-dist/120)})`;ctx.lineWidth=.5;ctx.stroke();}
       }
-      animId = requestAnimationFrame(draw);
+      animId=requestAnimationFrame(draw);
     };
     draw();
-    const resize = () => { canvas.width=window.innerWidth; canvas.height=window.innerHeight; };
-    window.addEventListener('resize', resize);
-    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize',resize); };
-  }, []);
+    const resize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight;};
+    window.addEventListener('resize',resize);
+    return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',resize);};
+  },[]);
   return <canvas ref={canvasRef} style={{position:'fixed',inset:0,pointerEvents:'none',zIndex:0}}/>;
 }
+
+// ── Pure English / Pure Hindi translations ──
+const translations = {
+  en: {
+    title: 'Welcome Back',
+    sub: 'Login to your account',
+    emailLabel: 'EMAIL / ROLL NUMBER',
+    emailPlaceholder: 'student@proverank.com',
+    passLabel: 'PASSWORD',
+    passPlaceholder: 'Enter your password',
+    forgot: 'Forgot password?',
+    btn: 'Login →',
+    loading: '⟳ Logging in...',
+    noAcc: "Don't have an account?",
+    reg: 'Register',
+    footer: 'NEET · NEET PG · JEE · CUET',
+  },
+  hi: {
+    title: 'वापसी पर स्वागत',
+    sub: 'अपने अकाउंट में लॉगिन करें',
+    emailLabel: 'ईमेल / रोल नंबर',
+    emailPlaceholder: 'student@proverank.com',
+    passLabel: 'पासवर्ड',
+    passPlaceholder: 'पासवर्ड दर्ज करें',
+    forgot: 'पासवर्ड भूल गए?',
+    btn: 'लॉगिन करें →',
+    loading: '⟳ लॉगिन हो रहा है...',
+    noAcc: 'अकाउंट नहीं है?',
+    reg: 'रजिस्टर करें',
+    footer: 'NEET · NEET PG · JEE · CUET',
+  },
+};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -80,23 +99,27 @@ export default function LoginPage() {
   const [lang, setLang] = useState<'en'|'hi'>('en');
   const [darkMode, setDarkMode] = useState(true);
 
-  const t = {
-    en: { title:'Welcome Back', sub:'Apne account mein login karo', email:'EMAIL / ROLL NUMBER', pass:'PASSWORD', forgot:'Forgot password?', btn:'Login →', loading:'⟳ Logging in...', noAcc:'Account nahi hai?', reg:'Register karo' },
-    hi: { title:'वापसी पर स्वागत', sub:'अपने अकाउंट में लॉगिन करें', email:'ईमेल / रोल नंबर', pass:'पासवर्ड', forgot:'पासवर्ड भूल गए?', btn:'लॉगिन करें →', loading:'⟳ लॉगिन हो रहा है...', noAcc:'अकाउंट नहीं है?', reg:'रजिस्टर करें' },
-  };
-  const txt = t[lang];
+  const t = translations[lang];
 
   useEffect(() => {
     setMounted(true);
     if (getToken()) router.push('/dashboard');
-    const saved = localStorage.getItem('pr_theme');
-    if (saved === 'light') setDarkMode(false);
+    const savedTheme = localStorage.getItem('pr_theme');
+    if (savedTheme === 'light') setDarkMode(false);
+    const savedLang = localStorage.getItem('pr_lang') as 'en'|'hi'|null;
+    if (savedLang) setLang(savedLang);
   }, [router]);
 
   const toggleTheme = () => {
     const next = !darkMode;
     setDarkMode(next);
     localStorage.setItem('pr_theme', next ? 'dark' : 'light');
+  };
+
+  const toggleLang = () => {
+    const next = lang === 'en' ? 'hi' : 'en';
+    setLang(next);
+    localStorage.setItem('pr_lang', next);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -114,7 +137,7 @@ export default function LoginPage() {
       else if (data.role === 'admin') router.push('/admin');
       else router.push('/dashboard');
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Login nahi hua');
+      setError(e instanceof Error ? e.message : 'Login failed');
     } finally { setLoading(false); }
   };
 
@@ -140,27 +163,18 @@ export default function LoginPage() {
         .li:focus{border-color:#4D9FFF !important;box-shadow:0 0 0 3px rgba(77,159,255,0.15);}
         .lb{width:100%;padding:15px;border-radius:10px;border:none;background:linear-gradient(135deg,#4D9FFF,#0055CC);color:white;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(77,159,255,0.4);transition:all 0.3s;font-family:Inter,sans-serif;}
         .lb:disabled{opacity:0.6;cursor:not-allowed;}
-        .toggle-btn{padding:6px 14px;border-radius:20px;border:1.5px solid rgba(77,159,255,0.4);background:rgba(0,22,40,0.5);color:#E8F4FF;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;font-family:Inter,sans-serif;backdrop-filter:blur(8px);}
-        .toggle-btn:hover{border-color:#4D9FFF;background:rgba(77,159,255,0.15);}
+        .tbtn{padding:6px 14px;border-radius:20px;border:1.5px solid rgba(77,159,255,0.4);background:rgba(0,22,40,0.5);color:#E8F4FF;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;font-family:Inter,sans-serif;backdrop-filter:blur(8px);}
+        .tbtn:hover{border-color:#4D9FFF;background:rgba(77,159,255,0.15);}
       `}</style>
 
-      {/* B1: Particles */}
       <ParticlesBg />
-
-      {/* BG hex decorations */}
       <div style={{position:'fixed',top:-40,left:-40,fontSize:200,color:'rgba(77,159,255,0.04)',pointerEvents:'none',zIndex:0}}>⬡</div>
       <div style={{position:'fixed',bottom:-40,right:-40,fontSize:200,color:'rgba(77,159,255,0.04)',pointerEvents:'none',zIndex:0}}>⬡</div>
 
-      {/* ── TOP RIGHT TOGGLES ── */}
+      {/* TOP RIGHT TOGGLES */}
       <div style={{position:'fixed',top:16,right:16,display:'flex',gap:8,zIndex:100}}>
-        {/* हि/EN Language Toggle */}
-        <button className="toggle-btn" onClick={()=>setLang(lang==='en'?'hi':'en')}>
-          {lang==='en'?'हि':'EN'}
-        </button>
-        {/* 🌙/☀️ Dark/Light Toggle */}
-        <button className="toggle-btn" onClick={toggleTheme}>
-          {darkMode?'☀️':'🌙'}
-        </button>
+        <button className="tbtn" onClick={toggleLang}>{lang==='en'?'हि':'EN'}</button>
+        <button className="tbtn" onClick={toggleTheme}>{darkMode?'☀️':'🌙'}</button>
       </div>
 
       {/* PR4 LOGO */}
@@ -169,23 +183,23 @@ export default function LoginPage() {
       </div>
 
       {/* Glass Card */}
-      <div style={{width:'100%',maxWidth:420,background:cardBg,border:`1px solid ${cardBorder}`,borderRadius:20,padding:'36px 32px',backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',boxShadow:'0 8px 40px rgba(0,0,0,0.4),inset 0 1px 0 rgba(77,159,255,0.1)',animation:'fadeUp 0.7s ease 0.15s both',position:'relative',zIndex:10}}>
+      <div style={{width:'100%',maxWidth:420,background:cardBg,border:`1px solid ${cardBorder}`,borderRadius:20,padding:'36px 32px',backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',boxShadow:'0 8px 40px rgba(0,0,0,0.4)',animation:'fadeUp 0.7s ease 0.15s both',position:'relative',zIndex:10}}>
 
-        <h1 style={{fontFamily:'Playfair Display,serif',fontSize:26,fontWeight:700,color:textMain,textAlign:'center',margin:'0 0 6px'}}>{txt.title}</h1>
-        <p style={{textAlign:'center',color:textSub,fontSize:14,marginBottom:28}}>{txt.sub}</p>
+        <h1 style={{fontFamily:'Playfair Display,serif',fontSize:26,fontWeight:700,color:textMain,textAlign:'center',margin:'0 0 6px'}}>{t.title}</h1>
+        <p style={{textAlign:'center',color:textSub,fontSize:14,marginBottom:28}}>{t.sub}</p>
 
         {error && <div style={{background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:10,padding:'12px 16px',marginBottom:20,color:'#FCA5A5',fontSize:14,textAlign:'center'}}>⚠️ {error}</div>}
 
         <form onSubmit={handleLogin} style={{display:'flex',flexDirection:'column',gap:16}}>
           <div>
-            <label style={{fontSize:12,color:'#4D9FFF',fontWeight:600,display:'block',marginBottom:6,letterSpacing:0.5}}>{txt.email}</label>
-            <input type="text" value={email} onChange={e=>setEmail(e.target.value)} placeholder="student@proverank.com" required className="li"
-              style={{background:inputBg,border:`1.5px solid ${inputBorder}`,color:inputColor}} />
+            <label style={{fontSize:12,color:'#4D9FFF',fontWeight:600,display:'block',marginBottom:6,letterSpacing:0.5}}>{t.emailLabel}</label>
+            <input type="text" value={email} onChange={e=>setEmail(e.target.value)} placeholder={t.emailPlaceholder} required className="li"
+              style={{background:inputBg,border:`1.5px solid ${inputBorder}`,color:inputColor}}/>
           </div>
           <div>
-            <label style={{fontSize:12,color:'#4D9FFF',fontWeight:600,display:'block',marginBottom:6,letterSpacing:0.5}}>{txt.pass}</label>
+            <label style={{fontSize:12,color:'#4D9FFF',fontWeight:600,display:'block',marginBottom:6,letterSpacing:0.5}}>{t.passLabel}</label>
             <div style={{position:'relative'}}>
-              <input type={showPass?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••••••" required className="li"
+              <input type={showPass?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder={t.passPlaceholder} required className="li"
                 style={{paddingRight:48,background:inputBg,border:`1.5px solid ${inputBorder}`,color:inputColor}}/>
               <button type="button" onClick={()=>setShowPass(!showPass)} style={{position:'absolute',right:14,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:'#6B8FAF',cursor:'pointer',fontSize:16}}>
                 {showPass?'🙈':'👁️'}
@@ -193,18 +207,18 @@ export default function LoginPage() {
             </div>
           </div>
           <div style={{textAlign:'right',marginTop:-8}}>
-            <button type="button" style={{background:'none',border:'none',color:'#4D9FFF',fontSize:13,cursor:'pointer',fontFamily:'Inter,sans-serif'}}>{txt.forgot}</button>
+            <button type="button" style={{background:'none',border:'none',color:'#4D9FFF',fontSize:13,cursor:'pointer',fontFamily:'Inter,sans-serif'}}>{t.forgot}</button>
           </div>
-          <button type="submit" disabled={loading} className="lb">{loading?txt.loading:txt.btn}</button>
+          <button type="submit" disabled={loading} className="lb">{loading?t.loading:t.btn}</button>
         </form>
 
         <div style={{textAlign:'center',marginTop:24,fontSize:14,color:textSub}}>
-          {txt.noAcc}{' '}<a href="/register" style={{color:'#4D9FFF',fontWeight:600,textDecoration:'none'}}>{txt.reg}</a>
+          {t.noAcc}{' '}<a href="/register" style={{color:'#4D9FFF',fontWeight:600,textDecoration:'none'}}>{t.reg}</a>
         </div>
       </div>
 
       <div style={{marginTop:32,color:'#3A5A7A',fontSize:11,letterSpacing:3,textTransform:'uppercase',animation:'pulse 3s infinite',position:'relative',zIndex:10}}>
-        NEET · NEET PG · JEE · CUET
+        {t.footer}
       </div>
     </div>
   );
