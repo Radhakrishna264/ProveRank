@@ -1,134 +1,152 @@
-"use client";
-import { useState } from "react";
-import Link from "next/link";
-import ParticlesBg from "@/components/ParticlesBg";
-import { getTheme, setTheme } from "@/lib/theme";
+'use client';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { setToken, setRole, getToken } from '@/lib/auth';
+
+// PR4 Logo — Inline (no import needed)
+function PRLogo() {
+  const size = 64; const r = 32; const cx = 32; const cy = 32;
+  const outer = Array.from({length:6},(_,i)=>{const a=(Math.PI/180)*(60*i-30);return `${cx+r*0.88*Math.cos(a)},${cy+r*0.88*Math.sin(a)}`;}).join(' ');
+  const inner = Array.from({length:6},(_,i)=>{const a=(Math.PI/180)*(60*i-30);return `${cx+r*0.72*Math.cos(a)},${cy+r*0.72*Math.sin(a)}`;}).join(' ');
+  return (
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:10}}>
+      <svg width={size} height={size} viewBox="0 0 64 64">
+        <defs>
+          <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        {/* Honeycomb BG dots */}
+        {[16,32,48].map(x=>[16,32,48].map(y=>(
+          <circle key={`${x}${y}`} cx={x} cy={y} r={1} fill="rgba(77,159,255,0.15)"/>
+        )))}
+        {/* Outer hex border */}
+        <polygon points={outer} fill="none" stroke="rgba(77,159,255,0.35)" strokeWidth="1" filter="url(#glow)"/>
+        {/* Inner hex */}
+        <polygon points={inner} fill="none" stroke="#4D9FFF" strokeWidth="2" filter="url(#glow)"/>
+        {/* 6 corner dots */}
+        {Array.from({length:6},(_,i)=>{const a=(Math.PI/180)*(60*i-30);return(
+          <circle key={i} cx={cx+r*0.88*Math.cos(a)} cy={cy+r*0.88*Math.sin(a)} r={3} fill="#4D9FFF" filter="url(#glow)"/>
+        )})}
+        {/* PR text */}
+        <text x={cx} y={cy+6} textAnchor="middle" fontFamily="Playfair Display,serif" fontSize="20" fontWeight="700" fill="#4D9FFF" filter="url(#glow)">PR</text>
+      </svg>
+      {/* ProveRank — Blue→White→Blue gradient */}
+      <div style={{fontFamily:'Playfair Display,serif',fontSize:30,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF 0%,#FFFFFF 50%,#4D9FFF 100%)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',letterSpacing:1,lineHeight:1}}>
+        ProveRank
+      </div>
+      {/* Tagline */}
+      <div style={{fontSize:11,color:'#6B8FAF',letterSpacing:4,textTransform:'uppercase'}}>
+        Online Test Platform
+      </div>
+    </div>
+  );
+}
 
 export default function LoginPage() {
-  const [lang, setLang] = useState<"hi"|"en">("hi");
-  const [email, setEmail] = useState("");
-  const [pass, setPass] = useState("");
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [theme, setThemeState] = useState<string>(
-    typeof window !== "undefined" ? getTheme() : "dark"
-  );
+  const [showPass, setShowPass] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  const toggleTheme = () => {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next); setThemeState(next);
-    document.documentElement.classList.toggle("dark", next === "dark");
-  };
+  useEffect(() => {
+    setMounted(true);
+    if (getToken()) router.push('/dashboard');
+  }, [router]);
 
-  const t = lang === "hi" ? {
-    title:"ProveRank में स्वागत है", sub:"अपने खाते में लॉगिन करें",
-    email:"ईमेल / रोल नंबर", password:"पासवर्ड", btn:"लॉगिन →",
-    reg:"नया खाता बनाएं", forgot:"पासवर्ड भूल गए?"
-  } : {
-    title:"Welcome to ProveRank", sub:"Login to your account",
-    email:"Email / Roll Number", password:"Password", btn:"Login →",
-    reg:"Create new account", forgot:"Forgot password?"
-  };
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault(); setLoading(true); setError("");
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`,
-        {method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({email,password:pass})});
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message||"Login failed");
-      localStorage.setItem("pr_token", data.token);
-      localStorage.setItem("pr_role", data.role);
-      window.location.href = data.role==="student"?"/dashboard":
-        data.role==="admin"?"/admin":"/superadmin";
-    } catch(err:unknown){ setError(err instanceof Error?err.message:"Login failed"); }
-    finally{ setLoading(false); }
-  }
+      if (!res.ok) throw new Error(data.message || 'Login failed');
+      setToken(data.token);
+      setRole(data.role);
+      if (data.role === 'student') router.push('/dashboard');
+      else router.push('/dashboard');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Login nahi hua');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!mounted) return null;
 
   return (
-    <main className="min-h-screen flex items-center justify-center relative overflow-hidden"
-      style={{background:"#000A18"}}>
-      <ParticlesBg />
+    <div style={{minHeight:'100vh',background:'radial-gradient(ellipse at 20% 50%,#001628 0%,#000A18 60%,#000510 100%)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',fontFamily:'Inter,sans-serif',padding:'24px 16px',position:'relative',overflow:'hidden'}}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600&display=swap');
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes pulse{0%,100%{opacity:0.4}50%{opacity:0.8}}
+        .li{width:100%;padding:14px 16px;border-radius:10px;background:rgba(0,22,40,0.85);border:1.5px solid #002D55;color:#E8F4FF;font-size:15px;outline:none;transition:border 0.2s;font-family:Inter,sans-serif;}
+        .li:focus{border-color:#4D9FFF;box-shadow:0 0 0 3px rgba(77,159,255,0.15);}
+        .li::placeholder{color:#6B8FAF;}
+        .lb{width:100%;padding:15px;border-radius:10px;border:none;background:linear-gradient(135deg,#4D9FFF,#0055CC);color:white;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(77,159,255,0.4);transition:all 0.3s;font-family:Inter,sans-serif;letter-spacing:0.5px;}
+        .lb:disabled{opacity:0.6;cursor:not-allowed;}
+      `}</style>
 
-      {/* Theme + Lang toggles */}
-      <div className="fixed top-4 right-4 flex gap-2 z-50">
-        <button onClick={() => setLang(lang==="hi"?"en":"hi")}
-          className="text-xs px-3 py-1 rounded-full border"
-          style={{borderColor:"#002D55",color:"#4D9FFF",background:"rgba(0,22,40,0.8)"}}>
-          {lang==="hi"?"EN":"हि"}
-        </button>
-        <button onClick={toggleTheme}
-          className="text-xs px-3 py-1 rounded-full border"
-          style={{borderColor:"#002D55",color:"#4D9FFF",background:"rgba(0,22,40,0.8)"}}>
-          {theme==="dark"?"☀️":"🌙"}
-        </button>
+      {/* BG hex decorations */}
+      <div style={{position:'absolute',top:-40,left:-40,fontSize:180,color:'rgba(77,159,255,0.04)',pointerEvents:'none'}}>⬡</div>
+      <div style={{position:'absolute',bottom:-40,right:-40,fontSize:180,color:'rgba(77,159,255,0.04)',pointerEvents:'none'}}>⬡</div>
+      <div style={{position:'absolute',top:'30%',right:-60,fontSize:120,color:'rgba(77,159,255,0.03)',pointerEvents:'none'}}>⬡</div>
+
+      {/* ── PR4 LOGO — Floating top ── */}
+      <div style={{animation:'fadeUp 0.6s ease, float 5s ease-in-out 0.6s infinite',marginBottom:40,textAlign:'center'}}>
+        <PRLogo />
       </div>
 
       {/* Glass Card */}
-      <div className="relative z-10 w-full max-w-md mx-4">
-        <div className="text-center mb-8">
-          <div className="text-2xl mb-2" style={{color:"#4D9FFF"}}>⬡</div>
-          <h1 className="text-3xl font-bold mb-1"
-            style={{fontFamily:"Georgia,serif",color:"#E8F4FF"}}>{t.title}</h1>
-          <p className="text-sm mt-1" style={{color:"#9CA3AF"}}>{t.sub}</p>
-        </div>
+      <div style={{width:'100%',maxWidth:420,background:'rgba(0,22,40,0.75)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:20,padding:'36px 32px',backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',boxShadow:'0 8px 40px rgba(0,0,0,0.5),inset 0 1px 0 rgba(77,159,255,0.1)',animation:'fadeUp 0.7s ease 0.15s both'}}>
 
-        <div className="rounded-2xl p-8"
-          style={{background:"rgba(255,255,255,0.05)",border:"1px solid #002D55",
-          backdropFilter:"blur(12px)",boxShadow:"0 0 40px #4D9FFF22"}}>
+        <h1 style={{fontFamily:'Playfair Display,serif',fontSize:26,fontWeight:700,color:'#E8F4FF',textAlign:'center',margin:'0 0 6px'}}>Welcome Back</h1>
+        <p style={{textAlign:'center',color:'#6B8FAF',fontSize:14,marginBottom:28}}>Apne account mein login karo</p>
 
-          {error && <div className="mb-4 px-4 py-3 rounded-lg text-sm"
-            style={{background:"rgba(220,38,38,0.2)",color:"#FCA5A5",border:"1px solid rgba(220,38,38,0.4)"}}>
-            {error}</div>}
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="relative">
-              <input type="text" value={email}
-                onChange={e=>setEmail(e.target.value)}
-                placeholder=" " required
-                className="peer w-full px-4 pt-5 pb-2 text-sm rounded-xl outline-none transition"
-                style={{background:"#000A18",border:"1px solid #002D55",
-                color:"#E8F4FF"}}
-                onFocus={e=>e.target.style.borderColor="#4D9FFF"}
-                onBlur={e=>e.target.style.borderColor="#002D55"}/>
-              <label className="absolute left-4 top-2 text-xs transition-all"
-                style={{color:"#4D9FFF"}}>{t.email}</label>
-            </div>
-
-            <div className="relative">
-              <input type="password" value={pass}
-                onChange={e=>setPass(e.target.value)}
-                placeholder=" " required
-                className="peer w-full px-4 pt-5 pb-2 text-sm rounded-xl outline-none transition"
-                style={{background:"#000A18",border:"1px solid #002D55",color:"#E8F4FF"}}
-                onFocus={e=>e.target.style.borderColor="#4D9FFF"}
-                onBlur={e=>e.target.style.borderColor="#002D55"}/>
-              <label className="absolute left-4 top-2 text-xs transition-all"
-                style={{color:"#4D9FFF"}}>{t.password}</label>
-            </div>
-
-            <div className="flex justify-end">
-              <Link href="/forgot-password"
-                className="text-xs hover:underline"
-                style={{color:"#9CA3AF"}}>{t.forgot}</Link>
-            </div>
-
-            <button type="submit" disabled={loading}
-              className="w-full font-bold py-3 rounded-xl text-white transition"
-              style={{background:"linear-gradient(90deg,#4D9FFF,#00CFFF)",
-              opacity:loading?0.6:1}}>
-              {loading?"Loading...":t.btn}
-            </button>
-          </form>
-
-          <div className="text-center mt-6">
-            <Link href="/register"
-              className="text-sm hover:underline"
-              style={{color:"#4D9FFF"}}>{t.reg}</Link>
+        {error && (
+          <div style={{background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:10,padding:'12px 16px',marginBottom:20,color:'#FCA5A5',fontSize:14,textAlign:'center'}}>
+            ⚠️ {error}
           </div>
+        )}
+
+        <form onSubmit={handleLogin} style={{display:'flex',flexDirection:'column',gap:16}}>
+          <div>
+            <label style={{fontSize:12,color:'#4D9FFF',fontWeight:600,display:'block',marginBottom:6,letterSpacing:0.5}}>EMAIL / ROLL NUMBER</label>
+            <input type="text" value={email} onChange={e=>setEmail(e.target.value)} placeholder="student@proverank.com" required className="li"/>
+          </div>
+          <div>
+            <label style={{fontSize:12,color:'#4D9FFF',fontWeight:600,display:'block',marginBottom:6,letterSpacing:0.5}}>PASSWORD</label>
+            <div style={{position:'relative'}}>
+              <input type={showPass?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••••••" required className="li" style={{paddingRight:48}}/>
+              <button type="button" onClick={()=>setShowPass(!showPass)} style={{position:'absolute',right:14,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:'#6B8FAF',cursor:'pointer',fontSize:16}}>
+                {showPass?'🙈':'👁️'}
+              </button>
+            </div>
+          </div>
+          <div style={{textAlign:'right',marginTop:-8}}>
+            <button type="button" style={{background:'none',border:'none',color:'#4D9FFF',fontSize:13,cursor:'pointer',fontFamily:'Inter,sans-serif'}}>Forgot password?</button>
+          </div>
+          <button type="submit" disabled={loading} className="lb">
+            {loading?'⟳ Logging in...':'Login →'}
+          </button>
+        </form>
+
+        <div style={{textAlign:'center',marginTop:24,fontSize:14,color:'#6B8FAF'}}>
+          Account nahi hai?{' '}
+          <a href="/register" style={{color:'#4D9FFF',fontWeight:600,textDecoration:'none'}}>Register karo</a>
         </div>
       </div>
-    </main>
+
+      <div style={{marginTop:32,color:'#3A5A7A',fontSize:11,letterSpacing:3,textTransform:'uppercase',animation:'pulse 3s infinite'}}>
+        NEET · NEET PG · JEE · CUET
+      </div>
+    </div>
   );
 }

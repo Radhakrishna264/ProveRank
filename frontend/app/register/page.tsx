@@ -1,102 +1,145 @@
-"use client";
-import { useState } from "react";
-import Link from "next/link";
-type Step = "form"|"otp"|"done";
-export default function RegisterPage() {
-  const [step, setStep] = useState<Step>("form");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [pass, setPass] = useState("");
-  const [otp, setOtp] = useState(["","","","","",""]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  async function sendOtp(e: React.FormEvent) {
-    e.preventDefault(); setLoading(true); setError("");
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/send-otp`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email})});
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      setStep("otp");
-    } catch(err:unknown){ setError(err instanceof Error?err.message:"OTP send failed"); }
-    finally{ setLoading(false); }
-  }
-  async function verifyOtp(e: React.FormEvent) {
-    e.preventDefault(); setLoading(true); setError("");
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,email,phone,password:pass,otp:otp.join("")})});
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      localStorage.setItem("pr_token",data.token);
-      setStep("done");
-      setTimeout(()=>window.location.href="/dashboard",1500);
-    } catch(err:unknown){ setError(err instanceof Error?err.message:"Verification failed"); }
-    finally{ setLoading(false); }
-  }
-  function handleOtpInput(val: string, idx: number) {
-    if (!/^\d?$/.test(val)) return;
-    const next=[...otp]; next[idx]=val; setOtp(next);
-    if (val&&idx<5)(document.getElementById(`otp-${idx+1}`) as HTMLInputElement)?.focus();
-  }
-  const inputStyle={background:"#000A18",border:"1px solid #002D55",color:"#E8F4FF"};
+'use client';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { getToken } from '@/lib/auth';
+
+function PRLogo() {
+  const size = 60; const r = 30; const cx = 30; const cy = 30;
+  const outer = Array.from({length:6},(_,i)=>{const a=(Math.PI/180)*(60*i-30);return `${cx+r*0.88*Math.cos(a)},${cy+r*0.88*Math.sin(a)}`;}).join(' ');
+  const inner = Array.from({length:6},(_,i)=>{const a=(Math.PI/180)*(60*i-30);return `${cx+r*0.72*Math.cos(a)},${cy+r*0.72*Math.sin(a)}`;}).join(' ');
   return (
-    <main className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{background:"#000A18"}}>
-      <div className="absolute inset-0 opacity-20 pointer-events-none" style={{backgroundImage:"radial-gradient(#4D9FFF 1px,transparent 1px)",backgroundSize:"40px 40px"}}/>
-      <div className="relative z-10 w-full max-w-md mx-4">
-        <div className="text-center mb-8">
-          <div className="text-5xl mb-2" style={{color:"#4D9FFF"}}>⬢</div>
-          <h1 className="text-3xl font-bold" style={{fontFamily:"Georgia,serif",color:"#E8F4FF"}}>ProveRank</h1>
-          <p className="text-sm mt-1" style={{color:"#9CA3AF"}}>NEET Pattern Test Platform</p>
-        </div>
-        <div className="rounded-2xl p-8" style={{background:"rgba(255,255,255,0.05)",border:"1px solid #002D55",backdropFilter:"blur(12px)",boxShadow:"0 0 40px #4D9FFF22"}}>
-          {step==="form"&&(
-            <>
-              <h2 className="text-xl font-bold mb-1" style={{fontFamily:"Georgia,serif",color:"#E8F4FF"}}>नया खाता बनाएं</h2>
-              <p className="text-sm mb-6" style={{color:"#9CA3AF"}}>Create your ProveRank account</p>
-              {error&&<div className="text-sm rounded-lg px-4 py-3 mb-4" style={{background:"rgba(220,38,38,0.2)",border:"1px solid rgba(220,38,38,0.4)",color:"#FCA5A5"}}>{error}</div>}
-              <form onSubmit={sendOtp} className="space-y-4">
-                {[{label:"पूरा नाम / Full Name",val:name,set:setName,type:"text"},{label:"ईमेल / Email",val:email,set:setEmail,type:"email"},{label:"मोबाइल / Phone",val:phone,set:setPhone,type:"tel"},{label:"पासवर्ड / Password",val:pass,set:setPass,type:"password"}].map(({label,val,set,type})=>(
-                  <div key={label} className="relative">
-                    <input type={type} value={val} onChange={e=>set(e.target.value)} placeholder=" " required className="w-full rounded-xl px-4 pt-5 pb-2 text-sm outline-none transition" style={inputStyle} onFocus={e=>e.target.style.borderColor="#4D9FFF"} onBlur={e=>e.target.style.borderColor="#002D55"}/>
-                    <label className="absolute left-4 top-2 text-xs" style={{color:"#4D9FFF"}}>{label}</label>
-                  </div>
-                ))}
-                <p className="text-xs" style={{color:"#9CA3AF"}}>Register karne se aap hamari <Link href="/terms" style={{color:"#4D9FFF"}}>Terms & Conditions</Link> se agree karte hain.</p>
-                <button type="submit" disabled={loading} className="w-full font-bold py-3 rounded-xl text-white transition disabled:opacity-50" style={{background:"linear-gradient(90deg,#4D9FFF,#00CFFF)"}}>
-                  {loading?"Sending OTP...":"OTP भेजें / Send OTP →"}
-                </button>
-              </form>
-              <div className="text-center mt-4"><Link href="/login" className="text-sm hover:underline" style={{color:"#4D9FFF"}}>Already have account? Login →</Link></div>
-            </>
-          )}
-          {step==="otp"&&(
-            <>
-              <h2 className="text-xl font-bold mb-1" style={{fontFamily:"Georgia,serif",color:"#E8F4FF"}}>OTP Verify करें</h2>
-              <p className="text-sm mb-2" style={{color:"#9CA3AF"}}>6-digit OTP bheja gaya hai</p>
-              <p className="text-sm font-bold mb-6" style={{color:"#4D9FFF"}}>{email}</p>
-              {error&&<div className="text-sm rounded-lg px-4 py-3 mb-4" style={{background:"rgba(220,38,38,0.2)",border:"1px solid rgba(220,38,38,0.4)",color:"#FCA5A5"}}>{error}</div>}
-              <form onSubmit={verifyOtp}>
-                <div className="flex gap-3 justify-center mb-6">
-                  {otp.map((digit,i)=>(
-                    <input key={i} id={`otp-${i}`} type="text" maxLength={1} value={digit} onChange={e=>handleOtpInput(e.target.value,i)} className="w-11 h-12 text-center rounded-xl font-bold text-xl outline-none transition" style={{background:"#000A18",border:"2px solid #002D55",color:"#4D9FFF"}} onFocus={e=>e.target.style.borderColor="#4D9FFF"} onBlur={e=>e.target.style.borderColor="#002D55"}/>
-                  ))}
-                </div>
-                <button type="submit" disabled={loading||otp.join("").length<6} className="w-full font-bold py-3 rounded-xl text-white transition disabled:opacity-50" style={{background:"linear-gradient(90deg,#4D9FFF,#00CFFF)"}}>
-                  {loading?"Verifying...":"✓ Verify & Register"}
-                </button>
-              </form>
-              <button onClick={()=>setStep("form")} className="w-full text-center text-sm mt-3 hover:underline" style={{color:"#9CA3AF"}}>← Wapas jao</button>
-            </>
-          )}
-          {step==="done"&&(
-            <div className="text-center py-8">
-              <div className="text-5xl mb-4">✅</div>
-              <h2 className="text-xl font-bold" style={{fontFamily:"Georgia,serif",color:"#E8F4FF"}}>Registration Complete!</h2>
-              <p className="text-sm mt-2" style={{color:"#9CA3AF"}}>Dashboard pe redirect ho raha hai...</p>
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
+      <svg width={size} height={size} viewBox="0 0 60 60">
+        <defs><filter id="g2"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+        <polygon points={outer} fill="none" stroke="rgba(77,159,255,0.35)" strokeWidth="1" filter="url(#g2)"/>
+        <polygon points={inner} fill="none" stroke="#4D9FFF" strokeWidth="1.8" filter="url(#g2)"/>
+        {Array.from({length:6},(_,i)=>{const a=(Math.PI/180)*(60*i-30);return <circle key={i} cx={cx+r*0.88*Math.cos(a)} cy={cy+r*0.88*Math.sin(a)} r={2.8} fill="#4D9FFF" filter="url(#g2)"/>;  })}
+        <text x={cx} y={cy+6} textAnchor="middle" fontFamily="Playfair Display,serif" fontSize="19" fontWeight="700" fill="#4D9FFF" filter="url(#g2)">PR</text>
+      </svg>
+      <div style={{fontFamily:'Playfair Display,serif',fontSize:26,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF 0%,#FFFFFF 50%,#4D9FFF 100%)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',letterSpacing:1}}>
+        ProveRank
+      </div>
+      <div style={{fontSize:10,color:'#6B8FAF',letterSpacing:4,textTransform:'uppercase'}}>Online Test Platform</div>
+    </div>
+  );
+}
+
+export default function RegisterPage() {
+  const router = useRouter();
+  const [form, setForm] = useState({name:'',email:'',phone:'',password:'',confirm:''});
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showPass, setShowPass] = useState(false);
+  const [terms, setTerms] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    if (getToken()) router.push('/dashboard');
+  }, [router]);
+
+  const set = (k: string, v: string) => setForm(f=>({...f,[k]:v}));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(''); setSuccess('');
+    if (form.password !== form.confirm) { setError('Passwords match nahi karte!'); return; }
+    if (!terms) { setError('Terms & Conditions accept karo!'); return; }
+    setLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name:form.name,email:form.email,phone:form.phone,password:form.password,termsAccepted:true}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message||'Registration failed');
+      setSuccess('✅ Account ban gaya! Login karo ab.');
+      setTimeout(()=>router.push('/login'),2000);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Registration nahi hua');
+    } finally { setLoading(false); }
+  };
+
+  if (!mounted) return null;
+
+  return (
+    <div style={{minHeight:'100vh',background:'radial-gradient(ellipse at 20% 50%,#001628 0%,#000A18 60%,#000510 100%)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',fontFamily:'Inter,sans-serif',padding:'24px 16px',position:'relative',overflow:'hidden'}}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600&display=swap');
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes pulse{0%,100%{opacity:0.4}50%{opacity:0.8}}
+        .ri{width:100%;padding:13px 16px;border-radius:10px;background:rgba(0,22,40,0.85);border:1.5px solid #002D55;color:#E8F4FF;font-size:14px;outline:none;transition:border 0.2s;font-family:Inter,sans-serif;}
+        .ri:focus{border-color:#4D9FFF;box-shadow:0 0 0 3px rgba(77,159,255,0.15);}
+        .ri::placeholder{color:#6B8FAF;}
+        .rb{width:100%;padding:14px;border-radius:10px;border:none;background:linear-gradient(135deg,#4D9FFF,#0055CC);color:white;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(77,159,255,0.4);font-family:Inter,sans-serif;}
+        .rb:disabled{opacity:0.6;cursor:not-allowed;}
+      `}</style>
+
+      <div style={{position:'absolute',top:-40,left:-40,fontSize:180,color:'rgba(77,159,255,0.04)',pointerEvents:'none'}}>⬡</div>
+      <div style={{position:'absolute',bottom:-40,right:-40,fontSize:180,color:'rgba(77,159,255,0.04)',pointerEvents:'none'}}>⬡</div>
+
+      {/* ── PR4 LOGO ── */}
+      <div style={{animation:'fadeUp 0.6s ease, float 5s ease-in-out 0.6s infinite',marginBottom:28,textAlign:'center'}}>
+        <PRLogo />
+      </div>
+
+      {/* Glass Card */}
+      <div style={{width:'100%',maxWidth:440,background:'rgba(0,22,40,0.75)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:20,padding:'28px 28px',backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',boxShadow:'0 8px 40px rgba(0,0,0,0.5)',animation:'fadeUp 0.7s ease 0.15s both'}}>
+
+        <h1 style={{fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:700,color:'#E8F4FF',textAlign:'center',margin:'0 0 4px'}}>Create Account</h1>
+        <p style={{textAlign:'center',color:'#6B8FAF',fontSize:13,marginBottom:22}}>ProveRank par apna account banao</p>
+
+        {error && <div style={{background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:10,padding:'10px 16px',marginBottom:14,color:'#FCA5A5',fontSize:13,textAlign:'center'}}>⚠️ {error}</div>}
+        {success && <div style={{background:'rgba(34,197,94,0.12)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:10,padding:'10px 16px',marginBottom:14,color:'#86EFAC',fontSize:13,textAlign:'center'}}>{success}</div>}
+
+        <form onSubmit={handleSubmit} style={{display:'flex',flexDirection:'column',gap:12}}>
+          {[
+            {k:'name',l:'FULL NAME',t:'text',p:'Apna poora naam'},
+            {k:'email',l:'EMAIL',t:'email',p:'email@example.com'},
+            {k:'phone',l:'PHONE',t:'tel',p:'10-digit number'},
+          ].map(({k,l,t,p})=>(
+            <div key={k}>
+              <label style={{fontSize:11,color:'#4D9FFF',fontWeight:600,display:'block',marginBottom:4,letterSpacing:0.5}}>{l}</label>
+              <input type={t} value={form[k as keyof typeof form]} onChange={e=>set(k,e.target.value)} placeholder={p} required={k!=='phone'} className="ri"/>
             </div>
-          )}
+          ))}
+          <div>
+            <label style={{fontSize:11,color:'#4D9FFF',fontWeight:600,display:'block',marginBottom:4,letterSpacing:0.5}}>PASSWORD</label>
+            <div style={{position:'relative'}}>
+              <input type={showPass?'text':'password'} value={form.password} onChange={e=>set('password',e.target.value)} placeholder="Min 8 characters" required className="ri" style={{paddingRight:44}}/>
+              <button type="button" onClick={()=>setShowPass(!showPass)} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:'#6B8FAF',cursor:'pointer',fontSize:14}}>
+                {showPass?'🙈':'👁️'}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label style={{fontSize:11,color:'#4D9FFF',fontWeight:600,display:'block',marginBottom:4,letterSpacing:0.5}}>CONFIRM PASSWORD</label>
+            <input type="password" value={form.confirm} onChange={e=>set('confirm',e.target.value)} placeholder="Password dobara likho" required className="ri"/>
+          </div>
+
+          {/* Terms checkbox */}
+          <div style={{display:'flex',alignItems:'flex-start',gap:10,marginTop:4}}>
+            <div onClick={()=>setTerms(!terms)} style={{width:18,height:18,borderRadius:4,border:`2px solid ${terms?'#4D9FFF':'#002D55'}`,background:terms?'#4D9FFF':'transparent',cursor:'pointer',flexShrink:0,marginTop:1,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'white',transition:'all 0.2s'}}>
+              {terms&&'✓'}
+            </div>
+            <span style={{fontSize:12,color:'#6B8FAF',lineHeight:1.6}}>
+              Main <a href="/terms" style={{color:'#4D9FFF',textDecoration:'none',fontWeight:600}}>Terms & Conditions</a> se agree karta/karti hoon
+            </span>
+          </div>
+
+          <button type="submit" disabled={loading} className="rb" style={{marginTop:6}}>
+            {loading?'⟳ Creating account...':'Create Account →'}
+          </button>
+        </form>
+
+        <div style={{textAlign:'center',marginTop:18,fontSize:14,color:'#6B8FAF'}}>
+          Already account hai?{' '}
+          <a href="/login" style={{color:'#4D9FFF',fontWeight:600,textDecoration:'none'}}>Login karo</a>
         </div>
       </div>
-    </main>
+      <div style={{marginTop:24,color:'#3A5A7A',fontSize:11,letterSpacing:3,textTransform:'uppercase',animation:'pulse 3s infinite'}}>NEET Pattern Online Test Platform</div>
+    </div>
   );
 }
