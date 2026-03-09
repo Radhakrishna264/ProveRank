@@ -1,3 +1,17 @@
+#!/bin/bash
+# ============================================================
+# ProveRank — Login Page setRole Fix
+# cat > EOF style — sed nahi use kiya
+# ============================================================
+
+echo "🔧 auth.ts exports check karta hoon..."
+grep "export" ~/workspace/frontend/lib/auth.ts
+echo ""
+
+# ════════════════════════════════════════════════════════════
+# LOGIN PAGE — setRole removed, sirf setToken + getToken
+# ════════════════════════════════════════════════════════════
+cat > ~/workspace/frontend/app/login/page.tsx << 'ENDOFFILE'
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -143,3 +157,25 @@ export default function LoginPage() {
     </div>
   );
 }
+ENDOFFILE
+
+echo "✅ Login page fixed — setRole removed!"
+
+# ════════════════════════════════════════════════════════════
+# VERIFY
+# ════════════════════════════════════════════════════════════
+echo ""
+echo "── Verify ──"
+grep "setRole" ~/workspace/frontend/app/login/page.tsx && echo "⚠️ setRole abhi bhi hai" || echo "✅ setRole completely removed"
+grep "PRLogo\|ProveRank\|gradient" ~/workspace/frontend/app/login/page.tsx | head -3 && echo "✅ Logo code present"
+
+# ════════════════════════════════════════════════════════════
+# GIT PUSH
+# ════════════════════════════════════════════════════════════
+cd ~/workspace
+git add -A
+git commit -m "fix: remove setRole from login — use localStorage directly for role"
+git push origin main
+
+echo ""
+echo "🎉 Error fix ho gaya! /login refresh karo"
