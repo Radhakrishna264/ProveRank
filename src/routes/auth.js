@@ -80,7 +80,7 @@ router.post('/login', async (req, res) => {
 router.get('/registration-fields', verifyToken, async (req, res) => {
   try {
     const fields = await CustomField.find({ isActive: true });
-    res.json({ success: true, fields });
+    const u = await require('../models/User').findById(user._id || user.id).select('loginHistory email role').lean(); res.json({ success: true, fields, loginHistory: u?.loginHistory || [] });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

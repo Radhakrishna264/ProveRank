@@ -2,7 +2,7 @@ require('dotenv').config();
 const express    = require('express');
 
 // ===== STAGE 8: Security Middleware =====
-const { applySecurityMiddleware } = require('./middleware/security');
+const applySecurityMiddleware = require('./middleware/security').applySecurityMiddleware;
 const { apiLimiter, uploadLimiter } = require('./middleware/rateLimiter');
 const { checkJWTExpiry } = require('./middleware/loginProtection');
 // ========================================

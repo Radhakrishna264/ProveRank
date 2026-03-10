@@ -102,3 +102,52 @@ router.post('/:examId/start-attempt', verifyToken, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Test Generator Route (Phase 9.1)
+router.post('/generate', verifyToken, async (req, res) => {
+  try {
+    const { subject, difficulty, count = 10 } = req.body;
+    const Question = require('../models/Question');
+    const query = {};
+    if (subject) query.subject = subject;
+    if (difficulty) query.difficulty = difficulty;
+    const questions = await Question.aggregate([{ $match: query }, { $sample: { size: parseInt(count) } }]);
+    res.json({ success: true, questions, total: questions.length });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Exam Clone Route (Phase 9.1)
+router.post('/:examId/clone', verifyToken, async (req, res) => {
+  try {
+    const Exam = require('../models/Exam');
+    const original = await Exam.findById(req.params.examId).lean();
+    if (!original) return res.status(404).json({ message: 'Exam not found' });
+    delete original._id;
+    original.title = original.title + ' (Clone)';
+    original.createdAt = new Date();
+    original.updatedAt = new Date();
+    const cloned = await Exam.create(original);
+    res.status(201).json({ success: true, exam: cloned });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Add Question to Exam (Step 08)
+router.post('/:examId/questions', verifyToken, async (req, res) => {
+  try {
+    const Exam = require('../models/Exam');
+    const { questionId } = req.body;
+    const exam = await Exam.findByIdAndUpdate(
+      req.params.examId,
+      { $addToSet: { questions: questionId } },
+      { new: true }
+    );
+    if (!exam) return res.status(404).json({ message: 'Exam not found' });
+    res.json({ success: true, exam });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
