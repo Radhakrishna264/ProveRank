@@ -4,3 +4,6 @@ export function getToken():string|null{ if(typeof window==="undefined")return nu
 export function getRole():string|null{ if(typeof window==="undefined")return null; return localStorage.getItem(ROLE_KEY); }
 export function logout(){ localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(ROLE_KEY); window.location.href="/login"; }
 export function isLoggedIn():boolean{ return !!getToken(); }
+
+export function setToken(token: string): void { if (typeof window === "undefined") return; localStorage.setItem(TOKEN_KEY, token); }
+export function setRole(role: string): void { if (typeof window === "undefined") return; localStorage.setItem(ROLE_KEY, role); }
