@@ -133,9 +133,9 @@ export default function LoginPage() {
       if (!res.ok) throw new Error(data.message || 'Login failed');
       setToken(data.token);
       setRole(data.role || 'student');
-      if (data.role === 'superadmin') router.push('/superadmin');
-      else if (data.role === 'admin') router.push('/admin');
-      else router.push('/dashboard');
+      if (data.role === 'superadmin') window.location.href = '/superadmin';
+      else if (data.role === 'admin') window.location.href = '/admin';
+      else window.location.href = '/dashboard';
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Login failed');
     } finally { setLoading(false); }
