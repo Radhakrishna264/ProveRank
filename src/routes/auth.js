@@ -51,14 +51,14 @@ router.post('/login', async (req, res) => {
     console.log('LOGIN ATTEMPT:', email);
     const user = await User.findOne({ email });
     console.log('USER FOUND:', user ? user.email : 'NULL');
-    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
     if (!user.verified && user.role !== 'superadmin' && user.role !== 'admin') {
       return res.status(400).json({ message: 'Email not verified' });
     }
     if (user.banned) return res.status(403).json({ message: 'Account banned', reason: user.banReason });
     const match = await bcrypt.compare(password, user.password);
     console.log('BCRYPT MATCH:', match);
-    if (!match) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!match) return res.status(401).json({ message: 'Invalid credentials' });
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     user.loginHistory = user.loginHistory || [];
     user.loginHistory.push({ ip, device: req.headers['user-agent'], time: new Date() });
