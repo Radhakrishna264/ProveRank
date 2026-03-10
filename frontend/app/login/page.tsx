@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getToken } from '@/lib/auth';
+import { getToken, setToken, setRole } from '@/lib/auth';
 
 function PRLogo() {
   const size = 64; const r = 32; const cx = 32; const cy = 32;
