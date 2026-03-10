@@ -131,8 +131,8 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Login failed');
-      localStorage.setItem('pr_token', data.token);
-      localStorage.setItem('pr_role', data.role || 'student');
+      setToken(data.token);
+      setRole(data.role || 'student');
       if (data.role === 'superadmin') router.push('/superadmin');
       else if (data.role === 'admin') router.push('/admin');
       else router.push('/dashboard');
