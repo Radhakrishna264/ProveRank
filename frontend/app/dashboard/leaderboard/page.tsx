@@ -1,90 +1,75 @@
-'use client';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { getToken } from '@/lib/auth';
+'use client'
+import { useState, useEffect } from 'react'
+import DashLayout from '@/components/DashLayout'
 
-const MOCK_LEADERS = [
-  { rank:1, name:'Arjun Sharma', score:698, percentile:99.8, correct:174, avatar:'🥇' },
-  { rank:2, name:'Priya Singh', score:685, percentile:99.5, correct:171, avatar:'🥈' },
-  { rank:3, name:'Rahul Verma', score:672, percentile:99.1, correct:168, avatar:'🥉' },
-  { rank:4, name:'Sneha Patel', score:658, percentile:98.7, correct:164, avatar:'⭐' },
-  { rank:5, name:'Amit Kumar', score:645, percentile:98.2, correct:161, avatar:'⭐' },
-  { rank:42, name:'You', score:540, percentile:96.6, correct:135, avatar:'👤', isYou:true },
-];
+const mock = [
+  {r:1,n:'Arjun Sharma',s:692,p:99.8,acc:96.1,badge:'🥇'},
+  {r:2,n:'Priya Kapoor', s:685,p:99.5,acc:94.7,badge:'🥈'},
+  {r:3,n:'Rohit Verma',  s:681,p:99.2,acc:93.9,badge:'🥉'},
+  {r:4,n:'Sneha Patel',  s:672,p:98.8,acc:92.2,badge:''},
+  {r:5,n:'Karan Singh',  s:668,p:98.4,acc:91.6,badge:''},
+  {r:6,n:'Ananya Roy',   s:661,p:97.9,acc:90.8,badge:''},
+  {r:7,n:'Vikash Kumar', s:654,p:97.2,acc:90.0,badge:''},
+  {r:8,n:'Divya Sharma', s:648,p:96.6,acc:89.3,badge:''},
+  {r:9,n:'Rahul Gupta',  s:641,p:95.9,acc:88.5,badge:''},
+  {r:10,n:'Meera Jain',  s:632,p:95.1,acc:87.7,badge:''},
+]
 
-export default function LeaderboardPage() {
-  const router = useRouter();
-  const [leaders, setLeaders] = useState<(typeof MOCK_LEADERS[0] & { isYou?: boolean })[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    if (!getToken()) { router.push('/login'); return; }
-    const fetchLeaders = async () => {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/leaderboard`, {
-          headers: { Authorization: `Bearer ${getToken()}` }
-        });
-        if (res.ok) { const data = await res.json(); setLeaders(data); }
-        else setLeaders(MOCK_LEADERS);
-      } catch { setLeaders(MOCK_LEADERS); }
-      finally { setLoading(false); }
-    };
-    fetchLeaders();
-  }, [router]);
-
-  if (!mounted || loading) return <div style={{minHeight:'100vh',background:'#000A18',display:'flex',alignItems:'center',justifyContent:'center',color:'#4D9FFF',fontSize:16}}>⟳ Loading...</div>;
+export default function Leaderboard() {
+  const [lang, setLang] = useState<'en'|'hi'>('en')
+  const [mounted, setMounted] = useState(false)
+  useEffect(()=>{ setMounted(true); const sl=localStorage.getItem('pr_lang') as 'en'|'hi'; if(sl) setLang(sl) },[])
+  const dark = mounted ? localStorage.getItem('pr_theme')!=='light' : true
+  const v = { card: dark?'rgba(0,18,36,0.9)':'rgba(255,255,255,0.95)', bord: dark?'rgba(77,159,255,0.14)':'rgba(77,159,255,0.25)', tm: dark?'#E8F4FF':'#0F172A', ts: dark?'#6B8BAF':'#64748B' }
 
   return (
-    <div style={{minHeight:'100vh',background:'#000A18',fontFamily:'Inter,sans-serif',color:'#E8F4FF'}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600&display=swap');@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}`}</style>
-
-      {/* Header */}
-      <div style={{background:'#001628',borderBottom:'1px solid #002D55',padding:'14px 16px',display:'flex',alignItems:'center',gap:12,position:'sticky',top:0,zIndex:50}}>
-        <button onClick={()=>router.push('/dashboard')} style={{background:'rgba(77,159,255,0.1)',border:'1px solid #002D55',borderRadius:8,color:'#4D9FFF',padding:'6px 12px',cursor:'pointer',fontSize:13,fontFamily:'Inter,sans-serif'}}>← Back</button>
-        <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:'#E8F4FF'}}>🏆 Leaderboard</div>
-      </div>
-
-      <div style={{padding:'16px'}}>
-        {/* Top 3 Podium */}
-        <div style={{display:'flex',alignItems:'flex-end',justifyContent:'center',gap:8,marginBottom:24,animation:'fadeUp 0.4s ease'}}>
-          {[leaders[1],leaders[0],leaders[2]].filter(Boolean).map((l,i)=>{
-            const heights = [100,130,85];
-            const colors = ['#94A3B8','#F59E0B','#CD7C32'];
-            return (
-              <div key={l.rank} style={{textAlign:'center',flex:1}}>
-                <div style={{fontSize:28,marginBottom:4}}>{l.avatar}</div>
-                <div style={{fontSize:11,color:'#E8F4FF',fontWeight:600,marginBottom:4}}>{l.name.split(' ')[0]}</div>
-                <div style={{fontSize:13,color:'#4D9FFF',fontWeight:700}}>{l.score}</div>
-                <div style={{height:heights[i],background:`linear-gradient(180deg,${colors[i]}33,${colors[i]}11)`,border:`1px solid ${colors[i]}44`,borderRadius:'8px 8px 0 0',marginTop:8,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontFamily:'Playfair Display,serif',fontSize:20,fontWeight:700,color:colors[i]}}>#{[2,1,3][i]}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Full List */}
-        <div style={{display:'flex',flexDirection:'column',gap:8}}>
-          {leaders.map((l, i) => (
-            <div key={l.rank} style={{background: l.isYou ? 'rgba(77,159,255,0.1)' : '#001628',border:`1px solid ${l.isYou?'#4D9FFF':'#002D55'}`,borderRadius:12,padding:'14px 16px',display:'flex',alignItems:'center',gap:12,animation:`fadeUp ${0.3+i*0.05}s ease`}}>
-              <div style={{width:32,textAlign:'center',fontFamily:'Playfair Display,serif',fontSize:16,fontWeight:700,color:l.rank<=3?'#F59E0B':l.isYou?'#4D9FFF':'#6B8FAF',flexShrink:0}}>
-                #{l.rank}
-              </div>
-              <div style={{fontSize:22,flexShrink:0}}>{l.avatar}</div>
-              <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:600,color:l.isYou?'#4D9FFF':'#E8F4FF'}}>{l.name} {l.isYou&&<span style={{fontSize:10,background:'#4D9FFF',color:'white',padding:'1px 6px',borderRadius:4,marginLeft:4}}>YOU</span>}</div>
-                <div style={{fontSize:11,color:'#6B8FAF'}}>✅ {l.correct}/180 · {l.percentile}%ile</div>
-              </div>
-              <div style={{textAlign:'right'}}>
-                <div style={{fontSize:18,fontWeight:700,color:'#E8F4FF',fontFamily:'Playfair Display,serif'}}>{l.score}</div>
-                <div style={{fontSize:10,color:'#6B8FAF'}}>/ 720</div>
+    <DashLayout title={lang==='en'?'Leaderboard':'लीडरबोर्ड'} subtitle={lang==='en'?'All India Rankings — Live':'अखिल भारत रैंकिंग — लाइव'}>
+      {/* Top 3 Podium */}
+      <div style={{display:'flex',justifyContent:'center',gap:16,alignItems:'flex-end',marginBottom:32,flexWrap:'wrap'}}>
+        {[mock[1],mock[0],mock[2]].map((s,i)=>{
+          const h=[80,100,70][i]; const clr=['#C0C0C0','#FFD700','#CD7F32'][i]; const pos=[2,1,3][i]
+          return (
+            <div key={s.r} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
+              <div style={{fontSize:i===1?48:36}}>{s.badge||['🥈','🥇','🥉'][i]}</div>
+              <div style={{fontWeight:700,fontSize:i===1?16:14,color:v.tm,textAlign:'center',maxWidth:100}}>{s.n}</div>
+              <div style={{fontFamily:'Playfair Display,serif',fontSize:i===1?24:18,fontWeight:800,color:clr}}>{s.s}</div>
+              <div style={{width:i===1?100:80,height:h,background:`linear-gradient(180deg,${clr}33,${clr}11)`,border:`2px solid ${clr}55`,borderRadius:'8px 8px 0 0',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <span style={{fontFamily:'Playfair Display,serif',fontWeight:800,fontSize:22,color:clr}}>#{pos}</span>
               </div>
             </div>
-          ))}
+          )
+        })}
+      </div>
+
+      <div style={{background:v.card,border:`1px solid ${v.bord}`,borderRadius:18,overflow:'hidden'}}>
+        <div style={{padding:'16px 22px',borderBottom:`1px solid ${v.bord}`}}>
+          <h2 style={{fontFamily:'Playfair Display,serif',fontSize:18,fontWeight:700,color:v.tm}}>
+            🏆 {lang==='en'?'All India Ranking':'अखिल भारत रैंकिंग'}
+          </h2>
+        </div>
+        <div style={{overflowX:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse'}}>
+            <thead>
+              <tr>{[lang==='en'?'Rank':'रैंक',lang==='en'?'Name':'नाम',lang==='en'?'Score':'स्कोर','%ile',lang==='en'?'Accuracy':'सटीकता'].map(h=>(
+                <th key={h} style={{padding:'12px 20px',textAlign:'left',fontSize:11,fontWeight:700,color:v.ts,letterSpacing:'0.06em',textTransform:'uppercase',borderBottom:`1px solid ${v.bord}`}}>{h}</th>
+              ))}</tr>
+            </thead>
+            <tbody>
+              {mock.map((s,i)=>(
+                <tr key={i} onMouseEnter={e=>(e.currentTarget.style.background='rgba(77,159,255,0.04)')} onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                  <td style={{padding:'14px 20px',borderBottom:`1px solid rgba(0,45,85,0.2)`}}>
+                    <span style={{fontFamily:'Playfair Display,serif',fontWeight:800,fontSize:16,color:i<3?['#FFD700','#C0C0C0','#CD7F32'][i]:'#4D9FFF'}}>{s.badge||`#${s.r}`}</span>
+                  </td>
+                  <td style={{padding:'14px 20px',borderBottom:`1px solid rgba(0,45,85,0.2)`,fontWeight:600,color:v.tm}}>{s.n}</td>
+                  <td style={{padding:'14px 20px',borderBottom:`1px solid rgba(0,45,85,0.2)`}}><span style={{fontFamily:'Playfair Display,serif',fontWeight:800,fontSize:16,color:'#4D9FFF'}}>{s.s}</span><span style={{color:v.ts,fontSize:12}}>/720</span></td>
+                  <td style={{padding:'14px 20px',borderBottom:`1px solid rgba(0,45,85,0.2)`,color:'#00C48C',fontWeight:700}}>{s.p}%</td>
+                  <td style={{padding:'14px 20px',borderBottom:`1px solid rgba(0,45,85,0.2)`,color:v.ts}}>{s.acc}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
-    </div>
-  );
+    </DashLayout>
+  )
 }
