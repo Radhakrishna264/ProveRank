@@ -12,6 +12,8 @@ export const clearAuth = () => {
   localStorage.removeItem('pr_role')
 }
 
+export const logout = clearAuth
+
 export const isLoggedIn    = () => !!getToken()
 export const isStudent     = () => getRole() === 'student'
 export const isAdmin       = () => ['admin','superadmin'].includes(getRole() || '')
