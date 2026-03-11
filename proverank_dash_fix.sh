@@ -1,3 +1,17 @@
+#!/bin/bash
+# ProveRank — Dashboard Premium Redesign + Sidebar Toggle
+set -e
+G='\033[0;32m'; B='\033[0;34m'; C='\033[0;36m'; N='\033[0m'
+log()  { echo -e "${G}[✓]${N} $1"; }
+step() { echo -e "\n${B}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}\n${C}  $1${N}\n${B}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"; }
+
+FE=~/workspace/frontend
+
+# =============================================================================
+# DASHBOARD — Ultra Premium SaaS + Sidebar hidden by default (logo click toggle)
+# =============================================================================
+step "Dashboard — Ultra Premium SaaS Redesign"
+cat > $FE/app/dashboard/page.tsx << 'DASHEOF'
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
@@ -468,3 +482,29 @@ export default function Dashboard() {
     </div>
   )
 }
+DASHEOF
+log "Dashboard ultra premium ✓"
+
+# =============================================================================
+# GIT PUSH
+# =============================================================================
+step "GIT PUSH"
+cd $FE
+git add -A
+git commit -m "Dashboard: Ultra Premium SaaS redesign + Sidebar hidden (logo click toggle)"
+git push origin main
+
+echo -e "\n${G}╔═════════════════════════════════════════════════════╗"
+echo -e "║  ✅ Dashboard Premium + Sidebar Fix PUSHED!         ║"
+echo -e "║                                                     ║"
+echo -e "║  ✓ Sidebar — Hidden by default                     ║"
+echo -e "║  ✓ Sidebar — Opens on Logo click in header         ║"
+echo -e "║  ✓ Sidebar — Closes on outside click / ✕ button   ║"
+echo -e "║  ✓ 4 Big animated stat cards with glow             ║"
+echo -e "║  ✓ 6 Mini info cards (Target days, Accuracy etc.)  ║"
+echo -e "║  ✓ Subject performance bars                        ║"
+echo -e "║  ✓ Live clock in header                            ║"
+echo -e "║  ✓ Activity feed                                   ║"
+echo -e "║  ✓ Quick access grid                               ║"
+echo -e "║  ✓ NO other pages touched                          ║"
+echo -e "╚═════════════════════════════════════════════════════╝${N}"
