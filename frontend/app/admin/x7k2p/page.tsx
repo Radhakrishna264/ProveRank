@@ -322,12 +322,8 @@ export default function AdminPanel() {
         setExamStep(2)
         showToast('Exam created! Now add questions.')
       } else { throw new Error('Failed') }
-    }catch{
-      const fakeId=`local_${Date.now()}`
-      setCreatedExamId(fakeId)
-      setExams(p=>[{_id:fakeId,attempts:0,...payload} as any,...p])
-      setExamStep(2)
-      showToast('Exam saved (pending sync)')
+    }catch(e:any){
+      showToast(`❌ Exam create failed — Retry karo`,'error')
     }
   }
 
@@ -346,7 +342,7 @@ export default function AdminPanel() {
       } else if(qUploadMethod==='excel'){
         if(!excelFile){showToast('Select Excel file','error');setUploadingQ(false);return}
         const fd=new FormData(); fd.append('file',excelFile); fd.append('examId',createdExamId)
-        res = await fetch(`${API}/api/excel/upload`,{method:'POST', headers:{Authorization:`Bearer ${token}`}, body:fd})
+        res = await fetch(`${API}/api/excel/questions`,{method:'POST', headers:{Authorization:`Bearer ${token}`}, body:fd})
       } else if(qUploadMethod==='pdf'){
         if(!pdfFile){showToast('Select PDF file','error');setUploadingQ(false);return}
         const fd=new FormData(); fd.append('file',pdfFile); fd.append('examId',createdExamId)
