@@ -321,12 +321,15 @@ export default function AdminPanel() {
         setExams(p=>[d,...p])
         setExamStep(2)
         showToast('Exam created! Now add questions.')
-      } else { throw new Error('Failed') }
+      } else {
+        const errData = await res.json().catch(()=>({}))
+        showToast('❌ ' + res.status + ': ' + (errData.message||errData.error||'Exam create failed'),'error')
+        return
+      }
     }catch(e:any){
-      showToast(`❌ Exam create failed — Retry karo`,'error')
+      showToast('❌ Network: ' + (e?.message||'Check connection'),'error')
     }
   }
-
   const uploadQuestions = async()=>{
     if(!createdExamId){showToast('Create exam first','error');return}
     setUploadingQ(true)
