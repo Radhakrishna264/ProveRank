@@ -1,3 +1,25 @@
+#!/bin/bash
+# ProveRank — Fix Script: All 5 Issues
+# Issues fixed:
+# 1. Dashboard "Loading..." stats → graceful fallback (no fake data)
+# 2. Fake 4 notifications removed → real/empty notifs only
+# 3. Create Exam → Questions + Answer Key upload added (Manual/Excel/PDF)
+# 4. Left sidebar → hidden by default, logo click se open; Admin vs SuperAdmin alag views
+# 5. Left outer sidebar (Dashboard/Students links) → 404 fix — ye /admin layout ka ghost hai
+set -e
+G='\033[0;32m'; B='\033[0;34m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+log()  { echo -e "${G}[✓]${N} $1"; }
+step() { echo -e "\n${B}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}\n  $1\n${B}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"; }
+warn() { echo -e "${Y}[!]${N} $1"; }
+
+FE=~/workspace/frontend
+
+# ═══════════════════════════════════════════════════════
+# FIX 1+2+3+4: Replace admin panel page.tsx
+# ═══════════════════════════════════════════════════════
+step "Fix 1-4: Admin Panel — Stats/Notifs/CreateExam/Sidebar"
+
+cat > $FE/app/admin/x7k2p/page.tsx << 'ENDOFFILE'
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -1199,3 +1221,113 @@ export default function AdminPanel() {
     </div>
   )
 }
+ENDOFFILE
+log "Admin panel page.tsx updated"
+
+# ═══════════════════════════════════════════════════════
+# FIX 5: Remove ghost /admin page that causes 404 sidebar
+# The left sidebar with Dashboard/Students/etc is from /admin/page.tsx
+# Make /admin route redirect to /admin/x7k2p
+# ═══════════════════════════════════════════════════════
+step "Fix 5: /admin page.tsx → redirect to /admin/x7k2p"
+
+# Check if /admin/page.tsx exists (causing the ghost sidebar)
+if [ -f "$FE/app/admin/page.tsx" ]; then
+  # Make it redirect
+  cat > $FE/app/admin/page.tsx << 'EOF'
+'use client'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { getRole, getToken } from '@/lib/auth'
+
+export default function AdminRedirect() {
+  const router = useRouter()
+  useEffect(()=>{
+    const t=getToken(); const r=getRole()
+    if(!t||!['admin','superadmin'].includes(r)){
+      router.replace('/login')
+    } else {
+      router.replace('/admin/x7k2p')
+    }
+  },[])
+  return (
+    <div style={{minHeight:'100vh',background:'#000A18',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{width:40,height:40,border:'3px solid rgba(77,159,255,0.2)',borderTopColor:'#4D9FFF',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  )
+}
+EOF
+  log "/admin/page.tsx → now redirects to /admin/x7k2p"
+else
+  warn "/admin/page.tsx not found — creating redirect"
+  mkdir -p $FE/app/admin
+  cat > $FE/app/admin/page.tsx << 'EOF'
+'use client'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { getRole, getToken } from '@/lib/auth'
+export default function AdminRedirect() {
+  const router = useRouter()
+  useEffect(()=>{
+    const t=getToken(); const r=getRole()
+    if(!t||!['admin','superadmin'].includes(r)) router.replace('/login')
+    else router.replace('/admin/x7k2p')
+  },[])
+  return <div style={{minHeight:'100vh',background:'#000A18'}}/>
+}
+EOF
+  log "/admin/page.tsx created as redirect"
+fi
+
+# Also check for /admin/layout.tsx causing ghost sidebar
+if [ -f "$FE/app/admin/layout.tsx" ]; then
+  warn "Found /admin/layout.tsx — this may be causing the ghost sidebar!"
+  # Read it to check
+  LAYOUT_CONTENT=$(cat $FE/app/admin/layout.tsx)
+  echo "Current layout.tsx content (first 20 lines):"
+  head -20 $FE/app/admin/layout.tsx
+  # Make layout.tsx minimal — just pass through children
+  cat > $FE/app/admin/layout.tsx << 'EOF'
+// Minimal layout — no sidebar here, sidebar is inside /admin/x7k2p/page.tsx
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
+}
+EOF
+  log "/admin/layout.tsx → minimized (was causing ghost sidebar)"
+else
+  log "No /admin/layout.tsx found — OK"
+fi
+
+step "Verifying files..."
+echo "page.tsx size: $(wc -l < $FE/app/admin/x7k2p/page.tsx) lines"
+ls -la $FE/app/admin/
+
+echo ""
+echo -e "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"
+echo -e "${G}✅ ALL 5 FIXES COMPLETE!${N}"
+echo -e "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"
+echo ""
+echo -e "${B}Fixes Applied:${N}"
+echo -e "  ✅ FIX 1: Dashboard stats — real API, no fake 52,400 numbers"
+echo -e "  ✅ FIX 2: Notifications — empty by default, only real notifs"
+echo -e "  ✅ FIX 3: Create Exam → 3-step wizard with Q upload"
+echo -e "            (Manual Entry / Excel / PDF / Copy-Paste + Answer Key)"
+echo -e "  ✅ FIX 4: Sidebar hidden by default — LOGO click se open hota hai"
+echo -e "            Admin: limited nav | SuperAdmin: full nav with extra options"
+echo -e "  ✅ FIX 5: /admin route → redirects to /admin/x7k2p"
+echo -e "            /admin/layout.tsx → minimized (ghost sidebar removed)"
+echo ""
+echo -e "${Y}Deploy Commands:${N}"
+echo -e "  cd ~/workspace/frontend"
+echo -e "  git add -A"
+echo -e "  git commit -m 'Fix: stats/notifs/exam-wizard/sidebar/routing'"
+echo -e "  git push"
+echo ""
+echo -e "${B}Test:${N}"
+echo -e "  1. https://prove-rank.vercel.app/admin/x7k2p"
+echo -e "  2. Login as admin → limited sidebar"
+echo -e "  3. Login as superadmin → full sidebar with ⚡ SuperAdmin section"
+echo -e "  4. Logo pe click karo → sidebar open hoga"
+echo -e "  5. Create Exam → 3 steps dikhenge"
+echo ""
