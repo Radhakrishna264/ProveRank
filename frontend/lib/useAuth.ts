@@ -1,35 +1,24 @@
-"use client";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { getToken, getRole } from "./auth";
+'use client'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { getToken, getRole, clearAuth } from './auth'
 
-export function useAuth(requiredRole?: string | string[]) {
-  const router = useRouter();
+export function useAuth(required?: string | string[]) {
+  const router = useRouter()
+  const [user, setUser] = useState<{token:string;role:string}|null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = getToken();
-    const role = getRole();
-
-    if (!token) {
-      if (requiredRole) {
-        const isAdmin = Array.isArray(requiredRole)
-          ? requiredRole.includes("admin") || requiredRole.includes("superadmin")
-          : requiredRole === "admin" || requiredRole === "superadmin";
-        router.replace(isAdmin ? "/admin/x7k2p" : "/login");
-      }
-      return;
+    const token = getToken(); const role = getRole()
+    if (!token || !role) { router.replace('/login'); return }
+    if (required) {
+      const roles = Array.isArray(required) ? required : [required]
+      if (!roles.includes(role)) { router.replace('/login'); return }
     }
+    setUser({ token, role })
+    setLoading(false)
+  }, [])
 
-    if (requiredRole) {
-      const allowed = Array.isArray(requiredRole)
-        ? requiredRole.includes(role || "")
-        : role === requiredRole;
-      if (!allowed) {
-        if (role === "student") router.replace("/dashboard");
-        else if (role === "admin") router.replace("/admin/x7k2p");
-        else if (role === "superadmin") router.replace("/superadmin");
-        else router.replace("/login");
-      }
-    }
-  }, [router, requiredRole]);
+  const logout = () => { clearAuth(); router.replace('/login') }
+  return { user, loading, logout }
 }

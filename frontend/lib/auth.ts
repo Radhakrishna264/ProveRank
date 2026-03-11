@@ -1,9 +1,18 @@
-export const TOKEN_KEY="pr_token";
-export const ROLE_KEY="pr_role";
-export function getToken():string|null{ if(typeof window==="undefined")return null; return localStorage.getItem(TOKEN_KEY); }
-export function getRole():string|null{ if(typeof window==="undefined")return null; return localStorage.getItem(ROLE_KEY); }
-export function logout(){ localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(ROLE_KEY); window.location.href="/login"; }
-export function isLoggedIn():boolean{ return !!getToken(); }
+export const getToken = (): string | null =>
+  typeof window !== 'undefined' ? localStorage.getItem('pr_token') : null
 
-export function setToken(token: string): void { if (typeof window === "undefined") return; localStorage.setItem(TOKEN_KEY, token); }
-export function setRole(role: string): void { if (typeof window === "undefined") return; localStorage.setItem(ROLE_KEY, role); }
+export const getRole = (): string | null =>
+  typeof window !== 'undefined' ? localStorage.getItem('pr_role') : null
+
+export const setToken = (t: string) => localStorage.setItem('pr_token', t)
+export const setRole  = (r: string) => localStorage.setItem('pr_role',  r)
+
+export const clearAuth = () => {
+  localStorage.removeItem('pr_token')
+  localStorage.removeItem('pr_role')
+}
+
+export const isLoggedIn    = () => !!getToken()
+export const isStudent     = () => getRole() === 'student'
+export const isAdmin       = () => ['admin','superadmin'].includes(getRole() || '')
+export const isSuperAdmin  = () => getRole() === 'superadmin'

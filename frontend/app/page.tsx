@@ -1,231 +1,240 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+'use client'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import PRLogo from '@/components/PRLogo'
+import ParticlesBg from '@/components/ParticlesBg'
+import { EN_TEXTS, HI_TEXTS } from '@/components/ThemeHelper'
 
-export default function Home() {
-  const router = useRouter();
-  const [scrolled, setScrolled] = useState(false);
+const features = [
+  { icon:'🧪', enTitle:'NEET Pattern',    hiTitle:'NEET पैटर्न',    enDesc:'180 questions, 720 marks, +4/-1 marking — exact NEET format.', hiDesc:'180 प्रश्न, 720 अंक, +4/-1 — बिल्कुल NEET पैटर्न।' },
+  { icon:'📊', enTitle:'Live Rankings',   hiTitle:'लाइव रैंकिंग',   enDesc:'Real-time All India Rank updates as students submit exams.', hiDesc:'परीक्षा जमा होते ही वास्तविक समय में अखिल भारत रैंक।' },
+  { icon:'🛡️', enTitle:'Anti-Cheat AI',   hiTitle:'एंटी-चीट AI',   enDesc:'AI-powered face detection, tab monitoring and IP locking.', hiDesc:'AI से चेहरा पहचान, टैब निगरानी और IP लॉकिंग।' },
+  { icon:'📈', enTitle:'Deep Analytics',  hiTitle:'गहन विश्लेषण',  enDesc:'Chapter-wise accuracy, speed analysis and weak area detection.', hiDesc:'अध्याय-वार सटीकता, गति विश्लेषण और कमजोर क्षेत्र।' },
+  { icon:'🏆', enTitle:'Leaderboard',     hiTitle:'लीडरबोर्ड',     enDesc:'Compete with 50,000+ students across India. Prove your rank.', hiDesc:'भारत भर के 50,000+ छात्रों से प्रतिस्पर्धा करें।' },
+  { icon:'📱', enTitle:'Mobile Ready',    hiTitle:'मोबाइल तैयार',   enDesc:'Fully responsive — attempt exams from any device, anytime.', hiDesc:'किसी भी डिवाइस से कभी भी परीक्षा दें।' },
+]
+
+const testimonials = [
+  { name:'Arjun Sharma', rank:'AIR 34', score:'692/720', quote:'ProveRank analytics helped me identify my weak chapters in Biology.', quoteHi:'ProveRank ने मेरी Biology की कमजोरियां पकड़ने में मदद की।' },
+  { name:'Priya Kapoor',  rank:'AIR 112', score:'681/720', quote:'The live ranking system kept me motivated throughout preparation.', quoteHi:'लाइव रैंकिंग ने मुझे पूरी तैयारी में प्रेरित रखा।' },
+  { name:'Rohit Verma',  rank:'AIR 67',  score:'688/720', quote:'Best NEET mock test platform. The anti-cheat system is very fair.', quoteHi:'सबसे अच्छा NEET मॉक टेस्ट। एंटी-चीट सिस्टम बहुत निष्पक्ष है।' },
+  { name:'Sneha Patel',  rank:'AIR 201', score:'672/720', quote:'Weak area suggestions and revision AI changed my Chemistry score.', quoteHi:'कमजोर क्षेत्र सुझाव ने मेरा Chemistry स्कोर बदल दिया।' },
+  { name:'Karan Singh',  rank:'AIR 89',  score:'684/720', quote:'The exam UI is exactly like real NEET. No surprises on exam day.', quoteHi:'परीक्षा UI बिल्कुल real NEET जैसा है। परीक्षा के दिन कोई आश्चर्य नहीं।' },
+]
+
+export default function LandingPage() {
+  const [lang, setLang] = useState<'en'|'hi'>('en')
+  const [dark, setDark] = useState(true)
+  const [scrolled, setScrolled] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+    setMounted(true)
+    const sl = localStorage.getItem('pr_lang') as 'en'|'hi'; if(sl) setLang(sl)
+    const st = localStorage.getItem('pr_theme'); if(st==='light') setDark(false)
+    const onScroll = () => setScrolled(window.scrollY > 40)
+    window.addEventListener('scroll', onScroll)
+    return () => window.removeEventListener('scroll', onScroll)
+  },[])
 
-  const features = [
-    { icon: '🧪', title: 'NEET Pattern', desc: '180 questions, 720 marks — exact NEET format with Physics, Chemistry & Biology sections.' },
-    { icon: '📊', title: 'Live Rank', desc: 'Real-time leaderboard updates as students submit — see your rank instantly.' },
-    { icon: '🛡️', title: 'Anti-Cheat AI', desc: 'AI proctoring with webcam, tab-switch detection and IP locking.' },
-    { icon: '⏱️', title: 'Smart Timer', desc: 'Section-wise countdown timer with auto-submit on timeout.' },
-    { icon: '📈', title: 'Deep Analytics', desc: 'Subject-wise breakdown, percentile, topper comparison and trend graphs.' },
-    { icon: '📱', title: 'Mobile Ready', desc: 'Fully responsive — attempt exams on any device, anywhere.' },
-  ];
+  const toggleLang = () => { const n = lang==='en'?'hi':'en'; setLang(n); localStorage.setItem('pr_lang',n) }
+  const toggleDark = () => { const n = !dark; setDark(n); localStorage.setItem('pr_theme',n?'dark':'light') }
 
-  const testimonials = [
-    { name: 'Arjun S.', rank: 'AIR 34', quote: 'ProveRank helped me track my weak areas perfectly!', stars: 5 },
-    { name: 'Priya K.', rank: 'AIR 112', quote: 'The live leaderboard kept me motivated every day.', stars: 5 },
-    { name: 'Rahul M.', rank: 'AIR 67', quote: 'Best mock test platform for NEET preparation.', stars: 5 },
-    { name: 'Sneha T.', rank: 'AIR 203', quote: 'Anti-cheat system made every test feel like the real exam.', stars: 5 },
-    { name: 'Karan P.', rank: 'AIR 89', quote: 'Analytics feature is a game changer for revision!', stars: 5 },
-    { name: 'Anjali R.', rank: 'AIR 156', quote: 'ProveRank is the only platform I used for mocks.', stars: 5 },
-  ];
+  const t = lang==='en' ? EN_TEXTS : HI_TEXTS
+
+  const bg    = dark ? '#000A18' : '#F0F7FF'
+  const card  = dark ? 'rgba(0,22,40,0.7)' : 'rgba(255,255,255,0.8)'
+  const bord  = dark ? 'rgba(77,159,255,0.2)' : 'rgba(77,159,255,0.3)'
+  const tm    = dark ? '#E8F4FF' : '#0F172A'
+  const ts    = dark ? '#6B8BAF' : '#475569'
+
+  if (!mounted) return null
 
   return (
-    <div style={{minHeight:'100vh',background:'#000A18',fontFamily:'Inter,sans-serif',overflowX:'hidden'}}>
+    <div style={{minHeight:'100vh',background:bg,color:tm,fontFamily:'Inter,sans-serif',transition:'background 0.4s'}}>
+      <ParticlesBg />
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600&display=swap');
-        *{box-sizing:border-box;margin:0;padding:0}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}
-        @keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
-        @keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-        .hero-hex{animation:float 4s ease-in-out infinite;opacity:0.08}
-        .feature-card:hover{border-color:#4D9FFF!important;box-shadow:0 0 20px rgba(77,159,255,0.15)!important;transform:translateY(-4px)}
-        .feature-card{transition:all 0.3s ease}
-        .nav-link:hover{color:#E8F4FF!important}
-        .cta-btn:hover{background:#3d8fe8!important;transform:scale(1.03)}
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap');
+        @keyframes marquee { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+        @keyframes fadeUp  { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes float   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
+        @keyframes grad    { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+        .hero-title { font-family:'Playfair Display',serif; font-size:clamp(2.2rem,6vw,4rem); font-weight:800; line-height:1.1; background:linear-gradient(135deg,#4D9FFF 0%,#FFFFFF 50%,#4D9FFF 100%); background-size:300% 300%; -webkit-background-clip:text; -webkit-text-fill-color:transparent; animation:grad 6s ease infinite,fadeUp 0.8s ease forwards; }
+        .feature-card:hover { transform:translateY(-6px) !important; border-color:rgba(77,159,255,0.5) !important; box-shadow:0 20px 50px rgba(77,159,255,0.15) !important; }
+        .testimonial-card { flex-shrink:0; width:320px; }
+        .cta-btn:hover { transform:translateY(-2px); box-shadow:0 12px 35px rgba(77,159,255,0.5) !important; }
       `}</style>
 
-      {/* Sticky Nav — NV1 */}
-      <nav style={{position:'fixed',top:0,left:0,right:0,zIndex:100,
-        background: scrolled ? 'rgba(0,10,24,0.95)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(12px)' : 'none',
-        borderBottom: scrolled ? '1px solid #002D55' : 'none',
-        transition:'all 0.3s ease',padding:'16px 40px',
-        display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div style={{fontFamily:'Playfair Display,serif',fontSize:'20px',
-          fontWeight:700,color:'#E8F4FF'}}>
-          <span style={{color:'#4D9FFF'}}>⬡</span> ProveRank
-        </div>
-        <div style={{display:'flex',gap:'32px',alignItems:'center'}}>
-          {['Features','Results','Pricing'].map(l=>(
-            <span key={l} className="nav-link" style={{color:'#6B8BAF',fontSize:'14px',
-              cursor:'pointer',transition:'color 0.2s'}}>{l}</span>
+      {/* ── STICKY NAV ─────────────────────────────────────────── */}
+      <nav style={{
+        position:'fixed',top:0,left:0,right:0,zIndex:100,
+        padding:'0 5%',height:64,display:'flex',alignItems:'center',
+        justifyContent:'space-between',
+        background: scrolled
+          ? (dark?'rgba(0,10,24,0.92)':'rgba(248,252,255,0.92)')
+          : 'transparent',
+        backdropFilter: scrolled ? 'blur(20px)' : 'none',
+        borderBottom: scrolled ? `1px solid ${bord}` : 'none',
+        transition:'all 0.3s'
+      }}>
+        {/* Logo */}
+        <Link href="/" style={{textDecoration:'none'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <svg width={32} height={32} viewBox="0 0 64 64">
+              <defs><filter id="ng"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+              {[...Array(6)].map((_,i)=>{const a=(Math.PI/180)*(60*i-30);return<circle key={i} cx={32+28*Math.cos(a)} cy={32+28*Math.sin(a)} r={3} fill="#4D9FFF" filter="url(#ng)"/>})}
+              <polygon points={[...Array(6)].map((_,i)=>{const a=(Math.PI/180)*(60*i-30);return`${32+23*Math.cos(a)},${32+23*Math.sin(a)}`}).join(' ')} fill="none" stroke="#4D9FFF" strokeWidth="2" filter="url(#ng)"/>
+              <text x="32" y="38" textAnchor="middle" fontFamily="Playfair Display,serif" fontSize="16" fontWeight="700" fill="#4D9FFF" filter="url(#ng)">PR</text>
+            </svg>
+            <span style={{fontFamily:'Playfair Display,serif',fontSize:20,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF,#FFFFFF,#4D9FFF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>ProveRank</span>
+          </div>
+        </Link>
+        {/* Nav Links */}
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          {[['#features',t.features],['#results',t.results]].map(([href,label])=>(
+            <a key={href} href={href} style={{color:ts,textDecoration:'none',fontSize:14,fontWeight:500,padding:'6px 14px',borderRadius:8,transition:'all .2s'}}
+              onMouseEnter={e=>(e.currentTarget.style.color='#4D9FFF')}
+              onMouseLeave={e=>(e.currentTarget.style.color=ts)}>{label}</a>
           ))}
-          <button onClick={()=>router.push('/login')}
-            className="cta-btn"
-            style={{padding:'8px 20px',background:'#4D9FFF',border:'none',
-              borderRadius:'8px',color:'#000',fontSize:'14px',fontWeight:600,
-              cursor:'pointer',transition:'all 0.2s'}}>
-            Login →
-          </button>
+          <button onClick={toggleLang} className="tbtn" style={{marginLeft:4}}>{lang==='en'?'🇮🇳 हिंदी':'🌐 EN'}</button>
+          <button onClick={toggleDark} className="tbtn">{dark?'☀️':'🌙'}</button>
+          <Link href="/login">
+            <button className="lb" style={{width:'auto',padding:'9px 22px',fontSize:14,borderRadius:10}}>
+              {t.login} →
+            </button>
+          </Link>
         </div>
       </nav>
 
-      {/* Hero Section — H1 */}
-      <div style={{minHeight:'100vh',display:'flex',alignItems:'center',
-        justifyContent:'center',textAlign:'center',padding:'100px 20px 60px',
-        position:'relative',overflow:'hidden',
-        background:'radial-gradient(ellipse at 20% 50%,#001628 0%,#000A18 60%,#000510 100%)'}}>
+      {/* ── HERO ───────────────────────────────────────────────── */}
+      <section style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',textAlign:'center',padding:'80px 5% 60px',position:'relative'}}>
+        {/* Floating hexagons bg */}
+        <div style={{position:'absolute',top:'15%',left:'8%',opacity:.06,animation:'float 7s ease-in-out infinite',fontSize:120,color:'#4D9FFF',fontFamily:'monospace'}}>⬡</div>
+        <div style={{position:'absolute',bottom:'20%',right:'6%',opacity:.04,animation:'float 9s ease-in-out infinite 2s',fontSize:180,color:'#4D9FFF',fontFamily:'monospace'}}>⬡</div>
+        <div style={{position:'absolute',top:'40%',right:'12%',opacity:.05,animation:'float 5s ease-in-out infinite 1s',fontSize:80,color:'#4D9FFF',fontFamily:'monospace'}}>⬡</div>
 
-        {/* Floating Hexagons BG */}
-        {[...Array(6)].map((_,i)=>(
-          <div key={i} className="hero-hex" style={{
-            position:'absolute',
-            fontSize:`${40+i*20}px`,
-            left:`${10+i*15}%`,
-            top:`${20+i*10}%`,
-            animationDelay:`${i*0.7}s`,
-            color:'#4D9FFF'}}>⬡</div>
-        ))}
-
-        <div style={{position:'relative',zIndex:2,animation:'fadeUp 0.8s ease'}}>
-          <div style={{display:'inline-block',padding:'6px 16px',
-            background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.3)',
-            borderRadius:'20px',color:'#4D9FFF',fontSize:'12px',
-            fontWeight:600,marginBottom:'24px',letterSpacing:'1px'}}>
-            🚀 INDIA'S SMARTEST NEET TEST PLATFORM
-          </div>
-
-          <h1 style={{
-            fontFamily:'Playfair Display,serif',
-            fontSize:'clamp(36px,7vw,72px)',
-            fontWeight:700,lineHeight:1.15,marginBottom:'20px',
-            background:'linear-gradient(135deg,#E8F4FF 0%,#4D9FFF 50%,#00CFFF 100%)',
-            backgroundSize:'200% 200%',
-            WebkitBackgroundClip:'text',
-            WebkitTextFillColor:'transparent',
-            animation:'gradientShift 4s ease infinite'}}>
-            Prove Yourself.<br/>Rise to the Top.
-          </h1>
-
-          <p style={{fontSize:'18px',color:'#6B8BAF',maxWidth:'520px',
-            margin:'0 auto 40px',lineHeight:1.7}}>
-            NEET pattern mock tests with live rankings, AI proctoring, and deep analytics — all free.
-          </p>
-
-          <div style={{display:'flex',gap:'16px',justifyContent:'center',flexWrap:'wrap'}}>
-            <button onClick={()=>router.push('/register')}
-              style={{padding:'14px 32px',background:'#4D9FFF',border:'none',
-                borderRadius:'10px',color:'#000',fontSize:'16px',fontWeight:700,
-                cursor:'pointer',transition:'all 0.2s',fontFamily:'Inter,sans-serif'}}>
-              Register Free →
-            </button>
-            <button onClick={()=>router.push('/login')}
-              style={{padding:'14px 32px',background:'transparent',
-                border:'1px solid #4D9FFF',borderRadius:'10px',color:'#4D9FFF',
-                fontSize:'16px',fontWeight:600,cursor:'pointer',
-                fontFamily:'Inter,sans-serif'}}>
-              Login
-            </button>
-          </div>
+        <div style={{animation:'fadeUp 0.6s ease forwards',marginBottom:32}}>
+          <PRLogo />
         </div>
-      </div>
-
-      {/* Features — FT1 */}
-      <div style={{padding:'80px 40px',background:'#000A18'}}>
-        <div style={{textAlign:'center',marginBottom:'48px'}}>
-          <h2 style={{fontFamily:'Playfair Display,serif',fontSize:'36px',
-            fontWeight:700,color:'#E8F4FF',marginBottom:'12px'}}>
-            Everything You Need to Crack NEET
-          </h2>
-          <p style={{color:'#6B8BAF',fontSize:'15px'}}>110+ features built for serious aspirants</p>
+        <h1 className="hero-title" style={{marginBottom:24,maxWidth:700,whiteSpace:'pre-line'}}>
+          {t.heroTitle}
+        </h1>
+        <p style={{color:ts,fontSize:'clamp(15px,2vw,19px)',maxWidth:600,lineHeight:1.7,marginBottom:40,animation:'fadeUp 0.8s 0.2s ease forwards',opacity:0}}>
+          {t.heroSub}
+        </p>
+        <div style={{display:'flex',gap:16,flexWrap:'wrap',justifyContent:'center',animation:'fadeUp 0.8s 0.4s ease forwards',opacity:0}}>
+          <Link href="/register">
+            <button className="lb cta-btn" style={{width:'auto',padding:'15px 36px',fontSize:17,borderRadius:12}}>
+              {t.startFree}
+            </button>
+          </Link>
+          <button className="tbtn" style={{padding:'14px 30px',fontSize:16,borderRadius:12}}
+            onClick={()=>document.getElementById('features')?.scrollIntoView({behavior:'smooth'})}>
+            {t.viewDemo}
+          </button>
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',
-          gap:'20px',maxWidth:'1100px',margin:'0 auto'}}>
-          {features.map(f=>(
-            <div key={f.title} className="feature-card"
-              style={{background:'#001628',border:'1px solid #002D55',borderRadius:'14px',
-                padding:'28px 24px',cursor:'default'}}>
-              <div style={{fontSize:'32px',marginBottom:'14px'}}>{f.icon}</div>
-              <div style={{fontFamily:'Playfair Display,serif',fontSize:'16px',
-                fontWeight:700,color:'#E8F4FF',marginBottom:'8px'}}>{f.title}</div>
-              <div style={{fontSize:'13px',color:'#6B8BAF',lineHeight:1.6}}>{f.desc}</div>
+        {/* Scroll arrow */}
+        <div style={{marginTop:60,color:'#4D9FFF',opacity:.5,animation:'float 2s ease-in-out infinite',fontSize:24}}>↓</div>
+      </section>
+
+      {/* ── STATS BANNER ───────────────────────────────────────── */}
+      <section style={{background:'linear-gradient(90deg,rgba(0,40,80,0.9),rgba(0,22,50,0.9))',borderTop:`1px solid ${bord}`,borderBottom:`1px solid ${bord}`,padding:'40px 5%'}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:32,maxWidth:1000,margin:'0 auto',textAlign:'center'}}>
+          {[
+            [t.stat1v,t.stat1l],[t.stat2v,t.stat2l],[t.stat3v,t.stat3l],[t.stat4v,t.stat4l]
+          ].map(([v,l],i)=>(
+            <div key={i}>
+              <div style={{fontFamily:'Playfair Display,serif',fontSize:'clamp(28px,5vw,42px)',fontWeight:800,color:'#4D9FFF',lineHeight:1}}>{v}</div>
+              <div style={{color:ts,fontSize:14,marginTop:6,fontWeight:500}}>{l}</div>
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* Stats Banner — ST2 */}
-      <div style={{padding:'40px',background:'linear-gradient(90deg,#001628,#002D55,#001628)',
-        display:'flex',justifyContent:'center',gap:'80px',flexWrap:'wrap',
-        borderTop:'1px solid #002D55',borderBottom:'1px solid #002D55'}}>
-        {[
-          {v:'50,000+',l:'Students'},
-          {v:'1,20,000+',l:'Tests Taken'},
-          {v:'99.9%',l:'Uptime'},
-        ].map(({v,l})=>(
-          <div key={l} style={{textAlign:'center'}}>
-            <div style={{fontFamily:'Playfair Display,serif',fontSize:'36px',
-              fontWeight:700,color:'#4D9FFF'}}>{v}</div>
-            <div style={{fontSize:'13px',color:'#6B8BAF',marginTop:'4px'}}>{l}</div>
-          </div>
-        ))}
-      </div>
+      {/* ── FEATURES ───────────────────────────────────────────── */}
+      <section id="features" style={{padding:'80px 5%',maxWidth:1200,margin:'0 auto'}}>
+        <h2 style={{fontFamily:'Playfair Display,serif',fontSize:'clamp(1.8rem,4vw,2.8rem)',fontWeight:700,textAlign:'center',marginBottom:12,color:tm}}>{t.featuresTitle}</h2>
+        <p style={{color:ts,textAlign:'center',fontSize:16,marginBottom:56}}>
+          {lang==='en' ? 'Built specifically for NEET aspirants by educators and engineers.' : 'शिक्षकों और इंजीनियरों द्वारा विशेष रूप से NEET छात्रों के लिए बनाया गया।'}
+        </p>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:24}}>
+          {features.map((f,i)=>(
+            <div key={i} className="feature-card" style={{
+              background:card, border:`1px solid ${bord}`,
+              borderRadius:18, padding:'32px 28px',
+              transition:'all 0.3s', cursor:'default'
+            }}>
+              <div style={{fontSize:36,marginBottom:16}}>{f.icon}</div>
+              <h3 style={{fontFamily:'Playfair Display,serif',fontSize:20,fontWeight:700,color:tm,marginBottom:10}}>
+                {lang==='en'?f.enTitle:f.hiTitle}
+              </h3>
+              <p style={{color:ts,fontSize:14,lineHeight:1.7}}>
+                {lang==='en'?f.enDesc:f.hiDesc}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-      {/* Testimonials — TS1 */}
-      <div style={{padding:'80px 0',background:'#000A18',overflow:'hidden'}}>
-        <h2 style={{textAlign:'center',fontFamily:'Playfair Display,serif',
-          fontSize:'32px',fontWeight:700,color:'#E8F4FF',marginBottom:'40px'}}>
-          What Our Students Say
+      {/* ── TESTIMONIALS (scrolling marquee) ───────────────────── */}
+      <section id="results" style={{padding:'60px 0',overflow:'hidden',borderTop:`1px solid ${bord}`}}>
+        <h2 style={{fontFamily:'Playfair Display,serif',fontSize:'clamp(1.6rem,3vw,2.4rem)',fontWeight:700,textAlign:'center',color:tm,marginBottom:40,padding:'0 5%'}}>
+          {lang==='en' ? 'What Our Toppers Say' : 'हमारे टॉपर्स क्या कहते हैं'}
         </h2>
-        <div style={{overflow:'hidden',whiteSpace:'nowrap'}}>
-          <div style={{display:'inline-flex',gap:'20px',animation:'marquee 20s linear infinite'}}>
-            {[...testimonials,...testimonials].map((t,i)=>(
-              <div key={i} style={{display:'inline-block',minWidth:'280px',
-                background:'#001628',border:'1px solid #002D55',borderRadius:'14px',
-                padding:'20px',whiteSpace:'normal',verticalAlign:'top'}}>
-                <div style={{color:'#F59E0B',fontSize:'13px',marginBottom:'8px'}}>
-                  {'★'.repeat(t.stars)}
+        <div style={{display:'flex',width:'max-content',animation:'marquee 40s linear infinite'}}>
+          {[...testimonials,...testimonials].map((tm2,i)=>(
+            <div key={i} className="testimonial-card" style={{
+              background:card, border:`1px solid ${bord}`,
+              borderRadius:16, padding:'24px', margin:'0 12px',
+              width:300
+            }}>
+              <div style={{color:'#FFD700',fontSize:14,marginBottom:8}}>★★★★★</div>
+              <p style={{color:ts,fontSize:13,lineHeight:1.6,marginBottom:16,fontStyle:'italic'}}>
+                "{lang==='en'?tm2.quote:tm2.quoteHi}"
+              </p>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div>
+                  <div style={{fontWeight:600,fontSize:14,color:tm}}>{tm2.name}</div>
+                  <div style={{color:'#4D9FFF',fontSize:12,fontWeight:600}}>{tm2.rank}</div>
                 </div>
-                <div style={{fontSize:'13px',color:'#E8F4FF',marginBottom:'12px',
-                  lineHeight:1.5}}>"{t.quote}"</div>
-                <div style={{fontSize:'12px',fontWeight:600,color:'#4D9FFF'}}>{t.name}</div>
-                <div style={{fontSize:'11px',color:'#6B8BAF'}}>{t.rank}</div>
+                <span className="badge badge-green" style={{fontSize:12}}>{tm2.score}</span>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
-      </div>
+      </section>
 
-      {/* CTA — CT2 */}
-      <div style={{padding:'40px',background:'#001628',
-        borderTop:'1px solid #002D55',
-        display:'flex',justifyContent:'space-between',
-        alignItems:'center',flexWrap:'wrap',gap:'20px'}}>
-        <div style={{fontFamily:'Playfair Display,serif',fontSize:'20px',
-          fontWeight:700,color:'#E8F4FF'}}>
-          Start your NEET journey today.
-        </div>
-        <button onClick={()=>router.push('/register')}
-          style={{padding:'12px 28px',background:'#4D9FFF',border:'none',
-            borderRadius:'10px',color:'#000',fontSize:'15px',fontWeight:700,
-            cursor:'pointer',fontFamily:'Inter,sans-serif'}}>
-          Register Free →
-        </button>
-      </div>
+      {/* ── CTA SECTION ────────────────────────────────────────── */}
+      <section style={{
+        padding:'80px 5%',textAlign:'center',
+        background:'linear-gradient(135deg,rgba(0,40,100,0.4),rgba(0,22,50,0.4))',
+        borderTop:`1px solid ${bord}`
+      }}>
+        <h2 style={{fontFamily:'Playfair Display,serif',fontSize:'clamp(1.8rem,4vw,2.8rem)',fontWeight:700,color:tm,marginBottom:16}}>{t.ctaLine}</h2>
+        <p style={{color:ts,fontSize:16,marginBottom:36}}>
+          {lang==='en'
+            ? 'Join 50,000+ NEET aspirants who trust ProveRank for their preparation.'
+            : '50,000+ NEET छात्रों से जुड़ें जो अपनी तैयारी के लिए ProveRank पर भरोसा करते हैं।'}
+        </p>
+        <Link href="/register">
+          <button className="lb cta-btn" style={{width:'auto',padding:'16px 44px',fontSize:18,borderRadius:12}}>
+            {t.regFree}
+          </button>
+        </Link>
+      </section>
 
-      {/* Footer */}
-      <div style={{padding:'24px 40px',background:'#000510',
-        display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:'10px',
-        borderTop:'1px solid #002D55'}}>
-        <div style={{fontFamily:'Playfair Display,serif',fontSize:'14px',color:'#4D9FFF'}}>
-          ⬡ ProveRank
+      {/* ── FOOTER ─────────────────────────────────────────────── */}
+      <footer style={{borderTop:`1px solid ${bord}`,padding:'32px 5%',textAlign:'center',color:ts,fontSize:13}}>
+        <div style={{display:'flex',justifyContent:'center',gap:10,marginBottom:12,alignItems:'center'}}>
+          <svg width={24} height={24} viewBox="0 0 64 64">
+            <polygon points={[...Array(6)].map((_,i)=>{const a=(Math.PI/180)*(60*i-30);return`${32+26*Math.cos(a)},${32+26*Math.sin(a)}`}).join(' ')} fill="none" stroke="#4D9FFF" strokeWidth="2"/>
+            <text x="32" y="37" textAnchor="middle" fontFamily="Playfair Display,serif" fontSize="14" fontWeight="700" fill="#4D9FFF">PR</text>
+          </svg>
+          <span style={{fontFamily:'Playfair Display,serif',fontSize:16,fontWeight:700,color:'#4D9FFF'}}>ProveRank</span>
         </div>
-        <div style={{fontSize:'12px',color:'#6B8BAF'}}>
-          NEET · NEET PG · JEE · CUET
-        </div>
-      </div>
+        <p style={{marginBottom:8}}>{t.footer}</p>
+        <p>© 2026 ProveRank. {lang==='en'?'All rights reserved.':'सर्वाधिकार सुरक्षित।'}</p>
+      </footer>
     </div>
-  );
+  )
 }
