@@ -1,3 +1,20 @@
+#!/bin/bash
+# ProveRank — Admin Panel FULL API Wiring Script
+# Ye script MOCK data ko REAL API calls se replace karti hai
+# Replit workspace mein chalao: bash proverank_admin_wire_v2.sh
+set -e
+G='\033[0;32m'; B='\033[0;34m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+log()  { echo -e "${G}[✓]${N} $1"; }
+step() { echo -e "\n${B}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}\n  $1\n${B}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"; }
+warn() { echo -e "${Y}[!]${N} $1"; }
+
+FE=~/workspace/frontend
+mkdir -p $FE/app/admin/x7k2p
+
+step "ProveRank Admin Panel — FULL API Wiring (MOCK → REAL)"
+warn "Purana page.tsx replace ho raha hai — fully wired version"
+
+cat > $FE/app/admin/x7k2p/page.tsx << 'ENDOFFILE'
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -1506,3 +1523,54 @@ export default function AdminPanel() {
     </div>
   )
 }
+ENDOFFILE
+
+log "Admin Panel page.tsx created successfully!"
+
+step "Verifying file..."
+if [ -f "$FE/app/admin/x7k2p/page.tsx" ]; then
+  LINES=$(wc -l < $FE/app/admin/x7k2p/page.tsx)
+  log "File exists: $LINES lines"
+else
+  echo -e "${R}[ERROR]${N} File not created!"
+  exit 1
+fi
+
+step "Checking TypeScript imports..."
+head -5 $FE/app/admin/x7k2p/page.tsx
+
+echo ""
+echo -e "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"
+echo -e "${G}✅ ADMIN PANEL WIRING COMPLETE!${N}"
+echo -e "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"
+echo ""
+echo -e "${B}📊 REAL APIs WIRED:${N}"
+echo -e "  ✅ GET /api/admin/users         → Students list"
+echo -e "  ✅ GET /api/exams               → Exams list"
+echo -e "  ✅ GET /api/admin/stats         → Dashboard stats"
+echo -e "  ✅ GET /api/admin/manage/cheating-logs → Cheat flags"
+echo -e "  ✅ GET /api/admin/manage/audit  → Audit trail + Activity logs"
+echo -e "  ✅ GET /api/admin/manage/tickets → Tickets/Grievances"
+echo -e "  ✅ GET /api/results/leaderboard → Leaderboard"
+echo -e "  ✅ GET /api/admin/manage/snapshots → Webcam snapshots"
+echo -e "  ✅ GET /api/admin/features      → Feature flags"
+echo -e "  ✅ POST /api/admin/ban/:id      → Ban student"
+echo -e "  ✅ POST /api/admin/unban/:id    → Unban student"
+echo -e "  ✅ POST /api/admin/features     → Toggle features"
+echo -e "  ✅ POST /api/admin/announce     → Send announcement"
+echo -e "  ✅ POST /api/exams              → Create exam"
+echo -e "  ✅ POST /api/results/publish/:id → Publish results"
+echo -e "  ✅ POST /api/admin/manage/tickets/:id/resolve → Resolve ticket"
+echo -e "  ✅ POST /api/admin/manage/impersonate/:id → Impersonate (M4)"
+echo -e "  ✅ POST /api/questions/generate → Smart Paper AI"
+echo -e "  ✅ GET  /api/admin/manage/export → Export reports"
+echo ""
+echo -e "${Y}📝 NEXT STEPS:${N}"
+echo -e "  1. Replit pe: cd ~/workspace/frontend && npm run dev"
+echo -e "  2. Browser mein: https://prove-rank.vercel.app/admin/x7k2p"
+echo -e "  3. Login karo: admin@proverank.com / ProveRank@SuperAdmin123"
+echo -e "  4. Agar koi feature empty dikhta hai — backend route verify karo"
+echo ""
+echo -e "${B}🚀 Deploy to Vercel:${N}"
+echo -e "  cd ~/workspace/frontend && git add -A && git commit -m 'Admin panel: all APIs wired, mock data removed' && git push"
+echo ""
