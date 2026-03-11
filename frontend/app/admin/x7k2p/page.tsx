@@ -305,10 +305,16 @@ export default function AdminPanel() {
     const dur = refExamDur.current?.value||'200'
     const pass = refExamPass.current?.value||''
     if(!title||!date){showToast('Fill title and date','error');return}
+    const durMins = parseInt(dur)
     const payload = {
-      title, scheduledAt:new Date(date).toISOString(),
-      totalMarks:parseInt(marks), totalDurationSec:parseInt(dur)*60,
-      status:'upcoming', category:newExamCat, password:pass||undefined
+      title,
+      scheduledAt: new Date(date).toISOString(),
+      totalMarks: parseInt(marks),
+      duration: durMins * 60,
+      durationMinutes: durMins,
+      status: 'scheduled',
+      category: newExamCat,
+      password: pass||undefined
     }
     try{
       const res = await fetch(`${API}/api/exams`,{
