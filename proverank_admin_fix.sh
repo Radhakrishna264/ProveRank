@@ -1,3 +1,103 @@
+#!/bin/bash
+# ProveRank — Admin Login Fix
+set -e
+G='\033[0;32m'; B='\033[0;34m'; N='\033[0m'
+log()  { echo -e "${G}[✓]${N} $1"; }
+step() { echo -e "\n${B}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}\n  $1\n${B}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"; }
+
+FE=~/workspace/frontend
+
+# =============================================================================
+# FIX 1: Middleware — only block EXACT /admin, not /admin/x7k2p
+# =============================================================================
+step "Fix middleware.ts"
+cat > $FE/middleware.ts << 'EOF'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // Block ONLY the exact /admin route — NOT /admin/x7k2p or any sub-routes
+  if (pathname === '/admin' || pathname === '/admin/') {
+    return NextResponse.rewrite(new URL('/not-found', request.url))
+  }
+
+  return NextResponse.next()
+}
+
+export const config = {
+  matcher: ['/admin', '/admin/'],
+}
+EOF
+log "middleware.ts fixed ✓"
+
+# =============================================================================
+# FIX 2: lib/useAuth.ts — don't kick out admin if API is slow/down
+# =============================================================================
+step "Fix useAuth.ts"
+cat > $FE/lib/useAuth.ts << 'EOF'
+'use client'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { getToken, getRole, clearAuth } from '@/lib/auth'
+
+export interface AuthUser {
+  token: string
+  role: string
+}
+
+export function useAuth(requiredRole?: 'student' | 'admin' | 'superadmin' | 'any') {
+  const router = useRouter()
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const token = getToken()
+    const role  = getRole()
+
+    if (!token || !role) {
+      router.replace('/login')
+      return
+    }
+
+    // Role-based access check
+    if (requiredRole && requiredRole !== 'any') {
+      const adminRoles = ['admin', 'superadmin']
+
+      if (requiredRole === 'student' && adminRoles.includes(role)) {
+        // admin trying to access student page → redirect to admin panel
+        router.replace('/admin/x7k2p')
+        return
+      }
+
+      if (requiredRole === 'admin' && !adminRoles.includes(role)) {
+        // student trying to access admin page → redirect to dashboard
+        router.replace('/dashboard')
+        return
+      }
+    }
+
+    setUser({ token, role })
+    setLoading(false)
+  }, [])
+
+  const logout = () => {
+    clearAuth()
+    router.replace('/login')
+  }
+
+  return { user, loading, logout }
+}
+EOF
+log "useAuth.ts fixed ✓"
+
+# =============================================================================
+# FIX 3: Admin page — works even if backend is down (mock data fallback)
+# =============================================================================
+step "Fix Admin Panel page"
+mkdir -p $FE/app/admin/x7k2p
+cat > $FE/app/admin/x7k2p/page.tsx << 'EOF'
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -440,3 +540,28 @@ export default function AdminPanel() {
     </div>
   )
 }
+EOF
+log "Admin panel page ✓"
+
+step "GIT PUSH"
+cd $FE
+git add -A
+git commit -m "Fix: Admin login 404 — middleware + useAuth + admin panel with mock data fallback"
+git push origin main
+
+echo ""
+echo -e "${G}╔══════════════════════════════════════════════════════╗"
+echo -e "║  ✅ ADMIN LOGIN FIX PUSHED!                          ║"
+echo -e "║                                                      ║"
+echo -e "║  Login:  prove-rank.vercel.app/login                 ║"
+echo -e "║  Email:  admin@proverank.com                         ║"
+echo -e "║  Pass:   ProveRank@SuperAdmin123                     ║"
+echo -e "║  URL:    /admin/x7k2p                                ║"
+echo -e "║                                                      ║"
+echo -e "║  Fixes:                                              ║"
+echo -e "║  ✓ Middleware — only blocks /admin (not /admin/x7k2p)║"
+echo -e "║  ✓ useAuth — admin role properly handled             ║"
+echo -e "║  ✓ Admin panel — works even if backend is down       ║"
+echo -e "║  ✓ 5 tabs: Dashboard/Students/Exams/Results/Settings ║"
+echo -e "║  ✓ SuperAdmin-only danger zone controls              ║"
+echo -e "╚══════════════════════════════════════════════════════╝${N}"
