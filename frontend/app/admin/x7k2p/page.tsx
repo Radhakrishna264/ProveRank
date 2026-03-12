@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { getToken, getRole, clearAuth } from '@/lib/auth'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
-const _live={qText:'',answerKey:''}
 
 // ═══════════════════════════════════════════════════
 // TYPES
