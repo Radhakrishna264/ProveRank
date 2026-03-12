@@ -277,7 +277,7 @@ export default function AdminPanel() {
       const res=await fetch(`${API}/api/exams`,{method:'POST',headers:HJ(),body:JSON.stringify(body)})
       if(res.ok||res.status===201){
         const d=await res.json()
-        const eid=d._id||d.id||d.examId
+        const eid=d?.exam?._id||d?.exam?.id||d?._id||d?.id||d?.examId
         if(eid){setCreatedEId(eid);T('Exam created! Questions upload karo ab');setEStep(2);fetch(`${API}/api/exams`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setExams(d))}
         else{T('Exam created (ID missing)','w');setEStep(2)}
       }else{const e=await res.json().catch(()=>({}));T(`❌ Status:${res.status} — ${e.message||e.error||JSON.stringify(e).slice(0,60)}`,'e')}
