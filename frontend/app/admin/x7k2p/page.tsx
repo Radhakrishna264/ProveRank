@@ -616,7 +616,7 @@ export default function AdminPanel() {
           <Card>
             <CardHeader title="📢 Quick Announcement"/>
             <div style={{padding:'16px 20px'}}>
-              <textarea defaultValue={announceText} onChange={e=>setAnnounceText(e.target.value)} rows={3} placeholder="Type announcement..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',resize:'none',outline:'none',boxSizing:'border-box'}}/>
+              <textarea defaultValue={announceText} onBlur={e=>setAnnounceText(e.target.value)} rows={3} placeholder="Type announcement..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',resize:'none',outline:'none',boxSizing:'border-box'}}/>
               <div style={{display:'flex',gap:8,marginTop:10,alignItems:'center'}}>
                 <select value={announceBatch} onChange={e=>setAnnounceBatch(e.target.value)} style={{padding:'8px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none'}}>
                   <option value="all">All Students</option>
@@ -631,7 +631,7 @@ export default function AdminPanel() {
             <CardHeader title="✅ Tasks" action={<span style={{fontSize:11,color:ts}}>{todos.filter(t=>!t.done).length} pending</span>}/>
             <div style={{padding:'12px 16px'}}>
               <div style={{display:'flex',gap:8,marginBottom:10}}>
-                <input defaultValue={todoInput} onChange={e=>setTodoInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTodo()} placeholder="Add task..." style={{flex:1,padding:'7px 11px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none'}}/>
+                <input defaultValue={todoInput} onBlur={e=>setTodoInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTodo()} placeholder="Add task..." style={{flex:1,padding:'7px 11px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none'}}/>
                 <Btn onClick={addTodo}>+</Btn>
               </div>
               {todos.map(t=>(
@@ -719,7 +719,7 @@ export default function AdminPanel() {
     <Card>
       <CardHeader title={`📋 All Exams (${exams.length})`} action={
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          <input defaultValue={examSearchFilter} onChange={e=>setExamSearchFilter(e.target.value)} placeholder="Search exams..." style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none',width:180}}/>
+          <input defaultValue={examSearchFilter} onBlur={e=>setExamSearchFilter(e.target.value)} placeholder="Search exams..." style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none',width:180}}/>
           <Btn onClick={()=>{setExamStep(1);navTo('create_exam')}}>+ New</Btn>
         </div>
       }/>
@@ -815,11 +815,11 @@ export default function AdminPanel() {
                 </div>
                 <div style={{marginBottom:14}}>
                   <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Paste Questions</label>
-                  <textarea defaultValue={manualQText} onChange={e=>setManualQText(e.target.value)} rows={8} placeholder="Paste questions here..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'monospace',resize:'vertical',outline:'none',boxSizing:'border-box'}}/>
+                  <textarea defaultValue={manualQText} onBlur={e=>setManualQText(e.target.value)} rows={8} placeholder="Paste questions here..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'monospace',resize:'vertical',outline:'none',boxSizing:'border-box'}}/>
                 </div>
                 <div style={{marginBottom:14}}>
                   <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Answer Key (optional)</label>
-                  <textarea defaultValue={answerKeyText} onChange={e=>setAnswerKeyText(e.target.value)} rows={4} placeholder="1-B&#10;2-A&#10;3-D" style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'monospace',resize:'none',outline:'none',boxSizing:'border-box'}}/>
+                  <textarea defaultValue={answerKeyText} onBlur={e=>setAnswerKeyText(e.target.value)} rows={4} placeholder="1-B&#10;2-A&#10;3-D" style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'monospace',resize:'none',outline:'none',boxSizing:'border-box'}}/>
                 </div>
               </div>
             )}
@@ -856,7 +856,7 @@ export default function AdminPanel() {
                 </div>
                 <div style={{marginBottom:14}}>
                   <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Answer Key (if separate)</label>
-                  <textarea defaultValue={answerKeyText} onChange={e=>setAnswerKeyText(e.target.value)} rows={4} placeholder="1-B, 2-A, 3-D ..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'monospace',resize:'none',outline:'none',boxSizing:'border-box'}}/>
+                  <textarea defaultValue={answerKeyText} onBlur={e=>setAnswerKeyText(e.target.value)} rows={4} placeholder="1-B, 2-A, 3-D ..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'monospace',resize:'none',outline:'none',boxSizing:'border-box'}}/>
                 </div>
               </div>
             )}
@@ -959,7 +959,7 @@ export default function AdminPanel() {
   const renderAllStudents = ()=>(
     <Card>
       <CardHeader title={`👥 All Students (${students.length})`} action={
-        <input defaultValue={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Search..." style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none',width:180}}/>
+        <input defaultValue={searchQuery} onBlur={e=>setSearchQuery(e.target.value)} placeholder="Search..." style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none',width:180}}/>
       }/>
       {students.length===0&&<EmptyState icon={loadingMain?'⏳':'👥'} msg={loadingMain?'Loading students...':'No students registered yet'}/>}
       <TableComp headers={['#','Name','Email','Phone','Group','Integrity','Status','Joined','Actions']}>
@@ -1186,7 +1186,7 @@ export default function AdminPanel() {
         <div style={{padding:'20px'}}>
           <div style={{marginBottom:14}}>
             <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Announcement Text</label>
-            <textarea defaultValue={announceText} onChange={e=>setAnnounceText(e.target.value)} rows={5} placeholder="Write your announcement..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',resize:'none',outline:'none',boxSizing:'border-box'}}/>
+            <textarea defaultValue={announceText} onBlur={e=>setAnnounceText(e.target.value)} rows={5} placeholder="Write your announcement..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',resize:'none',outline:'none',boxSizing:'border-box'}}/>
           </div>
           <div style={{marginBottom:16}}>
             <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Target Batch</label>
@@ -1367,7 +1367,7 @@ export default function AdminPanel() {
         <Inp label="Meta Title" defaultValue={seoTitle} onChange={setSeoTitle}/>
         <div style={{marginBottom:14}}>
           <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Meta Description</label>
-          <textarea defaultValue={seoDesc} onChange={e=>setSeoDesc(e.target.value)} rows={3} style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',resize:'none',outline:'none',boxSizing:'border-box'}}/>
+          <textarea defaultValue={seoDesc} onBlur={e=>setSeoDesc(e.target.value)} rows={3} style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',resize:'none',outline:'none',boxSizing:'border-box'}}/>
           <div style={{fontSize:10,color:ts,marginTop:4}}>{seoDesc.length}/160 characters</div>
         </div>
         <div style={{padding:'14px',borderRadius:10,border:'1px solid rgba(0,196,140,0.2)',background:'rgba(0,196,140,0.04)',marginBottom:14}}>
@@ -1454,7 +1454,7 @@ export default function AdminPanel() {
         </div>
         <div style={{marginBottom:14}}>
           <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Select Student</label>
-          <select defaultValue={impersonateId} onChange={e=>setImpersonateId(e.target.value)} style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}>
+          <select defaultValue={impersonateId} onBlur={e=>setImpersonateId(e.target.value)} style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}>
             <option value="">— Select Student —</option>
             {students.map(s=><option key={s._id} value={s._id}>{s.name} ({s.email})</option>)}
           </select>
@@ -1533,7 +1533,7 @@ export default function AdminPanel() {
       <CardHeader title="✅ Admin Task Manager (M13)"/>
       <div style={{padding:'20px'}}>
         <div style={{display:'flex',gap:8,marginBottom:16}}>
-          <input defaultValue={todoInput} onChange={e=>setTodoInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTodo()} placeholder="Add new task..." style={{flex:1,padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}/>
+          <input defaultValue={todoInput} onBlur={e=>setTodoInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTodo()} placeholder="Add new task..." style={{flex:1,padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}/>
           <Btn onClick={addTodo}>+ Add</Btn>
         </div>
         {todos.map(t=>(
