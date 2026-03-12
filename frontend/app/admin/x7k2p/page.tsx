@@ -284,8 +284,8 @@ export default function AdminPanel() {
         const eid=d._id||d.id||d.examId
         if(eid){setCreatedEId(eid);T('Exam created! Questions upload karo ab');setEStep(2);fetch(`${API}/api/exams`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setExams(d))}
         else{T('Exam created (ID missing)','w');setEStep(2)}
-      }else{const e=await res.json().catch(()=>({}));T(e.message||`Error ${res.status}`,'e')}
-    }catch(e:any){T(e.message||'Network error','e')}
+      }else{const e=await res.json().catch(()=>({}));T(`❌ ${e.message||e.error||'Server error: '+res.status} — Check API`,'e')}
+    }catch(e:any){T(`🌐 Network error: ${e.message} — Backend online hai?`,'e')}
     setCreatingE(false)
   },[HJ,H,T])
 
@@ -595,7 +595,7 @@ export default function AdminPanel() {
     <div style={{background:BG,minHeight:'100vh',color:TS,fontFamily:'Inter,sans-serif'}}>
 
       {/* TOAST */}
-      {toast&&<div style={{position:'fixed',top:16,right:16,zIndex:9999,padding:'12px 18px',borderRadius:10,fontWeight:700,fontSize:13,background:toast.tp==='s'?SUC:toast.tp==='w'?WRN:DNG,color:toast.tp==='w'?'#000':'#fff',boxShadow:'0 4px 20px rgba(0,0,0,0.5)',maxWidth:300,wordBreak:'break-word'}}>{toast.msg}</div>}
+      {toast&&<div style={{position:'fixed',top:0,left:0,right:0,zIndex:9999,padding:'16px 20px',fontWeight:700,fontSize:15,background:toast.tp==='s'?SUC:toast.tp==='w'?WRN:DNG,color:toast.tp==='w'?'#000':'#fff',textAlign:'center',boxShadow:'0 4px 24px rgba(0,0,0,0.7)',letterSpacing:0.3}}>{toast.tp==='e'?'❌':toast.tp==='w'?'⚠️':'✅'} {toast.msg}</div>}
 
       {/* TOP NAV */}
       <div style={{position:'sticky',top:0,zIndex:100,background:'rgba(0,10,24,0.97)',backdropFilter:'blur(12px)',borderBottom:`1px solid ${BOR}`,padding:'0 14px',height:54,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
