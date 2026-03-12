@@ -42,7 +42,7 @@ const Inp = ({label,value,onChange,type='text',placeholder='',style={}}:{label:s
   return (
     <div style={{marginBottom:14,...style}}>
       <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>{label}</label>
-      <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
+      <input type={type} defaultValue={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
         style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box'}}/>
     </div>
   )
