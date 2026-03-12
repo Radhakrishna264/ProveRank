@@ -72,6 +72,15 @@ const InpRef = React.forwardRef<HTMLInputElement,{label:string,defaultValue:stri
 )
 InpRef.displayName='InpRef'
 
+const TaRef = React.forwardRef<HTMLTextAreaElement,{placeholder?:string,rows?:number,defaultValue?:string}>( 
+  ({placeholder,rows=6,defaultValue=''}, ref) => (
+    <textarea ref={ref} defaultValue={defaultValue} placeholder={placeholder} rows={rows}
+      style={{width:'100%',background:'#0d1117',color:'#e6edf3',border:'1px solid #30363d',borderRadius:8,padding:'10px 12px',fontSize:14,resize:'vertical',outline:'none',fontFamily:'inherit'}} />
+  )
+)
+TaRef.displayName='TaRef'
+
+
 // ═══════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════
@@ -121,6 +130,12 @@ export default function AdminPanel() {
   const refExamMarks = useRef<HTMLInputElement>(null)
   const refExamDur = useRef<HTMLInputElement>(null)
   const refExamPass = useRef<HTMLInputElement>(null)
+  const refManualQ = useRef<HTMLTextAreaElement>(null)
+  const refAnswerKey = useRef<HTMLTextAreaElement>(null)
+  const refAnnounce = useRef<HTMLTextAreaElement>(null)
+  const refBanReason = useRef<HTMLInputElement>(null)
+  const refSearchQ = useRef<HTMLInputElement>(null)
+  const refTodoIn = useRef<HTMLInputElement>(null)
   const [newExamCat, setNewExamCat] = useState('Full Mock')
   const [examStep, setExamStep] = useState(1)
   const [createdExamId, setCreatedExamId] = useState('')
