@@ -623,7 +623,7 @@ export default function AdminPanel() {
             <CardHeader title="✅ Tasks" action={<span style={{fontSize:11,color:ts}}>{todos.filter(t=>!t.done).length} pending</span>}/>
             <div style={{padding:'12px 16px'}}>
               <div style={{display:'flex',gap:8,marginBottom:10}}>
-                <input value={todoInput} onChange={e=>setTodoInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTodo()} placeholder="Add task..." style={{flex:1,padding:'7px 11px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none'}}/>
+                <input value={todoInput} onBlur={e=>setTodoInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTodo()} placeholder="Add task..." style={{flex:1,padding:'7px 11px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none'}}/>
                 <Btn onClick={addTodo}>+</Btn>
               </div>
               {todos.map(t=>(
@@ -711,7 +711,7 @@ export default function AdminPanel() {
     <Card>
       <CardHeader title={`📋 All Exams (${exams.length})`} action={
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          <input value={examSearchFilter} onChange={e=>setExamSearchFilter(e.target.value)} placeholder="Search exams..." style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none',width:180}}/>
+          <input value={examSearchFilter} onBlur={e=>setExamSearchFilter(e.target.value)} placeholder="Search exams..." style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none',width:180}}/>
           <Btn onClick={()=>{setExamStep(1);navTo('create_exam')}}>+ New</Btn>
         </div>
       }/>
@@ -951,7 +951,7 @@ export default function AdminPanel() {
   const renderAllStudents = ()=>(
     <Card>
       <CardHeader title={`👥 All Students (${students.length})`} action={
-        <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Search..." style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none',width:180}}/>
+        <input value={searchQuery} onBlur={e=>setSearchQuery(e.target.value)} placeholder="Search..." style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none',width:180}}/>
       }/>
       {students.length===0&&<EmptyState icon={loadingMain?'⏳':'👥'} msg={loadingMain?'Loading students...':'No students registered yet'}/>}
       <TableComp headers={['#','Name','Email','Phone','Group','Integrity','Status','Joined','Actions']}>
@@ -1446,7 +1446,7 @@ export default function AdminPanel() {
         </div>
         <div style={{marginBottom:14}}>
           <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Select Student</label>
-          <select value={impersonateId} onChange={e=>setImpersonateId(e.target.value)} style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}>
+          <select value={impersonateId} onBlur={e=>setImpersonateId(e.target.value)} style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}>
             <option value="">— Select Student —</option>
             {students.map(s=><option key={s._id} value={s._id}>{s.name} ({s.email})</option>)}
           </select>
@@ -1525,7 +1525,7 @@ export default function AdminPanel() {
       <CardHeader title="✅ Admin Task Manager (M13)"/>
       <div style={{padding:'20px'}}>
         <div style={{display:'flex',gap:8,marginBottom:16}}>
-          <input value={todoInput} onChange={e=>setTodoInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTodo()} placeholder="Add new task..." style={{flex:1,padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}/>
+          <input value={todoInput} onBlur={e=>setTodoInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTodo()} placeholder="Add new task..." style={{flex:1,padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}/>
           <Btn onClick={addTodo}>+ Add</Btn>
         </div>
         {todos.map(t=>(
