@@ -1,3 +1,20 @@
+#!/bin/bash
+# ProveRank — MASTER COMBINED Admin Panel Script
+# Wire_v2 ke saare features + Fix_all5 ke saare fixes — SATH MEIN
+# Chalao: bash proverank_master_combined.sh
+set -e
+G='\033[0;32m'; B='\033[0;34m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+log()  { echo -e "${G}[✓]${N} $1"; }
+step() { echo -e "\n${B}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}\n  $1\n${B}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"; }
+warn() { echo -e "${Y}[!]${N} $1"; }
+
+FE=~/workspace/frontend
+mkdir -p $FE/app/admin/x7k2p
+
+step "ProveRank Admin Panel — MASTER COMBINED (All Features + All Fixes)"
+warn "Previous page.tsx replace ho raha hai — fully combined version"
+
+cat > $FE/app/admin/x7k2p/page.tsx << 'ENDOFFILE'
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -1726,3 +1743,116 @@ export default function AdminPanel() {
     </div>
   )
 }
+ENDOFFILE
+
+log "Admin panel page.tsx updated — All features restored"
+
+# ═══════════════════════════════════════════════════════
+# FIX: /admin route → redirect to /admin/x7k2p
+# ═══════════════════════════════════════════════════════
+step "Fix: /admin page.tsx → redirect to /admin/x7k2p"
+
+if [ -f "$FE/app/admin/page.tsx" ]; then
+  cat > $FE/app/admin/page.tsx << 'EOF'
+'use client'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { getRole, getToken } from '@/lib/auth'
+
+export default function AdminRedirect() {
+  const router = useRouter()
+  useEffect(()=>{
+    const t=getToken(); const r=getRole()
+    if(!t||!['admin','superadmin'].includes(r)){
+      router.replace('/login')
+    } else {
+      router.replace('/admin/x7k2p')
+    }
+  },[])
+  return (
+    <div style={{minHeight:'100vh',background:'#000A18',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{width:40,height:40,border:'3px solid rgba(77,159,255,0.2)',borderTopColor:'#4D9FFF',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  )
+}
+EOF
+  log "/admin/page.tsx → now redirects to /admin/x7k2p"
+else
+  warn "/admin/page.tsx not found — creating redirect"
+  mkdir -p $FE/app/admin
+  cat > $FE/app/admin/page.tsx << 'EOF'
+'use client'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { getRole, getToken } from '@/lib/auth'
+export default function AdminRedirect() {
+  const router = useRouter()
+  useEffect(()=>{
+    const t=getToken(); const r=getRole()
+    if(!t||!['admin','superadmin'].includes(r)) router.replace('/login')
+    else router.replace('/admin/x7k2p')
+  },[])
+  return <div style={{minHeight:'100vh',background:'#000A18'}}/>
+}
+EOF
+  log "/admin/page.tsx created as redirect"
+fi
+
+# Fix /admin/layout.tsx if it's causing ghost sidebar
+if [ -f "$FE/app/admin/layout.tsx" ]; then
+  cat > $FE/app/admin/layout.tsx << 'EOF'
+// Minimal layout — sidebar is inside /admin/x7k2p/page.tsx
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
+}
+EOF
+  log "/admin/layout.tsx → minimized (ghost sidebar removed)"
+fi
+
+step "Verifying files..."
+echo "page.tsx size: $(wc -l < $FE/app/admin/x7k2p/page.tsx) lines"
+ls -la $FE/app/admin/
+
+echo ""
+echo -e "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"
+echo -e "${G}✅ MASTER COMBINED SCRIPT COMPLETE!${N}"
+echo -e "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"
+echo ""
+echo -e "${B}Features Included (Wire_v2 + Fix_all5 Combined):${N}"
+echo -e "  ✅ FIX 1: Dashboard stats — real API, no fake numbers"
+echo -e "  ✅ FIX 2: Notifications — empty by default, only real API notifs"
+echo -e "  ✅ FIX 3: Create Exam → 3-step wizard (Basic Info → Questions → Done)"
+echo -e "           Methods: Manual Entry / Excel / PDF / Copy-Paste + Answer Key"
+echo -e "  ✅ FIX 4: Sidebar hidden by default — logo click se open hota hai"
+echo -e "           Admin: limited nav | SuperAdmin: full nav with ⚡ section"
+echo -e "  ✅ FIX 5: /admin route → redirects to /admin/x7k2p"
+echo -e ""
+echo -e "  ✅ RESTORED: Live Monitor (live exam controls + recent flags)"
+echo -e "  ✅ RESTORED: Question Bank (view + filter)"
+echo -e "  ✅ RESTORED: Bulk Upload (Excel/PDF/Copy-paste guide)"
+echo -e "  ✅ RESTORED: PYQ Bank (S104 — previous year papers)"
+echo -e "  ✅ RESTORED: Batch Manager (M3 — student groups)"
+echo -e "  ✅ RESTORED: Result Control (publish/delay exam results)"
+echo -e "  ✅ RESTORED: Analytics (stats overview with charts)"
+echo -e "  ✅ RESTORED: Export Reports (PDF/CSV downloads)"
+echo -e "  ✅ RESTORED: Webcam Snapshots (proctoring — SuperAdmin)"
+echo -e "  ✅ RESTORED: Integrity Scores (AI-6 — SuperAdmin)"
+echo -e "  ✅ RESTORED: Admin Permissions (S72 — SuperAdmin)"
+echo -e "  ✅ RESTORED: Audit Trail (S93 — SuperAdmin)"
+echo -e "  ✅ RESTORED: Data Backup (S50 — SuperAdmin)"
+echo -e "  ✅ RESTORED: Activity Logs (separate from Audit Trail)"
+echo -e "  ✅ RESTORED: Changelog (platform version history)"
+echo ""
+echo -e "${Y}Deploy Commands (Replit mein chalao):${N}"
+echo -e "  cd ~/workspace/frontend"
+echo -e "  git add -A"
+echo -e "  git commit -m 'Master: All admin features restored + all fixes applied'"
+echo -e "  git push"
+echo ""
+echo -e "${B}Test after deploy:${N}"
+echo -e "  1. https://prove-rank.vercel.app/admin/x7k2p"
+echo -e "  2. SuperAdmin se login karo → full sidebar with all sections"
+echo -e "  3. Logo pe click karo → sidebar open hoga"
+echo -e "  4. Saare tabs check karo — Live Monitor, Snapshots, Analytics, Export etc."
+echo ""

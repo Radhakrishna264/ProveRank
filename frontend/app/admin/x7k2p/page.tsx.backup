@@ -48,15 +48,6 @@ const Inp = ({label,value,onChange,type='text',placeholder='',style={}}:{label:s
   )
 }
 
-const TextArea = ({label,value,onChange,rows=4,placeholder='',mono=false}:{label?:string,value:string,onChange:(v:string)=>void,rows?:number,placeholder?:string,mono?:boolean})=>(
-  <div style={{marginBottom:14}}>
-    {label&&<label style={{fontSize:10,fontWeight:700,color:'#4D9FFF',display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>{label}</label>}
-    <textarea value={value} onChange={e=>onChange(e.target.value)} rows={rows} placeholder={placeholder}
-      style={{width:'100%',padding:'10px 13px',borderRadius:9,border:'1.5px solid #002D55',background:'#001628',color:'#E8F4FF',fontSize:mono?12:13,fontFamily:mono?'monospace':'Inter,sans-serif',resize:rows>4?'vertical':'none',outline:'none',boxSizing:'border-box'}}/>
-  </div>
-)
-
-
 // Uncontrolled input — uses ref, never loses focus on parent re-render
 const InpRef = React.forwardRef<HTMLInputElement,{label:string,defaultValue:string,type?:string,placeholder?:string}>(
   ({label,defaultValue,type='text',placeholder=''},ref)=>{
@@ -93,6 +84,9 @@ export default function AdminPanel() {
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [toast, setToast] = useState<{msg:string,type:'success'|'error'}|null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  // ── Textarea refs (uncontrolled) — fixes mobile keyboard disappear bug ──
+  const announceRef = useRef<HTMLTextAreaElement>(null)
+  const seoDescRef = useRef<HTMLTextAreaElement>(null)
 
   // Data states — empty by default, filled from API
   const [students, setStudents] = useState<Student[]>([])
@@ -127,7 +121,7 @@ export default function AdminPanel() {
   const [qUploadMethod, setQUploadMethod] = useState<'manual'|'excel'|'pdf'|'copypaste'>('manual')
   const [manualQText, setManualQText] = useState('')
   const [answerKeyText, setAnswerKeyText] = useState('')
-  const [excelFile, setExcelFile] = useState<File|null>(null)
+    const [excelFile, setExcelFile] = useState<File|null>(null)
   const [pdfFile, setPdfFile] = useState<File|null>(null)
   const [uploadingQ, setUploadingQ] = useState(false)
   const [uploadResult, setUploadResult] = useState<{success:number,failed:number}|null>(null)
@@ -346,11 +340,11 @@ export default function AdminPanel() {
     try{
       let res: Response|null = null
       if(qUploadMethod==='copypaste'||qUploadMethod==='manual'){
-        if(!manualQText){showToast('Paste question text first','error');setUploadingQ(false);return}
+        const liveQText=manualQText;const liveAKey=answerKeyText;if(!liveQText.trim()){showToast('Paste question text first','error');setUploadingQ(false);return}
         res = await fetch(`${API}/api/upload/copypaste/questions`,{
           method:'POST',
           headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-          body:JSON.stringify({examId:createdExamId, text:manualQText, answerKey:answerKeyText})
+          body:JSON.stringify({examId:createdExamId, text:liveQText, answerKey:liveAKey})
         })
       } else if(qUploadMethod==='excel'){
         if(!excelFile){showToast('Select Excel file','error');setUploadingQ(false);return}
@@ -380,16 +374,16 @@ export default function AdminPanel() {
   }
 
   const sendAnnounce = async()=>{
-    if(!announceText){showToast('Write announcement first','error');return}
+    const announceVal=announceRef.current?.value||'';if(!announceVal){showToast('Write announcement first','error');return}
     try{
       let res = await fetch(`${API}/api/admin/announce`,{
         method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-        body:JSON.stringify({message:announceText,batch:announceBatch})
+        body:JSON.stringify({message:announceVal,batch:announceBatch})
       })
       if(!res.ok){
         res = await fetch(`${API}/api/admin/manage/announce`,{
           method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-          body:JSON.stringify({message:announceText,batch:announceBatch})
+          body:JSON.stringify({message:announceVal,batch:announceBatch})
         })
       }
       showToast(res.ok?'Announcement sent!':'Announcement sent (check backend)')
@@ -593,7 +587,7 @@ export default function AdminPanel() {
           <Card>
             <CardHeader title="📢 Quick Announcement"/>
             <div style={{padding:'16px 20px'}}>
-              <TextArea value={announceText} onChange={setAnnounceText} rows={3} placeholder="Type announcement..."/>
+              <textarea ref={announceRef} rows={3} placeholder="Type announcement..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',resize:'none',outline:'none',boxSizing:'border-box'}}/>
               <div style={{display:'flex',gap:8,marginTop:10,alignItems:'center'}}>
                 <select value={announceBatch} onChange={e=>setAnnounceBatch(e.target.value)} style={{padding:'8px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none'}}>
                   <option value="all">All Students</option>
@@ -608,7 +602,7 @@ export default function AdminPanel() {
             <CardHeader title="✅ Tasks" action={<span style={{fontSize:11,color:ts}}>{todos.filter(t=>!t.done).length} pending</span>}/>
             <div style={{padding:'12px 16px'}}>
               <div style={{display:'flex',gap:8,marginBottom:10}}>
-                <input value={todoInput} onChange={e=>setTodoInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTodo()} placeholder="Add task..." style={{flex:1,padding:'7px 11px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none'}}/>
+                <input defaultValue={todoInput} onInput={e=>setTodoInput((e.target as HTMLInputElement).value)} onKeyDown={e=>e.key==='Enter'&&addTodo()} placeholder="Add task..." style={{flex:1,padding:'7px 11px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none'}}/>
                 <Btn onClick={addTodo}>+</Btn>
               </div>
               {todos.map(t=>(
@@ -696,7 +690,7 @@ export default function AdminPanel() {
     <Card>
       <CardHeader title={`📋 All Exams (${exams.length})`} action={
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          <input value={examSearchFilter} onChange={e=>setExamSearchFilter(e.target.value)} placeholder="Search exams..." style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none',width:180}}/>
+          <input defaultValue={examSearchFilter} onInput={e=>setExamSearchFilter((e.target as HTMLInputElement).value)} placeholder="Search exams..." style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none',width:180}}/>
           <Btn onClick={()=>{setExamStep(1);navTo('create_exam')}}>+ New</Btn>
         </div>
       }/>
@@ -785,25 +779,22 @@ export default function AdminPanel() {
                 ))}
               </div>
             </div>
-            {(qUploadMethod==='manual'||qUploadMethod==='copypaste') && (
-              <div>
+            <div style={{display:(qUploadMethod==='manual'||qUploadMethod==='copypaste')?'block':'none'}}>
                 <div style={{padding:'12px',background:'rgba(77,159,255,0.04)',borderRadius:10,border:`1px solid ${bord}`,marginBottom:12,fontSize:11,color:ts}}>
                   Format: Q1. Question text?{'\n'}A) Option A{'\n'}B) Option B{'\n'}C) Option C{'\n'}D) Option D
                 </div>
                 <div style={{marginBottom:14}}>
                   <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Paste Questions</label>
-                  <TextArea value={manualQText} onChange={setManualQText} rows={8} placeholder="Paste questions here..." mono={true}/>
+                  <textarea onChange={e=>setManualQText(e.target.value)} rows={8} id="manualQBox" placeholder="Paste questions here..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'monospace',resize:'vertical',outline:'none',boxSizing:'border-box'}}/>
                 </div>
                 <div style={{marginBottom:14}}>
                   <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Answer Key (optional)</label>
-                  <TextArea value={answerKeyText} onChange={setAnswerKeyText} rows={4} placeholder="1-B 2-A 3-D" mono={true}/>
+                  <textarea onChange={e=>setAnswerKeyText(e.target.value)} rows={4} placeholder="1-B 2-A 3-D" style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'monospace',resize:'none',outline:'none',boxSizing:'border-box'}}/>
                 </div>
-              </div>
-            )}
-            {qUploadMethod==='excel' && (
-              <div>
+            </div>
+            <div style={{display:qUploadMethod==='excel'?'block':'none'}}>
                 <div style={{padding:'14px',background:'rgba(0,196,140,0.04)',borderRadius:10,border:'1px solid rgba(0,196,140,0.2)',marginBottom:16}}>
-                  <div style={{fontSize:12,color:'#00C48C',fontWeight:700,marginBottom:6}}>📊 Excel Format (POST /api/excel/upload)</div>
+                  <div style={{fontSize:12,color:'#00C48C',fontWeight:700,marginBottom:6}}>📊 Excel Format (POST /api/excel/questions)</div>
                   <div style={{fontSize:11,color:ts}}>Columns: <code style={{color:accent}}>question | optionA | optionB | optionC | optionD | correctOption | subject | difficulty</code></div>
                 </div>
                 <div style={{padding:'30px',borderRadius:12,border:`2px dashed ${iBrd}`,background:iBg,textAlign:'center',cursor:'pointer',position:'relative',marginBottom:16}}
@@ -815,12 +806,10 @@ export default function AdminPanel() {
                   <input type="file" accept=".xlsx,.xls,.csv" onChange={e=>setExcelFile(e.target.files?.[0]||null)}
                     style={{position:'absolute',inset:0,opacity:0,cursor:'pointer'}}/>
                 </div>
-              </div>
-            )}
-            {qUploadMethod==='pdf' && (
-              <div>
+            </div>
+            <div style={{display:qUploadMethod==='pdf'?'block':'none'}}>
                 <div style={{padding:'14px',background:'rgba(168,85,247,0.04)',borderRadius:10,border:'1px solid rgba(168,85,247,0.2)',marginBottom:16}}>
-                  <div style={{fontSize:12,color:'#A855F7',fontWeight:700,marginBottom:6}}>📄 PDF Parser (POST /api/upload/pdf)</div>
+                  <div style={{fontSize:12,color:'#A855F7',fontWeight:700,marginBottom:6}}>📄 PDF Parser (POST /api/upload/pdf/questions)</div>
                   <div style={{fontSize:11,color:ts}}>Upload question paper PDF — system will auto-extract questions.</div>
                 </div>
                 <div style={{padding:'30px',borderRadius:12,border:`2px dashed ${iBrd}`,background:iBg,textAlign:'center',cursor:'pointer',position:'relative',marginBottom:16}}
@@ -833,10 +822,9 @@ export default function AdminPanel() {
                 </div>
                 <div style={{marginBottom:14}}>
                   <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Answer Key (if separate)</label>
-                  <TextArea value={answerKeyText} onChange={setAnswerKeyText} rows={4} placeholder="1-B, 2-A, 3-D ..." mono={true}/>
+                  <textarea onChange={e=>setAnswerKeyText(e.target.value)} rows={4} placeholder="1-B, 2-A, 3-D ..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'monospace',resize:'none',outline:'none',boxSizing:'border-box'}}/>
                 </div>
-              </div>
-            )}
+            </div>
             <div style={{display:'flex',gap:10,marginTop:8}}>
               <Btn onClick={uploadQuestions} disabled={uploadingQ} style={{flex:1}}>
                 {uploadingQ?'⏳ Uploading...':'📤 Upload Questions'}
@@ -846,7 +834,6 @@ export default function AdminPanel() {
           </div>
         </Card>
       )}
-
       {examStep===3 && (
         <Card style={{maxWidth:500}}>
           <div style={{padding:'40px',textAlign:'center'}}>
@@ -936,7 +923,7 @@ export default function AdminPanel() {
   const renderAllStudents = ()=>(
     <Card>
       <CardHeader title={`👥 All Students (${students.length})`} action={
-        <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Search..." style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none',width:180}}/>
+        <input defaultValue={searchQuery} onInput={e=>setSearchQuery((e.target as HTMLInputElement).value)} placeholder="Search..." style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none',width:180}}/>
       }/>
       {students.length===0&&<EmptyState icon={loadingMain?'⏳':'👥'} msg={loadingMain?'Loading students...':'No students registered yet'}/>}
       <TableComp headers={['#','Name','Email','Phone','Group','Integrity','Status','Joined','Actions']}>
@@ -1163,7 +1150,7 @@ export default function AdminPanel() {
         <div style={{padding:'20px'}}>
           <div style={{marginBottom:14}}>
             <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Announcement Text</label>
-            <TextArea value={announceText} onChange={setAnnounceText} rows={5} placeholder="Write your announcement..."/>
+            <textarea ref={announceRef} rows={5} placeholder="Write your announcement..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',resize:'none',outline:'none',boxSizing:'border-box'}}/>
           </div>
           <div style={{marginBottom:16}}>
             <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Target Batch</label>
@@ -1344,7 +1331,7 @@ export default function AdminPanel() {
         <Inp label="Meta Title" value={seoTitle} onChange={setSeoTitle}/>
         <div style={{marginBottom:14}}>
           <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Meta Description</label>
-          <TextArea value={seoDesc} onChange={setSeoDesc} rows={3}/>
+          <textarea ref={seoDescRef} rows={3} style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',resize:'none',outline:'none',boxSizing:'border-box'}}/>
           <div style={{fontSize:10,color:ts,marginTop:4}}>{seoDesc.length}/160 characters</div>
         </div>
         <div style={{padding:'14px',borderRadius:10,border:'1px solid rgba(0,196,140,0.2)',background:'rgba(0,196,140,0.04)',marginBottom:14}}>
@@ -1510,7 +1497,7 @@ export default function AdminPanel() {
       <CardHeader title="✅ Admin Task Manager (M13)"/>
       <div style={{padding:'20px'}}>
         <div style={{display:'flex',gap:8,marginBottom:16}}>
-          <input value={todoInput} onChange={e=>setTodoInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTodo()} placeholder="Add new task..." style={{flex:1,padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}/>
+          <input defaultValue={todoInput} onInput={e=>setTodoInput((e.target as HTMLInputElement).value)} onKeyDown={e=>e.key==='Enter'&&addTodo()} placeholder="Add new task..." style={{flex:1,padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}/>
           <Btn onClick={addTodo}>+ Add</Btn>
         </div>
         {todos.map(t=>(
