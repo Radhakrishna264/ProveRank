@@ -430,7 +430,7 @@ export default function AdminPanel() {
     if(!extStdId){T('Student ID chahiye','e');return}
     try{
       const res=await fetch(`${API}/api/admin/extend-time`,{method:'POST',headers:HJ(),body:JSON.stringify({studentId:extStdId,extraMinutes:parseInt(extMins)||10})})
-      if(res.ok)T(`${extMins} min extra time diya`)else T('Extension failed','e')
+      if(res.ok){T(`${extMins} min extra time diya`)}else{T('Extension failed','e')}
     }catch{T('Network error','e')}
   },[extStdId,extMins,HJ,T])
 
@@ -623,7 +623,7 @@ export default function AdminPanel() {
             <button onClick={()=>setNotifOpen(false)} style={{background:'none',border:'none',color:DIM,fontSize:16,cursor:'pointer'}}>✕</button>
           </div>
           {notifs.length===0?<p style={{color:DIM,fontSize:12}}>No notifications</p>:notifs.map(n=>(
-            <div key={n.id} style={{...cs,padding:'8px 12px',opacity:n.read?.0.6:1,marginBottom:6}}>
+            <div key={n.id} style={{...cs,padding:'8px 12px',opacity:n.read?0.6:1,marginBottom:6}}>
               <div style={{fontSize:12,fontWeight:n.read?400:600}}>{n.icon} {n.msg}</div>
               <div style={{fontSize:10,color:DIM}}>{n.t}</div>
             </div>
