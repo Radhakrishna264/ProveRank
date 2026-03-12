@@ -386,7 +386,7 @@ if(!_qt){showToast('Paste question text first','error');setUploadingQ(false);ret
       } else if(qUploadMethod==='pdf'){
         if(!pdfFile){showToast('Select PDF file','error');setUploadingQ(false);return}
         const fd=new FormData(); fd.append('pdf',pdfFile); fd.append('examId',createdExamId)
-        res = await fetch(`${API}/api/upload/pdf`,{method:'POST', headers:{Authorization:`Bearer ${token}`}, body:fd})
+        res = await fetch(`${API}/api/upload/pdf/questions`,{method:'POST', headers:{Authorization:`Bearer ${token}`}, body:fd})
       }
       if(res?.ok){
         const d=await res.json()
