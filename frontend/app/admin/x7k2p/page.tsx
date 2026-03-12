@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { getToken, getRole, clearAuth } from '@/lib/auth'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
+const _live={qText:'',answerKey:''}
 
 // ═══════════════════════════════════════════════════
 // TYPES
@@ -121,9 +122,7 @@ export default function AdminPanel() {
   const [qUploadMethod, setQUploadMethod] = useState<'manual'|'excel'|'pdf'|'copypaste'>('manual')
   const [manualQText, setManualQText] = useState('')
   const [answerKeyText, setAnswerKeyText] = useState('')
-  const manualQLive = React.useRef('')
-  const answerKeyLive = React.useRef('')
-  const [excelFile, setExcelFile] = useState<File|null>(null)
+    const [excelFile, setExcelFile] = useState<File|null>(null)
   const [pdfFile, setPdfFile] = useState<File|null>(null)
   const [uploadingQ, setUploadingQ] = useState(false)
   const [uploadResult, setUploadResult] = useState<{success:number,failed:number}|null>(null)
@@ -342,7 +341,7 @@ export default function AdminPanel() {
     try{
       let res: Response|null = null
       if(qUploadMethod==='copypaste'||qUploadMethod==='manual'){
-        const liveQText=manualQLive.current||manualQText;const liveAKey=answerKeyLive.current||answerKeyText;if(!liveQText.trim()){showToast('Paste question text first','error');setUploadingQ(false);return}
+        const liveQText=_live.qText||manualQText;const liveAKey=_live.answerKey||answerKeyText;if(!liveQText.trim()){showToast('Paste question text first','error');setUploadingQ(false);return}
         res = await fetch(`${API}/api/upload/copypaste/questions`,{
           method:'POST',
           headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
@@ -787,11 +786,11 @@ export default function AdminPanel() {
                 </div>
                 <div style={{marginBottom:14}}>
                   <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Paste Questions</label>
-                  <textarea value={manualQText} onChange={e=>{e.stopPropagation();manualQLive.current=e.target.value;setManualQText(e.target.value)}} rows={8} placeholder="Paste questions here..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'monospace',resize:'vertical',outline:'none',boxSizing:'border-box'}}/>
+                  <textarea value={manualQText} onChange={e=>{e.stopPropagation();_live.qText=e.target.value;setManualQText(e.target.value)}} rows={8} placeholder="Paste questions here..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'monospace',resize:'vertical',outline:'none',boxSizing:'border-box'}}/>
                 </div>
                 <div style={{marginBottom:14}}>
                   <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Answer Key (optional)</label>
-                  <textarea value={answerKeyText} onChange={e=>{e.stopPropagation();answerKeyLive.current=e.target.value;setAnswerKeyText(e.target.value)}} rows={4} placeholder="1-B&#10;2-A&#10;3-D" style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'monospace',resize:'none',outline:'none',boxSizing:'border-box'}}/>
+                  <textarea value={answerKeyText} onChange={e=>{e.stopPropagation();_live.answerKey=e.target.value;setAnswerKeyText(e.target.value)}} rows={4} placeholder="1-B&#10;2-A&#10;3-D" style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'monospace',resize:'none',outline:'none',boxSizing:'border-box'}}/>
                 </div>
             </div>
             <div style={{display:qUploadMethod==='excel'?'block':'none'}}>
@@ -824,7 +823,7 @@ export default function AdminPanel() {
                 </div>
                 <div style={{marginBottom:14}}>
                   <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Answer Key (if separate)</label>
-                  <textarea value={answerKeyText} onChange={e=>{e.stopPropagation();answerKeyLive.current=e.target.value;setAnswerKeyText(e.target.value)}} rows={4} placeholder="1-B, 2-A, 3-D ..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'monospace',resize:'none',outline:'none',boxSizing:'border-box'}}/>
+                  <textarea value={answerKeyText} onChange={e=>{e.stopPropagation();_live.answerKey=e.target.value;setAnswerKeyText(e.target.value)}} rows={4} placeholder="1-B, 2-A, 3-D ..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'monospace',resize:'none',outline:'none',boxSizing:'border-box'}}/>
                 </div>
             </div>
             <div style={{display:'flex',gap:10,marginTop:8}}>
