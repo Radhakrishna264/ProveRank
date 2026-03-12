@@ -284,8 +284,8 @@ export default function AdminPanel() {
         const eid=d._id||d.id||d.examId
         if(eid){setCreatedEId(eid);T('Exam created! Questions upload karo ab');setEStep(2);fetch(`${API}/api/exams`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setExams(d))}
         else{T('Exam created (ID missing)','w');setEStep(2)}
-      }else{const e=await res.json().catch(()=>({}));T(`❌ ${e.message||e.error||'Server error: '+res.status} — Check API`,'e')}
-    }catch(e:any){T(`🌐 Network error: ${e.message} — Backend online hai?`,'e')}
+      }else{const e=await res.json().catch(()=>({}));T(`❌ Status:${res.status} — ${e.message||e.error||JSON.stringify(e).slice(0,60)}`,'e')}
+    }catch(e:any){T(`🌐 ${e.message} — Backend: https://proverank.onrender.com`,'e')}
     setCreatingE(false)
   },[HJ,H,T])
 
