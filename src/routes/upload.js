@@ -57,7 +57,7 @@ router.post('/pdf', verifyToken, isSuperAdmin, upload.single('pdf'), async (req,
     }
     const pdfParse = require('pdf-parse');
     let parseError = null, parsed = null;
-    try { parsed = await pdfParse(req.file.buffer); } catch(e) { parseError = e.message; }
+    try { const fileBuffer = fs.readFileSync(req.file.path); parsed = await pdfParse(fileBuffer); } catch(e) { parseError = e.message; }
     if (parseError || !parsed?.text?.trim()) {
       console.error('[PDF_PARSE_ERROR]', parseError || 'Empty content');
       return res.status(422).json({ success: false, message: 'PDF content unparseable - flagged for review', error: parseError || 'Empty content', flagged: true });
