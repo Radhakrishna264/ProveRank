@@ -269,8 +269,8 @@ export default function AdminPanel() {
       const body={
         title,scheduledAt:new Date(date).toISOString(),
         totalMarks:parseInt(eMarksR.current)||720,
-        totalDurationSec:(parseInt(eDurR.current)||200)*60,
-        status:'upcoming',category:eCatR.current||'Full Mock',
+        duration:parseInt(eDurR.current)||200,
+        category:eCatR.current||'Full Mock',
         password:ePassR.current||undefined,
         sections:[
           {name:'Physics',numQuestions:45,marksPerCorrect:4,marksPerWrong:-1},
