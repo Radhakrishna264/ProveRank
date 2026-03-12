@@ -439,7 +439,7 @@ export default function AdminPanel() {
     setSavingB(true)
     try{
       const res=await fetch(`${API}/api/admin/branding`,{method:'POST',headers:HJ(),body:JSON.stringify({brandName:bNameR.current,tagline:bTagR.current,supportEmail:bMailR.current,seoTitle:seoTR.current,seoDesc:seoDR.current})})
-      if(res.ok)T('Branding saved!')else T('Save failed','e')
+      if(res.ok){T('Branding saved!')}else{ T('Save failed','e')}
     }catch{T('Network error','e')}
     setSavingB(false)
   },[HJ,T])
@@ -465,7 +465,7 @@ export default function AdminPanel() {
   const doBackup=useCallback(async()=>{
     try{
       const res=await fetch(`${API}/api/admin/backup`,{method:'POST',headers:H()})
-      if(res.ok)T('Backup triggered!')else T('Backup failed','e')
+      if(res.ok){T('Backup triggered!')}else{ T('Backup failed','e')}
     }catch{T('Network error','e')}
   },[H,T])
 
@@ -506,7 +506,7 @@ export default function AdminPanel() {
     if(!batchTransStdId||!batchTransTo){T('Student ID aur target batch chahiye','e');return}
     try{
       const res=await fetch(`${API}/api/admin/manage/batch-transfer`,{method:'POST',headers:HJ(),body:JSON.stringify({studentId:batchTransStdId,toBatch:batchTransTo})})
-      if(res.ok)T('Transfer done!')else T('Transfer failed','e')
+      if(res.ok){T('Transfer done!')}else{ T('Transfer failed','e')}
     }catch{T('Network error','e')}
   },[batchTransStdId,batchTransTo,HJ,T])
 
@@ -526,7 +526,7 @@ export default function AdminPanel() {
   const savePerms=useCallback(async()=>{
     try{
       const res=await fetch(`${API}/api/admin/permissions`,{method:'POST',headers:HJ(),body:JSON.stringify(perms)})
-      if(res.ok)T('Permissions saved!')else T('Save failed','e')
+      if(res.ok){T('Permissions saved!')}else{ T('Save failed','e')}
     }catch{T('Network error','e')}
   },[perms,HJ,T])
 
