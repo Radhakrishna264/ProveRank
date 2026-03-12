@@ -1,1743 +1,1558 @@
 'use client'
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import { getToken, getRole, clearAuth } from '@/lib/auth'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 
-// ═══════════════════════════════════════════════════
-// TYPES
-// ═══════════════════════════════════════════════════
-interface Student { _id:string; name:string; email:string; phone?:string; role:string; createdAt:string; banned?:boolean; banReason?:string; group?:string; integrityScore?:number }
-interface Exam { _id:string; title:string; scheduledAt:string; totalMarks:number; totalDurationSec:number; status:string; attempts:number; category?:string; password?:string }
-interface Log { _id:string; action:string; by:string; at:string; detail:string }
-interface Flag { _id:string; studentName:string; examTitle:string; type:string; count:number; severity:string; at:string }
-interface Ticket { _id:string; studentName:string; examTitle:string; type:string; status:string; createdAt:string; description:string }
-interface Feature { key:string; label:string; description:string; enabled:boolean }
-interface Notif { id:string; icon:string; msg:string; t:string; read:boolean }
-interface LeaderEntry { rank:number; name:string; score:number; percentile:number; studentId?:string }
-interface Snapshot { _id:string; studentName:string; examTitle:string; imageUrl?:string; flagged:boolean; capturedAt:string }
+// ═══ TYPES ═══
+interface Student { _id:string;name:string;email:string;phone?:string;role:string;createdAt:string;banned?:boolean;banReason?:string;group?:string;integrityScore?:number;loginHistory?:any[] }
+interface Exam { _id:string;title:string;scheduledAt:string;totalMarks:number;totalDurationSec:number;status:string;attempts?:number;category?:string;password?:string;createdAt?:string }
+interface Question { _id:string;text:string;subject:string;chapter?:string;difficulty:string;type:string;options?:string[];correctAnswer?:string }
+interface Log { _id:string;action:string;by:string;at:string;detail:string }
+interface Flag { _id:string;studentName:string;examTitle:string;type:string;count:number;severity:string;at:string }
+interface Ticket { _id:string;studentName:string;examTitle:string;type:string;status:string;createdAt:string;description:string }
+interface Feature { key:string;label:string;description:string;enabled:boolean }
+interface Notif { id:string;icon:string;msg:string;t:string;read:boolean }
+interface Snapshot { _id:string;studentName:string;examTitle?:string;imageUrl?:string;flagged:boolean;capturedAt:string }
+interface Batch { _id:string;name:string;studentCount:number;examCount:number;createdAt:string }
+interface AdminUser { _id:string;name:string;email:string;role:string;createdAt:string;active:boolean }
 
-// ═══════════════════════════════════════════════════
-// DEFAULT FEATURE FLAGS
-// ═══════════════════════════════════════════════════
-const DEFAULT_FEATURES: Feature[] = [
-  { key:'webcam',        label:'Webcam Proctoring',    description:'Camera mandatory during exams',               enabled:true  },
-  { key:'audio',         label:'Audio Monitoring',     description:'Mic noise detection during exams',            enabled:false },
-  { key:'eye_tracking',  label:'Eye Tracking AI',      description:'Detect when student looks away from screen',  enabled:true  },
-  { key:'vpn_block',     label:'VPN/Proxy Block',      description:'Block VPN users from attempting exams',       enabled:false },
-  { key:'live_rank',     label:'Live Rank Updates',    description:'Real-time rank via Socket.io during exam',    enabled:true  },
-  { key:'social_share',  label:'Social Share Result',  description:'Students can share result card on WhatsApp',  enabled:true  },
-  { key:'parent_portal', label:'Parent Portal',        description:'Separate login for parents',                  enabled:false },
-  { key:'pyq_bank',      label:'PYQ Bank Access',      description:'Previous year questions accessible',          enabled:true  },
-  { key:'maintenance',   label:'Maintenance Mode',     description:'Block student access — admin still accessible',enabled:false },
-  { key:'sms_notify',    label:'SMS Notifications',    description:'Result SMS via Twilio/Fast2SMS',              enabled:false },
+// ═══ DEFAULT FEATURES (N21) ═══
+const DEF_FEATURES: Feature[] = [
+  {key:'webcam',       label:'Webcam Proctoring',      description:'Camera compulsory during exams (Phase 5.2)',        enabled:true },
+  {key:'audio',        label:'Audio Monitoring',       description:'Mic noise detection optional (S57/Phase 5.3)',      enabled:false},
+  {key:'eye_tracking', label:'Eye Tracking AI',        description:'Screen se neeche dekhna detect (S-ET)',             enabled:true },
+  {key:'face_detect',  label:'Face Detection TF.js',   description:'Multi/no-face detection (Phase 5.4)',               enabled:true },
+  {key:'head_pose',    label:'Head Pose Detection',    description:'Sar ka angle track karo (S73)',                     enabled:true },
+  {key:'vbg_block',    label:'Virtual BG Detection',   description:'Fake background detect + block (S74)',             enabled:true },
+  {key:'vpn_block',    label:'VPN/Proxy Block',        description:'VPN users block (S20)',                            enabled:false},
+  {key:'live_rank',    label:'Live Rank Updates',      description:'Socket.io real-time rank (S107)',                  enabled:true },
+  {key:'social_share', label:'Social Share Result',    description:'WhatsApp/Instagram share (S99)',                   enabled:true },
+  {key:'parent_portal',label:'Parent Portal',          description:'Child progress read-only (N17)',                   enabled:false},
+  {key:'pyq_bank',     label:'PYQ Bank Access',        description:'NEET 2015-2024 questions (S104)',                  enabled:true },
+  {key:'maintenance',  label:'Maintenance Mode',       description:'Students block, admin accessible (S66)',           enabled:false},
+  {key:'sms_notify',   label:'SMS Notifications',      description:'Result SMS Twilio/Fast2SMS (M19)',                 enabled:false},
+  {key:'whatsapp',     label:'WhatsApp Alerts',        description:'Exam reminders WhatsApp (S65)',                    enabled:false},
+  {key:'ai_tagger',    label:'AI Auto-Tagger',         description:'Auto difficulty/subject tag (AI-1/AI-2)',          enabled:true },
+  {key:'ai_explain',   label:'AI Explanation Gen',     description:'Auto explanation generate (AI-10)',                enabled:true },
+  {key:'two_fa',       label:'2FA Admin Login',        description:'OTP mandatory for admins (S49)',                   enabled:true },
+  {key:'ip_lock',      label:'IP Lock During Exam',    description:'IP change mid-exam block (S20)',                   enabled:true },
+  {key:'fullscreen',   label:'Fullscreen Force Mode',  description:'3 exits = auto-submit (S32)',                      enabled:true },
+  {key:'watermark',    label:'Screen Watermark',       description:'Student naam/ID watermark (S76)',                  enabled:true },
+  {key:'integrity',    label:'AI Integrity Score',     description:'0-100 score per exam (AI-6)',                      enabled:true },
+  {key:'n14_pattern',  label:'Suspicious Pattern Det', description:'Fast/identical answers flag (N14)',               enabled:true },
+  {key:'onboarding',   label:'Platform Onboard Tour',  description:'New student guided tour (S100)',                   enabled:true },
+  {key:'n23_encrypt',  label:'Paper Encryption',       description:'Questions encrypted in browser (N23)',            enabled:false},
 ]
 
-// ═══════════════════════════════════════════════════
-// STABLE SUB-COMPONENTS (outside main component — fixes keyboard focus loss)
-// ═══════════════════════════════════════════════════
-const Inp = ({label,value,onChange,type='text',placeholder='',style={}}:{label:string,value:string,onChange:(v:string)=>void,type?:string,placeholder?:string,style?:any})=>{
-  const accent='#4D9FFF', iBrd='#002D55', iBg='#001628', tm='#E8F4FF'
-  return (
-    <div style={{marginBottom:14,...style}}>
-      <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>{label}</label>
-      <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
-        style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box'}}/>
-    </div>
-  )
-}
+// ══════════════════════════════════════════════════════
+// MOBILE KEYBOARD FIX — React.memo + useRef pattern
+// Screenshot mein dekha: textarea mein text tha lekin
+// "Questions text required" aa raha tha — yahi fix hai.
+// Ye components parent state change se re-render NAHI
+// hote, isliye mobile keyboard band nahi hota.
+// ══════════════════════════════════════════════════════
+const SInput = memo(function SInput({init='',onSet,style,ph,type='text',disabled=false}:{init?:string;onSet:(v:string)=>void;style?:any;ph?:string;type?:string;disabled?:boolean}) {
+  const [v,setV]=useState(init)
+  useEffect(()=>{setV(init)},[init])
+  return <input type={type} value={v} disabled={disabled} placeholder={ph} style={style} onChange={e=>{const x=e.target.value;setV(x);onSet(x)}} />
+})
 
-const TextArea = ({label,value,onChange,rows=4,placeholder='',mono=false}:{label?:string,value:string,onChange:(v:string)=>void,rows?:number,placeholder?:string,mono?:boolean})=>(
-  <div style={{marginBottom:14}}>
-    {label&&<label style={{fontSize:10,fontWeight:700,color:'#4D9FFF',display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>{label}</label>}
-    <textarea value={value} onChange={e=>onChange(e.target.value)} rows={rows} placeholder={placeholder}
-      style={{width:'100%',padding:'10px 13px',borderRadius:9,border:'1.5px solid #002D55',background:'#001628',color:'#E8F4FF',fontSize:mono?12:13,fontFamily:mono?'monospace':'Inter,sans-serif',resize:rows>4?'vertical':'none',outline:'none',boxSizing:'border-box'}}/>
-  </div>
-)
+const STextarea = memo(function STextarea({init='',onSet,style,ph,rows=4}:{init?:string;onSet:(v:string)=>void;style?:any;ph?:string;rows?:number}) {
+  const [v,setV]=useState(init)
+  useEffect(()=>{setV(init)},[init])
+  return <textarea value={v} rows={rows} placeholder={ph} style={style} onChange={e=>{const x=e.target.value;setV(x);onSet(x)}} />
+})
 
+const SSelect = memo(function SSelect({val,onChange,opts,style}:{val:string;onChange:(v:string)=>void;opts:{v:string;l:string}[];style?:any}) {
+  return <select value={val} onChange={e=>onChange(e.target.value)} style={style}>{opts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select>
+})
 
-// Uncontrolled input — uses ref, never loses focus on parent re-render
-const InpRef = React.forwardRef<HTMLInputElement,{label:string,defaultValue:string,type?:string,placeholder?:string}>(
-  ({label,defaultValue,type='text',placeholder=''},ref)=>{
-    const accent='#4D9FFF', iBrd='#002D55', iBg='#001628', tm='#E8F4FF'
-    return (
-      <div style={{marginBottom:14}}>
-        <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>{label}</label>
-        <input ref={ref} type={type} defaultValue={defaultValue} placeholder={placeholder}
-          style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box'}}/>
-      </div>
-    )
-  }
-)
-InpRef.displayName='InpRef'
+// ═══ THEME ═══
+const BG='#000A18',CRD='#001628',ACC='#4D9FFF',BOR='rgba(77,159,255,0.2)'
+const TS='#E8F4FF',DIM='#7BA8CC',SUC='#00C48C',DNG='#FF4D4D',WRN='#FFB84D'
+const inp:any={width:'100%',padding:'10px 12px',background:'#001F3A',border:`1px solid ${BOR}`,borderRadius:8,color:TS,fontSize:14,fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box'}
+const bp:any={background:ACC,color:'#000',border:'none',borderRadius:8,padding:'10px 20px',cursor:'pointer',fontWeight:700,fontSize:13,fontFamily:'Inter,sans-serif'}
+const bg_:any={background:'rgba(77,159,255,0.1)',color:ACC,border:`1px solid ${BOR}`,borderRadius:8,padding:'8px 16px',cursor:'pointer',fontWeight:600,fontSize:12,fontFamily:'Inter,sans-serif'}
+const bd:any={background:DNG,color:'#fff',border:'none',borderRadius:8,padding:'8px 16px',cursor:'pointer',fontWeight:700,fontSize:12}
+const cs:any={background:CRD,border:`1px solid ${BOR}`,borderRadius:12,padding:16,marginBottom:12}
+const lbl:any={display:'block',fontSize:12,color:DIM,marginBottom:4,fontFamily:'Inter,sans-serif',fontWeight:600}
 
-const TaRef = React.forwardRef<HTMLTextAreaElement,{placeholder?:string,rows?:number,defaultValue?:string}>( 
-  ({placeholder,rows=6,defaultValue=''}, ref) => (
-    <textarea ref={ref} defaultValue={defaultValue} placeholder={placeholder} rows={rows}
-      style={{width:'100%',background:'#0d1117',color:'#e6edf3',border:'1px solid #30363d',borderRadius:8,padding:'10px 12px',fontSize:14,resize:'vertical',outline:'none',fontFamily:'inherit'}} />
-  )
-)
-TaRef.displayName='TaRef'
-
-
-// ═══════════════════════════════════════════════════
-// MAIN COMPONENT
-// ═══════════════════════════════════════════════════
+// ═══ MAIN COMPONENT ═══
 export default function AdminPanel() {
-  const router = useRouter()
-  const [role, setRole] = useState('')
-  const [token, setToken] = useState('')
-  const [mounted, setMounted] = useState(false)
-  const [lang, setLang] = useState<'en'|'hi'>('en')
-  // FIX: Sidebar hidden by default — logo click se open hota hai
-  const [sideOpen, setSideOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState('dashboard')
-  const [expandedSections, setExpandedSections] = useState<string[]>(['exams','students','results','comms'])
-  const [searchQuery, setSearchQuery] = useState('')
-  const [globalSearch, setGlobalSearch] = useState('')
-  const [showGlobalSearch, setShowGlobalSearch] = useState(false)
-  const [notifOpen, setNotifOpen] = useState(false)
-  // FIX: Real notifications only — no fake ones
-  const [notifs, setNotifs] = useState<Notif[]>([])
-  const [toast, setToast] = useState<{msg:string,type:'success'|'error'}|null>(null)
-  const searchRef = useRef<HTMLInputElement>(null)
+  const router=useRouter()
+  const [role,setRole]=useState('')
+  const [token,setToken]=useState('')
+  const [mounted,setMounted]=useState(false)
+  const [tab,setTab]=useState('dashboard')
+  const [sideOpen,setSideOpen]=useState(false)
+  const [toast,setToast]=useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
+  const [notifOpen,setNotifOpen]=useState(false)
+  const [notifs,setNotifs]=useState<Notif[]>([])
+  const [loading,setLoading]=useState(true)
 
-  // Data states — empty by default, filled from API
-  const [students, setStudents] = useState<Student[]>([])
-  const [exams, setExams] = useState<Exam[]>([])
-  const [flags, setFlags] = useState<Flag[]>([])
-  const [logs, setLogs] = useState<Log[]>([])
-  const [tickets, setTickets] = useState<Ticket[]>([])
-  const [features, setFeatures] = useState<Feature[]>(DEFAULT_FEATURES)
-  const [stats, setStats] = useState<any>(null)
-  const [leaderboard, setLeaderboard] = useState<LeaderEntry[]>([])
-  const [snapshots, setSnapshots] = useState<Snapshot[]>([])
-  const [loadingStats, setLoadingStats] = useState(true)
-  const [loadingMain, setLoadingMain] = useState(true)
+  // Data
+  const [students,setStudents]=useState<Student[]>([])
+  const [exams,setExams]=useState<Exam[]>([])
+  const [questions,setQuestions]=useState<Question[]>([])
+  const [flags,setFlags]=useState<Flag[]>([])
+  const [logs,setLogs]=useState<Log[]>([])
+  const [tickets,setTickets]=useState<Ticket[]>([])
+  const [snapshots,setSnapshots]=useState<Snapshot[]>([])
+  const [features,setFeatures]=useState<Feature[]>(DEF_FEATURES)
+  const [stats,setStats]=useState<any>(null)
+  const [batches,setBatches]=useState<Batch[]>([])
+  const [adminUsers,setAdminUsers]=useState<AdminUser[]>([])
 
-  // Form states
-  const [banStudentId, setBanStudentId] = useState('')
-  const [banReason, setBanReason] = useState('')
-  const [banType, setBanType] = useState<'permanent'|'temporary'>('permanent')
-  const [announceText, setAnnounceText] = useState('')
-  const [announceBatch, setAnnounceBatch] = useState('all')
-  const [examSearchFilter, setExamSearchFilter] = useState('')
+  // Filters
+  const [stdSearch,setStdSearch]=useState('')
+  const [stdFilter,setStdFilter]=useState<'all'|'active'|'banned'>('all')
+  const [examSearch,setExamSearch]=useState('')
+  const [qSearch,setQSearch]=useState('')
+  const [selStudent,setSelStudent]=useState<Student|null>(null)
 
-  // FIX: Create Exam — refs for inputs to prevent keyboard dismiss on re-render
-  const refExamTitle = useRef<HTMLInputElement>(null)
-  const refExamDate = useRef<HTMLInputElement>(null)
-  const refExamMarks = useRef<HTMLInputElement>(null)
-  const refExamDur = useRef<HTMLInputElement>(null)
-  const refExamPass = useRef<HTMLInputElement>(null)
-  const refManualQ = useRef<HTMLTextAreaElement>(null)
-  const refAnswerKey = useRef<HTMLTextAreaElement>(null)
-  const refAnnounce = useRef<HTMLTextAreaElement>(null)
-  const refBanReason = useRef<HTMLInputElement>(null)
-  const refSearchQ = useRef<HTMLInputElement>(null)
-  const refTodoIn = useRef<HTMLInputElement>(null)
-  const [newExamCat, setNewExamCat] = useState('Full Mock')
-  const [examStep, setExamStep] = useState(1)
-  const [createdExamId, setCreatedExamId] = useState('')
-  const [qUploadMethod, setQUploadMethod] = useState<'manual'|'excel'|'pdf'|'copypaste'>('manual')
-  const [manualQText, setManualQText] = useState('')
-  const [answerKeyText, setAnswerKeyText] = useState('')
-  const [excelFile, setExcelFile] = useState<File|null>(null)
-  const [pdfFile, setPdfFile] = useState<File|null>(null)
-  const [uploadingQ, setUploadingQ] = useState(false)
-  const [uploadResult, setUploadResult] = useState<{success:number,failed:number}|null>(null)
+  // ── Exam Create Refs (mobile keyboard fix) ──
+  const eTitleR=useRef(''); const eDateR=useRef('')
+  const eMarksR=useRef('720'); const eDurR=useRef('200')
+  const eCatR=useRef('Full Mock'); const ePassR=useRef('')
+  const [eStep,setEStep]=useState(1)
+  const [createdEId,setCreatedEId]=useState('')
+  const [qMeth,setQMeth]=useState<'manual'|'excel'|'pdf'|'copypaste'>('copypaste')
+  const cpTxtR=useRef(''); const cpKeyR=useRef('')
+  const [excelF,setExcelF]=useState<File|null>(null)
+  const [pdfF,setPdfF]=useState<File|null>(null)
+  const [uploadingQ,setUploadingQ]=useState(false)
+  const [creatingE,setCreatingE]=useState(false)
+  const [upRes,setUpRes]=useState<{s:number;f:number;msg:string}|null>(null)
 
-  // Other states
-  const [todos, setTodos] = useState<{id:string,text:string,done:boolean}[]>([
+  // ── Question Bank Refs ──
+  const qTxtR=useRef(''); const qChapR=useRef('')
+  const qA=useRef(''); const qB=useRef(''); const qC=useRef(''); const qD=useRef('')
+  const [qSubj,setQSubj]=useState('Physics')
+  const [qDiff,setQDiff]=useState('medium')
+  const [qType,setQType]=useState('SCQ')
+  const [qAns,setQAns]=useState('A')
+  const [savingQ,setSavingQ]=useState(false)
+
+  // ── Ban Refs ──
+  const [banId,setBanId]=useState('')
+  const banReaR=useRef('')
+  const [banT,setBanT]=useState<'permanent'|'temporary'>('permanent')
+
+  // ── Announce Ref ──
+  const annR=useRef('')
+  const [annBatch,setAnnBatch]=useState('all')
+
+  // ── Branding Refs ──
+  const bNameR=useRef('ProveRank'); const bTagR=useRef('Prove Your Rank')
+  const bMailR=useRef('support@proverank.com')
+  const seoTR=useRef('ProveRank — NEET Online Test Platform')
+  const seoDR=useRef('Best NEET mock test platform with AI analytics and anti-cheat.')
+  const mainMsgR=useRef('Site under maintenance. Back soon!')
+  const [savingB,setSavingB]=useState(false)
+  const [mainOn,setMainOn]=useState(false)
+
+  // ── Impersonate ──
+  const [impId,setImpId]=useState('')
+
+  // ── Per-student time ext ──
+  const [extStdId,setExtStdId]=useState('')
+  const [extMins,setExtMins]=useState('10')
+
+  // ── Permissions ──
+  const [perms,setPerms]=useState({
+    create_exam:true,edit_exam:true,delete_exam:false,
+    ban_student:true,view_results:true,export_data:true,
+    manage_questions:true,send_announcements:true,
+    view_audit_logs:false,manage_features:false,
+    manage_admins:false,impersonate:false,
+  })
+
+  // ── Admin Create (S37) ──
+  const admNameR=useRef(''); const admEmailR=useRef(''); const admPassR=useRef('')
+  const [admRole,setAdmRole]=useState('admin')
+  const [creatingAdm,setCreatingAdm]=useState(false)
+
+  // ── Bulk Exam Creator (N8) ──
+  const [bulkExamFile,setBulkExamFile]=useState<File|null>(null)
+  const [bulkExamLoading,setBulkExamLoading]=useState(false)
+
+  // ── Smart Generator (S101) ──
+  const aiTopicR=useRef('')
+  const [aiCount,setAiCount]=useState('10')
+  const [aiSubj,setAiSubj]=useState('Physics')
+  const [aiDiff,setAiDiff]=useState('medium')
+  const [aiLoading,setAiLoading]=useState(false)
+  const [aiResult,setAiResult]=useState<any[]>([])
+
+  // ── Tasks (M13) ──
+  const [todos,setTodos]=useState([
     {id:'1',text:'Review upcoming exam questions',done:false},
     {id:'2',text:'Reply to pending tickets',done:false},
+    {id:'3',text:'Check server health before exam',done:false},
   ])
-  const [todoInput, setTodoInput] = useState('')
-  const [adminPermissions, setAdminPermissions] = useState({
-    create_exam:true, edit_exam:true, delete_exam:false,
-    ban_student:true, view_results:true, export_data:true,
-    manage_questions:true, send_announcements:true,
-    view_audit_logs:false, manage_features:false,
-  })
-  const [brandName, setBrandName] = useState('ProveRank')
-  const [brandTagline, setBrandTagline] = useState('Prove Your Rank')
-  const [brandSupport, setBrandSupport] = useState('support@proverank.com')
-  const [seoTitle, setSeoTitle] = useState('ProveRank — NEET Online Test Platform')
-  const [seoDesc, setSeoDesc] = useState('Best NEET mock test platform with AI-powered analytics, real-time ranking, and anti-cheat proctoring.')
-  const [impersonateId, setImpersonateId] = useState('')
-  const [aiTopic, setAiTopic] = useState('')
-  const [aiCount, setAiCount] = useState('10')
-  const [aiDifficulty, setAiDifficulty] = useState('medium')
-  const [aiSubject, setAiSubject] = useState('Physics')
-  const [aiLoading, setAiLoading] = useState(false)
-  const [aiResult, setAiResult] = useState<any[]>([])
+  const todoR=useRef('')
 
-  const toastTimer = useRef<any>(null)
-  const showToast = (msg:string, type:'success'|'error'='success') => {
-    if(toastTimer.current) clearTimeout(toastTimer.current)
-    setToast({msg,type}); toastTimer.current=setTimeout(()=>setToast(null),3500)
-  }
+  // ── Batches ──
+  const batchNameR=useRef('')
+  const [creatingBatch,setCreatingBatch]=useState(false)
+  const [batchTransStdId,setBatchTransStdId]=useState('')
+  const [batchTransTo,setBatchTransTo]=useState('')
 
-  // ═══════════════════════════════════════════════════
-  // MOUNT + AUTH CHECK
-  // ═══════════════════════════════════════════════════
+  // ── Changelogs ──
+  const clogs=[
+    {v:'V3.0',d:'Mar 12, 2026',chg:['Complete rebuild — mobile keyboard fix','Question upload 3-endpoint fallback','All 62 features active + real API wiring'],t:'major'},
+    {v:'V2.3',d:'Mar 11, 2026',chg:['Master combined','3-step wizard','Sidebar fix'],t:'minor'},
+  ]
+
+  // ══ UTILS ══
+  const T=useCallback((msg:string,tp:'s'|'e'|'w'='s')=>{setToast({msg,tp});setTimeout(()=>setToast(null),3500)},[])
+  const H=useCallback(()=>({Authorization:`Bearer ${token}`}),[token])
+  const HJ=useCallback(()=>({'Content-Type':'application/json',Authorization:`Bearer ${token}`}),[token])
+
+  // ══ AUTH ══
   useEffect(()=>{
-    const t = getToken(); const r = getRole()
+    const t=getToken(),r=getRole()
     if(!t||!['admin','superadmin'].includes(r)){router.replace('/login');return}
-    setToken(t); setRole(r)
-    setMounted(true)
-    const saved = localStorage.getItem('pr_lang') as 'en'|'hi'
-    if(saved) setLang(saved)
-  },[])
+    setToken(t);setRole(r);setMounted(true)
+  },[router])
 
-  useEffect(()=>{
-    if(!token) return
-    fetchAllData(token)
-  },[token])
+  useEffect(()=>{if(token)fetchAll()},[token])
 
-  useEffect(()=>{
-    if(showGlobalSearch) searchRef.current?.focus()
-  },[showGlobalSearch])
+  // ══ FETCH ALL DATA ══
+  const fetchAll=useCallback(async()=>{
+    if(!token)return
+    setLoading(true)
+    const get=async(u:string)=>{try{const r=await fetch(u,{headers:H()});return r.ok?r.json():null}catch{return null}}
+    const getFirst=async(...urls:string[])=>{for(const u of urls){try{const r=await fetch(u,{headers:H()});if(r.ok){const d=await r.json();if(d)return d}}catch{}}return null}
 
-  // ═══════════════════════════════════════════════════
-  // FETCH ALL DATA FROM REAL APIs
-  // ═══════════════════════════════════════════════════
-  const fetchAllData = async(t:string)=>{
-    const h = { Authorization:`Bearer ${t}` }
-    setLoadingMain(true); setLoadingStats(true)
+    const [us,ex,qs,st,fl,al,tk,sn,ft,nf,bt,au]=await Promise.all([
+      get(`${API}/api/admin/users`),
+      get(`${API}/api/exams`),
+      get(`${API}/api/questions`),
+      get(`${API}/api/admin/stats`),
+      getFirst(`${API}/api/admin/manage/cheating-logs`,`${API}/api/admin/cheating-logs`),
+      getFirst(`${API}/api/admin/manage/audit`,`${API}/api/admin/audit`),
+      getFirst(`${API}/api/admin/manage/tickets`,`${API}/api/admin/tickets`),
+      getFirst(`${API}/api/admin/manage/snapshots`,`${API}/api/admin/snapshots`),
+      get(`${API}/api/admin/features`),
+      get(`${API}/api/admin/notifications`),
+      getFirst(`${API}/api/admin/batches`,`${API}/api/admin/manage/batches`),
+      get(`${API}/api/admin/manage/admins`),
+    ])
 
-    // 1. Students + Exams (parallel)
-    try {
-      const [us, ex] = await Promise.all([
-        fetch(`${API}/api/admin/users`,{headers:h}).then(r=>r.ok?r.json():null),
-        fetch(`${API}/api/exams`,{headers:h}).then(r=>r.ok?r.json():null),
-      ])
-      if(Array.isArray(us)&&us.length) setStudents(us)
-      if(Array.isArray(ex)&&ex.length) setExams(ex)
-    }catch{}
+    if(Array.isArray(us))setStudents(us)
+    if(Array.isArray(ex))setExams(ex)
+    if(Array.isArray(qs))setQuestions(qs)
+    if(st)setStats(st)
+    if(Array.isArray(fl))setFlags(fl)
+    if(Array.isArray(al))setLogs(al)
+    if(Array.isArray(tk))setTickets(tk)
+    if(Array.isArray(sn))setSnapshots(sn)
+    if(Array.isArray(nf))setNotifs(nf)
+    if(Array.isArray(bt))setBatches(bt)
+    if(Array.isArray(au))setAdminUsers(au)
+    if(ft){
+      if(Array.isArray(ft)&&ft.length)setFeatures(ft)
+      else if(ft&&typeof ft==='object')setFeatures(DEF_FEATURES.map(f=>({...f,enabled:ft[f.key]!==undefined?Boolean(ft[f.key]):f.enabled})))
+    }
+    setLoading(false)
+  },[token,H])
 
-    // FIX: Stats — graceful fallback, no fake numbers
-    try {
-      const res = await fetch(`${API}/api/admin/stats`,{headers:h})
-      if(res.ok){ const d=await res.json(); setStats(d) }
-    }catch{}
-    setLoadingStats(false)
-
-    // Cheating flags
-    try {
-      const r1 = await fetch(`${API}/api/admin/manage/cheating-logs`,{headers:h})
-      if(r1.ok){ const d=await r1.json(); if(Array.isArray(d)&&d.length) setFlags(d) }
-      else {
-        const r2 = await fetch(`${API}/api/admin/cheating-logs`,{headers:h})
-        if(r2.ok){ const d=await r2.json(); if(Array.isArray(d)&&d.length) setFlags(d) }
+  // ══ CREATE EXAM STEP 1 ══
+  const createExamS1=useCallback(async()=>{
+    const title=eTitleR.current,date=eDateR.current
+    if(!title||!date){T('Title aur date dono required hain','e');return}
+    setCreatingE(true)
+    try{
+      const body={
+        title,scheduledAt:new Date(date).toISOString(),
+        totalMarks:parseInt(eMarksR.current)||720,
+        totalDurationSec:(parseInt(eDurR.current)||200)*60,
+        status:'upcoming',category:eCatR.current||'Full Mock',
+        password:ePassR.current||undefined,
+        sections:[
+          {name:'Physics',numQuestions:45,marksPerCorrect:4,marksPerWrong:-1},
+          {name:'Chemistry',numQuestions:45,marksPerCorrect:4,marksPerWrong:-1},
+          {name:'Biology',numQuestions:90,marksPerCorrect:4,marksPerWrong:-1},
+        ]
       }
-    }catch{}
-
-    // Audit logs
-    try {
-      const r1 = await fetch(`${API}/api/admin/manage/audit`,{headers:h})
-      if(r1.ok){ const d=await r1.json(); if(Array.isArray(d)&&d.length) setLogs(d) }
-      else {
-        const r2 = await fetch(`${API}/api/admin/audit`,{headers:h})
-        if(r2.ok){ const d=await r2.json(); if(Array.isArray(d)&&d.length) setLogs(d) }
-      }
-    }catch{}
-
-    // Tickets
-    try {
-      const r1 = await fetch(`${API}/api/admin/manage/tickets`,{headers:h})
-      if(r1.ok){ const d=await r1.json(); if(Array.isArray(d)&&d.length) setTickets(d) }
-      else {
-        const r2 = await fetch(`${API}/api/admin/tickets`,{headers:h})
-        if(r2.ok){ const d=await r2.json(); if(Array.isArray(d)&&d.length) setTickets(d) }
-      }
-    }catch{}
-
-    // Leaderboard
-    try {
-      const res = await fetch(`${API}/api/results/leaderboard`,{headers:h})
-      if(res.ok){ const d=await res.json(); if(Array.isArray(d)&&d.length) setLeaderboard(d) }
-    }catch{}
-
-    // Webcam Snapshots
-    try {
-      const r1 = await fetch(`${API}/api/admin/manage/snapshots`,{headers:h})
-      if(r1.ok){ const d=await r1.json(); if(Array.isArray(d)&&d.length) setSnapshots(d) }
-      else {
-        const r2 = await fetch(`${API}/api/admin/snapshots`,{headers:h})
-        if(r2.ok){ const d=await r2.json(); if(Array.isArray(d)&&d.length) setSnapshots(d) }
-      }
-    }catch{}
-
-    // Feature Flags
-    try {
-      const res = await fetch(`${API}/api/admin/features`,{headers:h})
-      if(res.ok){
+      const res=await fetch(`${API}/api/exams`,{method:'POST',headers:HJ(),body:JSON.stringify(body)})
+      if(res.ok||res.status===201){
         const d=await res.json()
-        if(Array.isArray(d)&&d.length) setFeatures(d)
-        else if(d&&typeof d==='object'&&!Array.isArray(d)){
-          setFeatures(DEFAULT_FEATURES.map(f=>({...f, enabled:d[f.key]!==undefined?Boolean(d[f.key]):f.enabled})))
+        const eid=d._id||d.id||d.examId
+        if(eid){setCreatedEId(eid);T('Exam created! Questions upload karo ab');setEStep(2);fetch(`${API}/api/exams`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setExams(d))}
+        else{T('Exam created (ID missing)','w');setEStep(2)}
+      }else{const e=await res.json().catch(()=>({}));T(e.message||`Error ${res.status}`,'e')}
+    }catch(e:any){T(e.message||'Network error','e')}
+    setCreatingE(false)
+  },[HJ,H,T])
+
+  // ══ UPLOAD QUESTIONS — FIXED (3 endpoint fallbacks per method) ══
+  const uploadQs=useCallback(async()=>{
+    const examId=createdEId
+    if(!examId){T('Pehle exam create karo (Step 1 complete karo)','e');return}
+    setUploadingQ(true);setUpRes(null)
+    try{
+      let res:Response|null=null
+
+      if(qMeth==='copypaste'||qMeth==='manual'){
+        // ── KEY FIX: ref se value lo, state se nahi ──
+        const text=cpTxtR.current
+        const answerKey=cpKeyR.current
+        if(!text){T('Questions text paste karo pehle','e');setUploadingQ(false);return}
+        const payload={examId,text,answerKey,questions:text}
+        // 3 endpoints try karo
+        for(const ep of [`${API}/api/upload/copy-paste`,`${API}/api/questions/copy-paste`,`${API}/api/questions/bulk`]){
+          try{const r=await fetch(ep,{method:'POST',headers:HJ(),body:JSON.stringify(payload)});if(r.ok||r.status===201){res=r;break}}catch{}
+        }
+      }else if(qMeth==='excel'){
+        if(!excelF){T('Excel file select karo','e');setUploadingQ(false);return}
+        // 3 endpoints try karo
+        for(const ep of [`${API}/api/excel/upload`,`${API}/api/questions/excel`,`${API}/api/upload/excel`]){
+          try{const fd=new FormData();fd.append('file',excelF);fd.append('examId',examId);fd.append('exam_id',examId);const r=await fetch(ep,{method:'POST',headers:H(),body:fd});if(r.ok||r.status===201){res=r;break}}catch{}
+        }
+      }else if(qMeth==='pdf'){
+        if(!pdfF){T('PDF file select karo','e');setUploadingQ(false);return}
+        // 3 endpoints try karo
+        for(const ep of [`${API}/api/upload/pdf`,`${API}/api/questions/pdf`,`${API}/api/upload/pdf-parse`]){
+          try{const fd=new FormData();fd.append('file',pdfF);fd.append('examId',examId);fd.append('exam_id',examId);const r=await fetch(ep,{method:'POST',headers:H(),body:fd});if(r.ok||r.status===201){res=r;break}}catch{}
         }
       }
-    }catch{}
 
-    // FIX: Real notifications only
-    try {
-      const res = await fetch(`${API}/api/admin/notifications`,{headers:h})
-      if(res.ok){ const d=await res.json(); if(Array.isArray(d)) setNotifs(d) }
-    }catch{}
-
-    setLoadingMain(false)
-  }
-
-  // ═══ ACTIONS ═══
-  const logout = ()=>{ clearAuth(); router.replace('/login') }
-  const toggleLang = ()=>{ const n=lang==='en'?'hi':'en'; setLang(n); localStorage.setItem('pr_lang',n) }
-  const toggleSection = (s:string)=>setExpandedSections(p=>p.includes(s)?p.filter(x=>x!==s):[...p,s])
-  const navTo = (tab:string)=>{ setActiveTab(tab); setSideOpen(false) }
-
-  const banStudent = async()=>{
-    if(!banStudentId||!banReason){showToast('Fill all fields','error');return}
-    try{
-      await fetch(`${API}/api/admin/ban/${banStudentId}`,{
-        method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-        body:JSON.stringify({banReason,banType,banExpiry:banType==='temporary'?new Date(Date.now()+7*24*60*60*1000).toISOString():undefined})
-      })
-    }catch{}
-    setStudents(p=>p.map(s=>s._id===banStudentId?{...s,banned:true,banReason}:s))
-    showToast('Student banned'); setBanStudentId(''); setBanReason('')
-  }
-
-  const unbanStudent = async(id:string)=>{
-    try{ await fetch(`${API}/api/admin/unban/${id}`,{method:'POST',headers:{Authorization:`Bearer ${token}`}}) }catch{}
-    setStudents(p=>p.map(s=>s._id===id?{...s,banned:false,banReason:''}:s))
-    showToast('Student unbanned')
-  }
-
-  const toggleFeature = async(key:string)=>{
-    const ft=features.find(f=>f.key===key); const ne=!ft?.enabled
-    setFeatures(p=>p.map(f=>f.key===key?{...f,enabled:ne}:f))
-    try{ await fetch(`${API}/api/admin/features`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({key,enabled:ne})}) }catch{}
-    showToast(`Feature ${ne?'enabled':'disabled'}`)
-  }
-
-  // FIX: 3-step Exam Creation — read from refs to avoid controlled state issues
-  const createExamStep1 = async()=>{
-    const title = refExamTitle.current?.value||''
-    const date = refExamDate.current?.value||''
-    const marks = refExamMarks.current?.value||'720'
-    const dur = refExamDur.current?.value||'200'
-    const pass = refExamPass.current?.value||''
-    if(!title||!date){showToast('Fill title and date','error');return}
-    const payload = {
-      title, scheduledAt:new Date(date).toISOString(),
-      totalMarks:parseInt(marks), totalDurationSec:parseInt(dur)*60,
-      status:'upcoming', category:newExamCat, password:pass||undefined
-    }
-    try{
-      const res = await fetch(`${API}/api/exams`,{
-        method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-        body:JSON.stringify(payload)
-      })
-      if(res.ok){
-        const d=await res.json()
-        setCreatedExamId(d._id||d.exam?._id||'')
-        setExams(p=>[d,...p])
-        setExamStep(2)
-        showToast('Exam created! Now add questions.')
-      } else { throw new Error('Failed') }
-    }catch{
-      const fakeId=`local_${Date.now()}`
-      setCreatedExamId(fakeId)
-      setExams(p=>[{_id:fakeId,attempts:0,...payload} as any,...p])
-      setExamStep(2)
-      showToast('Exam saved (pending sync)')
-    }
-  }
-
-  const uploadQuestions = async()=>{
-    if(!createdExamId){showToast('Create exam first','error');return}
-    setUploadingQ(true)
-    try{
-      let res: Response|null = null
-      if(qUploadMethod==='copypaste'||qUploadMethod==='manual'){
-        undefined
-        res = await fetch(`${API}/api/upload/copypaste/questions`,{
-          method:'POST',
-          headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-          body:JSON.stringify({examId:createdExamId, text:currentQ, answerKey:document.querySelector('textarea[placeholder*="1-B"]')?.value||''})
-        })
-      } else if(qUploadMethod==='excel'){
-        if(!excelFile){showToast('Select Excel file','error');setUploadingQ(false);return}
-        const fd=new FormData(); fd.append('file',excelFile); fd.append('examId',createdExamId)
-        res = await fetch(`${API}/api/excel/questions`,{method:'POST', headers:{Authorization:`Bearer ${token}`}, body:fd})
-      } else if(qUploadMethod==='pdf'){
-        if(!pdfFile){showToast('Select PDF file','error');setUploadingQ(false);return}
-        const fd=new FormData(); fd.append('file',pdfFile); fd.append('examId',createdExamId)
-        res = await fetch(`${API}/api/upload/pdf/questions`,{method:'POST', headers:{Authorization:`Bearer ${token}`}, body:fd})
+      if(res&&(res.ok||res.status===201)){
+        const d=await res.json().catch(()=>({}))
+        const cnt=d.success||d.count||d.uploaded||d.inserted||0
+        setUpRes({s:cnt,f:d.failed||0,msg:`${cnt} questions uploaded!`})
+        T(`${cnt} questions upload ho gaye!`)
+        setEStep(3)
+        fetch(`${API}/api/questions`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setQuestions(d))
+      }else{
+        setUpRes({s:0,f:0,msg:'API busy — Question Bank se manually add karo'})
+        T('Upload API nahi mili — Question Bank use karo','w')
+        setEStep(3)
       }
-      if(res?.ok){
-        const d=await res.json()
-        setUploadResult({success:d.success||d.count||d.uploaded||0, failed:d.failed||0})
-        showToast(`✅ ${d.success||d.count||'Questions'} uploaded successfully!`)
-        setExamStep(3)
-      } else {
-        let errMsg='Upload failed'
-        try{ const e=await res!.json(); errMsg=e.message||e.error||errMsg }catch{}
-        showToast(`❌ ${errMsg}`,'error')
-        // Stay on step 2 so user can retry — don't auto-advance on error
-      }
-    }catch(err:any){
-      showToast(`❌ Upload failed: ${err?.message||'Check connection & try again'}`,'error')
-      // Stay on step 2 so user can retry
+    }catch(e:any){
+      setUpRes({s:0,f:0,msg:'Network error'})
+      T('Network error — Question Bank section try karo','w')
+      setEStep(3)
     }
     setUploadingQ(false)
-  }
+  },[createdEId,qMeth,excelF,pdfF,HJ,H,T])
 
-  const sendAnnounce = async()=>{
-    if(!announceText){showToast('Write announcement first','error');return}
+  // ══ ADD QUESTION (Question Bank) ══
+  const addQ=useCallback(async()=>{
+    const text=qTxtR.current
+    if(!text){T('Question text likhna zaroori hai','e');return}
+    setSavingQ(true)
+    const payload={text,subject:qSubj,chapter:qChapR.current||undefined,difficulty:qDiff,type:qType,
+      options:qType==='SCQ'||qType==='MSQ'?[qA.current,qB.current,qC.current,qD.current].filter(Boolean):undefined,
+      correctAnswer:qAns}
     try{
-      let res = await fetch(`${API}/api/admin/announce`,{
-        method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-        body:JSON.stringify({message:announceText,batch:announceBatch})
-      })
-      if(!res.ok){
-        res = await fetch(`${API}/api/admin/manage/announce`,{
-          method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-          body:JSON.stringify({message:announceText,batch:announceBatch})
-        })
-      }
-      showToast(res.ok?'Announcement sent!':'Announcement sent (check backend)')
-    }catch{ showToast('Network error','error') }
-    setAnnounceText('')
-  }
+      const res=await fetch(`${API}/api/questions`,{method:'POST',headers:HJ(),body:JSON.stringify(payload)})
+      if(res.ok||res.status===201){
+        T('Question added!')
+        qTxtR.current='';qA.current='';qB.current='';qC.current='';qD.current='';qChapR.current=''
+        fetch(`${API}/api/questions`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setQuestions(d))
+      }else{const e=await res.json().catch(()=>({}));T(e.message||`Error ${res.status}`,'e')}
+    }catch(e:any){T(e.message||'Network error','e')}
+    setSavingQ(false)
+  },[qSubj,qDiff,qType,qAns,HJ,H,T])
 
-  const resolveTicket = async(id:string)=>{
-    try{ await fetch(`${API}/api/admin/manage/tickets/${id}/resolve`,{method:'POST',headers:{Authorization:`Bearer ${token}`}}) }catch{}
-    setTickets(p=>p.map(t=>t._id===id?{...t,status:'resolved'}:t))
-    showToast('Ticket resolved')
-  }
-
-  const publishResult = async(examId:string, examTitle:string)=>{
+  // ══ BAN / UNBAN ══
+  const banStd=useCallback(async()=>{
+    const reason=banReaR.current
+    if(!banId||!reason){T('Student ID aur reason dono chahiye','e');return}
     try{
-      const res = await fetch(`${API}/api/admin/manage/results/${examId}/publish`,{method:'POST',headers:{Authorization:`Bearer ${token}`}})
-      showToast(res.ok?`Results published for ${examTitle}`:'Publish API not ready','error')
-    }catch{ showToast('Network error','error') }
-  }
+      const res=await fetch(`${API}/api/admin/ban/${banId}`,{method:'POST',headers:HJ(),body:JSON.stringify({banReason:reason,banType:banT,banExpiry:banT==='temporary'?new Date(Date.now()+7*24*3600*1000).toISOString():undefined})})
+      if(res.ok){setStudents(p=>p.map(s=>s._id===banId?{...s,banned:true,banReason:reason}:s));T('Student banned');setBanId('');banReaR.current=''}
+      else{const e=await res.json().catch(()=>({}));T(e.message||'Ban failed','e')}
+    }catch{T('Network error','e')}
+  },[banId,banT,HJ,T])
 
-  const exportReport = async(type:string, label:string)=>{
+  const unbanStd=useCallback(async(id:string)=>{
     try{
-      const res = await fetch(`${API}/api/admin/manage/export?type=${type}`,{headers:{Authorization:`Bearer ${token}`}})
-      if(res.ok){
-        const blob=await res.blob()
-        const url=URL.createObjectURL(blob)
-        const a=document.createElement('a'); a.href=url; a.download=`${type}_report.csv`; a.click()
-        showToast(`${label} downloaded!`)
-      } else showToast(`Exporting ${label}...`)
-    }catch{ showToast(`${label} export initiated`) }
-  }
+      const res=await fetch(`${API}/api/admin/unban/${id}`,{method:'POST',headers:H()})
+      if(res.ok){setStudents(p=>p.map(s=>s._id===id?{...s,banned:false,banReason:''}:s));T('Student unbanned')}
+      else T('Unban failed','e')
+    }catch{T('Network error','e')}
+  },[H,T])
 
-  const impersonateStudent = async()=>{
-    if(!impersonateId){showToast('Select student','error');return}
-    try{
-      const res=await fetch(`${API}/api/admin/manage/impersonate/${impersonateId}`,{method:'POST',headers:{Authorization:`Bearer ${token}`}})
-      if(res.ok){const d=await res.json();if(d.token)window.open(`/dashboard?imp=${d.token}`,'_blank')}
-      else showToast('Impersonate: not ready yet','error')
-    }catch{showToast('Error','error')}
-  }
+  // ══ FEATURE TOGGLE (N21) ══
+  const toggleFeat=useCallback(async(key:string)=>{
+    const ft=features.find(f=>f.key===key);const ne=!ft?.enabled
+    setFeatures(p=>p.map(f=>f.key===key?{...f,enabled:ne}:f))
+    try{await fetch(`${API}/api/admin/features`,{method:'POST',headers:HJ(),body:JSON.stringify({key,enabled:ne})})}catch{}
+    T(`${ft?.label} ${ne?'enabled':'disabled'}`)
+  },[features,HJ,T])
 
-  const generateQuestions = async()=>{
-    if(!aiTopic){showToast('Enter topic','error');return}
-    setAiLoading(true); setAiResult([])
+  // ══ ANNOUNCE / BROADCAST (S47) ══
+  const sendAnn=useCallback(async()=>{
+    const msg=annR.current
+    if(!msg){T('Message likhna zaroori hai','e');return}
     try{
-      const res = await fetch(`${API}/api/questions/generate`,{
-        method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-        body:JSON.stringify({topic:aiTopic,count:parseInt(aiCount),difficulty:aiDifficulty,subject:aiSubject})
-      })
-      if(res.ok){ const d=await res.json(); setAiResult(Array.isArray(d)?d:d.questions||[]); showToast(`${aiCount} questions generated!`) }
-      else showToast('AI generation failed','error')
-    }catch{ showToast('AI API error','error') }
+      let res=await fetch(`${API}/api/admin/announce`,{method:'POST',headers:HJ(),body:JSON.stringify({message:msg,batch:annBatch})})
+      if(!res.ok)res=await fetch(`${API}/api/admin/manage/announce`,{method:'POST',headers:HJ(),body:JSON.stringify({message:msg,batch:annBatch})})
+      if(res.ok){T('Announcement sent!');annR.current=''}else T('Send failed','e')
+    }catch{T('Network error','e')}
+  },[annBatch,HJ,T])
+
+  // ══ DELETE EXAM ══
+  const delExam=useCallback(async(id:string)=>{
+    if(!confirm('Delete karna hai? Undo nahi hoga.'))return
+    try{
+      const res=await fetch(`${API}/api/exams/${id}`,{method:'DELETE',headers:H()})
+      if(res.ok){setExams(p=>p.filter(e=>e._id!==id));T('Exam deleted')}else T('Delete failed','e')
+    }catch{T('Network error','e')}
+  },[H,T])
+
+  // ══ CLONE EXAM (S39) ══
+  const cloneExam=useCallback(async(id:string)=>{
+    try{
+      const res=await fetch(`${API}/api/exams/${id}/clone`,{method:'POST',headers:H()})
+      if(res.ok){T('Exam cloned!');fetch(`${API}/api/exams`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setExams(d))}else T('Clone failed','e')
+    }catch{T('Network error','e')}
+  },[H,T])
+
+  // ══ IMPERSONATE (M4) ══
+  const impersonate=useCallback(async()=>{
+    if(!impId){T('Student ID daalo','e');return}
+    try{
+      const res=await fetch(`${API}/api/admin/manage/impersonate/${impId}`,{method:'POST',headers:H()})
+      if(res.ok){const d=await res.json();T(`Viewing as: ${d.name||impId}`);window.open(`/dashboard?impersonate=${impId}`,'_blank')}
+      else T('Impersonate failed — student profile se try karo','e')
+    }catch{T('Network error','e')}
+  },[impId,H,T])
+
+  // ══ PER-STUDENT TIME EXT (M7) ══
+  const extendTime=useCallback(async()=>{
+    if(!extStdId){T('Student ID chahiye','e');return}
+    try{
+      const res=await fetch(`${API}/api/admin/extend-time`,{method:'POST',headers:HJ(),body:JSON.stringify({studentId:extStdId,extraMinutes:parseInt(extMins)||10})})
+      if(res.ok)T(`${extMins} min extra time diya`)else T('Extension failed','e')
+    }catch{T('Network error','e')}
+  },[extStdId,extMins,HJ,T])
+
+  // ══ BRANDING (S56 + M17) ══
+  const saveBrand=useCallback(async()=>{
+    setSavingB(true)
+    try{
+      const res=await fetch(`${API}/api/admin/branding`,{method:'POST',headers:HJ(),body:JSON.stringify({brandName:bNameR.current,tagline:bTagR.current,supportEmail:bMailR.current,seoTitle:seoTR.current,seoDesc:seoDR.current})})
+      if(res.ok)T('Branding saved!')else T('Save failed','e')
+    }catch{T('Network error','e')}
+    setSavingB(false)
+  },[HJ,T])
+
+  // ══ MAINTENANCE (S66) ══
+  const toggleMaint=useCallback(async()=>{
+    const nm=!mainOn;setMainOn(nm)
+    setFeatures(p=>p.map(f=>f.key==='maintenance'?{...f,enabled:nm}:f))
+    try{await fetch(`${API}/api/admin/features`,{method:'POST',headers:HJ(),body:JSON.stringify({key:'maintenance',enabled:nm,message:mainMsgR.current})})}catch{}
+    T(nm?'Maintenance ON — students blocked':'Maintenance OFF — site live')
+  },[mainOn,HJ,T])
+
+  // ══ EXPORT ══
+  const doExport=useCallback(async(url:string,fname:string)=>{
+    try{
+      const res=await fetch(url,{headers:H()})
+      if(res.ok){const b=await res.blob();const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=fname;a.click();T('Download started')}
+      else T('Export failed','e')
+    }catch{T('Network error','e')}
+  },[H,T])
+
+  // ══ BACKUP (S50) ══
+  const doBackup=useCallback(async()=>{
+    try{
+      const res=await fetch(`${API}/api/admin/backup`,{method:'POST',headers:H()})
+      if(res.ok)T('Backup triggered!')else T('Backup failed','e')
+    }catch{T('Network error','e')}
+  },[H,T])
+
+  // ══ RESOLVE TICKET ══
+  const resolveTicket=useCallback(async(id:string)=>{
+    try{
+      const res=await fetch(`${API}/api/admin/tickets/${id}/resolve`,{method:'PATCH',headers:H()})
+      if(res.ok){setTickets(p=>p.map(t=>t._id===id?{...t,status:'resolved'}:t));T('Ticket resolved!')}else T('Failed','e')
+    }catch{T('Network error','e')}
+  },[H,T])
+
+  // ══ AI SMART GENERATOR (S101) ══
+  const aiGen=useCallback(async()=>{
+    if(!aiTopicR.current){T('Topic daalo','e');return}
+    setAiLoading(true)
+    try{
+      const res=await fetch(`${API}/api/questions/generate`,{method:'POST',headers:HJ(),body:JSON.stringify({topic:aiTopicR.current,count:parseInt(aiCount)||10,subject:aiSubj,difficulty:aiDiff})})
+      if(res.ok){const d=await res.json();setAiResult(Array.isArray(d)?d:d.questions||[]);T(`${(Array.isArray(d)?d:d.questions||[]).length} questions generated!`)}
+      else T('AI generation failed — check backend','e')
+    }catch{T('Network error','e')}
     setAiLoading(false)
-  }
+  },[aiCount,aiSubj,aiDiff,HJ,T])
 
-  const addTodo = ()=>{ if(!todoInput.trim())return; setTodos(p=>[...p,{id:Date.now().toString(),text:todoInput,done:false}]); setTodoInput('') }
+  // ══ CREATE BATCH ══
+  const createBatch=useCallback(async()=>{
+    if(!batchNameR.current){T('Batch name daalo','e');return}
+    setCreatingBatch(true)
+    try{
+      const res=await fetch(`${API}/api/admin/batches`,{method:'POST',headers:HJ(),body:JSON.stringify({name:batchNameR.current})})
+      if(res.ok){T('Batch created!');batchNameR.current='';fetch(`${API}/api/admin/batches`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setBatches(d))}
+      else T('Create failed','e')
+    }catch{T('Network error','e')}
+    setCreatingBatch(false)
+  },[HJ,H,T])
 
-  if(!mounted) return (
-    <div style={{minHeight:'100vh',background:'#000A18',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16}}>
-      <div style={{width:48,height:48,border:'3px solid rgba(77,159,255,0.2)',borderTopColor:'#4D9FFF',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
-      <div style={{fontFamily:'Playfair Display,serif',color:'#4D9FFF',fontSize:14}}>Loading ProveRank Admin...</div>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  )
+  // ══ BATCH TRANSFER (M3) ══
+  const batchTransfer=useCallback(async()=>{
+    if(!batchTransStdId||!batchTransTo){T('Student ID aur target batch chahiye','e');return}
+    try{
+      const res=await fetch(`${API}/api/admin/manage/batch-transfer`,{method:'POST',headers:HJ(),body:JSON.stringify({studentId:batchTransStdId,toBatch:batchTransTo})})
+      if(res.ok)T('Transfer done!')else T('Transfer failed','e')
+    }catch{T('Network error','e')}
+  },[batchTransStdId,batchTransTo,HJ,T])
 
-  const bg='#000A18', card='rgba(0,16,36,0.92)', bord='rgba(77,159,255,0.12)', tm='#E8F4FF', ts='#4A6A8A', topBg='rgba(0,4,14,0.96)', iBg='rgba(0,22,44,0.9)', iBrd='rgba(0,45,85,0.6)', accent='#4D9FFF'
+  // ══ CREATE ADMIN (S37) ══
+  const createAdmin=useCallback(async()=>{
+    if(!admNameR.current||!admEmailR.current||!admPassR.current){T('Name, email, password sab chahiye','e');return}
+    setCreatingAdm(true)
+    try{
+      const res=await fetch(`${API}/api/admin/manage/admins`,{method:'POST',headers:HJ(),body:JSON.stringify({name:admNameR.current,email:admEmailR.current,password:admPassR.current,role:admRole})})
+      if(res.ok){T('Admin created!');fetch(`${API}/api/admin/manage/admins`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setAdminUsers(d))}
+      else{const e=await res.json().catch(()=>({}));T(e.message||'Create failed','e')}
+    }catch{T('Network error','e')}
+    setCreatingAdm(false)
+  },[admRole,HJ,H,T])
 
-  // ── HELPER COMPONENTS ──
-  const Card = ({children,style={}}:{children:any,style?:any})=>(
-    <div style={{background:card,border:`1px solid ${bord}`,borderRadius:16,overflow:'hidden',...style}}>{children}</div>
-  )
-  const CardHeader = ({title,action}:{title:string,action?:any})=>(
-    <div style={{padding:'16px 20px',borderBottom:`1px solid ${bord}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-      <h2 style={{fontFamily:'Playfair Display,serif',fontSize:16,fontWeight:700,color:tm,margin:0}}>{title}</h2>
-      {action}
-    </div>
-  )
-  const EmptyState = ({icon,msg}:{icon:string,msg:string})=>(
-    <div style={{padding:'40px',textAlign:'center',color:ts}}><div style={{fontSize:32,marginBottom:10}}>{icon}</div><div style={{fontSize:13}}>{msg}</div></div>
-  )
-  const StatCard = ({icon,label,val,color,sub}:{icon:string,label:string,val:any,color:string,sub?:string})=>(
-    <div style={{background:card,border:`1px solid ${bord}`,borderRadius:14,padding:'18px',display:'flex',gap:12,alignItems:'flex-start'}}>
-      <div style={{width:42,height:42,borderRadius:12,background:`${color}18`,border:`1px solid ${color}28`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{icon}</div>
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{fontFamily:'Playfair Display,serif',fontSize:'clamp(1.3rem,2.5vw,1.8rem)',fontWeight:800,color,lineHeight:1}}>{typeof val==='number'?val.toLocaleString():val}</div>
-        <div style={{fontSize:11,color:ts,marginTop:2}}>{label}</div>
-        {sub&&<div style={{fontSize:9,color:ts,marginTop:2}}>{sub}</div>}
-      </div>
-    </div>
-  )
-  const Btn = ({children,onClick,variant='primary',style={},disabled=false}:{children:any,onClick?:()=>void,variant?:'primary'|'danger'|'ghost'|'success',style?:any,disabled?:boolean})=>{
-    const s:any={primary:{background:'linear-gradient(135deg,#4D9FFF,#0055CC)',color:'#fff',border:'none'},danger:{background:'rgba(255,71,87,0.1)',color:'#FF6B7A',border:'1px solid rgba(255,71,87,0.3)'},ghost:{background:'transparent',color:accent,border:`1px solid rgba(77,159,255,0.3)`},success:{background:'rgba(0,196,140,0.1)',color:'#00C48C',border:'1px solid rgba(0,196,140,0.3)'}}
-    return <button disabled={disabled} onClick={onClick} style={{padding:'9px 18px',borderRadius:10,cursor:disabled?'not-allowed':'pointer',fontFamily:'Inter,sans-serif',fontWeight:600,fontSize:12,opacity:disabled?0.5:1,...s[variant],...style}}>{children}</button>
-  }
-  const Badge = ({children,color='blue'}:{children:any,color?:'blue'|'green'|'red'|'orange'|'purple'|'gold'})=>{
-    const c:any={blue:{bg:'rgba(77,159,255,0.12)',cl:'#4D9FFF'},green:{bg:'rgba(0,196,140,0.12)',cl:'#00C48C'},red:{bg:'rgba(255,71,87,0.12)',cl:'#FF6B7A'},orange:{bg:'rgba(255,165,2,0.12)',cl:'#FFA502'},purple:{bg:'rgba(168,85,247,0.12)',cl:'#A855F7'},gold:{bg:'rgba(255,215,0,0.12)',cl:'#FFD700'}}
-    return <span style={{background:c[color].bg,color:c[color].cl,padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700,flexShrink:0}}>{children}</span>
-  }
-  const TableComp = ({headers,children}:{headers:string[],children:any})=>(
-    <div style={{overflowX:'auto'}}>
-      <table style={{width:'100%',borderCollapse:'collapse',whiteSpace:'nowrap'}}>
-        <thead><tr>{headers.map(h=><th key={h} style={{padding:'11px 16px',textAlign:'left',fontSize:10,fontWeight:700,color:ts,letterSpacing:'0.08em',textTransform:'uppercase',borderBottom:`1px solid ${bord}`}}>{h}</th>)}</tr></thead>
-        <tbody>{children}</tbody>
-      </table>
-    </div>
-  )
-  const TR = ({children,onClick}:{children:any,onClick?:()=>void})=>(
-    <tr style={{cursor:onClick?'pointer':'default'}} onMouseEnter={e=>(e.currentTarget.style.background='rgba(77,159,255,0.04)')} onMouseLeave={e=>(e.currentTarget.style.background='transparent')} onClick={onClick}>{children}</tr>
-  )
-  const TD = ({children,style={}}:{children:any,style?:any})=>(
-    <td style={{padding:'11px 16px',borderBottom:`1px solid rgba(0,45,85,0.12)`,fontSize:12,color:tm,...style}}>{children}</td>
-  )
+  // ══ SAVE PERMISSIONS (S72) ══
+  const savePerms=useCallback(async()=>{
+    try{
+      const res=await fetch(`${API}/api/admin/permissions`,{method:'POST',headers:HJ(),body:JSON.stringify(perms)})
+      if(res.ok)T('Permissions saved!')else T('Save failed','e')
+    }catch{T('Network error','e')}
+  },[perms,HJ,T])
 
-  // ═══════════════════════════════════════════════════
-  // NAV SECTIONS (Admin vs SuperAdmin)
-  // ═══════════════════════════════════════════════════
-  const adminNavSections = [
-    { id:'main', label:'', items:[
-      { id:'dashboard', icon:'⊞', en:'Dashboard', hi:'डैशबोर्ड' },
-      { id:'live_monitor', icon:'🔴', en:'Live Monitor', hi:'लाइव मॉनिटर' },
-    ]},
-    { id:'exams', label:'EXAM MANAGEMENT', items:[
-      { id:'all_exams', icon:'📋', en:'All Exams', hi:'सभी परीक्षाएं' },
-      { id:'create_exam', icon:'➕', en:'Create Exam', hi:'परीक्षा बनाएं' },
-      { id:'question_bank', icon:'🗂️', en:'Question Bank', hi:'प्रश्न बैंक' },
-      { id:'smart_gen', icon:'🤖', en:'Smart Paper Generator', hi:'स्मार्ट जनरेटर' },
-      { id:'bulk_upload', icon:'📤', en:'Bulk Upload', hi:'बल्क अपलोड' },
-      { id:'pyq_bank', icon:'📚', en:'PYQ Bank', hi:'PYQ बैंक' },
-    ]},
-    { id:'students', label:'STUDENT MANAGEMENT', items:[
-      { id:'all_students', icon:'👥', en:'All Students', hi:'सभी छात्र' },
-      { id:'batch_manager', icon:'📁', en:'Batch Manager', hi:'बैच मैनेजर' },
-      { id:'ban_system', icon:'🚫', en:'Ban System', hi:'बैन सिस्टम' },
-    ]},
-    { id:'results', label:'RESULTS & ANALYTICS', items:[
-      { id:'result_control', icon:'🎯', en:'Result Control', hi:'परिणाम' },
-      { id:'leaderboard', icon:'🏆', en:'Leaderboard', hi:'लीडरबोर्ड' },
-      { id:'analytics', icon:'📊', en:'Analytics', hi:'विश्लेषण' },
-      { id:'export', icon:'📥', en:'Export Reports', hi:'एक्सपोर्ट' },
-      { id:'tickets', icon:'📬', en:'Tickets', hi:'टिकट' },
-    ]},
-    { id:'comms', label:'COMMUNICATIONS', items:[
-      { id:'announcements', icon:'📢', en:'Announcements', hi:'घोषणाएं' },
-    ]},
-    { id:'proctor', label:'PROCTORING', items:[
-      { id:'cheat_logs', icon:'⚠️', en:'Cheating Logs', hi:'चीटिंग लॉग' },
-    ]},
-    { id:'admin_tools', label:'ADMIN TOOLS', items:[
-      { id:'activity_logs', icon:'📋', en:'Activity Logs', hi:'लॉग' },
-      { id:'todo', icon:'✅', en:'Task Manager', hi:'टास्क' },
-      { id:'changelog', icon:'📝', en:'Platform Changelog', hi:'चेंजलॉग' },
-    ]},
+  if(!mounted)return null
+
+  // ── Filtered data ──
+  const fStds=students.filter(s=>{
+    const m=stdSearch.toLowerCase()
+    const ok=!m||(s.name?.toLowerCase().includes(m)||s.email?.toLowerCase().includes(m)||s._id?.includes(m))
+    if(stdFilter==='banned')return ok&&!!s.banned
+    if(stdFilter==='active')return ok&&!s.banned
+    return ok
+  })
+  const fExams=exams.filter(e=>!examSearch||e.title?.toLowerCase().includes(examSearch.toLowerCase()))
+  const fQs=questions.filter(q=>!qSearch||q.text?.toLowerCase().includes(qSearch.toLowerCase())||q.subject?.toLowerCase().includes(qSearch.toLowerCase()))
+
+  // ── Nav items ──
+  const NAV=[
+    {id:'dashboard',     ico:'📊', lbl:'Dashboard'},
+    {id:'exams',         ico:'📝', lbl:'All Exams'},
+    {id:'create_exam',   ico:'➕', lbl:'Create Exam'},
+    {id:'templates',     ico:'📋', lbl:'Templates (S75)'},
+    {id:'bulk_creator',  ico:'⚡', lbl:'Bulk Creator (N8)'},
+    {id:'questions',     ico:'❓', lbl:'Question Bank'},
+    {id:'smart_gen',     ico:'🤖', lbl:'Smart Generator (S101)'},
+    {id:'pyq_bank',      ico:'📚', lbl:'PYQ Bank (S104)'},
+    {id:'students',      ico:'👥', lbl:'Students'},
+    {id:'batches',       ico:'📦', lbl:'Batches (S5/M3)'},
+    {id:'admins',        ico:'🛡️', lbl:'Admins (S37)'},
+    {id:'live',          ico:'🔴', lbl:'Live Monitor (S95)'},
+    {id:'results',       ico:'📈', lbl:'Results & Ranks'},
+    {id:'leaderboard',   ico:'🏆', lbl:'Leaderboard (S15)'},
+    {id:'analytics',     ico:'📉', lbl:'Analytics (S13/S108)'},
+    {id:'cheating',      ico:'🚨', lbl:'Anti-Cheat Logs'},
+    {id:'snapshots',     ico:'📷', lbl:'Snapshots (Phase 5.2)'},
+    {id:'integrity',     ico:'🤖', lbl:'AI Integrity (AI-6)'},
+    {id:'proctoring_pdf',ico:'📄', lbl:'Proctoring PDF (M15)'},
+    {id:'tickets',       ico:'🎫', lbl:'Grievances (S92)'},
+    {id:'announcements', ico:'📢', lbl:'Announcements (S47)'},
+    {id:'reports',       ico:'📊', lbl:'Reports & Export'},
+    {id:'features',      ico:'🚩', lbl:'Feature Flags (N21)'},
+    {id:'permissions',   ico:'🔐', lbl:'Permissions (S72)'},
+    {id:'branding',      ico:'🎨', lbl:'Branding (S56)'},
+    {id:'maintenance',   ico:'🔧', lbl:'Maintenance (S66)'},
+    {id:'audit',         ico:'📋', lbl:'Audit Logs (S93)'},
+    {id:'tasks',         ico:'✅', lbl:'Tasks (M13)'},
+    {id:'changelog',     ico:'📝', lbl:'Changelog (M14)'},
   ]
 
-  const superadminNavSections = [
-    ...adminNavSections,
-    { id:'sa_proctor', label:'PROCTORING (FULL)', items:[
-      { id:'snapshots', icon:'📸', en:'Webcam Snapshots', hi:'स्नैपशॉट' },
-      { id:'integrity', icon:'🛡️', en:'Integrity Scores', hi:'अखंडता स्कोर' },
-    ]},
-    { id:'super', label:'⚡ SUPERADMIN ONLY', items:[
-      { id:'feature_flags', icon:'🚩', en:'Feature Flags', hi:'फीचर फ्लैग' },
-      { id:'permissions', icon:'🔐', en:'Admin Permissions', hi:'अनुमतियां' },
-      { id:'branding', icon:'🎨', en:'Custom Branding', hi:'ब्रांडिंग' },
-      { id:'seo', icon:'🌐', en:'SEO Settings', hi:'SEO' },
-      { id:'audit_trail', icon:'📜', en:'Audit Trail', hi:'ऑडिट ट्रेल' },
-      { id:'maintenance', icon:'🔧', en:'Maintenance Mode', hi:'मेंटेनेंस' },
-      { id:'data_backup', icon:'💾', en:'Data Backup', hi:'बैकअप' },
-      { id:'impersonate', icon:'👁️', en:'Impersonate Student', hi:'छात्र देखें' },
-    ]},
-  ]
-
-  const navSections = role==='superadmin' ? superadminNavSections : adminNavSections
-
-  // ═══════════════════════════════════════════════════
-  // RENDER FUNCTIONS
-  // ═══════════════════════════════════════════════════
-
-  // FIX: Stats — real API numbers, no fake hardcoded values
-  const renderDashboard = ()=>{
-    const totalStudents = stats?.totalStudents ?? students.length
-    const totalExams = stats?.totalExams ?? exams.length
-    const totalAttempts = stats?.totalAttempts ?? 0
-    const cheatCount = stats?.cheatFlags ?? flags.length
-    const openTickets = stats?.openTickets ?? tickets.filter(t=>t.status!=='resolved').length
-    const avgScore = stats?.avgScore ?? (totalAttempts>0 ? 'Calculating...' : '—')
-
-    return (
-      <div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12,marginBottom:20}}>
-          {[
-            {icon:'👨‍🎓',label:'Total Students',val:loadingStats?'—':totalStudents,color:'#4D9FFF',sub:loadingStats?'Fetching from DB...':undefined},
-            {icon:'📝',label:'Total Exams',val:loadingStats?'—':totalExams,color:'#00C48C',sub:loadingStats?'Fetching from DB...':undefined},
-            {icon:'📊',label:'Total Attempts',val:loadingStats?'—':totalAttempts,color:'#A855F7',sub:loadingStats?'Fetching from DB...':undefined},
-            {icon:'⚠️',label:'Cheat Flags',val:loadingStats?'—':cheatCount,color:'#FF4757',sub:loadingStats?'Fetching from DB...':undefined},
-            {icon:'📬',label:'Open Tickets',val:loadingStats?'—':openTickets,color:'#FFA502',sub:loadingStats?'Fetching from DB...':undefined},
-            {icon:'💡',label:'Avg Score',val:loadingStats?'—':avgScore,color:'#FFD700',sub:loadingStats?'Fetching from DB...':undefined},
-          ].map((s,i)=>(<StatCard key={i} {...s}/>))}
-        </div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(320px,1fr))',gap:16,marginBottom:16}}>
-          <Card>
-            <CardHeader title="📢 Quick Announcement"/>
-            <div style={{padding:'16px 20px'}}>
-              <TextArea value={announceText} onChange={setAnnounceText} rows={3} placeholder="Type announcement..."/>
-              <div style={{display:'flex',gap:8,marginTop:10,alignItems:'center'}}>
-                <select value={announceBatch} onChange={e=>setAnnounceBatch(e.target.value)} style={{padding:'8px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none'}}>
-                  <option value="all">All Students</option>
-                  <option value="neet_a">NEET Batch A</option>
-                  <option value="neet_b">NEET Batch B</option>
-                </select>
-                <Btn onClick={sendAnnounce}>📤 Send</Btn>
-              </div>
-            </div>
-          </Card>
-          <Card>
-            <CardHeader title="✅ Tasks" action={<span style={{fontSize:11,color:ts}}>{todos.filter(t=>!t.done).length} pending</span>}/>
-            <div style={{padding:'12px 16px'}}>
-              <div style={{display:'flex',gap:8,marginBottom:10}}>
-                <input value={todoInput} onBlur={e=>setTodoInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTodo()} placeholder="Add task..." style={{flex:1,padding:'7px 11px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none'}}/>
-                <Btn onClick={addTodo}>+</Btn>
-              </div>
-              {todos.map(t=>(
-                <div key={t.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',borderRadius:8,background:t.done?'rgba(0,196,140,0.04)':'rgba(77,159,255,0.04)',border:`1px solid ${t.done?'rgba(0,196,140,0.12)':bord}`,marginBottom:4}}>
-                  <input type="checkbox" checked={t.done} onChange={()=>setTodos(p=>p.map(x=>x.id===t.id?{...x,done:!x.done}:x))} style={{accentColor:accent,flexShrink:0}}/>
-                  <span style={{fontSize:12,color:t.done?ts:tm,textDecoration:t.done?'line-through':'none',flex:1}}>{t.text}</span>
-                  <button onClick={()=>setTodos(p=>p.filter(x=>x.id!==t.id))} style={{background:'none',border:'none',color:ts,cursor:'pointer',fontSize:12}}>✕</button>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-        <Card>
-          <CardHeader title="📈 Platform Overview" action={<button onClick={()=>fetchAllData(token)} style={{padding:'5px 12px',borderRadius:8,border:`1px solid ${bord}`,background:'transparent',color:accent,fontSize:11,cursor:'pointer',fontFamily:'Inter,sans-serif'}}>🔄 Refresh</button>}/>
-          <div style={{padding:'16px 20px',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12}}>
-            {[
-              {l:'Active Today',v:stats?.activeToday??'—',c:'#00C48C'},
-              {l:'Completion Rate',v:stats?.completionRate??'—',c:'#4D9FFF'},
-              {l:'Banned Students',v:students.filter(s=>s.banned).length,c:'#FF6B7A'},
-              {l:'Leaderboard Entries',v:leaderboard.length||'—',c:'#FFD700'},
-              {l:'Cheat Flags (High)',v:flags.filter(f=>f.severity==='high').length||'—',c:'#FF4757'},
-              {l:'Backend Status',v:'🟢 Live',c:'#00C48C'},
-            ].map((s,i)=>(
-              <div key={i} style={{padding:'14px',background:'rgba(77,159,255,0.04)',border:`1px solid ${bord}`,borderRadius:12}}>
-                <div style={{fontSize:11,color:ts,marginBottom:4}}>{s.l}</div>
-                <div style={{fontFamily:'Playfair Display,serif',fontSize:20,fontWeight:800,color:s.c}}>{typeof s.v==='number'?s.v.toLocaleString():s.v}</div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-    )
-  }
-
-  const renderLiveMonitor = ()=>(
-    <div style={{display:'flex',flexDirection:'column',gap:16}}>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10}}>
-        <StatCard icon="🟢" label="Live Students" val={stats?.activeToday??0} color="#00C48C" sub="Real-time from API"/>
-        <StatCard icon="⚡" label="Server Status" val="OK" color="#4D9FFF" sub="Render.com Live"/>
-        <StatCard icon="⚠️" label="Active Warnings" val={flags.length} color="#FFA502" sub="This session"/>
-        <StatCard icon="🔴" label="High Severity Flags" val={flags.filter(f=>f.severity==='high').length} color="#FF4757" sub="Needs attention"/>
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:14}}>
-        <Card>
-          <CardHeader title="🎮 Live Exam Controls"/>
-          <div style={{padding:'20px'}}>
-            {exams.filter(e=>e.status==='upcoming'||e.status==='live').slice(0,3).map(e=>(
-              <div key={e._id} style={{padding:'12px',borderRadius:10,border:`1px solid ${bord}`,marginBottom:8}}>
-                <div style={{fontWeight:700,color:tm,fontSize:13,marginBottom:4}}>{e.title}</div>
-                <div style={{fontSize:11,color:ts,marginBottom:10}}>📅 {new Date(e.scheduledAt).toLocaleDateString()} · {e.attempts||0} attempts</div>
-                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                  <Btn variant="ghost" style={{fontSize:11,padding:'6px 12px'}}>⏸ Pause</Btn>
-                  <Btn variant="ghost" style={{fontSize:11,padding:'6px 12px'}}>⏰ Extend Time</Btn>
-                  <Btn variant="danger" style={{fontSize:11,padding:'6px 12px'}}>⏹ End Exam</Btn>
-                </div>
-              </div>
-            ))}
-            {exams.filter(e=>e.status==='upcoming'||e.status==='live').length===0 &&
-              <EmptyState icon="✅" msg="No live exams right now"/>
-            }
-          </div>
-        </Card>
-        <Card>
-          <CardHeader title="⚠️ Recent Flags (Live)"/>
-          <div style={{padding:'12px'}}>
-            {flags.length===0 && <EmptyState icon={loadingMain?'⏳':'✅'} msg={loadingMain?'Loading flags...':'No cheating flags found'}/>}
-            {flags.slice(0,5).map((f,i)=>(
-              <div key={f._id||i} style={{padding:'10px 12px',borderRadius:10,border:`1px solid ${bord}`,marginBottom:8,display:'flex',gap:10,alignItems:'flex-start'}}>
-                <div style={{width:8,height:8,borderRadius:'50%',background:f.severity==='high'?'#FF4757':f.severity==='medium'?'#FFA502':'#4D9FFF',marginTop:4,flexShrink:0}}/>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontWeight:600,color:tm,fontSize:12}}>{f.studentName}</div>
-                  <div style={{fontSize:11,color:ts}}>{f.type} × {f.count} — {f.examTitle}</div>
-                </div>
-                <Badge color={f.severity==='high'?'red':f.severity==='medium'?'orange':'blue'}>{f.severity}</Badge>
-              </div>
-            ))}
-            {flags.length>0&&<Btn variant="ghost" onClick={()=>navTo('cheat_logs')} style={{width:'100%',marginTop:4,fontSize:11}}>View All Flags →</Btn>}
-          </div>
-        </Card>
-      </div>
+  const sBox=(ico:string,lbl:string,val:any)=>(
+    <div style={{background:CRD,border:`1px solid ${BOR}`,borderRadius:12,padding:'14px 16px',flex:1,minWidth:130}}>
+      <div style={{fontSize:22,marginBottom:4}}>{ico}</div>
+      <div style={{fontSize:20,fontWeight:700,color:ACC,fontFamily:'Playfair Display,Georgia,serif'}}>{loading?'…':val}</div>
+      <div style={{fontSize:11,color:DIM}}>{lbl}</div>
     </div>
   )
 
-  const renderAllExams = ()=>(
-    <Card>
-      <CardHeader title={`📋 All Exams (${exams.length})`} action={
-        <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          <input value={examSearchFilter} onBlur={e=>setExamSearchFilter(e.target.value)} placeholder="Search exams..." style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none',width:180}}/>
-          <Btn onClick={()=>{setExamStep(1);navTo('create_exam')}}>+ New</Btn>
-        </div>
-      }/>
-      {exams.length===0&&<EmptyState icon={loadingMain?'⏳':'📋'} msg={loadingMain?'Loading exams...':'No exams found. Create your first exam!'}/>}
-      <TableComp headers={['#','Title','Category','Date','Duration','Marks','Attempts','Status','Actions']}>
-        {exams.filter(e=>e.title.toLowerCase().includes(examSearchFilter.toLowerCase())).map((e,i)=>(
-          <TR key={e._id}>
-            <TD style={{color:ts}}>{i+1}</TD>
-            <TD><div style={{fontWeight:600,color:tm,maxWidth:200,overflow:'hidden',textOverflow:'ellipsis'}}>{e.title}</div></TD>
-            <TD><Badge color="blue">{e.category||'Full Mock'}</Badge></TD>
-            <TD style={{color:ts}}>{new Date(e.scheduledAt).toLocaleDateString()}</TD>
-            <TD style={{color:ts}}>{Math.round((e.totalDurationSec||12000)/60)}m</TD>
-            <TD style={{color:accent,fontWeight:700}}>{e.totalMarks}</TD>
-            <TD style={{color:ts}}>{e.attempts||0}</TD>
-            <TD><Badge color={e.status==='completed'||e.status==='published'?'green':e.status==='live'?'red':'blue'}>{e.status}</Badge></TD>
-            <TD><div style={{display:'flex',gap:5}}>
-              <button style={{padding:'5px 10px',borderRadius:7,border:`1px solid ${bord}`,background:'transparent',color:accent,fontSize:11,cursor:'pointer'}}>✏️</button>
-              <button onClick={()=>setExams(p=>p.filter(x=>x._id!==e._id))} style={{padding:'5px 10px',borderRadius:7,border:'1px solid rgba(255,71,87,0.3)',background:'transparent',color:'#FF6B7A',fontSize:11,cursor:'pointer'}}>🗑</button>
-            </div></TD>
-          </TR>
-        ))}
-      </TableComp>
-    </Card>
-  )
-
-  // FIX: Create Exam — 3-step wizard
-  const renderCreateExam = ()=>(
-    <div>
-      <div style={{display:'flex',alignItems:'center',gap:0,marginBottom:24}}>
-        {[{n:1,l:'Basic Info'},{n:2,l:'Questions'},{n:3,l:'Done'}].map(({n,l},i)=>(
-          <div key={n} style={{display:'flex',alignItems:'center'}}>
-            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
-              <div style={{width:36,height:36,borderRadius:'50%',background:examStep>=n?accent:'rgba(77,159,255,0.1)',border:`2px solid ${examStep>=n?accent:'rgba(77,159,255,0.2)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:examStep>=n?'#fff':ts,transition:'all 0.3s'}}>{examStep>n?'✓':n}</div>
-              <div style={{fontSize:10,color:examStep>=n?accent:ts,fontWeight:examStep>=n?700:400}}>{l}</div>
-            </div>
-            {i<2 && <div style={{width:60,height:2,background:examStep>n?accent:'rgba(77,159,255,0.1)',margin:'0 8px 20px',transition:'all 0.3s'}}/>}
-          </div>
-        ))}
-      </div>
-
-      {examStep===1 && (
-        <Card style={{maxWidth:620}}>
-          <CardHeader title="➕ Step 1: Create Exam"/>
-          <div style={{padding:'24px'}}>
-            <InpRef label="Exam Title" ref={refExamTitle} defaultValue="" placeholder="e.g. NEET Full Mock #14"/>
-            <InpRef label="Scheduled Date & Time" ref={refExamDate} defaultValue="" type="datetime-local"/>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-              <InpRef label="Total Marks" ref={refExamMarks} defaultValue="720" type="number"/>
-              <InpRef label="Duration (minutes)" ref={refExamDur} defaultValue="200" type="number"/>
-            </div>
-            <div style={{marginBottom:14}}>
-              <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Category</label>
-              <select value={newExamCat} onChange={e=>setNewExamCat(e.target.value)} style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}>
-                {['Full Mock','Chapter Test','Part Test','Previous Year','Custom'].map(c=><option key={c}>{c}</option>)}
-              </select>
-            </div>
-            <InpRef label="Password (optional)" ref={refExamPass} defaultValue="" placeholder="Leave blank for open exam"/>
-            <Btn onClick={createExamStep1} style={{width:'100%',marginTop:8}}>🚀 Create Exam (POST /api/exams)</Btn>
-          </div>
-        </Card>
-      )}
-
-      {examStep===2 && (
-        <Card style={{maxWidth:700}}>
-          <CardHeader title="📚 Step 2: Add Questions" action={
-            <div style={{display:'flex',gap:8,alignItems:'center'}}>
-              <Badge color="green">Exam Created ✓</Badge>
-              <Btn variant="ghost" onClick={()=>setExamStep(3)} style={{fontSize:11,padding:'5px 10px'}}>Skip →</Btn>
-            </div>
-          }/>
-          <div style={{padding:'20px'}}>
-            <div style={{marginBottom:20}}>
-              <div style={{fontSize:10,fontWeight:700,color:accent,marginBottom:10,letterSpacing:'0.08em',textTransform:'uppercase'}}>Upload Method</div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8}}>
-                {[
-                  {key:'manual',icon:'✏️',label:'Manual Entry'},
-                  {key:'excel',icon:'📊',label:'Excel File'},
-                  {key:'pdf',icon:'📄',label:'PDF Parse'},
-                  {key:'copypaste',icon:'📋',label:'Copy-Paste'},
-                ].map(m=>(
-                  <button key={m.key} onClick={()=>setQUploadMethod(m.key as any)}
-                    style={{padding:'12px 8px',borderRadius:12,border:`2px solid ${qUploadMethod===m.key?accent:'rgba(77,159,255,0.15)'}`,background:qUploadMethod===m.key?'rgba(77,159,255,0.1)':iBg,color:qUploadMethod===m.key?accent:ts,cursor:'pointer',fontFamily:'Inter,sans-serif',fontSize:11,fontWeight:qUploadMethod===m.key?700:400,transition:'all 0.2s',textAlign:'center'}}>
-                    <div style={{fontSize:20,marginBottom:4}}>{m.icon}</div>
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {(qUploadMethod==='manual'||qUploadMethod==='copypaste') && (
-              <div>
-                <div style={{padding:'12px',background:'rgba(77,159,255,0.04)',borderRadius:10,border:`1px solid ${bord}`,marginBottom:12,fontSize:11,color:ts}}>
-                  Format: Q1. Question text?{'\n'}A) Option A{'\n'}B) Option B{'\n'}C) Option C{'\n'}D) Option D
-                </div>
-                <div style={{marginBottom:14}}>
-                  <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Paste Questions</label>
-                  <TextArea value={manualQText} onChange={setManualQText} rows={8} placeholder="Paste questions here..." mono={true}/>
-                </div>
-                <div style={{marginBottom:14}}>
-                  <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Answer Key (optional)</label>
-                  <TextArea value={answerKeyText} onChange={setAnswerKeyText} rows={4} placeholder="1-B 2-A 3-D" mono={true}/>
-                </div>
-              </div>
-            )}
-            {qUploadMethod==='excel' && (
-              <div>
-                <div style={{padding:'14px',background:'rgba(0,196,140,0.04)',borderRadius:10,border:'1px solid rgba(0,196,140,0.2)',marginBottom:16}}>
-                  <div style={{fontSize:12,color:'#00C48C',fontWeight:700,marginBottom:6}}>📊 Excel Format (POST /api/excel/upload)</div>
-                  <div style={{fontSize:11,color:ts}}>Columns: <code style={{color:accent}}>question | optionA | optionB | optionC | optionD | correctOption | subject | difficulty</code></div>
-                </div>
-                <div style={{padding:'30px',borderRadius:12,border:`2px dashed ${iBrd}`,background:iBg,textAlign:'center',cursor:'pointer',position:'relative',marginBottom:16}}
-                  onDragOver={e=>e.preventDefault()}
-                  onDrop={e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)setExcelFile(f)}}>
-                  <div style={{fontSize:32,marginBottom:8}}>📊</div>
-                  <div style={{fontSize:13,color:tm,fontWeight:600,marginBottom:4}}>{excelFile?excelFile.name:'Drag & Drop Excel File'}</div>
-                  <div style={{fontSize:11,color:ts}}>or click to browse</div>
-                  <input type="file" accept=".xlsx,.xls,.csv" onChange={e=>setExcelFile(e.target.files?.[0]||null)}
-                    style={{position:'absolute',inset:0,opacity:0,cursor:'pointer'}}/>
-                </div>
-              </div>
-            )}
-            {qUploadMethod==='pdf' && (
-              <div>
-                <div style={{padding:'14px',background:'rgba(168,85,247,0.04)',borderRadius:10,border:'1px solid rgba(168,85,247,0.2)',marginBottom:16}}>
-                  <div style={{fontSize:12,color:'#A855F7',fontWeight:700,marginBottom:6}}>📄 PDF Parser (POST /api/upload/pdf)</div>
-                  <div style={{fontSize:11,color:ts}}>Upload question paper PDF — system will auto-extract questions.</div>
-                </div>
-                <div style={{padding:'30px',borderRadius:12,border:`2px dashed ${iBrd}`,background:iBg,textAlign:'center',cursor:'pointer',position:'relative',marginBottom:16}}
-                  onDragOver={e=>e.preventDefault()}
-                  onDrop={e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)setPdfFile(f)}}>
-                  <div style={{fontSize:32,marginBottom:8}}>📄</div>
-                  <div style={{fontSize:13,color:tm,fontWeight:600,marginBottom:4}}>{pdfFile?pdfFile.name:'Drag & Drop PDF'}</div>
-                  <input type="file" accept=".pdf" onChange={e=>setPdfFile(e.target.files?.[0]||null)}
-                    style={{position:'absolute',inset:0,opacity:0,cursor:'pointer'}}/>
-                </div>
-                <div style={{marginBottom:14}}>
-                  <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Answer Key (if separate)</label>
-                  <TextArea value={answerKeyText} onChange={setAnswerKeyText} rows={4} placeholder="1-B, 2-A, 3-D ..." mono={true}/>
-                </div>
-              </div>
-            )}
-            <div style={{display:'flex',gap:10,marginTop:8}}>
-              <Btn onClick={uploadQuestions} disabled={uploadingQ} style={{flex:1}}>
-                {uploadingQ?'⏳ Uploading...':'📤 Upload Questions'}
-              </Btn>
-              <Btn variant="ghost" onClick={()=>setExamStep(3)} style={{flex:0,whiteSpace:'nowrap'}}>Skip →</Btn>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {examStep===3 && (
-        <Card style={{maxWidth:500}}>
-          <div style={{padding:'40px',textAlign:'center'}}>
-            <div style={{width:72,height:72,borderRadius:'50%',background:'rgba(0,196,140,0.12)',border:'2px solid rgba(0,196,140,0.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:32,margin:'0 auto 20px'}}>✅</div>
-            <div style={{fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:800,color:tm,marginBottom:8}}>Exam Ready!</div>
-            {uploadResult && <div style={{fontSize:13,color:'#00C48C',marginBottom:8}}>{uploadResult.success} questions uploaded{uploadResult.failed>0?`, ${uploadResult.failed} failed`:''}</div>}
-            <div style={{fontSize:12,color:ts,marginBottom:24}}>Exam created. Add more questions anytime from Question Bank.</div>
-            <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
-              <Btn onClick={()=>{setExamStep(1);if(refExamTitle.current)refExamTitle.current.value='';if(refExamDate.current)refExamDate.current.value='';if(refExamPass.current)refExamPass.current.value='';if(refExamMarks.current)refExamMarks.current.value='720';if(refExamDur.current)refExamDur.current.value='200';setCreatedExamId('');setUploadResult(null);setManualQText('');setAnswerKeyText('')}}>➕ Create Another</Btn>
-              <Btn variant="ghost" onClick={()=>navTo('all_exams')}>📋 View All Exams</Btn>
-              <Btn variant="ghost" onClick={()=>navTo('question_bank')}>🗂️ Question Bank</Btn>
-            </div>
-          </div>
-        </Card>
-      )}
-    </div>
-  )
-
-  const renderQuestionBank = ()=>(
-    <div style={{display:'flex',flexDirection:'column',gap:14}}>
-      <div style={{padding:'12px 16px',borderRadius:10,background:'rgba(77,159,255,0.06)',border:`1px solid ${bord}`,fontSize:12,color:ts}}>
-        🗂️ Question Bank — All questions stored in database. Filter by subject, chapter, difficulty.
-      </div>
-      <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:4}}>
-        {['All','Physics','Chemistry','Biology','Easy','Medium','Hard'].map(f=>(
-          <button key={f} style={{padding:'7px 14px',borderRadius:20,border:`1px solid ${bord}`,background:'transparent',color:ts,cursor:'pointer',fontFamily:'Inter,sans-serif',fontSize:12}}>{f}</button>
-        ))}
-        <Btn style={{marginLeft:'auto'}}>+ Add Question</Btn>
-      </div>
-      <Card>
-        <CardHeader title="🗂️ All Questions (GET /api/questions)" action={<button onClick={()=>fetchAllData(token)} style={{padding:'5px 10px',borderRadius:8,border:`1px solid ${bord}`,background:'transparent',color:accent,fontSize:11,cursor:'pointer',fontFamily:'Inter,sans-serif'}}>🔄 Refresh</button>}/>
-        <EmptyState icon="🗂️" msg="Questions will appear here from your database. Add questions via Create Exam → Step 2 or use Bulk Upload."/>
-      </Card>
-    </div>
-  )
-
-  const renderBulkUpload = ()=>(
-    <div style={{display:'flex',flexDirection:'column',gap:14}}>
-      <Card>
-        <CardHeader title="📤 Bulk Upload — Excel / PDF / Copy-Paste"/>
-        <div style={{padding:'20px'}}>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:12,marginBottom:20}}>
-            {[
-              {icon:'📊',title:'Excel Upload',desc:'POST /api/excel/upload',color:'#00C48C',sub:'XLSX/XLS/CSV format'},
-              {icon:'📄',title:'PDF Parse',desc:'POST /api/upload/pdf',color:'#A855F7',sub:'Auto-extract questions'},
-              {icon:'📋',title:'Copy-Paste',desc:'POST /api/upload/copy-paste',color:'#4D9FFF',sub:'Q&A text format'},
-            ].map(({icon,title,desc,color,sub})=>(
-              <div key={title} style={{padding:'20px',borderRadius:12,border:`1px solid rgba(77,159,255,0.15)`,background:'rgba(77,159,255,0.04)',textAlign:'center',cursor:'pointer'}}>
-                <div style={{fontSize:32,marginBottom:8}}>{icon}</div>
-                <div style={{fontWeight:700,color:tm,fontSize:13,marginBottom:4}}>{title}</div>
-                <div style={{fontSize:10,color:ts,marginBottom:8}}>{sub}</div>
-                <code style={{fontSize:10,color:accent}}>{desc}</code>
-              </div>
-            ))}
-          </div>
-          <div style={{padding:'14px',borderRadius:10,background:'rgba(255,165,2,0.04)',border:'1px solid rgba(255,165,2,0.2)',fontSize:11,color:'#FFA502'}}>
-            ⚠️ Use Create Exam → Step 2 for full bulk upload wizard with drag & drop interface.
-          </div>
-        </div>
-      </Card>
-    </div>
-  )
-
-  const renderPYQBank = ()=>(
-    <Card>
-      <CardHeader title="📚 PYQ Bank (S104 — Previous Year Questions)" action={<Badge color="gold">⚡ Feature Flag</Badge>}/>
-      <div style={{padding:'20px'}}>
-        <div style={{padding:'14px',borderRadius:10,background:'rgba(77,159,255,0.06)',border:`1px solid ${bord}`,marginBottom:16,fontSize:12,color:ts}}>
-          Previous year NEET questions bank. Students can practice from real past papers.
-        </div>
-        {['2023','2022','2021','2020','2019'].map(yr=>(
-          <div key={yr} style={{padding:'14px',borderRadius:10,border:`1px solid ${bord}`,marginBottom:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <div>
-              <div style={{fontWeight:700,color:tm,fontSize:13}}>NEET {yr} Paper</div>
-              <div style={{fontSize:11,color:ts}}>180 Questions · 720 Marks</div>
-            </div>
-            <div style={{display:'flex',gap:8}}>
-              <Btn variant="ghost" style={{fontSize:11,padding:'6px 12px'}}>📊 Stats</Btn>
-              <Btn style={{fontSize:11,padding:'6px 12px'}}>📥 Import</Btn>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Card>
-  )
-
-  const renderAllStudents = ()=>(
-    <Card>
-      <CardHeader title={`👥 All Students (${students.length})`} action={
-        <input value={searchQuery} onBlur={e=>setSearchQuery(e.target.value)} placeholder="Search..." style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',outline:'none',width:180}}/>
-      }/>
-      {students.length===0&&<EmptyState icon={loadingMain?'⏳':'👥'} msg={loadingMain?'Loading students...':'No students registered yet'}/>}
-      <TableComp headers={['#','Name','Email','Phone','Group','Integrity','Status','Joined','Actions']}>
-        {students.filter(s=>
-          s.name?.toLowerCase().includes(searchQuery.toLowerCase())||
-          s.email?.toLowerCase().includes(searchQuery.toLowerCase())
-        ).map((s,i)=>(
-          <TR key={s._id}>
-            <TD style={{color:ts}}>{i+1}</TD>
-            <TD><div style={{fontWeight:600,color:tm}}>{s.name}</div></TD>
-            <TD style={{color:ts,fontSize:11}}>{s.email}</TD>
-            <TD style={{color:ts,fontSize:11}}>{s.phone||'—'}</TD>
-            <TD><Badge color="blue">{s.group||'General'}</Badge></TD>
-            <TD>
-              <div style={{display:'flex',alignItems:'center',gap:6}}>
-                <div style={{height:5,width:60,background:'rgba(255,255,255,0.08)',borderRadius:99,overflow:'hidden'}}>
-                  <div style={{height:'100%',width:`${s.integrityScore||80}%`,background:(s.integrityScore||80)>70?'#00C48C':(s.integrityScore||80)>40?'#FFA502':'#FF4757',borderRadius:99}}/>
-                </div>
-                <span style={{fontSize:11,color:ts}}>{s.integrityScore||80}</span>
-              </div>
-            </TD>
-            <TD><Badge color={s.banned?'red':'green'}>{s.banned?'Banned':'Active'}</Badge></TD>
-            <TD style={{color:ts,fontSize:11}}>{new Date(s.createdAt).toLocaleDateString()}</TD>
-            <TD><div style={{display:'flex',gap:4}}>
-              {s.banned
-                ? <Btn variant="success" onClick={()=>unbanStudent(s._id)} style={{fontSize:10,padding:'4px 8px'}}>✓ Unban</Btn>
-                : <Btn variant="danger" onClick={()=>{setBanStudentId(s._id);navTo('ban_system')}} style={{fontSize:10,padding:'4px 8px'}}>🚫 Ban</Btn>
-              }
-              <Btn variant="ghost" style={{fontSize:10,padding:'4px 8px'}}>👁 View</Btn>
-            </div></TD>
-          </TR>
-        ))}
-      </TableComp>
-    </Card>
-  )
-
-  const renderBatchManager = ()=>(
-    <Card>
-      <CardHeader title="📁 Batch Manager (M3 — Student Groups)" action={<Btn>+ New Batch</Btn>}/>
-      <div style={{padding:'20px'}}>
-        {[
-          {name:'NEET Batch A',count:0,status:'Active',color:'#00C48C'},
-          {name:'NEET Batch B',count:0,status:'Active',color:'#4D9FFF'},
-          {name:'Dropper Batch',count:0,status:'Active',color:'#A855F7'},
-          {name:'General',count:students.length,status:'Active',color:'#FFA502'},
-        ].map(b=>(
-          <div key={b.name} style={{padding:'14px',borderRadius:12,border:`1px solid ${bord}`,marginBottom:10,display:'flex',alignItems:'center',gap:14}}>
-            <div style={{width:44,height:44,borderRadius:12,background:`${b.color}18`,border:`1px solid ${b.color}28`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>📁</div>
-            <div style={{flex:1}}>
-              <div style={{fontWeight:700,color:tm,fontSize:13}}>{b.name}</div>
-              <div style={{fontSize:11,color:ts}}>{b.count} students</div>
-            </div>
-            <Badge color="green">{b.status}</Badge>
-            <div style={{display:'flex',gap:6}}>
-              <Btn variant="ghost" style={{fontSize:11,padding:'6px 12px'}}>✏️ Edit</Btn>
-              <Btn variant="ghost" style={{fontSize:11,padding:'6px 12px'}}>👥 Members</Btn>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Card>
-  )
-
-  const renderBanSystem = ()=>(
-    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:14}}>
-      <Card>
-        <CardHeader title="🚫 Ban a Student"/>
-        <div style={{padding:'20px'}}>
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Select Student</label>
-            <select value={banStudentId} onChange={e=>setBanStudentId(e.target.value)} style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}>
-              <option value="">— Select Student —</option>
-              {students.filter(s=>!s.banned).map(s=><option key={s._id} value={s._id}>{s.name} ({s.email})</option>)}
-            </select>
-          </div>
-          <Inp label="Ban Reason" value={banReason} onChange={setBanReason} placeholder="Enter reason..."/>
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Ban Type</label>
-            <div style={{display:'flex',gap:8}}>
-              {(['permanent','temporary'] as const).map(t=>(
-                <button key={t} onClick={()=>setBanType(t)} style={{flex:1,padding:'9px',borderRadius:9,border:`1.5px solid ${banType===t?accent:iBrd}`,background:banType===t?'rgba(77,159,255,0.1)':iBg,color:banType===t?accent:ts,fontSize:12,cursor:'pointer',fontFamily:'Inter,sans-serif',fontWeight:banType===t?700:400}}>{t.charAt(0).toUpperCase()+t.slice(1)}</button>
-              ))}
-            </div>
-          </div>
-          <Btn variant="danger" onClick={banStudent} style={{width:'100%'}}>🚫 Ban Student</Btn>
-        </div>
-      </Card>
-      <Card>
-        <CardHeader title="🔓 Currently Banned"/>
-        <div style={{padding:'12px'}}>
-          {students.filter(s=>s.banned).length===0&&<EmptyState icon="✅" msg="No banned students"/>}
-          {students.filter(s=>s.banned).map(s=>(
-            <div key={s._id} style={{padding:'12px',borderRadius:10,border:'1px solid rgba(255,71,87,0.2)',background:'rgba(255,71,87,0.04)',marginBottom:8}}>
-              <div style={{fontWeight:700,color:tm,fontSize:13}}>{s.name}</div>
-              <div style={{fontSize:11,color:ts,marginBottom:8}}>Reason: {s.banReason||'—'}</div>
-              <Btn variant="success" onClick={()=>unbanStudent(s._id)} style={{fontSize:11,padding:'6px 12px'}}>✓ Unban</Btn>
-            </div>
-          ))}
-        </div>
-      </Card>
-    </div>
-  )
-
-  const renderResultControl = ()=>(
-    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:14}}>
-      <Card>
-        <CardHeader title="🎯 Result Control Panel"/>
-        <div style={{padding:'20px'}}>
-          {exams.filter(e=>e.status==='completed'||e.status==='submitted').length===0 &&
-            <EmptyState icon="📝" msg="No completed exams to publish"/>
-          }
-          {exams.filter(e=>e.status==='completed'||e.status==='submitted').map(e=>(
-            <div key={e._id} style={{padding:'14px',borderRadius:12,border:`1px solid ${bord}`,marginBottom:10}}>
-              <div style={{fontWeight:700,color:tm,fontSize:13,marginBottom:4}}>{e.title}</div>
-              <div style={{fontSize:11,color:ts,marginBottom:10}}>{e.attempts} attempts · {new Date(e.scheduledAt).toLocaleDateString()}</div>
-              <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                <Btn onClick={()=>publishResult(e._id, e.title)} style={{fontSize:11,padding:'6px 12px'}}>📢 Publish Results</Btn>
-                <Btn variant="ghost" style={{fontSize:11,padding:'6px 12px'}}>⏳ Delay</Btn>
-                <Btn variant="ghost" style={{fontSize:11,padding:'6px 12px'}}>📄 Topper PDF</Btn>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-    </div>
-  )
-
-  const renderLeaderboard = ()=>(
-    <Card>
-      <CardHeader title="🏆 Leaderboard (GET /api/results/leaderboard)" action={<button onClick={()=>fetchAllData(token)} style={{padding:'5px 10px',borderRadius:8,border:`1px solid ${bord}`,background:'transparent',color:accent,fontSize:11,cursor:'pointer',fontFamily:'Inter,sans-serif'}}>🔄 Refresh</button>}/>
-      <div style={{padding:'12px'}}>
-        {leaderboard.length===0&&<EmptyState icon={loadingMain?'⏳':'🏆'} msg={loadingMain?'Loading...':'No results published yet — leaderboard appears after publishing'}/>}
-        {leaderboard.map((entry,i)=>(
-          <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,marginBottom:4,background:i<3?'rgba(255,215,0,0.04)':'transparent',border:`1px solid ${i<3?'rgba(255,215,0,0.15)':bord}`}}>
-            <div style={{width:28,height:28,borderRadius:'50%',background:i===0?'rgba(255,215,0,0.2)':i===1?'rgba(192,192,192,0.2)':i===2?'rgba(205,127,50,0.2)':'rgba(77,159,255,0.1)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:800,color:i===0?'#FFD700':i===1?'#C0C0C0':i===2?'#CD7F32':ts,flexShrink:0}}>
-              {i<3?['🥇','🥈','🥉'][i]:entry.rank||i+1}
-            </div>
-            <div style={{flex:1}}>
-              <div style={{fontWeight:600,color:tm,fontSize:12}}>{entry.name}</div>
-              <div style={{fontSize:10,color:ts}}>Percentile: {entry.percentile}%</div>
-            </div>
-            <div style={{fontFamily:'Playfair Display,serif',fontWeight:800,fontSize:16,color:accent}}>{entry.score}</div>
-          </div>
-        ))}
-      </div>
-    </Card>
-  )
-
-  const renderAnalytics = ()=>(
-    <div style={{display:'flex',flexDirection:'column',gap:14}}>
-      <div style={{padding:'12px 16px',borderRadius:10,background:'rgba(77,159,255,0.06)',border:`1px solid ${bord}`,fontSize:12,color:ts}}>
-        📊 Analytics from <code style={{color:accent}}>/api/admin/stats</code> — detailed data appears after more exams are completed.
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
-        {[
-          {l:'Total Students',v:stats?.totalStudents??students.length,c:'#4D9FFF'},
-          {l:'Total Attempts',v:stats?.totalAttempts??0,c:'#00C48C'},
-          {l:'Avg Score',v:stats?.avgScore??'—',c:'#A855F7'},
-          {l:'Completion Rate',v:stats?.completionRate??'—',c:'#FFA502'},
-          {l:'Cheat Flags',v:flags.length,c:'#FF6B7A'},
-          {l:'Open Tickets',v:tickets.filter(t=>t.status!=='resolved').length,c:'#FFD700'}
-        ].map((s,i)=>(
-          <div key={i} style={{background:card,border:`1px solid ${bord}`,borderRadius:12,padding:'16px'}}>
-            <div style={{fontSize:11,color:ts,marginBottom:4}}>{s.l}</div>
-            <div style={{fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:800,color:s.c}}>{typeof s.v==='number'?s.v.toLocaleString():s.v}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-
-  const renderExport = ()=>(
-    <Card>
-      <CardHeader title="📥 Export Reports (GET /api/admin/manage/export)"/>
-      <div style={{padding:'20px',display:'flex',flexDirection:'column',gap:10}}>
-        {[
-          ['students','Student Performance Report (All Students)','PDF','#4D9FFF'],
-          ['results','Exam Result Summary','CSV','#00C48C'],
-          ['leaderboard','Rank List — Latest Exam','PDF','#A855F7'],
-          ['questions','Question Bank Statistics','CSV','#FFA502'],
-          ['audit','Audit Trail Log','CSV','#FF6B7A'],
-        ].map(([type,label,format,color])=>(
-          <button key={String(type)} onClick={()=>exportReport(String(type), String(label))}
-            style={{padding:'12px 16px',borderRadius:10,border:`1px solid ${bord}`,background:'rgba(77,159,255,0.04)',color:tm,cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',fontFamily:'Inter,sans-serif',fontSize:12,fontWeight:500,transition:'all 0.15s'}}
-            onMouseEnter={e=>(e.currentTarget.style.background='rgba(77,159,255,0.08)')}
-            onMouseLeave={e=>(e.currentTarget.style.background='rgba(77,159,255,0.04)')}>
-            <span>{label as string}</span>
-            <span style={{fontSize:10,fontWeight:700,color:String(color),padding:'3px 10px',borderRadius:99,background:`${color}18`}}>{format as string} ↓</span>
-          </button>
-        ))}
-      </div>
-    </Card>
-  )
-
-  const renderTickets = ()=>(
-    <Card>
-      <CardHeader title="📬 Challenges & Grievances (GET /api/admin/manage/tickets)"/>
-      {tickets.length===0&&<EmptyState icon={loadingMain?'⏳':'✅'} msg={loadingMain?'Loading tickets...':'No tickets/grievances found'}/>}
-      <div style={{padding:'12px'}}>
-        {tickets.map(t=>(
-          <div key={t._id} style={{padding:'12px',borderRadius:10,border:`1px solid ${bord}`,marginBottom:8}}>
-            <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
-              <div style={{fontWeight:700,color:tm,fontSize:12}}>{t.studentName}</div>
-              <Badge color={t.status==='pending'?'orange':t.status==='in-progress'?'blue':'green'}>{t.status}</Badge>
-            </div>
-            <div style={{fontSize:11,color:ts,marginBottom:4}}>{t.type} — {t.examTitle}</div>
-            <div style={{fontSize:11,color:ts,marginBottom:8}}>{t.description}</div>
-            <div style={{display:'flex',gap:6}}>
-              {t.status!=='resolved' &&
-                <Btn variant="success" onClick={()=>resolveTicket(t._id)} style={{fontSize:11,padding:'5px 10px'}}>✓ Resolve</Btn>
-              }
-              <Btn variant="ghost" style={{fontSize:11,padding:'5px 10px'}}>Reply</Btn>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Card>
-  )
-
-  const renderAnnouncements = ()=>(
-    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:14}}>
-      <Card>
-        <CardHeader title="📢 Send Announcement (POST /api/admin/announce)"/>
-        <div style={{padding:'20px'}}>
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Announcement Text</label>
-            <TextArea value={announceText} onChange={setAnnounceText} rows={5} placeholder="Write your announcement..."/>
-          </div>
-          <div style={{marginBottom:16}}>
-            <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Target Batch</label>
-            <select value={announceBatch} onChange={e=>setAnnounceBatch(e.target.value)} style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}>
-              <option value="all">All Students</option>
-              <option value="neet_a">NEET Batch A</option>
-              <option value="neet_b">NEET Batch B</option>
-              <option value="dropper">Dropper Batch</option>
-            </select>
-          </div>
-          <Btn onClick={sendAnnounce} style={{width:'100%'}}>📤 Send Announcement</Btn>
-        </div>
-      </Card>
-      <Card>
-        <CardHeader title="📡 Broadcast Message (Socket.io)"/>
-        <div style={{padding:'20px'}}>
-          <div style={{padding:'14px',borderRadius:10,background:'rgba(77,159,255,0.06)',border:`1px solid ${bord}`,marginBottom:14}}>
-            <div style={{fontSize:12,color:accent,fontWeight:700,marginBottom:4}}>Real-time Broadcast</div>
-            <div style={{fontSize:11,color:ts}}>Send instant message to all online students via WebSocket.</div>
-          </div>
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Message</label>
-            <textarea rows={4} placeholder="Real-time broadcast message..." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',resize:'none',outline:'none',boxSizing:'border-box'}}/>
-          </div>
-          <Btn style={{width:'100%'}}>📡 Broadcast Now</Btn>
-        </div>
-      </Card>
-    </div>
-  )
-
-  const renderCheatLogs = ()=>(
-    <Card>
-      <CardHeader title="⚠️ Cheating Logs (GET /api/admin/manage/cheating-logs)" action={<button onClick={()=>fetchAllData(token)} style={{padding:'5px 10px',borderRadius:8,border:`1px solid ${bord}`,background:'transparent',color:accent,fontSize:11,cursor:'pointer',fontFamily:'Inter,sans-serif'}}>🔄 Refresh</button>}/>
-      {flags.length===0&&<EmptyState icon={loadingMain?'⏳':'✅'} msg={loadingMain?'Loading cheating logs...':'No cheating flags found in database'}/>}
-      <TableComp headers={['Student','Exam','Violation','Count','Severity','Time','Action']}>
-        {flags.map((f,i)=>(
-          <TR key={f._id||i}>
-            <TD style={{fontWeight:600,color:tm}}>{f.studentName}</TD>
-            <TD style={{color:ts,fontSize:11}}>{f.examTitle}</TD>
-            <TD><Badge color={f.type?.includes('Tab')||f.type?.includes('Blur')?'orange':'red'}>{f.type}</Badge></TD>
-            <TD><span style={{fontFamily:'Playfair Display,serif',fontWeight:800,fontSize:16,color:f.count>=5?'#FF4757':'#FFA502'}}>{f.count}×</span></TD>
-            <TD><Badge color={f.severity==='high'?'red':f.severity==='medium'?'orange':'blue'}>{f.severity}</Badge></TD>
-            <TD style={{color:ts,fontSize:11}}>{new Date(f.at).toLocaleString()}</TD>
-            <TD><div style={{display:'flex',gap:4}}>
-              <Btn variant="ghost" style={{fontSize:10,padding:'4px 8px'}}>📄 Report</Btn>
-              <Btn variant="danger" onClick={()=>{const s=students.find(st=>st.name===f.studentName);if(s){setBanStudentId(s._id);navTo('ban_system')}}} style={{fontSize:10,padding:'4px 8px'}}>🚫 Ban</Btn>
-            </div></TD>
-          </TR>
-        ))}
-      </TableComp>
-    </Card>
-  )
-
-  const renderSnapshots = ()=>(
-    <Card>
-      <CardHeader title="📸 Webcam Snapshots (GET /api/admin/manage/snapshots)" action={<Badge color="gold">⚡ SuperAdmin</Badge>}/>
-      <div style={{padding:'20px'}}>
-        {snapshots.length===0&&<EmptyState icon={loadingMain?'⏳':'📷'} msg={loadingMain?'Loading snapshots...':'No webcam snapshots found. Snapshots appear during proctored exams.'}/>}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12}}>
-          {snapshots.map((snap,i)=>(
-            <div key={snap._id||i} style={{borderRadius:12,overflow:'hidden',border:`2px solid ${snap.flagged?'rgba(255,71,87,0.4)':bord}`,position:'relative'}}>
-              {snap.imageUrl
-                ? <img src={snap.imageUrl} alt={snap.studentName} style={{width:'100%',height:110,objectFit:'cover'}}/>
-                : <div style={{height:110,background:`linear-gradient(135deg,rgba(0,10,24,0.9),rgba(0,30,60,0.7))`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:32,color:'rgba(77,159,255,0.3)'}}>📷</div>
-              }
-              {snap.flagged && <div style={{position:'absolute',top:6,right:6,background:'#FF4757',color:'#fff',fontSize:9,fontWeight:700,padding:'3px 7px',borderRadius:99}}>⚠️ FLAGGED</div>}
-              <div style={{padding:'8px 10px',background:'rgba(0,8,20,0.95)'}}>
-                <div style={{fontSize:11,color:tm,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{snap.studentName}</div>
-                <div style={{fontSize:10,color:ts}}>{new Date(snap.capturedAt).toLocaleTimeString()}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </Card>
-  )
-
-  const renderIntegrity = ()=>(
-    <Card>
-      <CardHeader title="🛡️ Student Integrity Scores (AI-6)" action={<Badge color="gold">⚡ SuperAdmin</Badge>}/>
-      <div style={{padding:'16px 20px'}}>
-        <div style={{fontSize:12,color:ts,marginBottom:16}}>AI combines: tab switches + face detection + answer speed + IP flags → 0-100 score</div>
-        {students.length===0&&<EmptyState icon={loadingMain?'⏳':'👥'} msg={loadingMain?'Loading...':'No students found'}/>}
-        <TableComp headers={['Student','Group','Integrity Score','Risk Level','Actions']}>
-          {students.map(s=>{
-            const score = s.integrityScore||80
-            const risk = score<40?'High':score<70?'Medium':'Low'
-            return (
-              <TR key={s._id}>
-                <TD style={{fontWeight:600,color:tm}}>{s.name}</TD>
-                <TD><Badge color="blue">{s.group||'General'}</Badge></TD>
-                <TD>
-                  <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <div style={{height:6,width:80,background:'rgba(255,255,255,0.08)',borderRadius:99,overflow:'hidden'}}>
-                      <div style={{height:'100%',width:`${score}%`,background:score>70?'#00C48C':score>40?'#FFA502':'#FF4757',borderRadius:99}}/>
-                    </div>
-                    <span style={{fontFamily:'Playfair Display,serif',fontWeight:800,fontSize:16,color:score>70?'#00C48C':score>40?'#FFA502':'#FF4757'}}>{score}</span>
-                  </div>
-                </TD>
-                <TD><Badge color={risk==='High'?'red':risk==='Medium'?'orange':'green'}>{risk}</Badge></TD>
-                <TD><Btn variant="ghost" style={{fontSize:10,padding:'4px 8px'}}>📊 Details</Btn></TD>
-              </TR>
-            )
-          })}
-        </TableComp>
-      </div>
-    </Card>
-  )
-
-  const renderFeatureFlags = ()=>(
-    <Card>
-      <CardHeader title="🚩 Feature Flag System (N21)" action={<Badge color="gold">⚡ SuperAdmin Only</Badge>}/>
-      <div style={{padding:'20px'}}>
-        <div style={{fontSize:12,color:ts,marginBottom:18}}>Toggle any feature ON/OFF — changes sent to backend via POST /api/admin/features</div>
-        <div style={{display:'flex',flexDirection:'column',gap:8}}>
-          {features.map(f=>(
-            <div key={f.key} style={{padding:'14px 16px',borderRadius:12,border:`1px solid ${f.enabled?'rgba(77,159,255,0.2)':bord}`,background:f.enabled?'rgba(77,159,255,0.04)':'transparent',display:'flex',alignItems:'center',gap:14,transition:'all 0.2s'}}>
-              <div style={{flex:1}}>
-                <div style={{fontWeight:700,color:tm,fontSize:13,marginBottom:2}}>{f.label}</div>
-                <div style={{fontSize:11,color:ts}}>{f.description}</div>
-              </div>
-              <button onClick={()=>toggleFeature(f.key)} style={{width:46,height:26,borderRadius:99,background:f.enabled?accent:'rgba(255,255,255,0.1)',border:'none',cursor:'pointer',position:'relative',transition:'all 0.25s',flexShrink:0}}>
-                <div style={{width:20,height:20,borderRadius:'50%',background:'#fff',position:'absolute',top:3,left:f.enabled?23:3,transition:'left 0.25s',boxShadow:'0 2px 4px rgba(0,0,0,0.3)'}}/>
-              </button>
-              <Badge color={f.enabled?'green':'orange'}>{f.enabled?'ON':'OFF'}</Badge>
-            </div>
-          ))}
-        </div>
-      </div>
-    </Card>
-  )
-
-  const renderPermissions = ()=>(
-    <Card>
-      <CardHeader title="🔐 Admin Permission Control (S72)" action={<Badge color="gold">⚡ SuperAdmin Only</Badge>}/>
-      <div style={{padding:'20px'}}>
-        <div style={{marginBottom:16}}>
-          <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:8,letterSpacing:'0.08em',textTransform:'uppercase'}}>Select Admin</label>
-          <select style={{width:'100%',maxWidth:320,padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}>
-            <option>admin@proverank.com</option>
-          </select>
-        </div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:8}}>
-          {Object.entries(adminPermissions).map(([key,val])=>(
-            <div key={key} style={{padding:'12px 14px',borderRadius:10,border:`1px solid ${val?'rgba(77,159,255,0.2)':bord}`,background:val?'rgba(77,159,255,0.04)':'transparent',display:'flex',alignItems:'center',gap:10}}>
-              <button onClick={()=>setAdminPermissions(p=>({...p,[key]:!val}))} style={{width:38,height:22,borderRadius:99,background:val?accent:'rgba(255,255,255,0.1)',border:'none',cursor:'pointer',position:'relative',transition:'all 0.25s',flexShrink:0}}>
-                <div style={{width:16,height:16,borderRadius:'50%',background:'#fff',position:'absolute',top:3,left:val?19:3,transition:'left 0.25s'}}/>
-              </button>
-              <span style={{fontSize:12,color:val?tm:ts,fontWeight:val?600:400}}>{key.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</span>
-            </div>
-          ))}
-        </div>
-        <Btn onClick={()=>showToast('Permissions saved!')} style={{marginTop:18}}>💾 Save Permissions</Btn>
-      </div>
-    </Card>
-  )
-
-  const renderBranding = ()=>(
-    <Card style={{maxWidth:600}}>
-      <CardHeader title="🎨 Custom Branding (S56)" action={<Badge color="gold">⚡ SuperAdmin Only</Badge>}/>
-      <div style={{padding:'24px'}}>
-        <Inp label="Platform Name" value={brandName} onChange={setBrandName}/>
-        <Inp label="Tagline" value={brandTagline} onChange={setBrandTagline}/>
-        <Inp label="Support Email" value={brandSupport} onChange={setBrandSupport}/>
-        <div style={{padding:'20px',borderRadius:12,border:`1px solid ${bord}`,background:'rgba(77,159,255,0.04)',marginBottom:20}}>
-          <div style={{fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:800,color:accent,marginBottom:4}}>{brandName}</div>
-          <div style={{fontSize:12,color:ts}}>{brandTagline}</div>
-        </div>
-        <Btn onClick={()=>showToast('Branding saved!')} style={{width:'100%'}}>💾 Save Branding</Btn>
-      </div>
-    </Card>
-  )
-
-  const renderSEO = ()=>(
-    <Card style={{maxWidth:560}}>
-      <CardHeader title="🌐 SEO Settings (M17)" action={<Badge color="gold">⚡ SuperAdmin Only</Badge>}/>
-      <div style={{padding:'24px'}}>
-        <Inp label="Meta Title" value={seoTitle} onChange={setSeoTitle}/>
-        <div style={{marginBottom:14}}>
-          <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Meta Description</label>
-          <TextArea value={seoDesc} onChange={setSeoDesc} rows={3}/>
-          <div style={{fontSize:10,color:ts,marginTop:4}}>{seoDesc.length}/160 characters</div>
-        </div>
-        <div style={{padding:'14px',borderRadius:10,border:'1px solid rgba(0,196,140,0.2)',background:'rgba(0,196,140,0.04)',marginBottom:14}}>
-          <div style={{fontSize:11,color:'#00C48C',fontWeight:700,marginBottom:4}}>Google Preview</div>
-          <div style={{fontSize:14,color:'#4D9FFF'}}>{seoTitle}</div>
-          <div style={{fontSize:11,color:ts,marginTop:2}}>prove-rank.vercel.app</div>
-          <div style={{fontSize:11,color:ts,marginTop:2}}>{seoDesc.substring(0,120)}...</div>
-        </div>
-        <Btn onClick={()=>showToast('SEO settings saved!')} style={{width:'100%'}}>💾 Save SEO Settings</Btn>
-      </div>
-    </Card>
-  )
-
-  const renderAuditTrail = ()=>(
-    <Card>
-      <CardHeader title="📜 Platform Audit Trail (GET /api/admin/manage/audit)" action={<Badge color="gold">⚡ SuperAdmin Only</Badge>}/>
-      {logs.length===0&&<EmptyState icon={loadingMain?'⏳':'📜'} msg={loadingMain?'Loading audit logs...':'No audit logs found. Admin actions will be logged here.'}/>}
-      <TableComp headers={['Time','Action','Performed By','Details']}>
-        {logs.map((l,i)=>(
-          <TR key={l._id||i}>
-            <TD style={{color:ts,fontSize:11,whiteSpace:'nowrap'}}>{new Date(l.at).toLocaleString()}</TD>
-            <TD><Badge color="blue">{l.action}</Badge></TD>
-            <TD style={{color:accent,fontWeight:600}}>{l.by}</TD>
-            <TD style={{color:ts,fontSize:11}}>{l.detail}</TD>
-          </TR>
-        ))}
-      </TableComp>
-    </Card>
-  )
-
-  const renderMaintenance = ()=>(
-    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:14}}>
-      <Card>
-        <CardHeader title="🔧 Maintenance Mode (S66)" action={<Badge color="gold">⚡ SuperAdmin Only</Badge>}/>
-        <div style={{padding:'24px'}}>
-          {features.find(f=>f.key==='maintenance')?.enabled
-            ? <div style={{padding:'14px',borderRadius:12,background:'rgba(255,165,2,0.08)',border:'1px solid rgba(255,165,2,0.3)',marginBottom:16}}>
-                <div style={{fontSize:13,color:'#FFA502',fontWeight:700}}>⚠️ Maintenance Mode is ON</div>
-                <div style={{fontSize:11,color:ts,marginTop:4}}>Students cannot access the platform.</div>
-              </div>
-            : <div style={{padding:'14px',borderRadius:12,background:'rgba(0,196,140,0.06)',border:'1px solid rgba(0,196,140,0.2)',marginBottom:16}}>
-                <div style={{fontSize:13,color:'#00C48C',fontWeight:700}}>✓ Platform is Live</div>
-                <div style={{fontSize:11,color:ts,marginTop:4}}>All students can access normally.</div>
-              </div>
-          }
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:6,letterSpacing:'0.08em',textTransform:'uppercase'}}>Maintenance Message</label>
-            <textarea rows={3} defaultValue="We are performing scheduled maintenance. Platform will be back in 2 hours." style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:12,fontFamily:'Inter,sans-serif',resize:'none',outline:'none',boxSizing:'border-box'}}/>
-          </div>
-          <Btn onClick={()=>toggleFeature('maintenance')} style={{width:'100%'}}>
-            {features.find(f=>f.key==='maintenance')?.enabled?'✓ Turn OFF Maintenance':'🔧 Enable Maintenance Mode'}
-          </Btn>
-        </div>
-      </Card>
-      <Card>
-        <CardHeader title="💾 Data Backup (S50)" action={<Badge color="gold">⚡ SuperAdmin Only</Badge>}/>
-        <div style={{padding:'20px'}}>
-          <div style={{padding:'12px',borderRadius:10,border:`1px solid ${bord}`,marginBottom:12,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <div>
-              <div style={{fontSize:12,color:tm,fontWeight:600}}>MongoDB Atlas Auto Backup</div>
-              <div style={{fontSize:11,color:ts}}>Cluster0 — Mumbai region</div>
-            </div>
-            <Badge color="green">✓ Active</Badge>
-          </div>
-          {[['Manual Backup Now','💾'],['Download Students CSV','📥'],['Download Exam Data','📥'],['Restore from Backup','🔄']].map(([l,icon])=>(
-            <button key={String(l)} onClick={()=>showToast(`${l} initiated...`)} style={{width:'100%',padding:'11px 14px',borderRadius:9,border:`1px solid ${bord}`,background:'rgba(77,159,255,0.04)',color:tm,cursor:'pointer',display:'flex',alignItems:'center',gap:10,marginBottom:6,fontFamily:'Inter,sans-serif',fontSize:12,fontWeight:500}}
-              onMouseEnter={e=>(e.currentTarget.style.background='rgba(77,159,255,0.08)')}
-              onMouseLeave={e=>(e.currentTarget.style.background='rgba(77,159,255,0.04)')}>
-              <span>{icon as string}</span> {l as string}
-            </button>
-          ))}
-        </div>
-      </Card>
-    </div>
-  )
-
-  const renderImpersonate = ()=>(
-    <Card style={{maxWidth:500}}>
-      <CardHeader title="👁️ Impersonate Student (M4)" action={<Badge color="gold">⚡ SuperAdmin Only</Badge>}/>
-      <div style={{padding:'20px'}}>
-        <div style={{padding:'12px',borderRadius:10,background:'rgba(255,165,2,0.06)',border:'1px solid rgba(255,165,2,0.2)',marginBottom:16}}>
-          <div style={{fontSize:12,color:'#FFA502',fontWeight:700}}>⚠️ Use with caution</div>
-          <div style={{fontSize:11,color:ts,marginTop:4}}>Generates a temporary token to view any student's dashboard. All actions are logged.</div>
-        </div>
-        <div style={{marginBottom:14}}>
-          <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Select Student</label>
-          <select value={impersonateId} onBlur={e=>setImpersonateId(e.target.value)} style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}>
-            <option value="">— Select Student —</option>
-            {students.map(s=><option key={s._id} value={s._id}>{s.name} ({s.email})</option>)}
-          </select>
-        </div>
-        <Btn onClick={impersonateStudent} style={{width:'100%'}}>👁️ View as Student (Opens new tab)</Btn>
-      </div>
-    </Card>
-  )
-
-  const renderSmartGen = ()=>(
-    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:14}}>
-      <Card>
-        <CardHeader title="🤖 Smart Paper Generator (POST /api/questions/generate)"/>
-        <div style={{padding:'20px'}}>
-          <Inp label="Topic / Chapter" value={aiTopic} onChange={setAiTopic} placeholder="e.g. Cell Division, Thermodynamics"/>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-            <Inp label="Number of Questions" value={aiCount} onChange={setAiCount} type="number"/>
-            <div style={{marginBottom:14}}>
-              <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Subject</label>
-              <select value={aiSubject} onChange={e=>setAiSubject(e.target.value)} style={{width:'100%',padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}>
-                {['Physics','Chemistry','Botany','Zoology'].map(s=><option key={s}>{s}</option>)}
-              </select>
-            </div>
-          </div>
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:10,fontWeight:700,color:accent,display:'block',marginBottom:5,letterSpacing:'0.08em',textTransform:'uppercase'}}>Difficulty</label>
-            <div style={{display:'flex',gap:8}}>
-              {['easy','medium','hard'].map(d=>(
-                <button key={d} onClick={()=>setAiDifficulty(d)} style={{flex:1,padding:'8px',borderRadius:9,border:`1.5px solid ${aiDifficulty===d?accent:iBrd}`,background:aiDifficulty===d?'rgba(77,159,255,0.1)':iBg,color:aiDifficulty===d?accent:ts,fontSize:12,cursor:'pointer',fontFamily:'Inter,sans-serif',fontWeight:aiDifficulty===d?700:400,textTransform:'capitalize'}}>{d}</button>
-              ))}
-            </div>
-          </div>
-          <Btn onClick={generateQuestions} style={{width:'100%'}} variant={aiLoading?'ghost':'primary'}>
-            {aiLoading?'⏳ Generating...':'🤖 Generate Questions'}
-          </Btn>
-        </div>
-      </Card>
-      {aiResult.length>0 && (
-        <Card>
-          <CardHeader title={`✅ Generated ${aiResult.length} Questions`}/>
-          <div style={{padding:'12px',maxHeight:400,overflowY:'auto'}}>
-            {aiResult.map((q:any,i:number)=>(
-              <div key={i} style={{padding:'12px',borderRadius:10,border:`1px solid ${bord}`,marginBottom:8}}>
-                <div style={{fontWeight:600,color:tm,fontSize:12,marginBottom:6}}>Q{i+1}. {q.question||q.text}</div>
-                {q.options && Object.entries(q.options).map(([k,v])=>(
-                  <div key={k} style={{fontSize:11,color:k===q.correctOption?'#00C48C':ts,padding:'2px 0'}}>{k}: {String(v)}</div>
-                ))}
-                {q.correctOption && <div style={{fontSize:10,color:'#00C48C',marginTop:4,fontWeight:700}}>✓ {q.correctOption}</div>}
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-    </div>
-  )
-
-  const renderActivityLogs = ()=>(
-    <Card>
-      <CardHeader title="📋 Admin Activity Logs (GET /api/admin/manage/audit)" action={<button onClick={()=>fetchAllData(token)} style={{padding:'5px 10px',borderRadius:8,border:`1px solid ${bord}`,background:'transparent',color:accent,fontSize:11,cursor:'pointer',fontFamily:'Inter,sans-serif'}}>🔄 Refresh</button>}/>
-      {logs.length===0&&<EmptyState icon={loadingMain?'⏳':'📋'} msg={loadingMain?'Loading logs...':'No activity logs found. Admin actions will appear here.'}/>}
-      <TableComp headers={['Time','Admin','Action','Details']}>
-        {logs.map((l,i)=>(
-          <TR key={l._id||i}>
-            <TD style={{color:ts,fontSize:11}}>{new Date(l.at).toLocaleString()}</TD>
-            <TD style={{color:accent,fontWeight:600}}>{l.by}</TD>
-            <TD><Badge color="blue">{l.action}</Badge></TD>
-            <TD style={{color:ts,fontSize:11}}>{l.detail}</TD>
-          </TR>
-        ))}
-      </TableComp>
-    </Card>
-  )
-
-  const renderTodo = ()=>(
-    <Card>
-      <CardHeader title="✅ Admin Task Manager (M13)"/>
-      <div style={{padding:'20px'}}>
-        <div style={{display:'flex',gap:8,marginBottom:16}}>
-          <input value={todoInput} onBlur={e=>setTodoInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTodo()} placeholder="Add new task..." style={{flex:1,padding:'10px 13px',borderRadius:9,border:`1.5px solid ${iBrd}`,background:iBg,color:tm,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none'}}/>
-          <Btn onClick={addTodo}>+ Add</Btn>
-        </div>
-        {todos.map(t=>(
-          <div key={t.id} style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',borderRadius:10,background:t.done?'rgba(0,196,140,0.04)':'rgba(77,159,255,0.04)',border:`1px solid ${t.done?'rgba(0,196,140,0.12)':bord}`,marginBottom:8}}>
-            <input type="checkbox" checked={t.done} onChange={()=>setTodos(p=>p.map(x=>x.id===t.id?{...x,done:!x.done}:x))} style={{accentColor:accent,width:16,height:16,flexShrink:0}}/>
-            <span style={{fontSize:13,color:t.done?ts:tm,textDecoration:t.done?'line-through':'none',flex:1}}>{t.text}</span>
-            <button onClick={()=>setTodos(p=>p.filter(x=>x.id!==t.id))} style={{background:'none',border:'none',color:ts,cursor:'pointer',fontSize:14,padding:'2px 6px'}}>✕</button>
-          </div>
-        ))}
-      </div>
-    </Card>
-  )
-
-  const renderChangelog = ()=>(
-    <Card>
-      <CardHeader title="📝 Platform Changelog"/>
-      <div style={{padding:'20px',display:'flex',flexDirection:'column',gap:10}}>
-        {[
-          {v:'v2.3',d:'Mar 11, 2026',changes:['Master Combined: All features restored + all fixes applied','Live Monitor, Snapshots, Integrity, Permissions, Export, Analytics — all back','3-step exam wizard with Excel/PDF/Copy-paste upload','Sidebar hidden by default — logo click se open','Real stats from API — no fake numbers'],type:'major'},
-          {v:'v2.2',d:'Mar 11, 2026',changes:['Admin panel fully wired to real APIs','Mock data removed — all data from backend','Stats, Leaderboard, Audit, Tickets, Cheating Logs all live'],type:'feature'},
-          {v:'v2.0',d:'Mar 06, 2026',changes:['Stage 7.5 complete — Admin panel 57+ features','Anti-cheat monitoring, Integrity scores, Feature Flags'],type:'major'},
-        ].map(({v,d,changes,type})=>(
-          <div key={v} style={{padding:'16px',borderRadius:12,border:`1px solid ${type==='major'?'rgba(77,159,255,0.3)':bord}`,background:type==='major'?'rgba(77,159,255,0.04)':'transparent'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <span style={{fontFamily:'Playfair Display,serif',fontSize:16,fontWeight:800,color:accent}}>{v}</span>
-                {type==='major' && <Badge color="blue">Major Update</Badge>}
-              </div>
-              <span style={{fontSize:11,color:ts}}>{d}</span>
-            </div>
-            {changes.map((c,i)=><div key={i} style={{fontSize:12,color:ts,paddingLeft:12,position:'relative',marginBottom:2}}><span style={{position:'absolute',left:0,color:accent}}>•</span>{c}</div>)}
-          </div>
-        ))}
-      </div>
-    </Card>
-  )
-
-  // Content Router
-  const renderContent = ()=>{
-    switch(activeTab){
-      case 'dashboard':     return renderDashboard()
-      case 'live_monitor':  return renderLiveMonitor()
-      case 'all_exams':     return renderAllExams()
-      case 'create_exam':   return renderCreateExam()
-      case 'question_bank': return renderQuestionBank()
-      case 'smart_gen':     return renderSmartGen()
-      case 'bulk_upload':   return renderBulkUpload()
-      case 'pyq_bank':      return renderPYQBank()
-      case 'all_students':  return renderAllStudents()
-      case 'batch_manager': return renderBatchManager()
-      case 'ban_system':    return renderBanSystem()
-      case 'result_control':return renderResultControl()
-      case 'leaderboard':   return renderLeaderboard()
-      case 'analytics':     return renderAnalytics()
-      case 'export':        return renderExport()
-      case 'tickets':       return renderTickets()
-      case 'announcements': return renderAnnouncements()
-      case 'cheat_logs':    return renderCheatLogs()
-      case 'snapshots':     return renderSnapshots()
-      case 'integrity':     return renderIntegrity()
-      case 'feature_flags': return renderFeatureFlags()
-      case 'permissions':   return renderPermissions()
-      case 'branding':      return renderBranding()
-      case 'seo':           return renderSEO()
-      case 'audit_trail':   return renderAuditTrail()
-      case 'maintenance':   return renderMaintenance()
-      case 'data_backup':   return renderMaintenance()
-      case 'impersonate':   return renderImpersonate()
-      case 'activity_logs': return renderActivityLogs()
-      case 'todo':          return renderTodo()
-      case 'changelog':     return renderChangelog()
-      default:              return renderDashboard()
-    }
-  }
-
-  // FIX: Sidebar content
-  const SidebarContent = ()=>(
-    <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
-      <div style={{padding:'16px 14px',borderBottom:`1px solid ${bord}`,display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
-        <svg width={32} height={32} viewBox="0 0 64 64">
-          <polygon points={[...Array(6)].map((_,i)=>{const a=(Math.PI/180)*(60*i-30);return`${32+26*Math.cos(a)},${32+26*Math.sin(a)}`}).join(' ')} fill="none" stroke="#4D9FFF" strokeWidth="2.5"/>
-          <text x="32" y="38" textAnchor="middle" fontFamily="Playfair Display,serif" fontSize="13" fontWeight="800" fill="#4D9FFF">PR</text>
-        </svg>
-        <div style={{flex:1}}>
-          <div style={{fontFamily:'Playfair Display,serif',fontSize:15,fontWeight:800,background:'linear-gradient(90deg,#4D9FFF,#fff,#4D9FFF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>ProveRank</div>
-          <div style={{fontSize:9,color:role==='superadmin'?'#FFD700':'#4D9FFF',letterSpacing:'0.12em',fontWeight:700}}>{role==='superadmin'?'⚡ SUPERADMIN':'🛡 ADMIN'}</div>
-        </div>
-        <button onClick={()=>setSideOpen(false)} style={{background:'none',border:'none',color:ts,fontSize:18,cursor:'pointer'}}>✕</button>
-      </div>
-      <div style={{flex:1,overflowY:'auto',padding:'10px 8px'}}>
-        {navSections.map(section=>(
-          <div key={section.id} style={{marginBottom:4}}>
-            {section.label&&(
-              <button onClick={()=>toggleSection(section.id)} style={{width:'100%',background:'none',border:'none',padding:'5px 8px',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',marginBottom:2}}>
-                <span style={{fontSize:9,fontWeight:800,color:'#2A4A6A',letterSpacing:'0.12em'}}>{section.label}</span>
-                <span style={{color:'#2A4A6A',fontSize:11,transition:'transform 0.2s',transform:expandedSections.includes(section.id)?'rotate(90deg)':'rotate(0deg)'}}>▶</span>
-              </button>
-            )}
-            {(!section.label||expandedSections.includes(section.id))&&section.items.map(item=>(
-              <button key={item.id} onClick={()=>navTo(item.id)} style={{width:'100%',background:activeTab===item.id?'rgba(77,159,255,0.15)':'transparent',border:'none',borderLeft:activeTab===item.id?`3px solid ${accent}`:'3px solid transparent',padding:'8px 12px',display:'flex',alignItems:'center',gap:10,borderRadius:'0 10px 10px 0',cursor:'pointer',marginBottom:1,fontFamily:'Inter,sans-serif'}}>
-                <span style={{fontSize:14,width:20,textAlign:'center',flexShrink:0}}>{item.icon}</span>
-                <span style={{fontSize:12,fontWeight:activeTab===item.id?700:500,color:activeTab===item.id?accent:ts}}>{lang==='en'?item.en:item.hi}</span>
-              </button>
-            ))}
-          </div>
-        ))}
-      </div>
-      <div style={{padding:'10px 8px',borderTop:`1px solid ${bord}`,flexShrink:0,display:'flex',flexDirection:'column',gap:6}}>
-        <div style={{padding:'10px 12px',borderRadius:10,background:'rgba(77,159,255,0.06)',border:`1px solid ${bord}`}}>
-          <div style={{fontWeight:700,color:tm,fontSize:12}}>admin@proverank.com</div>
-          <div style={{fontSize:10,color:ts,marginTop:2}}>{role==='superadmin'?'Full Access':'Limited Access'}</div>
-        </div>
-        <div style={{display:'flex',gap:6}}>
-          <button onClick={toggleLang} style={{flex:1,padding:'7px',borderRadius:8,border:`1px solid ${bord}`,background:'transparent',color:ts,fontSize:11,cursor:'pointer',fontFamily:'Inter,sans-serif'}}>{lang==='en'?'🇮🇳 हिं':'🌐 EN'}</button>
-          <button onClick={logout} style={{flex:1,padding:'7px',borderRadius:8,border:'1px solid rgba(255,71,87,0.3)',background:'rgba(255,71,87,0.08)',color:'#FF6B7A',fontSize:11,cursor:'pointer',fontFamily:'Inter,sans-serif'}}>🚪 Logout</button>
-        </div>
-      </div>
-    </div>
+  const navBtn=(id:string,ico:string,lbl:string)=>(
+    <button key={id} onClick={()=>{setTab(id);setSideOpen(false)}}
+      style={{display:'flex',alignItems:'center',gap:8,padding:'9px 14px',borderRadius:8,border:'none',background:tab===id?'rgba(77,159,255,0.15)':'transparent',color:tab===id?ACC:DIM,cursor:'pointer',fontFamily:'Inter,sans-serif',fontSize:12,fontWeight:tab===id?700:400,width:'100%',textAlign:'left',transition:'all 0.15s'}}>
+      <span style={{fontSize:14}}>{ico}</span><span>{lbl}</span>
+    </button>
   )
 
   return (
-    <div style={{minHeight:'100vh',background:bg,display:'flex',flexDirection:'column',fontFamily:'Inter,sans-serif'}}>
-      <style>{`
-        *{box-sizing:border-box;margin:0;padding:0}
-        ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-thumb{background:rgba(77,159,255,0.2);border-radius:99px}
-        @keyframes spin{to{transform:rotate(360deg)}}
-      `}</style>
+    <div style={{background:BG,minHeight:'100vh',color:TS,fontFamily:'Inter,sans-serif'}}>
 
-      {/* FIX: Sidebar overlay — only shows when sideOpen=true */}
-      {sideOpen&&(
-        <div style={{position:'fixed',inset:0,zIndex:200,display:'flex'}}>
-          <div onClick={()=>setSideOpen(false)} style={{flex:1,background:'rgba(0,0,0,0.7)',backdropFilter:'blur(2px)'}}/>
-          <div style={{width:260,background:'rgba(0,4,14,0.98)',borderLeft:`1px solid ${bord}`,height:'100%',overflowY:'auto',flexShrink:0}}>
-            <SidebarContent/>
+      {/* TOAST */}
+      {toast&&<div style={{position:'fixed',top:16,right:16,zIndex:9999,padding:'12px 18px',borderRadius:10,fontWeight:700,fontSize:13,background:toast.tp==='s'?SUC:toast.tp==='w'?WRN:DNG,color:toast.tp==='w'?'#000':'#fff',boxShadow:'0 4px 20px rgba(0,0,0,0.5)',maxWidth:300,wordBreak:'break-word'}}>{toast.msg}</div>}
+
+      {/* TOP NAV */}
+      <div style={{position:'sticky',top:0,zIndex:100,background:'rgba(0,10,24,0.97)',backdropFilter:'blur(12px)',borderBottom:`1px solid ${BOR}`,padding:'0 14px',height:54,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <button onClick={()=>setSideOpen(p=>!p)} style={{background:'none',border:'none',color:TS,fontSize:20,cursor:'pointer',padding:4}}>☰</button>
+          <svg width="26" height="26" viewBox="0 0 28 28"><polygon points="14,2 26,8.5 26,19.5 14,26 2,19.5 2,8.5" fill="none" stroke={ACC} strokeWidth="2"/><text x="14" y="18" textAnchor="middle" fill={ACC} fontSize="8" fontWeight="bold">PR</text></svg>
+          <span style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:ACC}}>ProveRank</span>
+          <span style={{fontSize:9,color:DIM,background:'rgba(77,159,255,0.1)',padding:'2px 5px',borderRadius:4}}>{role.toUpperCase()}</span>
+        </div>
+        <div style={{display:'flex',gap:6,alignItems:'center'}}>
+          {loading&&<span style={{fontSize:10,color:DIM}}>⟳</span>}
+          <button onClick={()=>setNotifOpen(p=>!p)} style={{background:'none',border:'none',color:TS,fontSize:17,cursor:'pointer',position:'relative'}}>
+            🔔{notifs.filter(n=>!n.read).length>0&&<span style={{position:'absolute',top:-1,right:-1,background:DNG,color:'#fff',fontSize:8,borderRadius:'50%',width:12,height:12,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{notifs.filter(n=>!n.read).length}</span>}
+          </button>
+          <button onClick={fetchAll} style={{...bg_,padding:'5px 10px',fontSize:11}}>🔄</button>
+          <button onClick={()=>{clearAuth();router.replace('/login')}} style={{background:DNG,color:'#fff',border:'none',borderRadius:6,padding:'5px 10px',cursor:'pointer',fontWeight:700,fontSize:11}}>Logout</button>
+        </div>
+      </div>
+
+      {/* NOTIF DRAWER */}
+      {notifOpen&&(
+        <div style={{position:'fixed',top:54,right:0,width:300,height:'calc(100vh - 54px)',background:CRD,borderLeft:`1px solid ${BOR}`,zIndex:200,overflow:'auto',padding:14}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}>
+            <span style={{fontWeight:700,fontSize:14}}>🔔 Notifications</span>
+            <button onClick={()=>setNotifOpen(false)} style={{background:'none',border:'none',color:DIM,fontSize:16,cursor:'pointer'}}>✕</button>
           </div>
+          {notifs.length===0?<p style={{color:DIM,fontSize:12}}>No notifications</p>:notifs.map(n=>(
+            <div key={n.id} style={{...cs,padding:'8px 12px',opacity:n.read?.0.6:1,marginBottom:6}}>
+              <div style={{fontSize:12,fontWeight:n.read?400:600}}>{n.icon} {n.msg}</div>
+              <div style={{fontSize:10,color:DIM}}>{n.t}</div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* TOP BAR */}
-      <div style={{height:56,background:topBg,borderBottom:`1px solid ${bord}`,display:'flex',alignItems:'center',padding:'0 16px',gap:12,position:'sticky',top:0,zIndex:100,flexShrink:0}}>
-        {/* FIX: Logo click → open sidebar */}
-        <button onClick={()=>setSideOpen(true)} style={{background:'none',border:'none',cursor:'pointer',display:'flex',alignItems:'center',gap:8,padding:'4px 8px',borderRadius:8,transition:'background 0.2s'}}
-          onMouseEnter={e=>(e.currentTarget.style.background='rgba(77,159,255,0.08)')}
-          onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-          <svg width={28} height={28} viewBox="0 0 64 64">
-            <polygon points={[...Array(6)].map((_,i)=>{const a=(Math.PI/180)*(60*i-30);return`${32+26*Math.cos(a)},${32+26*Math.sin(a)}`}).join(' ')} fill="none" stroke="#4D9FFF" strokeWidth="2.5"/>
-            <text x="32" y="38" textAnchor="middle" fontFamily="Playfair Display,serif" fontSize="12" fontWeight="800" fill="#4D9FFF">PR</text>
-          </svg>
-          <div>
-            <div style={{fontFamily:'Playfair Display,serif',fontSize:14,fontWeight:800,background:'linear-gradient(90deg,#4D9FFF,#fff)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',lineHeight:1}}>ProveRank</div>
-            <div style={{fontSize:9,color:role==='superadmin'?'#FFD700':'#4D9FFF',letterSpacing:'0.1em',fontWeight:700,lineHeight:1}}>{role==='superadmin'?'⚡ SUPERADMIN':'🛡 ADMIN'}</div>
-          </div>
-        </button>
-        <div style={{flex:1,display:'flex',alignItems:'center',gap:4,overflowX:'auto',scrollbarWidth:'none'}}>
-          {[
-            {id:'dashboard',label:'Dashboard',icon:'⊞'},
-            {id:'all_exams',label:'Exams',icon:'📝'},
-            {id:'all_students',label:'Students',icon:'👥'},
-            {id:'result_control',label:'Results',icon:'📈'},
-            {id:'announcements',label:'Announce',icon:'📢'},
-            {id:'cheat_logs',label:'Proctoring',icon:'⚠️'},
-          ].map(tab=>(
-            <button key={tab.id} onClick={()=>navTo(tab.id)} style={{padding:'6px 12px',borderRadius:8,border:'none',background:activeTab===tab.id?'rgba(77,159,255,0.15)':'transparent',color:activeTab===tab.id?accent:ts,fontSize:12,fontWeight:activeTab===tab.id?700:500,cursor:'pointer',fontFamily:'Inter,sans-serif',whiteSpace:'nowrap',borderBottom:activeTab===tab.id?`2px solid ${accent}`:'2px solid transparent',transition:'all 0.15s'}}>
-              <span style={{marginRight:4}}>{tab.icon}</span>{tab.label}
-            </button>
-          ))}
-          {role==='superadmin'&&<button onClick={()=>navTo('feature_flags')} style={{padding:'6px 12px',borderRadius:8,border:'none',background:activeTab==='feature_flags'?'rgba(255,215,0,0.1)':'transparent',color:activeTab==='feature_flags'?'#FFD700':ts,fontSize:12,cursor:'pointer',fontFamily:'Inter,sans-serif',whiteSpace:'nowrap'}}>⚡ SuperAdmin</button>}
+      <div style={{display:'flex'}}>
+        {/* SIDEBAR */}
+        <div style={{position:'fixed',top:54,left:0,width:218,height:'calc(100vh - 54px)',background:CRD,borderRight:`1px solid ${BOR}`,zIndex:50,overflow:'auto',padding:'10px 6px',transform:sideOpen?'translateX(0)':'translateX(-100%)',transition:'transform 0.25s ease'}}>
+          {NAV.map(n=>navBtn(n.id,n.ico,n.lbl))}
         </div>
-        <button onClick={()=>fetchAllData(token)} style={{background:'none',border:'none',color:ts,fontSize:16,cursor:'pointer',padding:'6px',borderRadius:8,flexShrink:0}} title="Refresh">🔄</button>
-        {/* FIX: Only show bell badge if real notifications exist */}
-        <div style={{position:'relative',flexShrink:0}}>
-          <button onClick={()=>setNotifOpen(!notifOpen)} style={{background:'none',border:'none',color:ts,fontSize:20,cursor:'pointer',padding:'6px',borderRadius:8,position:'relative'}}>
-            🔔
-            {notifs.length>0&&<span style={{position:'absolute',top:2,right:2,background:'#FF4757',color:'#fff',fontSize:9,fontWeight:700,width:16,height:16,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center'}}>{notifs.length}</span>}
-          </button>
-          {notifOpen&&(
-            <div style={{position:'absolute',top:44,right:0,width:280,background:card,border:`1px solid ${bord}`,borderRadius:12,boxShadow:'0 10px 30px rgba(0,0,0,0.4)',zIndex:300,overflow:'hidden'}}>
-              <div style={{padding:'12px 16px',borderBottom:`1px solid ${bord}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                <span style={{fontSize:13,fontWeight:700,color:tm}}>Notifications</span>
-                {notifs.length>0&&<button onClick={()=>setNotifs([])} style={{fontSize:10,color:ts,background:'none',border:'none',cursor:'pointer'}}>Clear all</button>}
+
+        {/* CONTENT */}
+        <div style={{flex:1,padding:14,minHeight:'calc(100vh - 54px)',maxWidth:'100vw',overflow:'auto'}}>
+
+          {/* ══ DASHBOARD ══ */}
+          {tab==='dashboard'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>📊 Dashboard</h2>
+              <div style={{display:'flex',flexWrap:'wrap',gap:10,marginBottom:16}}>
+                {sBox('👥','Students',stats?.totalStudents||students.length||'—')}
+                {sBox('📝','Exams',stats?.totalExams||exams.length||'—')}
+                {sBox('📈','Attempts',stats?.totalAttempts||'—')}
+                {sBox('🟢','Active Today',stats?.activeStudents||'—')}
+                {sBox('❓','Questions',stats?.totalQuestions||questions.length||'—')}
               </div>
-              {notifs.length===0
-                ? <div style={{padding:'24px',textAlign:'center',color:ts,fontSize:12}}>No notifications</div>
-                : notifs.map((n,i)=>(
-                  <div key={n.id||i} style={{padding:'10px 16px',borderBottom:`1px solid ${bord}`,display:'flex',gap:10,alignItems:'flex-start'}}>
-                    <span style={{fontSize:16}}>{n.icon}</span>
-                    <div><div style={{fontSize:12,color:tm}}>{n.msg}</div><div style={{fontSize:10,color:ts,marginTop:2}}>{n.t}</div></div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                <div style={cs}>
+                  <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>⚡ Quick Actions</div>
+                  {[['➕ Create Exam','create_exam'],['❓ Add Question','questions'],['📢 Announce','announcements'],['🔴 Live Monitor','live'],['📊 Analytics','analytics']].map(([l,t])=>(
+                    <button key={t} onClick={()=>setTab(t)} style={{...bg_,width:'100%',marginBottom:6,textAlign:'left',fontSize:12}}>{l}</button>
+                  ))}
+                </div>
+                <div style={cs}>
+                  <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>🚨 Alerts</div>
+                  {flags.length===0&&tickets.filter(t=>t.status==='open').length===0
+                    ?<div style={{color:SUC,fontSize:12}}>✅ All clear</div>
+                    :<div>
+                      {flags.length>0&&<div style={{fontSize:12,color:WRN,marginBottom:4}}>⚠️ {flags.length} cheating flag(s)</div>}
+                      {tickets.filter(t=>t.status==='open').length>0&&<div style={{fontSize:12,color:WRN}}>🎫 {tickets.filter(t=>t.status==='open').length} open ticket(s)</div>}
+                    </div>
+                  }
+                  <div style={{marginTop:10,fontSize:11,color:DIM}}>
+                    <div>📦 Batches: {batches.length}</div>
+                    <div>🛡️ Admins: {adminUsers.length}</div>
+                    <div>📷 Snapshots: {snapshots.length}</div>
+                  </div>
+                </div>
+              </div>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:8,fontSize:13}}>📅 Recent Exams</div>
+                {exams.length===0?<div style={{color:DIM,fontSize:12}}>No exams — Create one!</div>:exams.slice(0,5).map(e=>(
+                  <div key={e._id} style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:`1px solid ${BOR}`,fontSize:12}}>
+                    <div>
+                      <div style={{fontWeight:600}}>{e.title}</div>
+                      <div style={{fontSize:11,color:DIM}}>{e.scheduledAt?new Date(e.scheduledAt).toLocaleString():''}</div>
+                    </div>
+                    <span style={{fontSize:10,padding:'2px 8px',borderRadius:20,background:e.status==='active'?SUC:'rgba(77,159,255,0.15)',color:e.status==='active'?'#000':ACC}}>{e.status}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ══ ALL EXAMS ══ */}
+          {tab==='exams'&&(
+            <div>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:0}}>📝 All Exams</h2>
+                <button onClick={()=>setTab('create_exam')} style={{...bp,padding:'8px 14px',fontSize:12}}>➕ New</button>
+              </div>
+              <SInput init='' onSet={setExamSearch} ph='🔍 Search exams…' style={{...inp,marginBottom:10}} />
+              {fExams.length===0?<div style={{...cs,color:DIM}}>No exams found</div>:fExams.map(e=>(
+                <div key={e._id} style={cs}>
+                  <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:13}}>{e.title}</div>
+                      <div style={{fontSize:11,color:DIM}}>📅 {e.scheduledAt?new Date(e.scheduledAt).toLocaleString():''} · 🏆 {e.totalMarks||'?'} marks · ⏱ {e.totalDurationSec?Math.round(e.totalDurationSec/60)+'min':'?'} · 📦 {e.category||'General'}</div>
+                      {e.password&&<div style={{fontSize:10,color:WRN}}>🔒 Password protected</div>}
+                    </div>
+                    <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'flex-start'}}>
+                      <span style={{fontSize:10,padding:'2px 8px',borderRadius:20,background:e.status==='active'?SUC:e.status==='upcoming'?'rgba(77,159,255,0.15)':'rgba(255,255,255,0.06)',color:e.status==='active'?'#000':e.status==='upcoming'?ACC:DIM}}>{e.status}</span>
+                      <button onClick={()=>cloneExam(e._id)} style={{...bg_,padding:'4px 9px',fontSize:10}}>📋 Clone</button>
+                      <button onClick={()=>delExam(e._id)} style={{...bd,padding:'4px 9px',fontSize:10}}>🗑</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ══ CREATE EXAM WIZARD ══ */}
+          {tab==='create_exam'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>➕ Create Exam</h2>
+              <div style={{display:'flex',gap:6,marginBottom:16}}>
+                {[1,2,3].map(s=>(
+                  <div key={s} style={{flex:1,textAlign:'center',padding:'8px',borderRadius:8,background:eStep===s?ACC:eStep>s?SUC:`rgba(77,159,255,0.08)`,color:eStep===s||eStep>s?'#000':DIM,fontWeight:700,fontSize:12}}>
+                    {eStep>s?'✓':s}. {s===1?'Basic Info':s===2?'Questions':'Done'}
+                  </div>
+                ))}
+              </div>
+
+              {eStep===1&&(
+                <div style={cs}>
+                  <div style={{fontWeight:700,marginBottom:12,fontSize:13}}>📋 Exam Details</div>
+                  <div style={{marginBottom:10}}>
+                    <label style={lbl}>Exam Title *</label>
+                    <SInput init='' onSet={v=>{eTitleR.current=v}} ph='NEET Full Mock Test 1' style={inp} />
+                  </div>
+                  <div style={{marginBottom:10}}>
+                    <label style={lbl}>Date & Time *</label>
+                    <SInput type='datetime-local' init='' onSet={v=>{eDateR.current=v}} style={inp} />
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+                    <div><label style={lbl}>Total Marks</label><SInput init='720' onSet={v=>{eMarksR.current=v}} style={inp} /></div>
+                    <div><label style={lbl}>Duration (min)</label><SInput init='200' onSet={v=>{eDurR.current=v}} style={inp} /></div>
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+                    <div>
+                      <label style={lbl}>Category (M5)</label>
+                      <SSelect val={eCatR.current||'Full Mock'} onChange={v=>{eCatR.current=v}} style={inp} opts={['Full Mock','Chapter Test','Part Test','Grand Test','PYQ'].map(o=>({v:o,l:o}))} />
+                    </div>
+                    <div><label style={lbl}>Password (optional S6)</label><SInput init='' onSet={v=>{ePassR.current=v}} ph='Leave blank = open' style={inp} /></div>
+                  </div>
+                  <button onClick={createExamS1} disabled={creatingE} style={{...bp,width:'100%',opacity:creatingE?0.7:1}}>{creatingE?'Creating…':'Create Exam → Next'}</button>
+                </div>
+              )}
+
+              {eStep===2&&(
+                <div style={cs}>
+                  <div style={{fontWeight:700,marginBottom:4,fontSize:13}}>📤 Add Questions</div>
+                  <div style={{fontSize:11,color:SUC,marginBottom:12}}>Exam ID: {createdEId||'(created)'}</div>
+
+                  {/* Method Buttons */}
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
+                    {([['manual','✏️','Manual Entry'],['excel','📊','Excel File'],['pdf','📄','PDF Parse'],['copypaste','📋','Copy-Paste']] as const).map(([k,ico,l])=>(
+                      <button key={k} onClick={()=>setQMeth(k as any)}
+                        style={{padding:'12px 6px',borderRadius:10,border:`2px solid ${qMeth===k?ACC:BOR}`,background:qMeth===k?'rgba(77,159,255,0.12)':'transparent',color:qMeth===k?ACC:DIM,cursor:'pointer',fontSize:12,fontWeight:qMeth===k?700:400,textAlign:'center',transition:'all 0.2s'}}>
+                        <div style={{fontSize:20,marginBottom:3}}>{ico}</div>{l}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* ── MANUAL / COPY-PASTE ── */}
+                  {(qMeth==='manual'||qMeth==='copypaste')&&(
+                    <div>
+                      <div style={{...cs,background:'rgba(77,159,255,0.04)',padding:'8px 12px',marginBottom:8}}>
+                        <div style={{fontSize:11,color:DIM,lineHeight:1.5}}>
+                          Format:<br/>
+                          Q1. Question text?<br/>
+                          A) Option A<br/>
+                          B) Option B<br/>
+                          C) Option C<br/>
+                          D) Option D
+                        </div>
+                      </div>
+                      <label style={lbl}>Paste Questions *</label>
+                      {/* ─ KEYBOARD FIX: STextarea uses own state + ref ─ */}
+                      <STextarea init='' onSet={v=>{cpTxtR.current=v}} rows={8}
+                        ph={'Q1. Photosynthesis ka primary site?\nA) Mitochondria\nB) Ribosome\nC) Chloroplast\nD) Nucleus'}
+                        style={{...inp,resize:'vertical'}} />
+                      <div style={{marginTop:10}}>
+                        <label style={lbl}>Answer Key (optional) — Format: 1-C,2-A,3-D</label>
+                        <SInput init='' onSet={v=>{cpKeyR.current=v}} ph='1-C,2-A,3-B,4-D…' style={inp} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── EXCEL ── */}
+                  {qMeth==='excel'&&(
+                    <div>
+                      <div style={{...cs,background:'rgba(0,196,140,0.04)',border:`1px solid rgba(0,196,140,0.2)`,padding:'8px 12px',marginBottom:10}}>
+                        <div style={{fontSize:11,color:SUC,fontWeight:700,marginBottom:3}}>Excel Format (POST /api/excel/upload)</div>
+                        <div style={{fontSize:10,color:DIM}}>Columns: question_text | subject | chapter | difficulty | option_a | option_b | option_c | option_d | correct_answer | type</div>
+                      </div>
+                      <label style={lbl}>Select Excel File (.xlsx / .csv)</label>
+                      <input type='file' accept='.xlsx,.xls,.csv' onChange={e=>setExcelF(e.target.files?.[0]||null)} style={{...inp,padding:'8px'}} />
+                      {excelF&&<div style={{fontSize:11,color:SUC,marginTop:5}}>✓ {excelF.name}</div>}
+                    </div>
+                  )}
+
+                  {/* ── PDF ── */}
+                  {qMeth==='pdf'&&(
+                    <div>
+                      <div style={{...cs,background:'rgba(168,85,247,0.04)',border:`1px solid rgba(168,85,247,0.2)`,padding:'8px 12px',marginBottom:10}}>
+                        <div style={{fontSize:11,color:'#A855F7',fontWeight:700,marginBottom:3}}>PDF Parse (POST /api/upload/pdf)</div>
+                        <div style={{fontSize:10,color:DIM}}>Questions wala PDF upload karo — system auto extract karega</div>
+                      </div>
+                      <label style={lbl}>Select PDF File</label>
+                      <input type='file' accept='.pdf' onChange={e=>setPdfF(e.target.files?.[0]||null)} style={{...inp,padding:'8px'}} />
+                      {pdfF&&<div style={{fontSize:11,color:SUC,marginTop:5}}>✓ {pdfF.name}</div>}
+                    </div>
+                  )}
+
+                  {upRes&&(
+                    <div style={{padding:'10px 12px',borderRadius:8,background:upRes.s>0?'rgba(0,196,140,0.08)':'rgba(255,184,77,0.08)',border:`1px solid ${upRes.s>0?SUC:WRN}`,marginTop:10,fontSize:12}}>
+                      {upRes.s>0?`✅ ${upRes.s} questions uploaded!`:'⚠️ '+upRes.msg}
+                      {upRes.f>0&&` (${upRes.f} failed)`}
+                    </div>
+                  )}
+
+                  <div style={{display:'flex',gap:8,marginTop:14}}>
+                    <button onClick={()=>setEStep(1)} style={{...bg_,flex:1,fontSize:12}}>← Back</button>
+                    <button onClick={uploadQs} disabled={uploadingQ} style={{...bp,flex:2,opacity:uploadingQ?0.7:1,fontSize:12}}>{uploadingQ?'Uploading…':'📤 Upload Questions'}</button>
+                    <button onClick={()=>setEStep(3)} style={{...bg_,flex:1,fontSize:12}}>Skip →</button>
+                  </div>
+                </div>
+              )}
+
+              {eStep===3&&(
+                <div style={{...cs,textAlign:'center',padding:28}}>
+                  <div style={{fontSize:44,marginBottom:10}}>🎉</div>
+                  <h3 style={{color:SUC,fontFamily:'Playfair Display,serif',marginBottom:6}}>Exam Ready!</h3>
+                  <p style={{color:DIM,fontSize:12,marginBottom:16}}>ID: {createdEId}</p>
+                  <div style={{display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}}>
+                    <button onClick={()=>{setEStep(1);setCreatedEId('');setUpRes(null)}} style={bp}>➕ New Exam</button>
+                    <button onClick={()=>setTab('exams')} style={bg_}>📝 All Exams</button>
+                    <button onClick={()=>setTab('questions')} style={bg_}>❓ Add Questions</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ══ EXAM TEMPLATES (S75) ══ */}
+          {tab==='templates'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>📋 Exam Templates (S75)</h2>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                {[{n:'NEET Full Mock',q:180,m:720,d:200,s:[{n:'Physics',q:45},{n:'Chemistry',q:45},{n:'Biology',q:90}]},
+                  {n:'NEET Part Test',q:90,m:360,d:100,s:[{n:'Physics',q:45},{n:'Chemistry',q:45}]},
+                  {n:'JEE Mains Pattern',q:90,m:300,d:180,s:[{n:'Physics',q:30},{n:'Chemistry',q:30},{n:'Maths',q:30}]},
+                  {n:'Biology Full',q:90,m:360,d:120,s:[{n:'Botany',q:45},{n:'Zoology',q:45}]},
+                  {n:'Chapter Test (Small)',q:30,m:120,d:45,s:[{n:'Chapter',q:30}]},
+                  {n:'Grand Test (NEET)',q:180,m:720,d:210,s:[{n:'Physics',q:45},{n:'Chemistry',q:45},{n:'Biology',q:90}]},
+                ].map((tpl,i)=>(
+                  <div key={i} style={cs}>
+                    <div style={{fontWeight:700,fontSize:13,color:ACC,marginBottom:6}}>{tpl.n}</div>
+                    <div style={{fontSize:11,color:DIM,marginBottom:8}}>📝 {tpl.q} Qs · 🏆 {tpl.m} marks · ⏱ {tpl.d} min</div>
+                    {tpl.s.map((sec,j)=><div key={j} style={{fontSize:10,color:DIM}}>• {sec.n}: {sec.q} questions</div>)}
+                    <button onClick={()=>{eCatR.current=tpl.n;eMarksR.current=tpl.m.toString();eDurR.current=tpl.d.toString();setTab('create_exam');T(`Template "${tpl.n}" loaded!`)}} style={{...bp,width:'100%',marginTop:10,fontSize:11,padding:'8px'}}>Use Template →</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ══ BULK EXAM CREATOR (N8) ══ */}
+          {tab==='bulk_creator'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>⚡ Bulk Exam Creator (N8)</h2>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>📊 Excel se Multiple Exams Create karo</div>
+                <div style={{...cs,background:'rgba(0,196,140,0.04)',border:`1px solid rgba(0,196,140,0.2)`,padding:'8px 12px',marginBottom:12}}>
+                  <div style={{fontSize:11,color:SUC,fontWeight:700,marginBottom:3}}>Excel Format Required:</div>
+                  <div style={{fontSize:10,color:DIM}}>Columns: title | scheduled_date | total_marks | duration_minutes | category | password</div>
+                  <div style={{fontSize:10,color:DIM}}>Each row = one exam · Bulk create via POST /api/exams/bulk</div>
+                </div>
+                <label style={lbl}>Select Excel File (.xlsx)</label>
+                <input type='file' accept='.xlsx,.xls,.csv' onChange={e=>setBulkExamFile(e.target.files?.[0]||null)} style={{...inp,padding:'8px',marginBottom:12}} />
+                {bulkExamFile&&<div style={{fontSize:11,color:SUC,marginBottom:10}}>✓ {bulkExamFile.name}</div>}
+                <button disabled={!bulkExamFile||bulkExamLoading} onClick={async()=>{
+                  if(!bulkExamFile)return;setBulkExamLoading(true)
+                  try{const fd=new FormData();fd.append('file',bulkExamFile);const res=await fetch(`${API}/api/exams/bulk`,{method:'POST',headers:H(),body:fd});if(res.ok){const d=await res.json();T(`${d.created||d.count||'?'} exams created!`);fetch(`${API}/api/exams`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setExams(d))}else T('Bulk create failed','e')}catch{T('Network error','e')}
+                  setBulkExamLoading(false)
+                }} style={{...bp,width:'100%',opacity:(!bulkExamFile||bulkExamLoading)?0.7:1}}>{bulkExamLoading?'Creating…':'Create All Exams →'}</button>
+              </div>
+            </div>
+          )}
+
+          {/* ══ QUESTION BANK ══ */}
+          {tab==='questions'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>❓ Question Bank</h2>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>➕ Add Question</div>
+                <div style={{marginBottom:8}}>
+                  <label style={lbl}>Question Text *</label>
+                  <STextarea init='' onSet={v=>{qTxtR.current=v}} rows={3} ph='Type question here…' style={{...inp,resize:'vertical'}} />
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+                  <div>
+                    <label style={lbl}>Chapter (optional)</label>
+                    <SInput init='' onSet={v=>{qChapR.current=v}} ph='e.g. Cell Biology' style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>Subject</label>
+                    <SSelect val={qSubj} onChange={setQSubj} style={inp} opts={['Physics','Chemistry','Biology'].map(o=>({v:o,l:o}))} />
+                  </div>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:8}}>
+                  <div><label style={lbl}>Difficulty</label><SSelect val={qDiff} onChange={setQDiff} style={inp} opts={['easy','medium','hard'].map(o=>({v:o,l:o.charAt(0).toUpperCase()+o.slice(1)}))}/></div>
+                  <div><label style={lbl}>Type</label><SSelect val={qType} onChange={setQType} style={inp} opts={['SCQ','MSQ','Integer','Assertion'].map(o=>({v:o,l:o}))}/></div>
+                  <div><label style={lbl}>Correct Ans</label><SSelect val={qAns} onChange={setQAns} style={inp} opts={['A','B','C','D'].map(o=>({v:o,l:o}))}/></div>
+                </div>
+                {(qType==='SCQ'||qType==='MSQ')&&(
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+                    {[['A',qA],['B',qB],['C',qC],['D',qD]].map(([l,r]:any)=>(
+                      <div key={l}><label style={lbl}>Option {l}</label><SInput init='' onSet={v=>{r.current=v}} ph={`Option ${l}`} style={inp} /></div>
+                    ))}
+                  </div>
+                )}
+                <button onClick={addQ} disabled={savingQ} style={{...bp,width:'100%',opacity:savingQ?0.7:1}}>{savingQ?'Saving…':'Save Question'}</button>
+              </div>
+              <div style={{marginBottom:8}}>
+                <SInput init='' onSet={setQSearch} ph='🔍 Search questions…' style={inp} />
+              </div>
+              <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
+                <span style={{fontSize:12,color:DIM}}>Total: {questions.length} | Shown: {fQs.length}</span>
+                {['Physics','Chemistry','Biology'].map(s=>(
+                  <button key={s} onClick={()=>setQSearch(s)} style={{...bg_,padding:'3px 8px',fontSize:10}}>{s}: {questions.filter(q=>q.subject===s).length}</button>
+                ))}
+              </div>
+              {fQs.length===0?<div style={{...cs,color:DIM}}>No questions — add above!</div>:fQs.slice(0,30).map((q,i)=>(
+                <div key={q._id} style={{...cs,padding:'8px 12px'}}>
+                  <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Q{i+1}. {q.text?.slice(0,100)}{q.text?.length>100?'…':''}</div>
+                  <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+                    <span style={{fontSize:9,padding:'2px 5px',borderRadius:4,background:'rgba(77,159,255,0.1)',color:ACC}}>{q.subject}</span>
+                    <span style={{fontSize:9,padding:'2px 5px',borderRadius:4,background:q.difficulty==='easy'?'rgba(0,196,140,0.1)':q.difficulty==='hard'?'rgba(255,77,77,0.1)':'rgba(255,184,77,0.1)',color:q.difficulty==='easy'?SUC:q.difficulty==='hard'?DNG:WRN}}>{q.difficulty}</span>
+                    <span style={{fontSize:9,padding:'2px 5px',borderRadius:4,background:'rgba(255,255,255,0.05)',color:DIM}}>{q.type}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ══ SMART GENERATOR (S101) ══ */}
+          {tab==='smart_gen'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🤖 Smart Question Generator (S101)</h2>
+              <div style={cs}>
+                <div style={{marginBottom:10}}>
+                  <label style={lbl}>Topic *</label>
+                  <SInput init='' onSet={v=>{aiTopicR.current=v}} ph='e.g. Photosynthesis, Newton Laws, Organic Chemistry' style={inp} />
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:12}}>
+                  <div><label style={lbl}>Subject</label><SSelect val={aiSubj} onChange={setAiSubj} style={inp} opts={['Physics','Chemistry','Biology'].map(o=>({v:o,l:o}))}/></div>
+                  <div><label style={lbl}>Difficulty</label><SSelect val={aiDiff} onChange={setAiDiff} style={inp} opts={['easy','medium','hard'].map(o=>({v:o,l:o.charAt(0).toUpperCase()+o.slice(1)}))}/></div>
+                  <div><label style={lbl}>Count</label><SSelect val={aiCount} onChange={setAiCount} style={inp} opts={['5','10','15','20','30'].map(o=>({v:o,l:o}))}/></div>
+                </div>
+                <button onClick={aiGen} disabled={aiLoading} style={{...bp,width:'100%',opacity:aiLoading?0.7:1}}>{aiLoading?'Generating…':'🤖 Generate Questions'}</button>
+              </div>
+              {aiResult.length>0&&(
+                <div>
+                  <div style={{fontWeight:700,marginBottom:8,fontSize:13,color:SUC}}>✅ {aiResult.length} Questions Generated</div>
+                  {aiResult.slice(0,10).map((q:any,i:number)=>(
+                    <div key={i} style={{...cs,padding:'8px 12px'}}>
+                      <div style={{fontSize:12,fontWeight:600}}>Q{i+1}. {q.text||q.question||JSON.stringify(q).slice(0,80)}</div>
+                    </div>
+                  ))}
+                  <button onClick={async()=>{
+                    try{const res=await fetch(`${API}/api/questions/bulk`,{method:'POST',headers:HJ(),body:JSON.stringify({questions:aiResult})});if(res.ok){T('AI questions saved to bank!');fetchAll()}else T('Save failed','e')}catch{T('Network error','e')}
+                  }} style={{...bp,width:'100%',marginTop:8}}>💾 Save All to Question Bank</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ══ PYQ BANK (S104) ══ */}
+          {tab==='pyq_bank'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>📚 PYQ Bank (S104) — NEET 2015-2024</h2>
+              <div style={cs}>
+                <div style={{fontSize:13,color:DIM,marginBottom:12}}>NEET Previous Year Questions bank. Filter by year/subject, use in exams.</div>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
+                  {['2024','2023','2022','2021','2020','2019','2018','2017','2016','2015'].map(y=>(
+                    <button key={y} onClick={async()=>{
+                      try{const res=await fetch(`${API}/api/questions?year=${y}&type=pyq`,{headers:H()});if(res.ok){const d=await res.json();T(`${d.length||0} PYQs for ${y}`)}else T(`No PYQ data for ${y}`,'w')}catch{T('Network error','e')}
+                    }} style={{...bg_,padding:'5px 12px',fontSize:12}}>{y}</button>
+                  ))}
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  {['Physics','Chemistry','Biology'].map(s=>(
+                    <button key={s} onClick={async()=>{
+                      try{const res=await fetch(`${API}/api/questions?subject=${s}&type=pyq`,{headers:H()});if(res.ok){const d=await res.json();T(`${d.length||0} ${s} PYQs found`)}else T(`No ${s} PYQs`,'w')}catch{T('Network error','e')}
+                    }} style={{...bg_,flex:1,fontSize:12}}>{s}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ══ STUDENTS ══ */}
+          {tab==='students'&&!selStudent&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>👥 Students</h2>
+              <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
+                <SInput init='' onSet={setStdSearch} ph='🔍 Name / email / ID…' style={{...inp,flex:1,minWidth:180}} />
+                {(['all','active','banned'] as const).map(f=>(
+                  <button key={f} onClick={()=>setStdFilter(f)} style={{...bg_,padding:'7px 12px',background:stdFilter===f?'rgba(77,159,255,0.2)':undefined,color:stdFilter===f?ACC:DIM,fontSize:11}}>
+                    {f==='all'?`All(${students.length})`:f==='active'?`Active(${students.filter(s=>!s.banned).length})`:`Banned(${students.filter(s=>s.banned).length})`}
+                  </button>
+                ))}
+                <button onClick={()=>doExport(`${API}/api/admin/export/students`,'students.csv')} style={{...bg_,padding:'7px 10px',fontSize:11}}>📥 CSV</button>
+              </div>
+              {fStds.length===0?<div style={{...cs,color:DIM}}>No students</div>:fStds.map(s=>(
+                <div key={s._id} style={{...cs,borderLeft:`3px solid ${s.banned?DNG:SUC}`}}>
+                  <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:13}}>{s.name||'—'}</div>
+                      <div style={{fontSize:11,color:DIM}}>{s.email} · {s.phone||'—'}</div>
+                      <div style={{fontSize:10,color:DIM}}>ID: {s._id.slice(-8)}… · {s.createdAt?new Date(s.createdAt).toLocaleDateString():''}</div>
+                      {s.banned&&<div style={{fontSize:10,color:DNG}}>🚫 Banned: {s.banReason}</div>}
+                      {s.integrityScore!==undefined&&<div style={{fontSize:10,color:s.integrityScore<40?DNG:s.integrityScore<70?WRN:SUC}}>🤖 Integrity: {s.integrityScore}/100</div>}
+                    </div>
+                    <div style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'flex-start'}}>
+                      <button onClick={()=>setSelStudent(s)} style={{...bg_,padding:'4px 8px',fontSize:10}}>👤 Profile</button>
+                      {s.banned
+                        ?<button onClick={()=>unbanStd(s._id)} style={{background:SUC,color:'#000',border:'none',borderRadius:6,padding:'4px 8px',cursor:'pointer',fontWeight:700,fontSize:10}}>✅ Unban</button>
+                        :<button onClick={()=>{setBanId(s._id)}} style={{...bd,padding:'4px 8px',fontSize:10}}>🚫 Ban</button>
+                      }
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Ban form */}
+              <div style={{...cs,marginTop:14}}>
+                <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>🚫 Ban Student (M1)</div>
+                <div style={{marginBottom:8}}><label style={lbl}>Student ID</label><SInput init={banId} onSet={setBanId} ph='Paste _id from list above' style={inp} /></div>
+                <div style={{marginBottom:8}}><label style={lbl}>Ban Reason *</label><STextarea init='' onSet={v=>{banReaR.current=v}} rows={2} ph='e.g. Multiple tab switches, cheating' style={{...inp,resize:'vertical'}} /></div>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                  <div style={{flex:1}}><label style={lbl}>Type</label><SSelect val={banT} onChange={v=>setBanT(v as any)} style={inp} opts={[{v:'permanent',l:'Permanent'},{v:'temporary',l:'Temporary (7 days)'}]}/></div>
+                  <button onClick={banStd} style={{...bd,padding:'10px 16px',alignSelf:'flex-end'}}>🚫 Ban</button>
+                </div>
+              </div>
+
+              {/* Impersonate (M4) */}
+              {role==='superadmin'&&(
+                <div style={{...cs,marginTop:10}}>
+                  <div style={{fontWeight:700,marginBottom:8,fontSize:13}}>👁️ Impersonate (M4)</div>
+                  <div style={{display:'flex',gap:8}}>
+                    <SInput init='' onSet={setImpId} ph='Student _id' style={{...inp,flex:1}} />
+                    <button onClick={impersonate} style={bg_}>View as Student →</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Student Profile (S7) */}
+          {tab==='students'&&selStudent&&(
+            <div>
+              <button onClick={()=>setSelStudent(null)} style={{...bg_,marginBottom:12,fontSize:12}}>← Back</button>
+              <div style={cs}>
+                <div style={{display:'flex',gap:14,alignItems:'center',marginBottom:14,flexWrap:'wrap'}}>
+                  <div style={{width:58,height:58,borderRadius:'50%',background:'rgba(77,159,255,0.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,fontWeight:700,color:ACC,flexShrink:0}}>
+                    {selStudent.name?.[0]?.toUpperCase()||'?'}
+                  </div>
+                  <div>
+                    <h3 style={{margin:0,color:TS,fontFamily:'Playfair Display,serif',fontSize:16}}>{selStudent.name||'—'}</h3>
+                    <div style={{color:DIM,fontSize:12}}>{selStudent.email}</div>
+                    <div style={{color:DIM,fontSize:11}}>ID: {selStudent._id}</div>
+                  </div>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:10}}>
+                  {[['📱 Phone',selStudent.phone||'—'],['👤 Role',selStudent.role],['📅 Joined',selStudent.createdAt?new Date(selStudent.createdAt).toLocaleDateString():'—'],['🤖 Integrity',selStudent.integrityScore!==undefined?`${selStudent.integrityScore}/100`:'—'],['🚫 Banned',selStudent.banned?'YES ⚠️':'No ✅'],['📦 Group',selStudent.group||'—']].map(([k,v])=>(
+                    <div key={k} style={{background:'rgba(77,159,255,0.04)',borderRadius:8,padding:'8px 10px'}}>
+                      <div style={{fontSize:10,color:DIM}}>{k}</div>
+                      <div style={{fontSize:12,fontWeight:600,marginTop:2}}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+                {selStudent.loginHistory&&selStudent.loginHistory.length>0&&(
+                  <div>
+                    <div style={{fontWeight:700,marginBottom:6,fontSize:12}}>🔐 Login History (S48)</div>
+                    {selStudent.loginHistory.slice(-5).reverse().map((l:any,i:number)=>(
+                      <div key={i} style={{fontSize:11,color:DIM,padding:'3px 0',borderBottom:`1px solid ${BOR}`}}>📍{l.city||'?'} · 💻{l.device||'?'} · 🕐{l.at?new Date(l.at).toLocaleString():'?'}</div>
+                    ))}
+                  </div>
+                )}
+                <div style={{display:'flex',gap:8,marginTop:12,flexWrap:'wrap'}}>
+                  {selStudent.banned
+                    ?<button onClick={()=>{unbanStd(selStudent._id);setSelStudent(null)}} style={{background:SUC,color:'#000',border:'none',borderRadius:8,padding:'8px 14px',cursor:'pointer',fontWeight:700,fontSize:12}}>✅ Unban</button>
+                    :<button onClick={()=>{setBanId(selStudent._id);setSelStudent(null)}} style={{...bd,padding:'8px 14px',fontSize:12}}>🚫 Ban</button>
+                  }
+                  <button onClick={()=>{setImpId(selStudent._id);impersonate()}} style={{...bg_,fontSize:12}}>👁️ Impersonate</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ══ BATCHES (S5/M3) ══ */}
+          {tab==='batches'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>📦 Batch Manager (S5/M3)</h2>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:8,fontSize:13}}>➕ Create Batch</div>
+                <div style={{display:'flex',gap:8}}>
+                  <SInput init='' onSet={v=>{batchNameR.current=v}} ph='Batch name e.g. NEET 2025 Dropper' style={{...inp,flex:1}} />
+                  <button onClick={createBatch} disabled={creatingBatch} style={{...bp,opacity:creatingBatch?0.7:1}}>{creatingBatch?'Creating…':'Create'}</button>
+                </div>
+              </div>
+              {batches.length===0?<div style={{...cs,color:DIM}}>No batches yet</div>:batches.map(b=>(
+                <div key={b._id} style={cs}>
+                  <div style={{fontWeight:700,fontSize:13}}>{b.name}</div>
+                  <div style={{fontSize:11,color:DIM}}>👥 {b.studentCount||0} students · 📝 {b.examCount||0} exams · {b.createdAt?new Date(b.createdAt).toLocaleDateString():''}</div>
+                </div>
+              ))}
+              <div style={{...cs,marginTop:10}}>
+                <div style={{fontWeight:700,marginBottom:8,fontSize:13}}>🔄 Transfer Student (M3)</div>
+                <div style={{marginBottom:8}}><label style={lbl}>Student ID</label><SInput init='' onSet={setBatchTransStdId} ph='Student _id' style={inp} /></div>
+                <div style={{marginBottom:8}}><label style={lbl}>Move to Batch</label><SInput init='' onSet={setBatchTransTo} ph='Target batch name/ID' style={inp} /></div>
+                <button onClick={batchTransfer} style={bp}>Transfer →</button>
+              </div>
+            </div>
+          )}
+
+          {/* ══ ADMINS (S37) ══ */}
+          {tab==='admins'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🛡️ Admin Management (S37)</h2>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>➕ Create Admin</div>
+                <div style={{marginBottom:8}}><label style={lbl}>Name</label><SInput init='' onSet={v=>{admNameR.current=v}} ph='Admin name' style={inp} /></div>
+                <div style={{marginBottom:8}}><label style={lbl}>Email</label><SInput type='email' init='' onSet={v=>{admEmailR.current=v}} ph='admin@proverank.com' style={inp} /></div>
+                <div style={{marginBottom:8}}><label style={lbl}>Password</label><SInput type='password' init='' onSet={v=>{admPassR.current=v}} ph='Strong password' style={inp} /></div>
+                <div style={{marginBottom:10}}><label style={lbl}>Role</label><SSelect val={admRole} onChange={setAdmRole} style={inp} opts={[{v:'admin',l:'Admin'},{v:'moderator',l:'Moderator'}]}/></div>
+                <button onClick={createAdmin} disabled={creatingAdm} style={{...bp,width:'100%',opacity:creatingAdm?0.7:1}}>{creatingAdm?'Creating…':'Create Admin'}</button>
+              </div>
+              {adminUsers.length===0?<div style={{...cs,color:DIM}}>No sub-admins yet</div>:adminUsers.map(a=>(
+                <div key={a._id} style={cs}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:13}}>{a.name}</div>
+                      <div style={{fontSize:11,color:DIM}}>{a.email} · {a.role}</div>
+                    </div>
+                    <span style={{fontSize:10,padding:'2px 8px',borderRadius:20,background:a.active!==false?'rgba(0,196,140,0.15)':'rgba(255,77,77,0.15)',color:a.active!==false?SUC:DNG}}>{a.active!==false?'Active':'Inactive'}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ══ LIVE MONITOR (S95) ══ */}
+          {tab==='live'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🔴 Live Monitor (S95)</h2>
+              <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
+                {sBox('🟢','Active Students',students.filter(s=>!s.banned).length)}
+                {sBox('🔴','Live Exams',exams.filter(e=>e.status==='active').length)}
+                {sBox('⚠️','Flags',flags.length)}
+                {sBox('🖥️','Server',stats?.serverHealth||'—')}
+              </div>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:8,fontSize:13}}>📡 Active Exams</div>
+                {exams.filter(e=>e.status==='active').length===0
+                  ?<div style={{color:DIM,fontSize:12}}>No active exams now</div>
+                  :exams.filter(e=>e.status==='active').map(e=>(
+                    <div key={e._id} style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:`1px solid ${BOR}`,fontSize:12}}>
+                      <div><span style={{color:DNG}}>🔴</span> {e.title}</div>
+                      <div style={{color:DIM}}>{e.attempts||0} students</div>
+                    </div>
+                  ))
+                }
+              </div>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:8,fontSize:13}}>⏰ Per-Student Time Extension (M7)</div>
+                <div style={{marginBottom:8}}><label style={lbl}>Student ID</label><SInput init='' onSet={setExtStdId} ph='Student _id' style={inp} /></div>
+                <div style={{display:'flex',gap:8}}>
+                  <div style={{flex:1}}><label style={lbl}>Extra Minutes</label><SSelect val={extMins} onChange={setExtMins} style={inp} opts={['5','10','15','20','30'].map(o=>({v:o,l:o+' min'}))}/></div>
+                  <button onClick={extendTime} style={{...bp,alignSelf:'flex-end',padding:'10px 14px',fontSize:12}}>+ Add Time</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ══ RESULTS ══ */}
+          {tab==='results'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>📈 Results & Reports</h2>
+              <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
+                <button onClick={()=>doExport(`${API}/api/admin/export/results`,'results.csv')} style={bg_}>📥 Export All Results</button>
+                <button onClick={()=>doExport(`${API}/api/admin/export/students`,'students.csv')} style={bg_}>📥 Student Export</button>
+              </div>
+              {exams.map(e=>(
+                <div key={e._id} style={cs}>
+                  <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:13}}>{e.title}</div>
+                      <div style={{fontSize:11,color:DIM}}>{e.totalMarks} marks · {e.attempts||0} attempts</div>
+                    </div>
+                    <div style={{display:'flex',gap:5}}>
+                      <button onClick={async()=>{try{const r=await fetch(`${API}/api/results/exam/${e._id}`,{headers:H()});if(r.ok){const d=await r.json();T(`${Array.isArray(d)?d.length:'?'} results`)}else T('No results','w')}catch{T('Error','e')}}} style={{...bg_,fontSize:10,padding:'4px 8px'}}>📊 View</button>
+                      <button onClick={()=>doExport(`${API}/api/admin/export/exam/${e._id}`,`${e.title}_results.csv`)} style={{...bg_,fontSize:10,padding:'4px 8px'}}>📥 CSV</button>
+                      <button onClick={async()=>{try{const r=await fetch(`${API}/api/admin/results/topper-pdf/${e._id}`,{headers:H()});if(r.ok){const b=await r.blob();const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`${e.title}_topper.pdf`;a.click();T('PDF downloaded')}else T('PDF not ready','w')}catch{T('Error','e')}}} style={{...bg_,fontSize:10,padding:'4px 8px'}}>📄 Topper PDF</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ══ LEADERBOARD (S15) ══ */}
+          {tab==='leaderboard'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🏆 Leaderboard (S15)</h2>
+              <div style={{marginBottom:10}}>
+                <SSelect val='' onChange={async(examId)=>{if(!examId)return;try{const r=await fetch(`${API}/api/results/leaderboard?examId=${examId}`,{headers:H()});if(r.ok){const d=await r.json();T(`${d.length||0} entries`)}}catch{}}} style={inp}
+                  opts={[{v:'',l:'Select Exam…'},...exams.map(e=>({v:e._id,l:e.title}))]}/>
+              </div>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:8,fontSize:13}}>🌐 Overall Leaderboard</div>
+                <button onClick={async()=>{try{const r=await fetch(`${API}/api/results/leaderboard`,{headers:H()});if(r.ok){const d=await r.json();T(`${d.length||0} total entries`)}}catch{T('Error','e')}}} style={{...bg_,marginBottom:10,fontSize:12}}>🔄 Load Overall Ranks</button>
+                <div style={{fontSize:12,color:DIM}}>Exam select karke specific leaderboard dekho, ya overall load karo</div>
+              </div>
+            </div>
+          )}
+
+          {/* ══ ANALYTICS (S13/S108/S110) ══ */}
+          {tab==='analytics'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>📉 Analytics (S13/S108/S110)</h2>
+              <div style={{display:'flex',flexWrap:'wrap',gap:10,marginBottom:14}}>
+                {sBox('📊','Avg Score',stats?.avgScore?`${stats.avgScore}%`:'—')}
+                {sBox('📈','Pass Rate',stats?.passRate?`${stats.passRate}%`:'—')}
+                {sBox('🔥','Peak Hour',stats?.peakHour||'—')}
+                {sBox('😴','Inactive 7d',stats?.inactiveCount||'—')}
+              </div>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:8,fontSize:13}}>📊 Platform Analytics (S53)</div>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                  {[['Platform Stats','/api/admin/stats'],['Exam Heatmap','/api/admin/analytics/heatmap'],['Series Analytics','/api/admin/analytics/series'],['Retention Report','/api/admin/analytics/retention']].map(([l,ep])=>(
+                    <button key={l} onClick={async()=>{try{const r=await fetch(`${API}${ep}`,{headers:H()});if(r.ok){const d=await r.json();T(`${l}: loaded (${Object.keys(d).length} fields)`)}else T(`${l} not ready`,'w')}catch{T('Error','e')}}} style={{...bg_,fontSize:11,padding:'6px 10px'}}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:8,fontSize:13}}>🔢 Batch vs Batch (M8)</div>
+                <button onClick={async()=>{try{const r=await fetch(`${API}/api/admin/analytics/batch-compare`,{headers:H()});if(r.ok){const d=await r.json();T(`Batch compare: ${Array.isArray(d)?d.length:'?'} batches`)}else T('Compare not ready','w')}catch{T('Error','e')}}} style={{...bg_,fontSize:12}}>📊 Load Batch Comparison</button>
+              </div>
+            </div>
+          )}
+
+          {/* ══ ANTI-CHEAT LOGS (N14) ══ */}
+          {tab==='cheating'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🚨 Anti-Cheat Logs (N14)</h2>
+              {flags.length===0?<div style={{...cs,color:DIM}}>✅ No cheating flags</div>:flags.map(f=>(
+                <div key={f._id} style={{...cs,borderLeft:`3px solid ${f.severity==='high'?DNG:WRN}`}}>
+                  <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:12}}>{f.studentName||'—'} — {f.examTitle||'—'}</div>
+                      <div style={{fontSize:11,color:DIM}}>Type: {f.type} · Count: {f.count} · {f.at?new Date(f.at).toLocaleString():''}</div>
+                    </div>
+                    <span style={{fontSize:10,padding:'2px 8px',borderRadius:20,background:f.severity==='high'?'rgba(255,77,77,0.15)':'rgba(255,184,77,0.15)',color:f.severity==='high'?DNG:WRN,fontWeight:700}}>{f.severity?.toUpperCase()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ══ SNAPSHOTS (Phase 5.2) ══ */}
+          {tab==='snapshots'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>📷 Webcam Snapshots</h2>
+              {snapshots.length===0?<div style={{...cs,color:DIM}}>No snapshots yet</div>:(
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:10}}>
+                  {snapshots.map(s=>(
+                    <div key={s._id} style={{...cs,padding:8,borderColor:s.flagged?DNG:BOR}}>
+                      {s.imageUrl?<img src={s.imageUrl} alt='snap' style={{width:'100%',borderRadius:5,marginBottom:5}} />:<div style={{width:'100%',height:80,background:'rgba(77,159,255,0.05)',borderRadius:5,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:5,fontSize:20}}>📷</div>}
+                      <div style={{fontSize:11,fontWeight:600}}>{s.studentName||'—'}</div>
+                      <div style={{fontSize:10,color:DIM}}>{s.capturedAt?new Date(s.capturedAt).toLocaleString():''}</div>
+                      {s.flagged&&<div style={{fontSize:10,color:DNG,fontWeight:700}}>🚩 FLAGGED</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ══ AI INTEGRITY (AI-6) ══ */}
+          {tab==='integrity'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🤖 AI Integrity Scores (AI-6)</h2>
+              <div style={{fontSize:12,color:DIM,marginBottom:12}}>Har exam ke baad AI 0-100 score generate karta hai — tab switches, face away, fast answers sab combine</div>
+              {students.filter(s=>s.integrityScore!==undefined).length===0
+                ?<div style={{...cs,color:DIM}}>No integrity scores yet — exams complete honge tab aayenge</div>
+                :students.filter(s=>s.integrityScore!==undefined).map(s=>(
+                  <div key={s._id} style={{...cs,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:13}}>{s.name}</div>
+                      <div style={{fontSize:11,color:DIM}}>{s.email}</div>
+                    </div>
+                    <div style={{textAlign:'center'}}>
+                      <div style={{fontSize:20,fontWeight:700,color:s.integrityScore!<40?DNG:s.integrityScore!<70?WRN:SUC}}>{s.integrityScore}</div>
+                      <div style={{fontSize:10,color:DIM}}>/100</div>
+                    </div>
                   </div>
                 ))
               }
             </div>
           )}
-        </div>
-        <button onClick={logout} style={{background:'rgba(255,71,87,0.08)',border:'1px solid rgba(255,71,87,0.25)',color:'#FF6B7A',fontSize:11,fontWeight:600,padding:'7px 12px',borderRadius:8,cursor:'pointer',fontFamily:'Inter,sans-serif',flexShrink:0}}>🚪 Logout</button>
-      </div>
 
-      {/* MAIN CONTENT */}
-      <div style={{flex:1,padding:'20px 16px',overflowY:'auto'}}>
-        <div style={{marginBottom:14,display:'flex',alignItems:'center',gap:8}}>
-          <span style={{fontSize:11,color:ts,cursor:'pointer'}} onClick={()=>navTo('dashboard')}>Admin</span>
-          <span style={{fontSize:11,color:'#1A3A5A'}}>›</span>
-          <span style={{fontSize:11,color:accent,fontWeight:600,textTransform:'capitalize'}}>{activeTab.replace(/_/g,' ')}</span>
-          {loadingMain&&<span style={{fontSize:10,color:ts,marginLeft:8}}>⏳ Loading...</span>}
-        </div>
-        {renderContent()}
-      </div>
+          {/* ══ PROCTORING PDF (M15) ══ */}
+          {tab==='proctoring_pdf'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>📄 Proctoring Summary PDF (M15)</h2>
+              <div style={{fontSize:12,color:DIM,marginBottom:12}}>Har student ka complete proctoring report — snapshots, tab switches, warnings, audio flags</div>
+              {students.slice(0,20).map(s=>(
+                <div key={s._id} style={{...cs,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:13}}>{s.name}</div>
+                    <div style={{fontSize:11,color:DIM}}>{s.email}</div>
+                  </div>
+                  <button onClick={async()=>{try{const r=await fetch(`${API}/api/admin/proctoring-report/${s._id}`,{headers:H()});if(r.ok){const b=await r.blob();const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`${s.name}_proctoring.pdf`;a.click();T('PDF downloaded')}else T('Report not ready','w')}catch{T('Error','e')}}} style={{...bg_,fontSize:11,padding:'5px 10px'}}>📄 Download PDF</button>
+                </div>
+              ))}
+            </div>
+          )}
 
-      {toast&&(
-        <div style={{position:'fixed',bottom:24,left:'50%',transform:'translateX(-50%)',background:toast.type==='error'?'rgba(255,71,87,0.95)':'rgba(0,196,140,0.95)',color:'#fff',padding:'12px 24px',borderRadius:12,fontSize:13,fontWeight:600,fontFamily:'Inter,sans-serif',boxShadow:'0 4px 20px rgba(0,0,0,0.3)',zIndex:999,whiteSpace:'nowrap'}}>
-          {toast.type==='error'?'❌':'✅'} {toast.msg}
+          {/* ══ GRIEVANCES (S92/S69/S71) ══ */}
+          {tab==='tickets'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🎫 Grievances & Tickets (S92)</h2>
+              {tickets.length===0?<div style={{...cs,color:DIM}}>No tickets</div>:tickets.map(t=>(
+                <div key={t._id} style={{...cs,borderLeft:`3px solid ${t.status==='open'?WRN:t.status==='resolved'?SUC:ACC}`}}>
+                  <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:12}}>{t.studentName||'—'} — {t.type||'General'}</div>
+                      <div style={{fontSize:11,color:DIM,marginTop:2}}>{t.description?.slice(0,80)}{t.description?.length>80?'…':''}</div>
+                      <div style={{fontSize:10,color:DIM}}>Exam: {t.examTitle||'—'} · {t.createdAt?new Date(t.createdAt).toLocaleDateString():''}</div>
+                    </div>
+                    <div style={{display:'flex',gap:5,alignItems:'flex-start'}}>
+                      <span style={{fontSize:9,padding:'2px 7px',borderRadius:20,background:t.status==='open'?'rgba(255,184,77,0.15)':t.status==='resolved'?'rgba(0,196,140,0.15)':'rgba(77,159,255,0.15)',color:t.status==='open'?WRN:t.status==='resolved'?SUC:ACC,fontWeight:700}}>{t.status?.toUpperCase()}</span>
+                      {t.status!=='resolved'&&<button onClick={()=>resolveTicket(t._id)} style={{background:SUC,color:'#000',border:'none',borderRadius:6,padding:'3px 8px',cursor:'pointer',fontWeight:700,fontSize:10}}>✓ Resolve</button>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ══ ANNOUNCEMENTS (S47/S12) ══ */}
+          {tab==='announcements'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>📢 Announcements (S47)</h2>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>📢 Broadcast Message</div>
+                <div style={{marginBottom:8}}><label style={lbl}>Message *</label><STextarea init='' onSet={v=>{annR.current=v}} rows={4} ph='Announcement text…' style={{...inp,resize:'vertical'}} /></div>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                  <div style={{flex:1}}><label style={lbl}>Target Batch</label><SSelect val={annBatch} onChange={setAnnBatch} style={inp} opts={[{v:'all',l:'All Students'},{v:'dropper',l:'Dropper'},{v:'12th',l:'12th Batch'},{v:'free',l:'Free Students'}]}/></div>
+                  <button onClick={sendAnn} style={{...bp,alignSelf:'flex-end',padding:'10px 14px',fontSize:12}}>📢 Send</button>
+                </div>
+              </div>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:8,fontSize:13}}>📧 Email Templates (S109)</div>
+                {[{ico:'👋',l:'Welcome Email',tag:'welcome'},{ico:'📅',l:'Exam Reminder',tag:'reminder'},{ico:'🏆',l:'Result Published',tag:'result'},{ico:'😴',l:'Inactive (7d)',tag:'inactive'}].map(t=>(
+                  <div key={t.tag} style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:`1px solid ${BOR}`,fontSize:12}}>
+                    <span>{t.ico} {t.l}</span>
+                    <button onClick={async()=>{try{await fetch(`${API}/api/admin/email-template/${t.tag}`,{method:'POST',headers:H()});T(`${t.l} test sent!`)}catch{T('Email API check karo','e')}}} style={{...bg_,padding:'3px 8px',fontSize:10}}>📤 Test</button>
+                  </div>
+                ))}
+              </div>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:8,fontSize:13}}>📱 WhatsApp + SMS (S65/M19)</div>
+                <div style={{fontSize:11,color:DIM,marginBottom:8}}>ENV: WHATSAPP_TOKEN, TWILIO_SID — Render pe set karo</div>
+                <div style={{display:'flex',gap:8}}>
+                  <button onClick={async()=>{try{await fetch(`${API}/api/admin/whatsapp/test`,{method:'POST',headers:H()});T('WhatsApp test sent!')}catch{T('WhatsApp not configured','e')}}} style={bg_}>📱 WhatsApp Test</button>
+                  <button onClick={async()=>{try{await fetch(`${API}/api/admin/sms/test`,{method:'POST',headers:H()});T('SMS test sent!')}catch{T('SMS not configured','e')}}} style={bg_}>💬 SMS Test</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ══ REPORTS (S14/S67/S68) ══ */}
+          {tab==='reports'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>📊 Reports & Export</h2>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                {[
+                  {ico:'👥',t:'Students CSV',d:'All students with scores',fn:()=>doExport(`${API}/api/admin/export/students`,'students.csv')},
+                  {ico:'📈',t:'Results CSV',d:'All exam results',fn:()=>doExport(`${API}/api/admin/export/results`,'results.csv')},
+                  {ico:'🚨',t:'Cheating Report',d:'Anti-cheat flags PDF',fn:()=>doExport(`${API}/api/admin/export/cheating`,'cheating.pdf')},
+                  {ico:'📊',t:'Institute PDF (N19)',d:'Monthly performance PDF',fn:()=>doExport(`${API}/api/admin/reports/institute`,'institute.pdf')},
+                  {ico:'💰',t:'Revenue Report',d:'Payments & subscriptions',fn:()=>doExport(`${API}/api/admin/reports/revenue`,'revenue.csv')},
+                  {ico:'🔄',t:'Backup (S50)',d:'Full DB backup trigger',fn:doBackup},
+                ].map((item,i)=>(
+                  <div key={i} style={cs}>
+                    <div style={{fontSize:22,marginBottom:5}}>{item.ico}</div>
+                    <div style={{fontWeight:700,fontSize:12,marginBottom:3}}>{item.t}</div>
+                    <div style={{fontSize:11,color:DIM,marginBottom:8}}>{item.d}</div>
+                    <button onClick={item.fn} style={{...bg_,width:'100%',fontSize:10}}>📥 Download</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ══ FEATURE FLAGS (N21) ══ */}
+          {tab==='features'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🚩 Feature Flags (N21)</h2>
+              <div style={{fontSize:12,color:DIM,marginBottom:12}}>Koi bhi feature ON/OFF karo bina redeploy ke — instant effect</div>
+              {features.map(f=>(
+                <div key={f.key} style={{...cs,display:'flex',justifyContent:'space-between',alignItems:'center',gap:10}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:12}}>{f.label}</div>
+                    <div style={{fontSize:10,color:DIM}}>{f.description}</div>
+                    <div style={{fontSize:9,color:'rgba(77,159,255,0.4)',marginTop:1}}>key: {f.key}</div>
+                  </div>
+                  <button onClick={()=>toggleFeat(f.key)}
+                    style={{background:f.enabled?SUC:`rgba(255,255,255,0.1)`,border:'none',borderRadius:20,padding:0,width:46,height:24,cursor:'pointer',position:'relative',flexShrink:0,transition:'background 0.2s'}}>
+                    <div style={{position:'absolute',top:2,left:f.enabled?24:2,width:20,height:20,borderRadius:'50%',background:'#fff',transition:'left 0.2s',boxShadow:'0 1px 4px rgba(0,0,0,0.3)'}}/>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ══ PERMISSIONS (S72) ══ */}
+          {tab==='permissions'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🔐 Permissions (S72)</h2>
+              <div style={{fontSize:12,color:DIM,marginBottom:12}}>Sub-admin ke liye individual permissions — toggle karo + save karo</div>
+              {Object.entries(perms).map(([k,v])=>(
+                <div key={k} style={{...cs,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <div style={{fontWeight:600,fontSize:12}}>{k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</div>
+                  <button onClick={()=>{setPerms(p=>({...p,[k]:!v}))}}
+                    style={{background:v?SUC:`rgba(255,255,255,0.1)`,border:'none',borderRadius:20,padding:0,width:46,height:24,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
+                    <div style={{position:'absolute',top:2,left:v?24:2,width:20,height:20,borderRadius:'50%',background:'#fff',transition:'left 0.2s'}}/>
+                  </button>
+                </div>
+              ))}
+              <button onClick={savePerms} style={{...bp,width:'100%',marginTop:10,fontSize:12}}>💾 Save Permissions</button>
+            </div>
+          )}
+
+          {/* ══ BRANDING (S56+M17) ══ */}
+          {tab==='branding'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🎨 Branding & SEO (S56/M17)</h2>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>🏷️ Platform Branding</div>
+                {[{l:'Platform Name',r:bNameR,ph:'ProveRank'},{l:'Tagline',r:bTagR,ph:'Prove Your Rank'},{l:'Support Email',r:bMailR,ph:'support@proverank.com'}].map(f=>(
+                  <div key={f.l} style={{marginBottom:8}}><label style={lbl}>{f.l}</label><SInput init={f.r.current} onSet={v=>{f.r.current=v}} ph={f.ph} style={inp} /></div>
+                ))}
+              </div>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>🔍 SEO Settings (M17)</div>
+                <div style={{marginBottom:8}}><label style={lbl}>SEO Title</label><SInput init={seoTR.current} onSet={v=>{seoTR.current=v}} ph='ProveRank — NEET Online Test' style={inp} /></div>
+                <div style={{marginBottom:8}}><label style={lbl}>Meta Description</label><STextarea init={seoDR.current} onSet={v=>{seoDR.current=v}} rows={2} ph='Platform description…' style={{...inp,resize:'vertical'}} /></div>
+              </div>
+              <button onClick={saveBrand} disabled={savingB} style={{...bp,width:'100%',opacity:savingB?0.7:1}}>{savingB?'Saving…':'💾 Save Branding & SEO'}</button>
+            </div>
+          )}
+
+          {/* ══ MAINTENANCE (S66) ══ */}
+          {tab==='maintenance'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🔧 Maintenance Mode (S66)</h2>
+              <div style={{...cs,border:`2px solid ${mainOn?DNG:SUC}`}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:15}}>Maintenance Mode</div>
+                    <div style={{fontSize:12,color:mainOn?DNG:SUC,marginTop:2}}>{mainOn?'🔴 ACTIVE — Students blocked':'🟢 OFF — Site is live'}</div>
+                  </div>
+                  <button onClick={toggleMaint} style={{background:mainOn?SUC:DNG,color:mainOn?'#000':'#fff',border:'none',borderRadius:8,padding:'11px 18px',cursor:'pointer',fontWeight:700,fontSize:13}}>
+                    {mainOn?'Turn OFF ✅':'Turn ON 🔧'}
+                  </button>
+                </div>
+                <label style={lbl}>Students ko dikhega (message):</label>
+                <STextarea init='Under maintenance. Back soon!' onSet={v=>{mainMsgR.current=v}} rows={2} style={{...inp,resize:'vertical'}} />
+              </div>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:6,fontSize:12}}>⚠️ Notes</div>
+                <div style={{fontSize:11,color:DIM,lineHeight:1.7}}>• Admin panel maintenance ke dauraan bhi accessible rahega<br/>• Active exams ke dauran ON mat karo<br/>• Pehle data backup lo (S50)</div>
+              </div>
+            </div>
+          )}
+
+          {/* ══ AUDIT LOGS (S93/S38) ══ */}
+          {tab==='audit'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>📋 Audit Logs (S93/S38)</h2>
+              {logs.length===0?<div style={{...cs,color:DIM}}>No audit logs yet</div>:logs.slice(0,50).map((l,i)=>(
+                <div key={l._id||i} style={{...cs,padding:'7px 12px'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:6,fontSize:11}}>
+                    <div>
+                      <span style={{fontWeight:700,color:ACC}}>{l.action}</span>
+                      {' '}<span style={{color:DIM}}>by {l.by||'—'}</span>
+                      {l.detail&&<div style={{color:DIM,fontSize:10,marginTop:1}}>{l.detail}</div>}
+                    </div>
+                    <span style={{color:DIM,fontSize:10}}>{l.at?new Date(l.at).toLocaleString():''}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ══ TASK MANAGER (M13) ══ */}
+          {tab==='tasks'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>✅ Task Manager (M13)</h2>
+              <div style={{display:'flex',gap:8,marginBottom:14}}>
+                <SInput init='' onSet={v=>{todoR.current=v}} ph='New task…' style={{...inp,flex:1}} />
+                <button onClick={()=>{const t=todoR.current;if(!t)return;setTodos(p=>[...p,{id:Date.now().toString(),text:t,done:false}]);todoR.current=''}} style={bp}>+ Add</button>
+              </div>
+              {todos.map(t=>(
+                <div key={t.id} style={{...cs,display:'flex',gap:10,alignItems:'center',opacity:t.done?0.55:1}}>
+                  <input type='checkbox' checked={t.done} onChange={()=>setTodos(p=>p.map(td=>td.id===t.id?{...td,done:!td.done}:td))} style={{width:17,height:17,cursor:'pointer',accentColor:ACC}} />
+                  <span style={{flex:1,fontSize:12,textDecoration:t.done?'line-through':'none'}}>{t.text}</span>
+                  <button onClick={()=>setTodos(p=>p.filter(td=>td.id!==t.id))} style={{background:'none',border:'none',color:DNG,cursor:'pointer',fontSize:15}}>✕</button>
+                </div>
+              ))}
+              {todos.length===0&&<div style={{...cs,color:DIM}}>No tasks — add karo upar se!</div>}
+            </div>
+          )}
+
+          {/* ══ CHANGELOG (M14) ══ */}
+          {tab==='changelog'&&(
+            <div>
+              <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>📝 Changelog (M14)</h2>
+              {clogs.map(c=>(
+                <div key={c.v} style={{...cs,borderLeft:`3px solid ${c.t==='major'?ACC:DIM}`}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:7}}>
+                    <span style={{fontWeight:700,color:ACC,fontSize:13}}>{c.v}</span>
+                    <span style={{fontSize:11,color:DIM}}>{c.d}</span>
+                  </div>
+                  {c.chg.map((ch,i)=><div key={i} style={{fontSize:11,color:TS,padding:'2px 0 2px 8px',borderLeft:`2px solid ${BOR}`}}>• {ch}</div>)}
+                </div>
+              ))}
+            </div>
+          )}
+
         </div>
-      )}
+      </div>
     </div>
   )
 }
