@@ -66,6 +66,18 @@ InpRef.displayName='InpRef'
 // ═══════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════
+
+function StableArea({val, setVal, ph, rows=6}) {
+  const ref = React.useRef(null)
+  React.useEffect(()=>{ if(ref.current && document.activeElement!==ref.current) ref.current.value=val },[val])
+  return <textarea ref={ref} defaultValue={val} onBlur={e=>setVal(e.target.value)} placeholder={ph} rows={rows} style={{width:'100%',background:'#0d1117',color:'#e6edf3',border:'1px solid #30363d',borderRadius:8,padding:'10px 12px',fontSize:14,resize:'vertical',outline:'none'}} />
+}
+function StableInput({val, setVal, ph, type='text'}) {
+  const ref = React.useRef(null)
+  React.useEffect(()=>{ if(ref.current && document.activeElement!==ref.current) ref.current.value=val },[val])
+  return <input ref={ref} defaultValue={val} onBlur={e=>setVal(e.target.value)} placeholder={ph} type={type} style={{background:'#0d1117',color:'#e6edf3',border:'1px solid #30363d',borderRadius:8,padding:'8px 12px',fontSize:14,outline:'none',width:'100%'}} />
+}
+
 export default function AdminPanel() {
   const router = useRouter()
   const [role, setRole] = useState('')
