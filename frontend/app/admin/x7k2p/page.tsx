@@ -66,7 +66,7 @@ const STextarea = memo(function STextarea({init='',onSet,style,ph,rows=4}:{init?
 })
 
 const SSelect = memo(function SSelect({val,onChange,opts,style}:{val:string;onChange:(v:string)=>void;opts:{v:string;l:string}[];style?:any}) {
-  return <select value={val} onChange={e=>onChange(e.target.value)} style={style}>{opts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select>
+  return <select value={val} onChange={e=>onChange(e.target.value)} style={style}>{(opts||[]).map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select>
 })
 
 // ═══ THEME ═══
@@ -255,7 +255,7 @@ export default function AdminPanel() {
     if(Array.isArray(au))setAdminUsers(au)
     if(ft){
       if(Array.isArray(ft)&&ft.length)setFeatures(ft)
-      else if(ft&&typeof ft==='object')setFeatures(DEF_FEATURES.map(f=>({...f,enabled:ft[f.key]!==undefined?Boolean(ft[f.key]):f.enabled})))
+      else if(ft&&typeof ft==='object')setFeatures((DEF_FEATURES||[]).map(f=>({...f,enabled:ft[f.key]!==undefined?Boolean(ft[f.key]):f.enabled})))
     }
     setLoading(false)
   },[token,H])
@@ -362,7 +362,7 @@ export default function AdminPanel() {
     if(!banId||!reason){T('Student ID and ban reason are both required.','e');return}
     try{
       const res=await fetch(`${API}/api/admin/ban/${banId}`,{method:'POST',headers:HJ(),body:JSON.stringify({banReason:reason,banType:banT,banExpiry:banT==='temporary'?new Date(Date.now()+7*24*3600*1000).toISOString():undefined})})
-      if(res.ok){setStudents(p=>p.map(s=>s._id===banId?{...s,banned:true,banReason:reason}:s));T('Student has been banned successfully.');setBanId('');banReaR.current=''}
+      if(res.ok){setStudents(p=>(p||[]).map(s=>s._id===banId?{...s,banned:true,banReason:reason}:s));T('Student has been banned successfully.');setBanId('');banReaR.current=''}
       else{const e=await res.json().catch(()=>({}));T(e.message||'Failed to ban student.','e')}
     }catch{T('A network error occurred. Please check your connection.','e')}
   },[banId,banT,HJ,T])
@@ -370,7 +370,7 @@ export default function AdminPanel() {
   const unbanStd=useCallback(async(id:string)=>{
     try{
       const res=await fetch(`${API}/api/admin/unban/${id}`,{method:'POST',headers:H()})
-      if(res.ok){setStudents(p=>p.map(s=>s._id===id?{...s,banned:false,banReason:''}:s));T('Student has been unbanned successfully.')}
+      if(res.ok){setStudents(p=>(p||[]).map(s=>s._id===id?{...s,banned:false,banReason:''}:s));T('Student has been unbanned successfully.')}
       else T('Failed to unban student.','e')
     }catch{T('A network error occurred. Please check your connection.','e')}
   },[H,T])
@@ -378,7 +378,7 @@ export default function AdminPanel() {
   // ══ FEATURE TOGGLE (N21) ══
   const toggleFeat=useCallback(async(key:string)=>{
     const ft=features.find(f=>f.key===key);const ne=!ft?.enabled
-    setFeatures(p=>p.map(f=>f.key===key?{...f,enabled:ne}:f))
+    setFeatures(p=>(p||[]).map(f=>f.key===key?{...f,enabled:ne}:f))
     try{await fetch(`${API}/api/admin/features`,{method:'POST',headers:HJ(),body:JSON.stringify({key,enabled:ne})})}catch{}
     T(`${ft?.label} ${ne?'enabled':'disabled'}`)
   },[features,HJ,T])
@@ -443,7 +443,7 @@ export default function AdminPanel() {
   // ══ MAINTENANCE (S66) ══
   const toggleMaint=useCallback(async()=>{
     const nm=!mainOn;setMainOn(nm)
-    setFeatures(p=>p.map(f=>f.key==='maintenance'?{...f,enabled:nm}:f))
+    setFeatures(p=>(p||[]).map(f=>f.key==='maintenance'?{...f,enabled:nm}:f))
     try{await fetch(`${API}/api/admin/features`,{method:'POST',headers:HJ(),body:JSON.stringify({key:'maintenance',enabled:nm,message:mainMsgR.current})})}catch{}
     T(nm?'Maintenance mode is now ON. Students cannot access the platform.':'Maintenance mode is OFF. Platform is live.')
   },[mainOn,HJ,T])
@@ -469,7 +469,7 @@ export default function AdminPanel() {
   const resolveTicket=useCallback(async(id:string)=>{
     try{
       const res=await fetch(`${API}/api/admin/tickets/${id}/resolve`,{method:'PATCH',headers:H()})
-      if(res.ok){setTickets(p=>p.map(t=>t._id===id?{...t,status:'resolved'}:t));T('Ticket resolved successfully.')}else T('Failed','e')
+      if(res.ok){setTickets(p=>(p||[]).map(t=>t._id===id?{...t,status:'resolved'}:t));T('Ticket resolved successfully.')}else T('Failed','e')
     }catch{T('A network error occurred. Please check your connection.','e')}
   },[H,T])
 
@@ -618,8 +618,8 @@ export default function AdminPanel() {
             <span style={{fontWeight:700,fontSize:14}}>🔔 Notifications</span>
             <button onClick={()=>setNotifOpen(false)} style={{background:'none',border:'none',color:DIM,fontSize:16,cursor:'pointer'}}>✕</button>
           </div>
-          {notifs.length===0?<p style={{color:DIM,fontSize:12}}>No notifications</p>:notifs.map(n=>(
-            <div key={n.id} style={{...cs,padding:'8px 12px',opacity:n.read?0.6:1,marginBottom:6}}>
+          {notifs.length===0?<p style={{color:DIM,fontSize:12}}>No notifications</p>:notifs.filter(Boolean).map(n=>(
+            <div key={n.id} style={{...cs,padding:'8px 12px',opacity:n.read ? 0.6 : 1,marginBottom:6}}>
               <div style={{fontSize:12,fontWeight:n.read?400:600}}>{n.icon} {n.msg}</div>
               <div style={{fontSize:10,color:DIM}}>{n.t}</div>
             </div>
@@ -630,7 +630,7 @@ export default function AdminPanel() {
       <div style={{display:'flex'}}>
         {/* SIDEBAR */}
         <div style={{position:'fixed',top:54,left:0,width:218,height:'calc(100vh - 54px)',background:CRD,borderRight:`1px solid ${BOR}`,zIndex:50,overflow:'auto',padding:'10px 6px',transform:sideOpen?'translateX(0)':'translateX(-100%)',transition:'transform 0.25s ease'}}>
-          {NAV.map(n=>navBtn(n.id,n.ico,n.lbl))}
+          {(NAV||[]).map(n=>navBtn(n.id,n.ico,n.lbl))}
         </div>
 
         {/* CONTENT */}
@@ -693,7 +693,7 @@ export default function AdminPanel() {
                 <button onClick={()=>setTab('create_exam')} style={{...bp,padding:'8px 14px',fontSize:12}}>➕ New</button>
               </div>
               <SInput init='' onSet={setExamSearch} ph='🔍 Search exams…' style={{...inp,marginBottom:10}} />
-              {fExams.length===0?<div style={{...cs,color:DIM}}>No exams found</div>:fExams.map(e=>(
+              {fExams.length===0?<div style={{...cs,color:DIM}}>No exams found</div>:(fExams||[]).map(e=>(
                 <div key={e._id} style={cs}>
                   <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
                     <div style={{flex:1}}>
@@ -1017,7 +1017,7 @@ export default function AdminPanel() {
                 ))}
                 <button onClick={()=>doExport(`${API}/api/admin/export/students`,'students.csv')} style={{...bg_,padding:'7px 10px',fontSize:11}}>📥 CSV</button>
               </div>
-              {fStds.length===0?<div style={{...cs,color:DIM}}>No students</div>:fStds.map(s=>(
+              {fStds.length===0?<div style={{...cs,color:DIM}}>No students</div>:(fStds||[]).map(s=>(
                 <div key={s._id} style={{...cs,borderLeft:`3px solid ${s.banned?DNG:SUC}`}}>
                   <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
                     <div style={{flex:1}}>
@@ -1025,7 +1025,7 @@ export default function AdminPanel() {
                       <div style={{fontSize:11,color:DIM}}>{s.email} · {s.phone||'—'}</div>
                       <div style={{fontSize:10,color:DIM}}>ID: {s._id.slice(-8)}… · {s.createdAt?new Date(s.createdAt).toLocaleDateString():''}</div>
                       {s.banned&&<div style={{fontSize:10,color:DNG}}>🚫 Banned: {s.banReason}</div>}
-                      {s.integrityScore!==undefined&&<div style={{fontSize:10,color:s.integrityScore<40?DNG:s.integrityScore<70?WRN:SUC}}>🤖 Integrity: {s.integrityScore}/100</div>}
+                      {s.integrityScore==undefined&&<div style={{fontSize:10,color:s.integrityScore<40?DNG:s.integrityScore<70?WRN:SUC}}>🤖 Integrity: {s.integrityScore}/100</div>}
                     </div>
                     <div style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'flex-start'}}>
                       <button onClick={()=>setSelStudent(s)} style={{...bg_,padding:'4px 8px',fontSize:10}}>👤 Profile</button>
@@ -1078,7 +1078,7 @@ export default function AdminPanel() {
                   </div>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:10}}>
-                  {[['📱 Phone',selStudent.phone||'—'],['👤 Role',selStudent.role],['📅 Joined',selStudent.createdAt?new Date(selStudent.createdAt).toLocaleDateString():'—'],['🤖 Integrity',selStudent.integrityScore!==undefined?`${selStudent.integrityScore}/100`:'—'],['🚫 Banned',selStudent.banned?'YES ⚠️':'No ✅'],['📦 Group',selStudent.group||'—']].map(([k,v])=>(
+                  {[['📱 Phone',selStudent.phone||'—'],['👤 Role',selStudent.role],['📅 Joined',selStudent.createdAt?new Date(selStudent.createdAt).toLocaleDateString():'—'],['🤖 Integrity',selStudent.integrityScore==undefined?`${selStudent.integrityScore}/100`:'—'],['🚫 Banned',selStudent.banned?'YES ⚠️':'No ✅'],['📦 Group',selStudent.group||'—']].map(([k,v])=>(
                     <div key={k} style={{background:'rgba(77,159,255,0.04)',borderRadius:8,padding:'8px 10px'}}>
                       <div style={{fontSize:10,color:DIM}}>{k}</div>
                       <div style={{fontSize:12,fontWeight:600,marginTop:2}}>{v}</div>
@@ -1115,7 +1115,7 @@ export default function AdminPanel() {
                   <button onClick={createBatch} disabled={creatingBatch} style={{...bp,opacity:creatingBatch?0.7:1}}>{creatingBatch?'Creating…':'Create'}</button>
                 </div>
               </div>
-              {batches.length===0?<div style={{...cs,color:DIM}}>No batches yet</div>:batches.map(b=>(
+              {batches.length===0?<div style={{...cs,color:DIM}}>No batches yet</div>:(batches||[]).map(b=>(
                 <div key={b._id} style={cs}>
                   <div style={{fontWeight:700,fontSize:13}}>{b.name}</div>
                   <div style={{fontSize:11,color:DIM}}>👥 {b.studentCount||0} students · 📝 {b.examCount||0} exams · {b.createdAt?new Date(b.createdAt).toLocaleDateString():''}</div>
@@ -1142,7 +1142,7 @@ export default function AdminPanel() {
                 <div style={{marginBottom:10}}><label style={lbl}>Role</label><SSelect val={admRole} onChange={setAdmRole} style={inp} opts={[{v:'admin',l:'Admin'},{v:'moderator',l:'Moderator'}]}/></div>
                 <button onClick={createAdmin} disabled={creatingAdm} style={{...bp,width:'100%',opacity:creatingAdm?0.7:1}}>{creatingAdm?'Creating…':'Create Admin'}</button>
               </div>
-              {adminUsers.length===0?<div style={{...cs,color:DIM}}>No sub-admins yet</div>:adminUsers.map(a=>(
+              {adminUsers.length===0?<div style={{...cs,color:DIM}}>No sub-admins yet</div>:(adminUsers||[]).map(a=>(
                 <div key={a._id} style={cs}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <div>
@@ -1197,7 +1197,7 @@ export default function AdminPanel() {
                 <button onClick={()=>doExport(`${API}/api/admin/export/results`,'results.csv')} style={bg_}>📥 Export All Results</button>
                 <button onClick={()=>doExport(`${API}/api/admin/export/students`,'students.csv')} style={bg_}>📥 Student Export</button>
               </div>
-              {exams.map(e=>(
+              {(exams||[]).map(e=>(
                 <div key={e._id} style={cs}>
                   <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
                     <div>
@@ -1221,7 +1221,7 @@ export default function AdminPanel() {
               <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🏆 Leaderboard (S15)</h2>
               <div style={{marginBottom:10}}>
                 <SSelect val='' onChange={async(examId)=>{if(!examId)return;try{const r=await fetch(`${API}/api/results/leaderboard?examId=${examId}`,{headers:H()});if(r.ok){const d=await r.json();T(`${d.length||0} entries`)}}catch{}}} style={inp}
-                  opts={[{v:'',l:'Select Exam…'},...exams.map(e=>({v:e._id,l:e.title}))]}/>
+                  opts={[{v:'',l:'Select Exam…'},...(exams||[]).map(e=>({v:e._id,l:e.title}))]}/>
               </div>
               <div style={cs}>
                 <div style={{fontWeight:700,marginBottom:8,fontSize:13}}>🌐 Overall Leaderboard</div>
@@ -1260,7 +1260,7 @@ export default function AdminPanel() {
           {tab==='cheating'&&(
             <div>
               <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🚨 Anti-Cheat Logs (N14)</h2>
-              {flags.length===0?<div style={{...cs,color:DIM}}>✅ No cheating flags</div>:flags.map(f=>(
+              {flags.length===0?<div style={{...cs,color:DIM}}>✅ No cheating flags</div>:(flags||[]).map(f=>(
                 <div key={f._id} style={{...cs,borderLeft:`3px solid ${f.severity==='high'?DNG:WRN}`}}>
                   <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
                     <div>
@@ -1280,7 +1280,7 @@ export default function AdminPanel() {
               <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>📷 Webcam Snapshots</h2>
               {snapshots.length===0?<div style={{...cs,color:DIM}}>No snapshots yet</div>:(
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:10}}>
-                  {snapshots.map(s=>(
+                  {(snapshots||[]).map(s=>(
                     <div key={s._id} style={{...cs,padding:8,borderColor:s.flagged?DNG:BOR}}>
                       {s.imageUrl?<img src={s.imageUrl} alt='snap' style={{width:'100%',borderRadius:5,marginBottom:5}} />:<div style={{width:'100%',height:80,background:'rgba(77,159,255,0.05)',borderRadius:5,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:5,fontSize:20}}>📷</div>}
                       <div style={{fontSize:11,fontWeight:600}}>{s.studentName||'—'}</div>
@@ -1298,16 +1298,16 @@ export default function AdminPanel() {
             <div>
               <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🤖 AI Integrity Scores (AI-6)</h2>
               <div style={{fontSize:12,color:DIM,marginBottom:12}}>AI generates a 0-100 integrity score after each exam — combining tab switches, face detection, and answer patterns.</div>
-              {students.filter(s=>s.integrityScore!==undefined).length===0
+              {students.filter(s=>s.integrityScore==undefined).length===0
                 ?<div style={{...cs,color:DIM}}>No integrity scores yet — Scores will appear after exams are completed.</div>
-                :students.filter(s=>s.integrityScore!==undefined).map(s=>(
+                :students.filter(s=>s.integrityScore==undefined).map(s=>(
                   <div key={s._id} style={{...cs,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <div>
                       <div style={{fontWeight:700,fontSize:13}}>{s.name}</div>
                       <div style={{fontSize:11,color:DIM}}>{s.email}</div>
                     </div>
                     <div style={{textAlign:'center'}}>
-                      <div style={{fontSize:20,fontWeight:700,color:s.integrityScore!<40?DNG:s.integrityScore!<70?WRN:SUC}}>{s.integrityScore}</div>
+                      <div style={{fontSize:20,fontWeight:700,color:s.integrityScore<40?DNG:s.integrityScore<70?WRN:SUC}}>{s.integrityScore}</div>
                       <div style={{fontSize:10,color:DIM}}>/100</div>
                     </div>
                   </div>
@@ -1337,7 +1337,7 @@ export default function AdminPanel() {
           {tab==='tickets'&&(
             <div>
               <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🎫 Grievances & Tickets (S92)</h2>
-              {tickets.length===0?<div style={{...cs,color:DIM}}>No tickets</div>:tickets.map(t=>(
+              {tickets.length===0?<div style={{...cs,color:DIM}}>No tickets</div>:(tickets||[]).map(t=>(
                 <div key={t._id} style={{...cs,borderLeft:`3px solid ${t.status==='open'?WRN:t.status==='resolved'?SUC:ACC}`}}>
                   <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
                     <div style={{flex:1}}>
@@ -1416,7 +1416,7 @@ export default function AdminPanel() {
             <div>
               <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🚩 Feature Flags (N21)</h2>
               <div style={{fontSize:12,color:DIM,marginBottom:12}}>Toggle any feature ON or OFF instantly without redeployment.</div>
-              {features.map(f=>(
+              {(features||[]).map(f=>(
                 <div key={f.key} style={{...cs,display:'flex',justifyContent:'space-between',alignItems:'center',gap:10}}>
                   <div style={{flex:1}}>
                     <div style={{fontWeight:700,fontSize:12}}>{f.label}</div>
@@ -1520,9 +1520,9 @@ export default function AdminPanel() {
                 <SInput init='' onSet={v=>{todoR.current=v}} ph='New task…' style={{...inp,flex:1}} />
                 <button onClick={()=>{const t=todoR.current;if(!t)return;setTodos(p=>[...p,{id:Date.now().toString(),text:t,done:false}]);todoR.current=''}} style={bp}>+ Add</button>
               </div>
-              {todos.map(t=>(
+              {(todos||[]).map(t=>(
                 <div key={t.id} style={{...cs,display:'flex',gap:10,alignItems:'center',opacity:t.done?0.55:1}}>
-                  <input type='checkbox' checked={t.done} onChange={()=>setTodos(p=>p.map(td=>td.id===t.id?{...td,done:!td.done}:td))} style={{width:17,height:17,cursor:'pointer',accentColor:ACC}} />
+                  <input type='checkbox' checked={t.done} onChange={()=>setTodos(p=>(p||[]).map(td=>td.id===t.id?{...td,done:!td.done}:td))} style={{width:17,height:17,cursor:'pointer',accentColor:ACC}} />
                   <span style={{flex:1,fontSize:12,textDecoration:t.done?'line-through':'none'}}>{t.text}</span>
                   <button onClick={()=>setTodos(p=>p.filter(td=>td.id!==t.id))} style={{background:'none',border:'none',color:DNG,cursor:'pointer',fontSize:15}}>✕</button>
                 </div>
@@ -1535,7 +1535,7 @@ export default function AdminPanel() {
           {tab==='changelog'&&(
             <div>
               <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>📝 Changelog (M14)</h2>
-              {clogs.map(c=>(
+              {(clogs||[]).map(c=>(
                 <div key={c.v} style={{...cs,borderLeft:`3px solid ${c.t==='major'?ACC:DIM}`}}>
                   <div style={{display:'flex',justifyContent:'space-between',marginBottom:7}}>
                     <span style={{fontWeight:700,color:ACC,fontSize:13}}>{c.v}</span>
