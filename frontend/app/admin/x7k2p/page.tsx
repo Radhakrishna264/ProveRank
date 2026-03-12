@@ -272,11 +272,7 @@ export default function AdminPanel() {
         duration:parseInt(eDurR.current)||200,
         category:eCatR.current||'Full Mock',
         password:ePassR.current||undefined,
-        sections:[
-          {name:'Physics',numQuestions:45,marksPerCorrect:4,marksPerWrong:-1},
-          {name:'Chemistry',numQuestions:45,marksPerCorrect:4,marksPerWrong:-1},
-          {name:'Biology',numQuestions:90,marksPerCorrect:4,marksPerWrong:-1},
-        ]
+        subject:'NEET',type:'NEET',difficulty:'Mixed'
       }
       const res=await fetch(`${API}/api/exams`,{method:'POST',headers:HJ(),body:JSON.stringify(body)})
       if(res.ok||res.status===201){
