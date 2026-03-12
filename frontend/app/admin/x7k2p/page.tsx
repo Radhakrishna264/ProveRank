@@ -263,7 +263,7 @@ export default function AdminPanel() {
   // ══ CREATE EXAM STEP 1 ══
   const createExamS1=useCallback(async()=>{
     const title=eTitleR.current,date=eDateR.current
-    if(!title||!date){T('Title aur date dono required hain','e');return}
+    if(!title||!date){T('Exam title and date are both required.','e');return}
     setCreatingE(true)
     try{
       const body={
@@ -278,8 +278,8 @@ export default function AdminPanel() {
       if(res.ok||res.status===201){
         const d=await res.json()
         const eid=d?.exam?._id||d?.exam?.id||d?._id||d?.id||d?.examId
-        if(eid){setCreatedEId(eid);T('Exam created! Questions upload karo ab');setEStep(2);fetch(`${API}/api/exams`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setExams(d))}
-        else{T('Exam created (ID missing)','w');setEStep(2)}
+        if(eid){setCreatedEId(eid);T('Exam created! Please add questions now.');setEStep(2);fetch(`${API}/api/exams`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setExams(d))}
+        else{T('Exam created. (ID not returned by server)','w');setEStep(2)}
       }else{const e=await res.json().catch(()=>({}));T(`❌ Status:${res.status} — ${e.message||e.error||JSON.stringify(e).slice(0,60)}`,'e')}
     }catch(e:any){T(`🌐 ${e.message} — Backend: https://proverank.onrender.com`,'e')}
     setCreatingE(false)
@@ -288,7 +288,7 @@ export default function AdminPanel() {
   // ══ UPLOAD QUESTIONS — FIXED (3 endpoint fallbacks per method) ══
   const uploadQs=useCallback(async()=>{
     const examId=createdEId
-    if(!examId){T('Pehle exam create karo (Step 1 complete karo)','e');return}
+    if(!examId){T('Please complete Step 1 first to create the exam.','e');return}
     setUploadingQ(true);setUpRes(null)
     try{
       let res:Response|null=null
@@ -297,20 +297,20 @@ export default function AdminPanel() {
         // ── KEY FIX: ref se value lo, state se nahi ──
         const text=cpTxtR.current
         const answerKey=cpKeyR.current
-        if(!text){T('Questions text paste karo pehle','e');setUploadingQ(false);return}
+        if(!text){T('Please paste the question text first.','e');setUploadingQ(false);return}
         const payload={examId,text,answerKey,questions:text}
         // 3 endpoints try karo
         for(const ep of [`${API}/api/upload/copy-paste`,`${API}/api/questions/copy-paste`,`${API}/api/questions/bulk`]){
           try{const r=await fetch(ep,{method:'POST',headers:HJ(),body:JSON.stringify(payload)});if(r.ok||r.status===201){res=r;break}}catch{}
         }
       }else if(qMeth==='excel'){
-        if(!excelF){T('Excel file select karo','e');setUploadingQ(false);return}
+        if(!excelF){T('Please select an Excel file.','e');setUploadingQ(false);return}
         // 3 endpoints try karo
         for(const ep of [`${API}/api/excel/upload`,`${API}/api/questions/excel`,`${API}/api/upload/excel`]){
           try{const fd=new FormData();fd.append('file',excelF);fd.append('examId',examId);fd.append('exam_id',examId);const r=await fetch(ep,{method:'POST',headers:H(),body:fd});if(r.ok||r.status===201){res=r;break}}catch{}
         }
       }else if(qMeth==='pdf'){
-        if(!pdfF){T('PDF file select karo','e');setUploadingQ(false);return}
+        if(!pdfF){T('Please select a PDF file.','e');setUploadingQ(false);return}
         // 3 endpoints try karo
         for(const ep of [`${API}/api/upload/pdf`,`${API}/api/questions/pdf`,`${API}/api/upload/pdf-parse`]){
           try{const fd=new FormData();fd.append('file',pdfF);fd.append('examId',examId);fd.append('exam_id',examId);const r=await fetch(ep,{method:'POST',headers:H(),body:fd});if(r.ok||r.status===201){res=r;break}}catch{}
@@ -321,17 +321,17 @@ export default function AdminPanel() {
         const d=await res.json().catch(()=>({}))
         const cnt=d.success||d.count||d.uploaded||d.inserted||0
         setUpRes({s:cnt,f:d.failed||0,msg:`${cnt} questions uploaded!`})
-        T(`${cnt} questions upload ho gaye!`)
+        T(`${cnt} questions uploaded successfully!`)
         setEStep(3)
         fetch(`${API}/api/questions`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setQuestions(d))
       }else{
         setUpRes({s:0,f:0,msg:'API busy — Question Bank se manually add karo'})
-        T('Upload API nahi mili — Question Bank use karo','w')
+        T('Upload endpoint unavailable.. Please use Question Bank instead.','w')
         setEStep(3)
       }
     }catch(e:any){
-      setUpRes({s:0,f:0,msg:'Network error'})
-      T('Network error — Question Bank section try karo','w')
+      setUpRes({s:0,f:0,msg:'A network error occurred. Please check your connection.'})
+      T('A network error occurred. Please check your connection.. Please try the Question Bank section.','w')
       setEStep(3)
     }
     setUploadingQ(false)
@@ -340,7 +340,7 @@ export default function AdminPanel() {
   // ══ ADD QUESTION (Question Bank) ══
   const addQ=useCallback(async()=>{
     const text=qTxtR.current
-    if(!text){T('Question text likhna zaroori hai','e');return}
+    if(!text){T('Question text is required.','e');return}
     setSavingQ(true)
     const payload={text,subject:qSubj,chapter:qChapR.current||undefined,difficulty:qDiff,type:qType,
       options:qType==='SCQ'||qType==='MSQ'?[qA.current,qB.current,qC.current,qD.current].filter(Boolean):undefined,
@@ -348,31 +348,31 @@ export default function AdminPanel() {
     try{
       const res=await fetch(`${API}/api/questions`,{method:'POST',headers:HJ(),body:JSON.stringify(payload)})
       if(res.ok||res.status===201){
-        T('Question added!')
+        T('Question added to bank successfully.')
         qTxtR.current='';qA.current='';qB.current='';qC.current='';qD.current='';qChapR.current=''
         fetch(`${API}/api/questions`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setQuestions(d))
       }else{const e=await res.json().catch(()=>({}));T(e.message||`Error ${res.status}`,'e')}
-    }catch(e:any){T(e.message||'Network error','e')}
+    }catch(e:any){T(e.message||'A network error occurred. Please check your connection.','e')}
     setSavingQ(false)
   },[qSubj,qDiff,qType,qAns,HJ,H,T])
 
   // ══ BAN / UNBAN ══
   const banStd=useCallback(async()=>{
     const reason=banReaR.current
-    if(!banId||!reason){T('Student ID aur reason dono chahiye','e');return}
+    if(!banId||!reason){T('Student ID and ban reason are both required.','e');return}
     try{
       const res=await fetch(`${API}/api/admin/ban/${banId}`,{method:'POST',headers:HJ(),body:JSON.stringify({banReason:reason,banType:banT,banExpiry:banT==='temporary'?new Date(Date.now()+7*24*3600*1000).toISOString():undefined})})
-      if(res.ok){setStudents(p=>p.map(s=>s._id===banId?{...s,banned:true,banReason:reason}:s));T('Student banned');setBanId('');banReaR.current=''}
-      else{const e=await res.json().catch(()=>({}));T(e.message||'Ban failed','e')}
-    }catch{T('Network error','e')}
+      if(res.ok){setStudents(p=>p.map(s=>s._id===banId?{...s,banned:true,banReason:reason}:s));T('Student has been banned successfully.');setBanId('');banReaR.current=''}
+      else{const e=await res.json().catch(()=>({}));T(e.message||'Failed to ban student.','e')}
+    }catch{T('A network error occurred. Please check your connection.','e')}
   },[banId,banT,HJ,T])
 
   const unbanStd=useCallback(async(id:string)=>{
     try{
       const res=await fetch(`${API}/api/admin/unban/${id}`,{method:'POST',headers:H()})
-      if(res.ok){setStudents(p=>p.map(s=>s._id===id?{...s,banned:false,banReason:''}:s));T('Student unbanned')}
-      else T('Unban failed','e')
-    }catch{T('Network error','e')}
+      if(res.ok){setStudents(p=>p.map(s=>s._id===id?{...s,banned:false,banReason:''}:s));T('Student has been unbanned successfully.')}
+      else T('Failed to unban student.','e')
+    }catch{T('A network error occurred. Please check your connection.','e')}
   },[H,T])
 
   // ══ FEATURE TOGGLE (N21) ══
@@ -386,12 +386,12 @@ export default function AdminPanel() {
   // ══ ANNOUNCE / BROADCAST (S47) ══
   const sendAnn=useCallback(async()=>{
     const msg=annR.current
-    if(!msg){T('Message likhna zaroori hai','e');return}
+    if(!msg){T('Please write a message before sending.','e');return}
     try{
       let res=await fetch(`${API}/api/admin/announce`,{method:'POST',headers:HJ(),body:JSON.stringify({message:msg,batch:annBatch})})
       if(!res.ok)res=await fetch(`${API}/api/admin/manage/announce`,{method:'POST',headers:HJ(),body:JSON.stringify({message:msg,batch:annBatch})})
-      if(res.ok){T('Announcement sent!');annR.current=''}else T('Send failed','e')
-    }catch{T('Network error','e')}
+      if(res.ok){T('Announcement sent successfully.');annR.current=''}else T('Failed to send announcement.','e')
+    }catch{T('A network error occurred. Please check your connection.','e')}
   },[annBatch,HJ,T])
 
   // ══ DELETE EXAM ══
@@ -399,16 +399,16 @@ export default function AdminPanel() {
     if(!confirm('Delete karna hai? Undo nahi hoga.'))return
     try{
       const res=await fetch(`${API}/api/exams/${id}`,{method:'DELETE',headers:H()})
-      if(res.ok){setExams(p=>p.filter(e=>e._id!==id));T('Exam deleted')}else T('Delete failed','e')
-    }catch{T('Network error','e')}
+      if(res.ok){setExams(p=>p.filter(e=>e._id!==id));T('Exam deleted successfully.')}else T('Failed to delete exam.','e')
+    }catch{T('A network error occurred. Please check your connection.','e')}
   },[H,T])
 
   // ══ CLONE EXAM (S39) ══
   const cloneExam=useCallback(async(id:string)=>{
     try{
       const res=await fetch(`${API}/api/exams/${id}/clone`,{method:'POST',headers:H()})
-      if(res.ok){T('Exam cloned!');fetch(`${API}/api/exams`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setExams(d))}else T('Clone failed','e')
-    }catch{T('Network error','e')}
+      if(res.ok){T('Exam cloned successfully.');fetch(`${API}/api/exams`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setExams(d))}else T('Failed to clone exam.','e')
+    }catch{T('A network error occurred. Please check your connection.','e')}
   },[H,T])
 
   // ══ IMPERSONATE (M4) ══
@@ -418,16 +418,16 @@ export default function AdminPanel() {
       const res=await fetch(`${API}/api/admin/manage/impersonate/${impId}`,{method:'POST',headers:H()})
       if(res.ok){const d=await res.json();T(`Viewing as: ${d.name||impId}`);window.open(`/dashboard?impersonate=${impId}`,'_blank')}
       else T('Impersonate failed — student profile se try karo','e')
-    }catch{T('Network error','e')}
+    }catch{T('A network error occurred. Please check your connection.','e')}
   },[impId,H,T])
 
   // ══ PER-STUDENT TIME EXT (M7) ══
   const extendTime=useCallback(async()=>{
-    if(!extStdId){T('Student ID chahiye','e');return}
+    if(!extStdId){T('Student ID is required.','e');return}
     try{
       const res=await fetch(`${API}/api/admin/extend-time`,{method:'POST',headers:HJ(),body:JSON.stringify({studentId:extStdId,extraMinutes:parseInt(extMins)||10})})
-      if(res.ok){T(`${extMins} min extra time diya`)}else{T('Extension failed','e')}
-    }catch{T('Network error','e')}
+      if(res.ok){T(`${extMins} minutes of extra time granted.`)}else{T('Failed to extend time.','e')}
+    }catch{T('A network error occurred. Please check your connection.','e')}
   },[extStdId,extMins,HJ,T])
 
   // ══ BRANDING (S56 + M17) ══
@@ -435,8 +435,8 @@ export default function AdminPanel() {
     setSavingB(true)
     try{
       const res=await fetch(`${API}/api/admin/branding`,{method:'POST',headers:HJ(),body:JSON.stringify({brandName:bNameR.current,tagline:bTagR.current,supportEmail:bMailR.current,seoTitle:seoTR.current,seoDesc:seoDR.current})})
-      if(res.ok){T('Branding saved!')}else{ T('Save failed','e')}
-    }catch{T('Network error','e')}
+      if(res.ok){T('Branding settings saved successfully.')}else{ T('Failed to save settings.','e')}
+    }catch{T('A network error occurred. Please check your connection.','e')}
     setSavingB(false)
   },[HJ,T])
 
@@ -445,76 +445,76 @@ export default function AdminPanel() {
     const nm=!mainOn;setMainOn(nm)
     setFeatures(p=>p.map(f=>f.key==='maintenance'?{...f,enabled:nm}:f))
     try{await fetch(`${API}/api/admin/features`,{method:'POST',headers:HJ(),body:JSON.stringify({key:'maintenance',enabled:nm,message:mainMsgR.current})})}catch{}
-    T(nm?'Maintenance ON — students blocked':'Maintenance OFF — site live')
+    T(nm?'Maintenance mode is now ON. Students cannot access the platform.':'Maintenance mode is OFF. Platform is live.')
   },[mainOn,HJ,T])
 
   // ══ EXPORT ══
   const doExport=useCallback(async(url:string,fname:string)=>{
     try{
       const res=await fetch(url,{headers:H()})
-      if(res.ok){const b=await res.blob();const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=fname;a.click();T('Download started')}
-      else T('Export failed','e')
-    }catch{T('Network error','e')}
+      if(res.ok){const b=await res.blob();const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=fname;a.click();T('Download started successfully.')}
+      else T('Export failed. Please try again.','e')
+    }catch{T('A network error occurred. Please check your connection.','e')}
   },[H,T])
 
   // ══ BACKUP (S50) ══
   const doBackup=useCallback(async()=>{
     try{
       const res=await fetch(`${API}/api/admin/backup`,{method:'POST',headers:H()})
-      if(res.ok){T('Backup triggered!')}else{ T('Backup failed','e')}
-    }catch{T('Network error','e')}
+      if(res.ok){T('Backup triggered successfully.')}else{ T('Backup failed. Please try again.','e')}
+    }catch{T('A network error occurred. Please check your connection.','e')}
   },[H,T])
 
   // ══ RESOLVE TICKET ══
   const resolveTicket=useCallback(async(id:string)=>{
     try{
       const res=await fetch(`${API}/api/admin/tickets/${id}/resolve`,{method:'PATCH',headers:H()})
-      if(res.ok){setTickets(p=>p.map(t=>t._id===id?{...t,status:'resolved'}:t));T('Ticket resolved!')}else T('Failed','e')
-    }catch{T('Network error','e')}
+      if(res.ok){setTickets(p=>p.map(t=>t._id===id?{...t,status:'resolved'}:t));T('Ticket resolved successfully.')}else T('Failed','e')
+    }catch{T('A network error occurred. Please check your connection.','e')}
   },[H,T])
 
   // ══ AI SMART GENERATOR (S101) ══
   const aiGen=useCallback(async()=>{
-    if(!aiTopicR.current){T('Topic daalo','e');return}
+    if(!aiTopicR.current){T('Please enter a topic.','e');return}
     setAiLoading(true)
     try{
       const res=await fetch(`${API}/api/questions/generate`,{method:'POST',headers:HJ(),body:JSON.stringify({topic:aiTopicR.current,count:parseInt(aiCount)||10,subject:aiSubj,difficulty:aiDiff})})
-      if(res.ok){const d=await res.json();setAiResult(Array.isArray(d)?d:d.questions||[]);T(`${(Array.isArray(d)?d:d.questions||[]).length} questions generated!`)}
+      if(res.ok){const d=await res.json();setAiResult(Array.isArray(d)?d:d.questions||[]);T(`${(Array.isArray(d)?d:d.questions||[]).length} questions generated successfully!`)}
       else T('AI generation failed — check backend','e')
-    }catch{T('Network error','e')}
+    }catch{T('A network error occurred. Please check your connection.','e')}
     setAiLoading(false)
   },[aiCount,aiSubj,aiDiff,HJ,T])
 
   // ══ CREATE BATCH ══
   const createBatch=useCallback(async()=>{
-    if(!batchNameR.current){T('Batch name daalo','e');return}
+    if(!batchNameR.current){T('Please enter a batch name.','e');return}
     setCreatingBatch(true)
     try{
       const res=await fetch(`${API}/api/admin/batches`,{method:'POST',headers:HJ(),body:JSON.stringify({name:batchNameR.current})})
-      if(res.ok){T('Batch created!');batchNameR.current='';fetch(`${API}/api/admin/batches`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setBatches(d))}
-      else T('Create failed','e')
-    }catch{T('Network error','e')}
+      if(res.ok){T('Batch created successfully.');batchNameR.current='';fetch(`${API}/api/admin/batches`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setBatches(d))}
+      else T('Failed to create. Please try again.','e')
+    }catch{T('A network error occurred. Please check your connection.','e')}
     setCreatingBatch(false)
   },[HJ,H,T])
 
   // ══ BATCH TRANSFER (M3) ══
   const batchTransfer=useCallback(async()=>{
-    if(!batchTransStdId||!batchTransTo){T('Student ID aur target batch chahiye','e');return}
+    if(!batchTransStdId||!batchTransTo){T('Student ID and target batch are both required.','e');return}
     try{
       const res=await fetch(`${API}/api/admin/manage/batch-transfer`,{method:'POST',headers:HJ(),body:JSON.stringify({studentId:batchTransStdId,toBatch:batchTransTo})})
-      if(res.ok){T('Transfer done!')}else{ T('Transfer failed','e')}
-    }catch{T('Network error','e')}
+      if(res.ok){T('Student transferred successfully.')}else{ T('Transfer failed','e')}
+    }catch{T('A network error occurred. Please check your connection.','e')}
   },[batchTransStdId,batchTransTo,HJ,T])
 
   // ══ CREATE ADMIN (S37) ══
   const createAdmin=useCallback(async()=>{
-    if(!admNameR.current||!admEmailR.current||!admPassR.current){T('Name, email, password sab chahiye','e');return}
+    if(!admNameR.current||!admEmailR.current||!admPassR.current){T('Name, email and password are all required.','e');return}
     setCreatingAdm(true)
     try{
       const res=await fetch(`${API}/api/admin/manage/admins`,{method:'POST',headers:HJ(),body:JSON.stringify({name:admNameR.current,email:admEmailR.current,password:admPassR.current,role:admRole})})
-      if(res.ok){T('Admin created!');fetch(`${API}/api/admin/manage/admins`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setAdminUsers(d))}
-      else{const e=await res.json().catch(()=>({}));T(e.message||'Create failed','e')}
-    }catch{T('Network error','e')}
+      if(res.ok){T('Admin account created successfully.');fetch(`${API}/api/admin/manage/admins`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setAdminUsers(d))}
+      else{const e=await res.json().catch(()=>({}));T(e.message||'Failed to create. Please try again.','e')}
+    }catch{T('A network error occurred. Please check your connection.','e')}
     setCreatingAdm(false)
   },[admRole,HJ,H,T])
 
@@ -522,8 +522,8 @@ export default function AdminPanel() {
   const savePerms=useCallback(async()=>{
     try{
       const res=await fetch(`${API}/api/admin/permissions`,{method:'POST',headers:HJ(),body:JSON.stringify(perms)})
-      if(res.ok){T('Permissions saved!')}else{ T('Save failed','e')}
-    }catch{T('Network error','e')}
+      if(res.ok){T('Permissions saved successfully.')}else{ T('Failed to save settings.','e')}
+    }catch{T('A network error occurred. Please check your connection.','e')}
   },[perms,HJ,T])
 
   if(!mounted)return null
@@ -885,7 +885,7 @@ export default function AdminPanel() {
                 {bulkExamFile&&<div style={{fontSize:11,color:SUC,marginBottom:10}}>✓ {bulkExamFile.name}</div>}
                 <button disabled={!bulkExamFile||bulkExamLoading} onClick={async()=>{
                   if(!bulkExamFile)return;setBulkExamLoading(true)
-                  try{const fd=new FormData();fd.append('file',bulkExamFile);const res=await fetch(`${API}/api/exams/bulk`,{method:'POST',headers:H(),body:fd});if(res.ok){const d=await res.json();T(`${d.created||d.count||'?'} exams created!`);fetch(`${API}/api/exams`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setExams(d))}else T('Bulk create failed','e')}catch{T('Network error','e')}
+                  try{const fd=new FormData();fd.append('file',bulkExamFile);const res=await fetch(`${API}/api/exams/bulk`,{method:'POST',headers:H(),body:fd});if(res.ok){const d=await res.json();T(`${d.created||d.count||'?'} exams created!`);fetch(`${API}/api/exams`,{headers:H()}).then(r=>r.ok?r.json():null).then(d=>d&&setExams(d))}else T('Bulk create failed','e')}catch{T('A network error occurred. Please check your connection.','e')}
                   setBulkExamLoading(false)
                 }} style={{...bp,width:'100%',opacity:(!bulkExamFile||bulkExamLoading)?0.7:1}}>{bulkExamLoading?'Creating…':'Create All Exams →'}</button>
               </div>
@@ -973,7 +973,7 @@ export default function AdminPanel() {
                     </div>
                   ))}
                   <button onClick={async()=>{
-                    try{const res=await fetch(`${API}/api/questions/bulk`,{method:'POST',headers:HJ(),body:JSON.stringify({questions:aiResult})});if(res.ok){T('AI questions saved to bank!');fetchAll()}else T('Save failed','e')}catch{T('Network error','e')}
+                    try{const res=await fetch(`${API}/api/questions/bulk`,{method:'POST',headers:HJ(),body:JSON.stringify({questions:aiResult})});if(res.ok){T('AI generated questions saved to Question Bank.');fetchAll()}else T('Failed to save settings.','e')}catch{T('A network error occurred. Please check your connection.','e')}
                   }} style={{...bp,width:'100%',marginTop:8}}>💾 Save All to Question Bank</button>
                 </div>
               )}
@@ -989,14 +989,14 @@ export default function AdminPanel() {
                 <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
                   {['2024','2023','2022','2021','2020','2019','2018','2017','2016','2015'].map(y=>(
                     <button key={y} onClick={async()=>{
-                      try{const res=await fetch(`${API}/api/questions?year=${y}&type=pyq`,{headers:H()});if(res.ok){const d=await res.json();T(`${d.length||0} PYQs for ${y}`)}else T(`No PYQ data for ${y}`,'w')}catch{T('Network error','e')}
+                      try{const res=await fetch(`${API}/api/questions?year=${y}&type=pyq`,{headers:H()});if(res.ok){const d=await res.json();T(`${d.length||0} PYQs for ${y}`)}else T(`No PYQ data for ${y}`,'w')}catch{T('A network error occurred. Please check your connection.','e')}
                     }} style={{...bg_,padding:'5px 12px',fontSize:12}}>{y}</button>
                   ))}
                 </div>
                 <div style={{display:'flex',gap:8}}>
                   {['Physics','Chemistry','Biology'].map(s=>(
                     <button key={s} onClick={async()=>{
-                      try{const res=await fetch(`${API}/api/questions?subject=${s}&type=pyq`,{headers:H()});if(res.ok){const d=await res.json();T(`${d.length||0} ${s} PYQs found`)}else T(`No ${s} PYQs`,'w')}catch{T('Network error','e')}
+                      try{const res=await fetch(`${API}/api/questions?subject=${s}&type=pyq`,{headers:H()});if(res.ok){const d=await res.json();T(`${d.length||0} ${s} PYQs found`)}else T(`No ${s} PYQs`,'w')}catch{T('A network error occurred. Please check your connection.','e')}
                     }} style={{...bg_,flex:1,fontSize:12}}>{s}</button>
                   ))}
                 </div>
@@ -1207,7 +1207,7 @@ export default function AdminPanel() {
                     <div style={{display:'flex',gap:5}}>
                       <button onClick={async()=>{try{const r=await fetch(`${API}/api/results/exam/${e._id}`,{headers:H()});if(r.ok){const d=await r.json();T(`${Array.isArray(d)?d.length:'?'} results`)}else T('No results','w')}catch{T('Error','e')}}} style={{...bg_,fontSize:10,padding:'4px 8px'}}>📊 View</button>
                       <button onClick={()=>doExport(`${API}/api/admin/export/exam/${e._id}`,`${e.title}_results.csv`)} style={{...bg_,fontSize:10,padding:'4px 8px'}}>📥 CSV</button>
-                      <button onClick={async()=>{try{const r=await fetch(`${API}/api/admin/results/topper-pdf/${e._id}`,{headers:H()});if(r.ok){const b=await r.blob();const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`${e.title}_topper.pdf`;a.click();T('PDF downloaded')}else T('PDF not ready','w')}catch{T('Error','e')}}} style={{...bg_,fontSize:10,padding:'4px 8px'}}>📄 Topper PDF</button>
+                      <button onClick={async()=>{try{const r=await fetch(`${API}/api/admin/results/topper-pdf/${e._id}`,{headers:H()});if(r.ok){const b=await r.blob();const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`${e.title}_topper.pdf`;a.click();T('PDF downloaded successfully.')}else T('PDF not ready','w')}catch{T('Error','e')}}} style={{...bg_,fontSize:10,padding:'4px 8px'}}>📄 Topper PDF</button>
                     </div>
                   </div>
                 </div>
@@ -1226,7 +1226,7 @@ export default function AdminPanel() {
               <div style={cs}>
                 <div style={{fontWeight:700,marginBottom:8,fontSize:13}}>🌐 Overall Leaderboard</div>
                 <button onClick={async()=>{try{const r=await fetch(`${API}/api/results/leaderboard`,{headers:H()});if(r.ok){const d=await r.json();T(`${d.length||0} total entries`)}}catch{T('Error','e')}}} style={{...bg_,marginBottom:10,fontSize:12}}>🔄 Load Overall Ranks</button>
-                <div style={{fontSize:12,color:DIM}}>Exam select karke specific leaderboard dekho, ya overall load karo</div>
+                <div style={{fontSize:12,color:DIM}}>Select an exam to view its specific leaderboard, or load the overall rankings.</div>
               </div>
             </div>
           )}
@@ -1297,9 +1297,9 @@ export default function AdminPanel() {
           {tab==='integrity'&&(
             <div>
               <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🤖 AI Integrity Scores (AI-6)</h2>
-              <div style={{fontSize:12,color:DIM,marginBottom:12}}>Har exam ke baad AI 0-100 score generate karta hai — tab switches, face away, fast answers sab combine</div>
+              <div style={{fontSize:12,color:DIM,marginBottom:12}}>AI generates a 0-100 integrity score after each exam — combining tab switches, face detection, and answer patterns.</div>
               {students.filter(s=>s.integrityScore!==undefined).length===0
-                ?<div style={{...cs,color:DIM}}>No integrity scores yet — exams complete honge tab aayenge</div>
+                ?<div style={{...cs,color:DIM}}>No integrity scores yet — Scores will appear after exams are completed.</div>
                 :students.filter(s=>s.integrityScore!==undefined).map(s=>(
                   <div key={s._id} style={{...cs,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <div>
@@ -1320,14 +1320,14 @@ export default function AdminPanel() {
           {tab==='proctoring_pdf'&&(
             <div>
               <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>📄 Proctoring Summary PDF (M15)</h2>
-              <div style={{fontSize:12,color:DIM,marginBottom:12}}>Har student ka complete proctoring report — snapshots, tab switches, warnings, audio flags</div>
+              <div style={{fontSize:12,color:DIM,marginBottom:12}}>Complete proctoring report per student — snapshots, tab switches, warnings and audio flags.</div>
               {students.slice(0,20).map(s=>(
                 <div key={s._id} style={{...cs,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                   <div>
                     <div style={{fontWeight:700,fontSize:13}}>{s.name}</div>
                     <div style={{fontSize:11,color:DIM}}>{s.email}</div>
                   </div>
-                  <button onClick={async()=>{try{const r=await fetch(`${API}/api/admin/proctoring-report/${s._id}`,{headers:H()});if(r.ok){const b=await r.blob();const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`${s.name}_proctoring.pdf`;a.click();T('PDF downloaded')}else T('Report not ready','w')}catch{T('Error','e')}}} style={{...bg_,fontSize:11,padding:'5px 10px'}}>📄 Download PDF</button>
+                  <button onClick={async()=>{try{const r=await fetch(`${API}/api/admin/proctoring-report/${s._id}`,{headers:H()});if(r.ok){const b=await r.blob();const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`${s.name}_proctoring.pdf`;a.click();T('PDF downloaded successfully.')}else T('Report not ready','w')}catch{T('Error','e')}}} style={{...bg_,fontSize:11,padding:'5px 10px'}}>📄 Download PDF</button>
                 </div>
               ))}
             </div>
@@ -1415,7 +1415,7 @@ export default function AdminPanel() {
           {tab==='features'&&(
             <div>
               <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🚩 Feature Flags (N21)</h2>
-              <div style={{fontSize:12,color:DIM,marginBottom:12}}>Koi bhi feature ON/OFF karo bina redeploy ke — instant effect</div>
+              <div style={{fontSize:12,color:DIM,marginBottom:12}}>Toggle any feature ON or OFF instantly without redeployment.</div>
               {features.map(f=>(
                 <div key={f.key} style={{...cs,display:'flex',justifyContent:'space-between',alignItems:'center',gap:10}}>
                   <div style={{flex:1}}>
@@ -1436,7 +1436,7 @@ export default function AdminPanel() {
           {tab==='permissions'&&(
             <div>
               <h2 style={{fontFamily:'Playfair Display,serif',color:ACC,margin:'0 0 14px'}}>🔐 Permissions (S72)</h2>
-              <div style={{fontSize:12,color:DIM,marginBottom:12}}>Sub-admin ke liye individual permissions — toggle karo + save karo</div>
+              <div style={{fontSize:12,color:DIM,marginBottom:12}}>Set individual permissions for sub-admins. Toggle and save.</div>
               {Object.entries(perms).map(([k,v])=>(
                 <div key={k} style={{...cs,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                   <div style={{fontWeight:600,fontSize:12}}>{k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</div>
@@ -1483,7 +1483,7 @@ export default function AdminPanel() {
                     {mainOn?'Turn OFF ✅':'Turn ON 🔧'}
                   </button>
                 </div>
-                <label style={lbl}>Students ko dikhega (message):</label>
+                <label style={lbl}>Message shown to students during maintenance:</label>
                 <STextarea init='Under maintenance. Back soon!' onSet={v=>{mainMsgR.current=v}} rows={2} style={{...inp,resize:'vertical'}} />
               </div>
               <div style={cs}>
