@@ -1,4 +1,19 @@
 'use client'
+
+class EB extends require('react').Component<any,any>{
+  constructor(p:any){super(p);this.state={err:null}}
+  static getDerivedStateFromError(e:any){return{err:e.message}}
+  render(){
+    if(this.state.err)return(
+      <div style={{background:'#000A18',minHeight:'100vh',padding:20,color:'#FF4D4D',fontFamily:'monospace'}}>
+        <h2 style={{color:'#4D9FFF'}}>Admin Panel — Runtime Error</h2>
+        <pre style={{whiteSpace:'pre-wrap',fontSize:12,color:'#FF4D4D',background:'#001628',padding:16,borderRadius:8}}>{this.state.err}</pre>
+        <button onClick={()=>window.location.reload()} style={{marginTop:16,background:'#4D9FFF',color:'#000',border:'none',padding:'10px 20px',borderRadius:8,cursor:'pointer',fontWeight:700}}>Reload</button>
+      </div>
+    )
+    return this.props.children
+  }
+}
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import { getToken, getRole, clearAuth } from '@/lib/auth'
@@ -588,6 +603,7 @@ export default function AdminPanel() {
   )
 
   return (
+    <EB>
     <div style={{background:BG,minHeight:'100vh',color:TS,fontFamily:'Inter,sans-serif'}}>
 
       {/* TOAST */}
