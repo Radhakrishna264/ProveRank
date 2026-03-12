@@ -369,11 +369,15 @@ export default function AdminPanel() {
     try{
       let res: Response|null = null
       if(qUploadMethod==='copypaste'||qUploadMethod==='manual'){
-        if(!manualQText){showToast('Paste question text first','error');setUploadingQ(false);return}
+        if(refManualQ.current) setManualQText(refManualQ.current.value)
+if(refAnswerKey.current) setAnswerKeyText(refAnswerKey.current.value)
+const _qt = refManualQ.current?.value || manualQText
+const _ak = refAnswerKey.current?.value || answerKeyText
+if(!_qt){showToast('Paste question text first','error');setUploadingQ(false);return}
         res = await fetch(`${API}/api/upload/copy-paste`,{
           method:'POST',
           headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-          body:JSON.stringify({examId:createdExamId, text:manualQText, answerKey:answerKeyText})
+          body:JSON.stringify({examId:createdExamId, text:_qt, answerKey:_ak})
         })
       } else if(qUploadMethod==='excel'){
         if(!excelFile){showToast('Select Excel file','error');setUploadingQ(false);return}
