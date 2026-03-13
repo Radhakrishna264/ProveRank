@@ -319,7 +319,7 @@ export default function AdminPanel() {
         const text=cpTxtR.current
         const answerKey=cpKeyR.current
         if(!text){T('Please paste the question text first.','e');setUploadingQ(false);return}
-        const payload={examId,text,answerKey,questions:text}
+        const payload={examId,questionsText:text,answerKeyText:cpKeyR.current,subject:'NEET',difficulty:'medium'}
         for(const ep of [`${API}/api/upload/copypaste/questions`]){
           try{const r=await fetch(ep,{method:'POST',headers:HJ(),body:JSON.stringify(payload)});if(r.ok||r.status===201){res=r;break}}catch{}
         }
