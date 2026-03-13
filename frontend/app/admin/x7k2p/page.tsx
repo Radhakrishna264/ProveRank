@@ -293,6 +293,7 @@ export default function AdminPanel() {
           setCreatedEId(eid)
           T('Exam created successfully! Please add questions.')
           setEStep(2)
+          setTimeout(()=>fetchAll(),1000)
         } else {
           setCreatedEId('')
           T('Exam created. (ID not returned by server)','w')
