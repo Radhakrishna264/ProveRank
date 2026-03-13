@@ -320,17 +320,17 @@ export default function AdminPanel() {
         const answerKey=cpKeyR.current
         if(!text){T('Please paste the question text first.','e');setUploadingQ(false);return}
         const payload={examId,text,answerKey,questions:text}
-        for(const ep of [`${API}/api/upload`,`${API}/api/upload/questions`,`${API}/api/questions/bulk`]){
+        for(const ep of [`${API}/api/upload/copypaste/questions`]){
           try{const r=await fetch(ep,{method:'POST',headers:HJ(),body:JSON.stringify(payload)});if(r.ok||r.status===201){res=r;break}}catch{}
         }
       } else if(qMeth==='excel'){
         if(!excelF){T('Please select an Excel file.','e');setUploadingQ(false);return}
-        for(const ep of [`${API}/api/excel`,`${API}/api/excel/upload`,`${API}/api/questions/excel`]){
+        for(const ep of [`${API}/api/upload/excel/questions`]){
           try{const fd=new FormData();fd.append('file',excelF);fd.append('examId',examId);fd.append('exam_id',examId);const r=await fetch(ep,{method:'POST',headers:H(),body:fd});if(r.ok||r.status===201){res=r;break}}catch{}
         }
       } else if(qMeth==='pdf'){
         if(!pdfF){T('Please select a PDF file.','e');setUploadingQ(false);return}
-        for(const ep of [`${API}/api/upload`,`${API}/api/upload/pdf`,`${API}/api/questions/pdf`]){
+        for(const ep of [`${API}/api/upload/pdf/questions`]){
           try{const fd=new FormData();fd.append('file',pdfF);fd.append('examId',examId);fd.append('exam_id',examId);const r=await fetch(ep,{method:'POST',headers:H(),body:fd});if(r.ok||r.status===201){res=r;break}}catch{}
         }
       }
