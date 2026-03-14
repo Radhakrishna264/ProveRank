@@ -1983,25 +1983,32 @@ export default function AdminPanel() {
               <div style={pageTitle}>🤖 AI Integrity Scores (AI-6)</div>
               <div style={pageSub}>0–100 integrity score per student — combines tab switches, face flags, answer patterns</div>
               <PageHero icon="🤖" title="AI-Powered Integrity Analysis" subtitle="Each student receives an integrity score based on their behavior during exams — tab switches, face detection, answer speed patterns, and IP anomalies. Scores below 40 indicate suspicious activity."/>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:16}}>
-                <div style={{...cs,textAlign:'center'}}><div style={{fontSize:24,color:SUC,fontWeight:700}}>{(students||[]).filter(s=>s.integrityScore!==undefined&&(s.integrityScore||0)>70).length}</div><div style={{fontSize:11,color:DIM}}>High Trust (>70)</div></div>
-                <div style={{...cs,textAlign:'center'}}><div style={{fontSize:24,color:WRN,fontWeight:700}}>{(students||[]).filter(s=>s.integrityScore!==undefined&&(s.integrityScore||0)>=40&&(s.integrityScore||0)<=70).length}</div><div style={{fontSize:11,color:DIM}}>Medium Trust</div></div>
-                <div style={{...cs,textAlign:'center'}}><div style={{fontSize:24,color:DNG,fontWeight:700}}>{(students||[]).filter(s=>s.integrityScore!==undefined&&(s.integrityScore||0)<40).length}</div><div style={{fontSize:11,color:DIM}}>Low Trust (<40)</div></div>
-              </div>
+              {(()=>{
+                const hi=(students||[]).filter(s=>s.integrityScore!==undefined&&Number(s.integrityScore||0)>70).length
+                const md=(students||[]).filter(s=>s.integrityScore!==undefined&&Number(s.integrityScore||0)>=40&&Number(s.integrityScore||0)<=70).length
+                const lo=(students||[]).filter(s=>s.integrityScore!==undefined&&Number(s.integrityScore||0)<40).length
+                return(
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:16}}>
+                    <div style={{...cs,textAlign:'center'}}><div style={{fontSize:24,color:SUC,fontWeight:700}}>{hi}</div><div style={{fontSize:11,color:DIM}}>High Trust (70+)</div></div>
+                    <div style={{...cs,textAlign:'center'}}><div style={{fontSize:24,color:WRN,fontWeight:700}}>{md}</div><div style={{fontSize:11,color:DIM}}>Medium Trust</div></div>
+                    <div style={{...cs,textAlign:'center'}}><div style={{fontSize:24,color:DNG,fontWeight:700}}>{lo}</div><div style={{fontSize:11,color:DIM}}>Low Trust (below 40)</div></div>
+                  </div>
+                )
+              })()}
               {(students||[]).filter(s=>s.integrityScore!==undefined).length===0
                 ?<div style={{textAlign:'center',padding:'30px',color:DIM}}><div style={{fontSize:36,marginBottom:8}}>🤖</div><div style={{fontSize:12}}>No integrity scores computed yet</div></div>
                 :(students||[]).filter(s=>s.integrityScore!==undefined).sort((a,b)=>(a.integrityScore||0)-(b.integrityScore||0)).slice(0,15).map(s=>(
-                  <div key={s._id} style={{...cs,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',borderLeft:`4px solid ${(s.integrityScore||0)>70?SUC:(s.integrityScore||0)>40?WRN:DNG}`}}>
+                  <div key={s._id} style={{...cs,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',borderLeft:`4px solid ${(Number(s.integrityScore||0))>70?SUC:(Number(s.integrityScore||0))>40?WRN:DNG}`}}>
                     <div style={{flex:1}}>
                       <div style={{fontWeight:600,fontSize:12,color:TS}}>{s.name||'—'}</div>
                       <div style={{fontSize:10,color:DIM}}>{s.email}</div>
                     </div>
                     <div style={{textAlign:'right'}}>
-                      <div style={{fontWeight:900,fontSize:18,color:(s.integrityScore||0)>70?SUC:(s.integrityScore||0)>40?WRN:DNG}}>{s.integrityScore}</div>
+                      <div style={{fontWeight:900,fontSize:18,color:(Number(s.integrityScore||0))>70?SUC:(Number(s.integrityScore||0))>40?WRN:DNG}}>{s.integrityScore}</div>
                       <div style={{fontSize:9,color:DIM}}>/100</div>
                     </div>
                     <div style={{width:80,height:6,background:'rgba(255,255,255,0.1)',borderRadius:3,overflow:'hidden'}}>
-                      <div style={{height:'100%',width:`${s.integrityScore||0}%`,background:(s.integrityScore||0)>70?SUC:(s.integrityScore||0)>40?WRN:DNG,borderRadius:3,transition:'width 0.5s'}}/>
+                      <div style={{height:'100%',width:`${s.integrityScore||0}%`,background:(Number(s.integrityScore||0))>70?SUC:(Number(s.integrityScore||0))>40?WRN:DNG,borderRadius:3,transition:'width 0.5s'}}/>
                     </div>
                   </div>
                 ))
