@@ -2458,18 +2458,29 @@ export default function AdminPanel() {
               <div style={pageTitle}>🏫 Institute Report Card (N19)</div>
               <div style={pageSub}>Monthly auto-generated PDF — overall platform performance, top students</div>
               <PageHero icon="🏫" title="Monthly Institute Report" subtitle="Auto-generated comprehensive report showing overall platform performance, top students, weak areas, and improvement trends. Perfect for institute management review."/>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
-                {[{ico:'👥',l:'Total Students',(students||[]).length},{ico:'📝',l:'Exams Conducted',(exams||[]).length},{ico:'📈',l:'Avg Score',stats?.avgScore||'—'},{ico:'🏆',l:'Completion Rate',stats?.completionRate||'—'}].map((s:any,i)=>(
-                  <div key={i} style={cs}>
-                    <div style={{fontSize:24}}>{s.ico}</div>
-                    <div style={{fontWeight:700,fontSize:18,color:ACC,margin:'4px 0'}}>{(s as any)[(students||[]).length]||s[(exams||[]).length]||s[stats?.avgScore]||s[stats?.completionRate]||Object.values(s)[2]||'—'}</div>
-                    <div style={{fontSize:11,color:DIM}}>{s.l}</div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:16}}>
+                <StatBox ico='👥' lbl='Total Students' val={(students||[]).length} col={ACC}/>
+                <StatBox ico='📝' lbl='Exams Conducted' val={(exams||[]).length} col={GOLD}/>
+                <StatBox ico='📈' lbl='Avg Score' val={stats?.avgScore||'—'} col={SUC}/>
+                <StatBox ico='🏆' lbl='Completion Rate' val={stats?.completionRate||'—'} col='#FF6B9D'/>
+              </div>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>📊 This Month Summary</div>
+                {[
+                  {l:'New Registrations',v:(students||[]).filter(s=>s.createdAt&&new Date(s.createdAt).getMonth()===new Date().getMonth()).length,c:ACC},
+                  {l:'Exams Conducted',v:(exams||[]).length,c:GOLD},
+                  {l:'Active Students',v:(students||[]).filter(s=>!s.banned).length,c:SUC},
+                  {l:'Questions in Bank',v:(questions||[]).length,c:'#FF6B9D'},
+                ].map(({l,v,c})=>(
+                  <div key={l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:`1px solid ${BOR}`,fontSize:12}}>
+                    <span style={{color:DIM}}>{l}</span>
+                    <span style={{color:c,fontWeight:700,fontSize:14}}>{v}</span>
                   </div>
                 ))}
               </div>
-              <div style={{display:'flex',gap:10}}>
-                <button onClick={()=>doExport(`${API}/api/admin/institute-report/pdf`,'institute_report.pdf')} style={{...bp}}>📄 Download Monthly Report PDF</button>
-                <button onClick={()=>doExport(`${API}/api/admin/institute-report/excel`,'institute_report.xlsx')} style={{...bg_}}>📊 Download Excel Report</button>
+              <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                <button onClick={()=>doExport(`${API}/api/admin/institute-report/pdf`,'institute_report.pdf')} style={bp}>📄 Download Monthly Report PDF</button>
+                <button onClick={()=>doExport(`${API}/api/admin/institute-report/excel`,'institute_report.xlsx')} style={bg_}>📊 Download Excel Report</button>
               </div>
             </div>
           )}
