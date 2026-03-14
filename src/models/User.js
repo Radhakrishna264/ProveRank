@@ -19,6 +19,9 @@ const userSchema = new mongoose.Schema({
   otpExpiry: { type: Date },
   verified: { type: Boolean, default: false },
   profilePhoto: { type: String },
+  emailVerified: { type: Boolean, default: false },
+  emailVerifyToken: { type: String },
+  emailVerifyExpiry: { type: Date },
   loginHistory: [{
     ip: String,
     device: String,

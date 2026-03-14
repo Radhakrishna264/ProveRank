@@ -1,99 +1,131 @@
-const express = require('express');
-const router = express.Router();
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const { generateOTP, sendOTP } = require('../utils/otp');
-const { verifyToken, isSuperAdmin } = require('../middleware/auth');
-const CustomField = require('../models/CustomField');
+const express = require('express')
+const router = express.Router()
+const bcrypt = require('bcrypt')
+const jwt = require('jsonwebtoken')
+const crypto = require('crypto')
+const User = require('../models/User')
+const { sendVerificationEmail } = require('../utils/emailService')
 
+// ── REGISTER ──
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, phone, password } = req.body;
-    const exists = await User.findOne({ email });
-    if (exists) return res.status(400).json({ message: 'Email already registered' });
-    const hashed = await bcrypt.hash(password, 12);
-    const otp = generateOTP();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
-    const user = await User.create({ name, email, phone, password: hashed, otp, otpExpiry, verified: false });
-    try {
-      await sendOTP(email, otp);
-      res.status(201).json({ message: 'OTP sent to email', userId: user._id });
-    } catch (emailErr) {
-      res.status(201).json({ message: 'User created. OTP: ' + otp, userId: user._id });
+    // Registration ON/OFF check
+    const regFlag = global.featureFlags && global.featureFlags['open_registration']
+    if (regFlag === false) {
+      return res.status(403).json({ message: 'Registration is currently closed. Please contact admin.' })
     }
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
 
-router.post('/verify-otp', async (req, res) => {
+    const { name, email, password, phone } = req.body
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'Name, email and password required' })
+    }
+
+    const existing = await User.findOne({ email })
+    if (existing) {
+      return res.status(409).json({ message: 'Email already registered' })
+    }
+
+    const hash = await bcrypt.hash(password, 12)
+    const verifyToken = crypto.randomBytes(32).toString('hex')
+    const verifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000)
+
+    const user = await User.create({
+      name,
+      email,
+      password: hash,
+      phone: phone || '',
+      role: 'student',
+      emailVerified: false,
+      emailVerifyToken: verifyToken,
+      emailVerifyExpiry: verifyExpiry
+    })
+
+    await sendVerificationEmail(email, name, verifyToken)
+
+    res.status(201).json({
+      message: 'Account created! Please check your email to verify your account.'
+    })
+  } catch (err) {
+    console.error('Register error:', err)
+    res.status(500).json({ message: 'Server error during registration' })
+  }
+})
+
+// ── VERIFY EMAIL ──
+router.get('/verify-email', async (req, res) => {
   try {
-    const { email, otp } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    if (user.verified) return res.status(400).json({ message: 'Already verified' });
-    if (user.otp !== otp) return res.status(400).json({ message: 'Invalid OTP' });
-    if (user.otpExpiry < new Date()) return res.status(400).json({ message: 'OTP expired' });
-    user.verified = true;
-    user.otp = undefined;
-    user.otpExpiry = undefined;
-    await user.save();
-    res.json({ message: 'Email verified successfully' });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
+    const { token } = req.query
+    if (!token) return res.status(400).json({ message: 'Token missing' })
 
+    const user = await User.findOne({
+      emailVerifyToken: token,
+      emailVerifyExpiry: { $gt: new Date() }
+    })
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired verification link' })
+    }
+
+    user.emailVerified = true
+    user.emailVerifyToken = undefined
+    user.emailVerifyExpiry = undefined
+    await user.save()
+
+    res.json({ message: 'Email verified successfully! You can now login.' })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// ── LOGIN ──
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    console.log('LOGIN ATTEMPT:', email);
-    const user = await User.findOne({ email });
-    console.log('USER FOUND:', user ? user.email : 'NULL');
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
-    if (!user.verified && user.role !== 'superadmin' && user.role !== 'admin') {
-      return res.status(400).json({ message: 'Email not verified' });
+    const { email, password } = req.body
+    const user = await User.findOne({ email })
+    if (!user) return res.status(401).json({ message: 'Invalid email or password' })
+
+    const match = await bcrypt.compare(password, user.password)
+    if (!match) return res.status(401).json({ message: 'Invalid email or password' })
+
+    if (user.role === 'student' && !user.emailVerified) {
+      return res.status(403).json({ message: 'Please verify your email before logging in.' })
     }
-    if (user.banned) return res.status(403).json({ message: 'Account banned', reason: user.banReason });
-    const match = await bcrypt.compare(password, user.password);
-    console.log('BCRYPT MATCH:', match);
-    if (!match) return res.status(401).json({ message: 'Invalid credentials' });
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    user.loginHistory = user.loginHistory || [];
-    user.loginHistory.push({ ip, device: req.headers['user-agent'], time: new Date() });
-    await user.save();
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    try {
-      const AuditLog = require('../models/AuditLog');
-      await AuditLog.create({ action: 'LOGIN', performedBy: user._id, details: 'Login successful', ip: ip });
-    } catch (auditErr) {
-      console.log('AuditLog skip:', auditErr.message);
+
+    if (user.banned) {
+      return res.status(403).json({ message: `Account banned: ${user.banReason || 'Contact admin'}` })
     }
-    res.json({ message: 'Login successful', token, role: user.role });
-  } catch (err) {
-    console.log('LOGIN ERROR:', err.message);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
 
-router.get('/registration-fields', verifyToken, async (req, res) => {
+    user.loginHistory = user.loginHistory || []
+    user.loginHistory.push({ at: new Date(), ip: req.ip })
+    if (user.loginHistory.length > 50) user.loginHistory = user.loginHistory.slice(-50)
+    await user.save()
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET || 'proverank_jwt_super_secret_key_2024',
+      { expiresIn: '7d' }
+    )
+
+    res.json({ token, role: user.role, message: 'Login successful' })
+  } catch (err) {
+    console.error('Login error:', err)
+    res.status(500).json({ message: 'Server error during login' })
+  }
+})
+
+// ── GET ME ──
+router.get('/me', async (req, res) => {
   try {
-    const fields = await CustomField.find({ isActive: true });
-    const u = await require('../models/User').findById(user._id || user.id).select('loginHistory email role').lean(); res.json({ success: true, fields, loginHistory: u?.loginHistory || [] });
+    const auth = req.headers.authorization
+    if (!auth) return res.status(401).json({ message: 'No token' })
+    const token = auth.split(' ')[1]
+    const payload = jwt.verify(token, process.env.JWT_SECRET || 'proverank_jwt_super_secret_key_2024')
+    const user = await User.findById(payload.id).select('-password')
+    if (!user) return res.status(404).json({ message: 'User not found' })
+    res.json({ ...user.toObject(), loginHistory: user.loginHistory || [] })
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(401).json({ message: 'Invalid token' })
   }
-});
+})
 
-router.post('/registration-fields', verifyToken, isSuperAdmin, async (req, res) => {
-  try {
-    const { fieldName, label, fieldType, options, required } = req.body;
-    const field = await CustomField.create({ fieldName, label, fieldType, options, required });
-    res.json({ success: true, field });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-module.exports = router;
+module.exports = router
