@@ -6,13 +6,14 @@ const crypto = require('crypto')
 const User = require('../models/User')
 const { sendVerificationEmail } = require('../utils/emailService')
 
+const JWT_SECRET = process.env.JWT_SECRET || 'proverank_jwt_super_secret_key_2024'
+
 // ── REGISTER ──
 router.post('/register', async (req, res) => {
   try {
-    // Registration ON/OFF check
     const regFlag = global.featureFlags && global.featureFlags['open_registration']
     if (regFlag === false) {
-      return res.status(403).json({ message: 'Registration is currently closed. Please contact admin.' })
+      return res.status(403).json({ message: 'Registration is currently closed.' })
     }
 
     const { name, email, password, phone } = req.body
@@ -21,7 +22,7 @@ router.post('/register', async (req, res) => {
     }
 
     const existing = await User.findOne({ email })
-    if (existing) {
+    if (existing && existing.emailVerified) {
       return res.status(409).json({ message: 'Email already registered' })
     }
 
@@ -29,16 +30,22 @@ router.post('/register', async (req, res) => {
     const verifyToken = crypto.randomBytes(32).toString('hex')
     const verifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000)
 
-    const user = await User.create({
-      name,
-      email,
-      password: hash,
-      phone: phone || '',
-      role: 'student',
-      emailVerified: false,
-      emailVerifyToken: verifyToken,
-      emailVerifyExpiry: verifyExpiry
-    })
+    if (existing && !existing.emailVerified) {
+      existing.password = hash
+      existing.emailVerifyToken = verifyToken
+      existing.emailVerifyExpiry = verifyExpiry
+      await existing.save()
+    } else {
+      await User.create({
+        name, email,
+        password: hash,
+        phone: phone || '',
+        role: 'student',
+        emailVerified: false,
+        emailVerifyToken: verifyToken,
+        emailVerifyExpiry: verifyExpiry
+      })
+    }
 
     await sendVerificationEmail(email, name, verifyToken)
 
@@ -100,12 +107,7 @@ router.post('/login', async (req, res) => {
     if (user.loginHistory.length > 50) user.loginHistory = user.loginHistory.slice(-50)
     await user.save()
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET || 'proverank_jwt_super_secret_key_2024',
-      { expiresIn: '7d' }
-    )
-
+    const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' })
     res.json({ token, role: user.role, message: 'Login successful' })
   } catch (err) {
     console.error('Login error:', err)
@@ -119,7 +121,7 @@ router.get('/me', async (req, res) => {
     const auth = req.headers.authorization
     if (!auth) return res.status(401).json({ message: 'No token' })
     const token = auth.split(' ')[1]
-    const payload = jwt.verify(token, process.env.JWT_SECRET || 'proverank_jwt_super_secret_key_2024')
+    const payload = jwt.verify(token, JWT_SECRET)
     const user = await User.findById(payload.id).select('-password')
     if (!user) return res.status(404).json({ message: 'User not found' })
     res.json({ ...user.toObject(), loginHistory: user.loginHistory || [] })
