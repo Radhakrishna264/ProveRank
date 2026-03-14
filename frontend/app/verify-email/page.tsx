@@ -1,10 +1,10 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 
-export default function VerifyEmailPage() {
+function VerifyContent() {
   const [status, setStatus] = useState<'loading'|'success'|'error'>('loading')
   const [message, setMessage] = useState('')
   const params = useSearchParams()
@@ -18,14 +18,14 @@ export default function VerifyEmailPage() {
       .then(d => {
         if (d.message?.toLowerCase().includes('success')) {
           setStatus('success')
-          setMessage('Email verified successfully! You can now login.')
+          setMessage('Email verified! Redirecting to login...')
           setTimeout(() => router.push('/login'), 3000)
         } else {
           setStatus('error')
           setMessage(d.message || 'Verification failed.')
         }
       })
-      .catch(() => { setStatus('error'); setMessage('Server error. Please try again.') })
+      .catch(() => { setStatus('error'); setMessage('Server error. Try again.') })
   }, [])
 
   return (
@@ -40,13 +40,22 @@ export default function VerifyEmailPage() {
         <p style={{color:'#E8F4FF',fontFamily:'Arial',fontSize:15}}>
           {status==='loading'?'Please wait...' : message}
         </p>
-        {status==='success' && (
-          <p style={{color:'#6B8FAF',fontSize:13,marginTop:12}}>Redirecting to login in 3 seconds...</p>
-        )}
         {status==='error' && (
           <a href="/login" style={{display:'inline-block',marginTop:20,background:'#4D9FFF',color:'#fff',padding:'10px 28px',borderRadius:8,textDecoration:'none',fontWeight:'bold'}}>Go to Login</a>
         )}
       </div>
     </div>
+  )
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <div style={{minHeight:'100vh',background:'#000A18',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <p style={{color:'#4D9FFF',fontFamily:'Arial',fontSize:18}}>⏳ Loading...</p>
+      </div>
+    }>
+      <VerifyContent />
+    </Suspense>
   )
 }
