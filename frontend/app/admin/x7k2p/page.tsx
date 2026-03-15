@@ -421,7 +421,7 @@ export default function AdminPanel() {
     const get=async(u:string)=>{try{const r=await fetch(u,{headers:{Authorization:`Bearer ${token}`}});return r.ok?r.json():null}catch{return null}}
     const getFirst=async(...urls:string[])=>{for(const u of urls){try{const r=await fetch(u,{headers:{Authorization:`Bearer ${token}`}});if(r.ok){const d=await r.json();if(d)return d}}catch{}}return null}
     const [us,ex,qs,st,fl,al,tk,sn,ft,nf,bt,au,rs]=await Promise.all([
-      getFirst(`${API}/api/admin/users`,`${API}/api/admin/students`),
+      getFirst(`${API}/api/admin/students`,`${API}/api/admin/users`,`${API}/api/admin/manage/students`),
       get(`${API}/api/exams`),
       get(`${API}/api/questions`),
       getFirst(`${API}/api/admin/stats`,`${API}/api/admin/dashboard`),
@@ -435,7 +435,7 @@ export default function AdminPanel() {
       get(`${API}/api/admin/manage/admins`),
       getFirst(`${API}/api/results`,`${API}/api/admin/results`),
     ])
-    if(Array.isArray(us))setStudents(us)
+    if(us){const list=Array.isArray(us)?us:(us.students||us.data||us.users||[]);setStudents(list)}
     if(Array.isArray(ex))setExams(ex)
     if(Array.isArray(qs))setQuestions(qs)
     if(st)setStats(st)
