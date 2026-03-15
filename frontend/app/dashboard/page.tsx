@@ -1,470 +1,238 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/lib/useAuth'
+import { useState, useEffect } from 'react'
+import StudentShell from '@/src/components/StudentShell'
 
-const API = process.env.NEXT_PUBLIC_API_URL || ''
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 
-export default function Dashboard() {
-  const { user, logout } = useAuth('student')
-  const router = useRouter()
-  const [lang, setLang] = useState<'en'|'hi'>('en')
-  const [dark, setDark] = useState(true)
-  const [sideOpen, setSideOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  const [time, setTime] = useState(new Date())
-  const [stats, setStats] = useState({ rank: 0, score: 0, streak: 0, percentile: 0 })
-  const [exams, setExams] = useState<any[]>([])
-  const [results, setResults] = useState<any[]>([])
-  const sideRef = useRef<HTMLDivElement>(null)
-
-  const T = {
-    en: {
-      welcome: 'Welcome back,', dash: 'Dashboard', profile: 'Profile',
-      exams: 'My Exams', results: 'Results', analytics: 'Analytics',
-      leaderboard: 'Leaderboard', cert: 'Certificate', admit: 'Admit Card',
-      support: 'Support', logout: 'Sign Out',
-      rank: 'All India Rank', score: 'Best Score', streak: 'Day Streak', pct: 'Percentile',
-      upcoming: 'Upcoming Exams', recent: 'Recent Results',
-      noExam: 'No upcoming exams scheduled.', noResult: 'No results yet. Give your first exam!',
-      start: 'Start →', view: 'View →', viewAll: 'View All →',
-      quick: 'Quick Access', activity: 'Recent Activity',
-      tip: '💡 Pro Tip', tipText: 'Revise your weak chapters before the next test for best results.',
-      targetDays: 'Days to Target', nextExam: 'Next Exam',
-      studyGoal: 'Weekly Study Goal', accuracy: 'Accuracy',
-      today: 'Today', good: 'Great job!', keepGoing: 'Keep pushing forward!',
-      portal: 'STUDENT PORTAL', nav: 'NAVIGATION', account: 'ACCOUNT',
-    },
-    hi: {
-      welcome: 'वापस स्वागत है,', dash: 'डैशबोर्ड', profile: 'प्रोफाइल',
-      exams: 'मेरी परीक्षाएं', results: 'परिणाम', analytics: 'विश्लेषण',
-      leaderboard: 'लीडरबोर्ड', cert: 'प्रमाण पत्र', admit: 'प्रवेश पत्र',
-      support: 'सहायता', logout: 'साइन आउट',
-      rank: 'अखिल भारत रैंक', score: 'सर्वश्रेष्ठ स्कोर', streak: 'दिन की लकीर', pct: 'प्रतिशतक',
-      upcoming: 'आगामी परीक्षाएं', recent: 'हाल के परिणाम',
-      noExam: 'कोई आगामी परीक्षा नहीं।', noResult: 'कोई परिणाम नहीं। पहली परीक्षा दें!',
-      start: 'शुरू →', view: 'देखें →', viewAll: 'सभी →',
-      quick: 'त्वरित पहुंच', activity: 'हाल की गतिविधि',
-      tip: '💡 प्रो टिप', tipText: 'अगली परीक्षा से पहले कमजोर अध्यायों को दोहराएं।',
-      targetDays: 'लक्ष्य तक दिन', nextExam: 'अगली परीक्षा',
-      studyGoal: 'साप्ताहिक लक्ष्य', accuracy: 'सटीकता',
-      today: 'आज', good: 'शाबाश!', keepGoing: 'आगे बढ़ते रहें!',
-      portal: 'छात्र पोर्टल', nav: 'नेविगेशन', account: 'खाता',
-    }
+const TR = {
+  en:{
+    hello:'Good Morning', title:'Welcome back', sub:'Your NEET preparation dashboard — Stay focused, stay ranked.',
+    quote:'"Success is not given, it is earned — one test at a time."',
+    quoteHi:'सफलता दी नहीं जाती, कमाई जाती है — एक परीक्षा एक कदम।',
+    rank:'All India Rank', bestScore:'Best Score', streak:'Day Streak', pct:'Percentile',
+    daysLeft:'Days to NEET', nextExam:'Next Exam', accuracy:'Accuracy', tests:'Tests Given',
+    upcoming:'Upcoming Exams', recent:'Recent Results', subjects:'Subject Performance',
+    health:'Platform Health', quick:'Quick Access', activity:'Recent Activity',
+    tip:'Pro Tip', viewAll:'View All →', startExam:'Start Exam →', noExam:'No upcoming exams',
+    noResult:'No results yet. Give your first exam!', proTip:'Revise your weak chapters before the next test for best results.',
+    neet:'NEET 2026', target:'Days to Target', study:'Weekly Study Goal', badges:'Badges Earned',
+  },
+  hi:{
+    hello:'शुभ प्रभात', title:'वापसी पर स्वागत', sub:'आपका NEET तैयारी डैशबोर्ड — केंद्रित रहें, रैंक पाएं।',
+    quote:'"सफलता मिलती नहीं, कमानी पड़ती है — एक परीक्षा, एक कदम।"',
+    quoteHi:'Success is not given, it is earned — one test at a time.',
+    rank:'अखिल भारत रैंक', bestScore:'सर्वश्रेष्ठ स्कोर', streak:'दिन की स्ट्रीक', pct:'पर्सेंटाइल',
+    daysLeft:'NEET तक दिन', nextExam:'अगली परीक्षा', accuracy:'सटीकता', tests:'दिए गए टेस्ट',
+    upcoming:'आगामी परीक्षाएं', recent:'हालिया परिणाम', subjects:'विषय प्रदर्शन',
+    health:'प्लेटफ़ॉर्म स्वास्थ्य', quick:'त्वरित एक्सेस', activity:'हालिया गतिविधि',
+    tip:'प्रो टिप', viewAll:'सब देखें →', startExam:'परीक्षा शुरू करें →', noExam:'कोई आगामी परीक्षा नहीं',
+    noResult:'अभी कोई परिणाम नहीं। पहली परीक्षा दें!', proTip:'सर्वोत्तम परिणाम के लिए अगले टेस्ट से पहले कमजोर अध्याय दोहराएं।',
+    neet:'NEET 2026', target:'लक्ष्य तक दिन', study:'साप्ताहिक अध्ययन लक्ष्य', badges:'अर्जित बैज',
   }
-  const t = T[lang]
+}
 
-  useEffect(() => {
-    setMounted(true)
-    const sl = localStorage.getItem('pr_lang') as 'en'|'hi'; if (sl) setLang(sl)
-    const st = localStorage.getItem('pr_theme'); if (st === 'light') setDark(false)
-    const iv = setInterval(() => setTime(new Date()), 1000)
+const C = { primary:'#4D9FFF', card:'rgba(0,22,40,0.80)', border:'rgba(77,159,255,0.22)', text:'#E8F4FF', sub:'#6B8FAF', success:'#00C48C', gold:'#FFD700', danger:'#FF4D4D', warn:'#FFB84D' }
 
-    // Close sidebar on outside click
-    const onClickOutside = (e: MouseEvent) => {
-      if (sideRef.current && !sideRef.current.contains(e.target as Node)) {
-        setSideOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onClickOutside)
-    return () => { clearInterval(iv); document.removeEventListener('mousedown', onClickOutside) }
-  }, [])
-
-  useEffect(() => {
-    if (user) fetchData()
-  }, [user])
-
-  const fetchData = async () => {
-    try {
-      const h = { Authorization: `Bearer ${user!.token}` }
-      const me = await fetch(`${API}/api/auth/me`, { headers: h }).then(r => r.json()).catch(() => ({}))
-      if (me?.name) setStats({ rank: me.rank||0, score: me.bestScore||0, streak: me.streak||0, percentile: me.percentile||0 })
-      const ex = await fetch(`${API}/api/exams`, { headers: h }).then(r => r.json()).catch(() => [])
-      if (Array.isArray(ex)) setExams(ex.slice(0, 3))
-      const rs = await fetch(`${API}/api/results/my`, { headers: h }).then(r => r.json()).catch(() => [])
-      if (Array.isArray(rs)) setResults(rs.slice(0, 3))
-    } catch {}
-  }
-
-  const toggleLang = () => { const n = lang==='en'?'hi':'en'; setLang(n); localStorage.setItem('pr_lang', n) }
-  const toggleDark = () => { const n = !dark; setDark(n); localStorage.setItem('pr_theme', n?'dark':'light') }
-
-  if (!mounted) return (
-    <div style={{minHeight:'100vh',background:'#000A18',display:'flex',alignItems:'center',justifyContent:'center',color:'#4D9FFF',fontFamily:'Inter,sans-serif',flexDirection:'column',gap:14}}>
-      <div style={{width:40,height:40,border:'3px solid rgba(77,159,255,0.15)',borderTopColor:'#4D9FFF',borderRadius:'50%',animation:'spin 1s linear infinite'}}/>
-      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+function StatCard({icon,label,value,sub,col=C.primary,dm}:{icon:string;label:string;value:any;sub?:string;col?:string;dm:boolean}) {
+  return (
+    <div className="card-h" style={{background:dm?C.card:'rgba(255,255,255,0.85)',border:`1px solid ${C.border}`,borderRadius:16,padding:'18px 16px',flex:1,minWidth:130,backdropFilter:'blur(12px)',position:'relative',overflow:'hidden',transition:'all .2s'}}>
+      <div style={{position:'absolute',right:-8,bottom:-8,fontSize:50,opacity:.07}}>{icon}</div>
+      <div style={{fontSize:24,marginBottom:8}}>{icon}</div>
+      <div style={{fontSize:26,fontWeight:800,color:col,fontFamily:'Playfair Display,serif',lineHeight:1}}>{value??'—'}</div>
+      <div style={{fontSize:11,color:C.sub,marginTop:4,fontWeight:600}}>{label}</div>
+      {sub&&<div style={{fontSize:10,color:col,marginTop:2,opacity:.9}}>{sub}</div>}
     </div>
   )
+}
 
-  /* ─── Theme vars ─────────────────────────────────────────── */
-  const bg      = dark ? '#000A18' : '#F0F7FF'
-  const sideBg  = dark ? 'rgba(0,6,18,0.98)' : 'rgba(248,252,255,0.98)'
-  const card    = dark ? 'rgba(0,16,32,0.85)' : 'rgba(255,255,255,0.92)'
-  const card2   = dark ? 'rgba(0,22,44,0.7)'  : 'rgba(240,247,255,0.8)'
-  const bord    = dark ? 'rgba(77,159,255,0.13)' : 'rgba(77,159,255,0.22)'
-  const bord2   = dark ? 'rgba(77,159,255,0.22)' : 'rgba(77,159,255,0.35)'
-  const tm      = dark ? '#E8F4FF' : '#0F172A'
-  const ts      = dark ? '#5A7A9A' : '#64748B'
-  const topBg   = dark ? 'rgba(0,4,14,0.94)' : 'rgba(248,252,255,0.94)'
-  const mutedL  = dark ? '#1E3A5A' : '#CBD5E1'
-
-  const navLinks = [
-    { href:'/dashboard',             icon:'⊞', label:t.dash },
-    { href:'/dashboard/exams',       icon:'📝', label:t.exams },
-    { href:'/dashboard/results',     icon:'📊', label:t.results },
-    { href:'/dashboard/analytics',   icon:'📈', label:t.analytics },
-    { href:'/dashboard/leaderboard', icon:'🏆', label:t.leaderboard },
-    { href:'/dashboard/certificate', icon:'🎓', label:t.cert },
-    { href:'/dashboard/admit-card',  icon:'🎫', label:t.admit },
-    { href:'/dashboard/profile',     icon:'👤', label:t.profile },
-    { href:'/support',               icon:'💬', label:t.support },
-  ]
-
-  const greetHour = time.getHours()
-  const greeting = greetHour < 12
-    ? (lang==='en'?'Good Morning ☀️':'शुभ प्रभात ☀️')
-    : greetHour < 17
-    ? (lang==='en'?'Good Afternoon 🌤️':'शुभ दोपहर 🌤️')
-    : (lang==='en'?'Good Evening 🌙':'शुभ संध्या 🌙')
-
-  const timeStr = time.toLocaleTimeString(lang==='en'?'en-IN':'hi-IN', { hour:'2-digit', minute:'2-digit' })
-  const dateStr = time.toLocaleDateString(lang==='en'?'en-IN':'hi-IN', { weekday:'long', day:'numeric', month:'long' })
-
+export default function DashboardPage() {
   return (
-    <div style={{ minHeight:'100vh', background:bg, fontFamily:'Inter,sans-serif', color:tm }}>
-      <style>{`
-        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes slideLeft{from{transform:translateX(-100%);opacity:0}to{transform:translateX(0);opacity:1}}
-        @keyframes pulse2{0%,100%{box-shadow:0 0 0 0 rgba(77,159,255,0.4)}50%{box-shadow:0 0 0 8px rgba(77,159,255,0)}}
-        @keyframes gradMove{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
-        @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
-        .dash-card{transition:all 0.3s;cursor:default;}
-        .dash-card:hover{transform:translateY(-4px);}
-        .side-link{display:flex;align-items:center;gap:11px;padding:11px 14px;border-radius:12px;text-decoration:none;font-weight:500;font-size:13.5px;transition:all 0.2s;margin-bottom:2px;color:${ts};}
-        .side-link:hover{background:rgba(77,159,255,0.1);color:${tm};}
-        .side-link.active{background:rgba(77,159,255,0.15);color:#4D9FFF;font-weight:700;border-left:3px solid #4D9FFF;padding-left:11px;}
-        .tbtn{padding:7px 15px;border-radius:20px;border:1.5px solid rgba(77,159,255,0.3);background:rgba(77,159,255,0.06);color:${ts};font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;font-family:Inter,sans-serif;}
-        .tbtn:hover{border-color:#4D9FFF;color:#4D9FFF;background:rgba(77,159,255,0.1);}
-        .stat-glow{position:relative;overflow:hidden;}
-        .stat-glow::after{content:'';position:absolute;top:0;left:-100%;width:50%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.04),transparent);animation:shimmer 3s infinite;}
-        .quick-btn{display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 12px;border-radius:14px;text-decoration:none;transition:all 0.25s;border:1px solid ${bord};color:${ts};font-size:12px;font-weight:600;}
-        .quick-btn:hover{border-color:rgba(77,159,255,0.4);color:#4D9FFF;transform:translateY(-4px);background:rgba(77,159,255,0.06);}
-        .exam-row:hover{background:rgba(77,159,255,0.04)!important;}
-        .overlay-bg{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:98;backdrop-filter:blur(3px);}
-      `}</style>
+    <StudentShell pageKey="dashboard">
+      {({lang, darkMode:dm, user, toast, token}) => {
+        const t = TR[lang]
+        const [stats, setStats] = useState<any>(null)
+        const [exams, setExams] = useState<any[]>([])
+        const [results, setResults] = useState<any[]>([])
+        const [loading, setLoading] = useState(true)
 
-      {/* ── SIDEBAR (hidden by default, slides in on logo click) ── */}
-      {sideOpen && <div className="overlay-bg" onClick={() => setSideOpen(false)}/>}
-      <aside ref={sideRef} style={{
-        position:'fixed', top:0, left:0, height:'100vh', width:260,
-        background:sideBg, borderRight:`1px solid ${bord2}`,
-        zIndex:99, display:'flex', flexDirection:'column', padding:'20px 12px',
-        overflowY:'auto',
-        transform: sideOpen ? 'translateX(0)' : 'translateX(-100%)',
-        transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
-        boxShadow: sideOpen ? '8px 0 40px rgba(0,0,0,0.5)' : 'none',
-      }}>
-        {/* Close button */}
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,padding:'0 4px'}}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <svg width={30} height={30} viewBox="0 0 64 64">
-              <defs><filter id="sg2"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-              <polygon points={[...Array(6)].map((_,i)=>{const a=(Math.PI/180)*(60*i-30);return`${32+26*Math.cos(a)},${32+26*Math.sin(a)}`}).join(' ')} fill="none" stroke="#4D9FFF" strokeWidth="2" filter="url(#sg2)"/>
-              <text x="32" y="37" textAnchor="middle" fontFamily="Playfair Display,serif" fontSize="13" fontWeight="700" fill="#4D9FFF">PR</text>
-            </svg>
-            <span style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:800,background:'linear-gradient(90deg,#4D9FFF,#fff,#4D9FFF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>ProveRank</span>
-          </div>
-          <button onClick={()=>setSideOpen(false)} style={{background:'none',border:'none',color:ts,fontSize:20,cursor:'pointer',lineHeight:1,padding:4}}>✕</button>
-        </div>
+        useEffect(()=>{
+          if(!token) return
+          const h = {Authorization:`Bearer ${token}`}
+          Promise.all([
+            fetch(`${API}/api/admin/stats`,{headers:h}).then(r=>r.ok?r.json():null).catch(()=>null),
+            fetch(`${API}/api/exams`,{headers:h}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+            fetch(`${API}/api/results`,{headers:h}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+          ]).then(([s,e,r])=>{
+            setStats(s); setExams(Array.isArray(e)?e:[]); setResults(Array.isArray(r)?r:[])
+            setLoading(false)
+          })
+        },[token])
 
-        {/* Student badge */}
-        <div style={{background:`rgba(77,159,255,0.07)`,border:`1px solid ${bord}`,borderRadius:12,padding:'10px 14px',marginBottom:20,display:'flex',alignItems:'center',gap:10}}>
-          <div style={{width:34,height:34,borderRadius:'50%',background:'linear-gradient(135deg,#4D9FFF,#0055CC)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:14,color:'#fff',flexShrink:0}}>S</div>
-          <div>
-            <div style={{fontWeight:700,fontSize:13,color:tm}}>Student</div>
-            <div style={{fontSize:10,color:'#00C48C',fontWeight:600}}>● {lang==='en'?'Online':'ऑनलाइन'}</div>
-          </div>
-        </div>
+        const name = user?.name || 'Student'
+        const bestScore = results.length>0?Math.max(...results.map((r:any)=>r.score||0)):null
+        const bestRank = results.length>0?Math.min(...results.map((r:any)=>r.rank||99999)):null
+        const streak = user?.streak || 0
+        const neetDate = new Date('2026-05-03')
+        const daysLeft = Math.max(0,Math.ceil((neetDate.getTime()-Date.now())/(1000*60*60*24)))
 
-        {/* Nav links */}
-        <div style={{fontSize:9,fontWeight:700,color:mutedL,letterSpacing:'0.12em',textTransform:'uppercase',padding:'0 6px',marginBottom:8}}>{t.nav}</div>
-        <div style={{flex:1}}>
-          {navLinks.map(n => (
-            <Link key={n.href} href={n.href} className={`side-link ${n.href==='/dashboard'?'active':''}`} onClick={()=>setSideOpen(false)}>
-              <span style={{fontSize:15,width:20,textAlign:'center',flexShrink:0}}>{n.icon}</span>
-              <span>{n.label}</span>
-            </Link>
-          ))}
-        </div>
+        return (
+          <div style={{animation:'fadeIn .4s ease'}}>
 
-        {/* Bottom */}
-        <div style={{borderTop:`1px solid ${bord}`,paddingTop:14,marginTop:14}}>
-          <div style={{fontSize:9,fontWeight:700,color:mutedL,letterSpacing:'0.12em',textTransform:'uppercase',padding:'0 6px',marginBottom:8}}>{t.account}</div>
-          <div style={{display:'flex',gap:6,marginBottom:8}}>
-            <button className="tbtn" onClick={toggleLang} style={{flex:1,justifyContent:'center',display:'flex'}}>{lang==='en'?'🇮🇳 हिं':'🌐 EN'}</button>
-            <button className="tbtn" onClick={toggleDark} style={{flex:1,justifyContent:'center',display:'flex'}}>{dark?'☀️':'🌙'}</button>
-          </div>
-          <button onClick={logout} style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'11px 14px',borderRadius:12,border:'1px solid rgba(255,71,87,0.22)',background:'rgba(255,71,87,0.05)',color:'#FF6B7A',cursor:'pointer',fontWeight:600,fontSize:13,fontFamily:'Inter,sans-serif',transition:'all 0.2s'}}
-            onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,71,87,0.12)';e.currentTarget.style.borderColor='rgba(255,71,87,0.4)'}}
-            onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,71,87,0.05)';e.currentTarget.style.borderColor='rgba(255,71,87,0.22)'}}>
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#FF6B7A" strokeWidth="2.5" strokeLinecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-            {t.logout}
-          </button>
-        </div>
-      </aside>
-
-      {/* ── TOPBAR ─────────────────────────────────────────────── */}
-      <header style={{position:'sticky',top:0,zIndex:50,background:topBg,backdropFilter:'blur(20px)',borderBottom:`1px solid ${bord}`,padding:'0 20px',height:60,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
-        {/* Logo — click to open sidebar */}
-        <button onClick={()=>setSideOpen(s=>!s)} style={{display:'flex',alignItems:'center',gap:10,background:'none',border:'none',cursor:'pointer',padding:'6px 10px',borderRadius:12,transition:'background 0.2s'}}
-          onMouseEnter={e=>(e.currentTarget.style.background='rgba(77,159,255,0.08)')}
-          onMouseLeave={e=>(e.currentTarget.style.background='none')}>
-          <svg width={28} height={28} viewBox="0 0 64 64">
-            <polygon points={[...Array(6)].map((_,i)=>{const a=(Math.PI/180)*(60*i-30);return`${32+26*Math.cos(a)},${32+26*Math.sin(a)}`}).join(' ')} fill="none" stroke="#4D9FFF" strokeWidth="2"/>
-            <text x="32" y="37" textAnchor="middle" fontFamily="Playfair Display,serif" fontSize="13" fontWeight="700" fill="#4D9FFF">PR</text>
-          </svg>
-          <span style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:800,background:'linear-gradient(90deg,#4D9FFF,#fff,#4D9FFF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>ProveRank</span>
-          <span style={{fontSize:11,color:ts,opacity:.6,marginLeft:2}}>☰</span>
-        </button>
-
-        {/* Center — date & time */}
-        <div style={{textAlign:'center',display:'flex',flexDirection:'column',gap:1}}>
-          <div style={{fontSize:14,fontWeight:700,color:'#4D9FFF',fontFamily:'Playfair Display,serif'}}>{timeStr}</div>
-          <div style={{fontSize:10,color:ts}}>{dateStr}</div>
-        </div>
-
-        {/* Right */}
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
-          <button className="tbtn" onClick={toggleLang}>{lang==='en'?'🇮🇳':'🌐'}</button>
-          <button className="tbtn" onClick={toggleDark}>{dark?'☀️':'🌙'}</button>
-          <div style={{position:'relative',cursor:'pointer'}} onClick={()=>router.push('/support')}>
-            <div style={{width:36,height:36,borderRadius:'50%',background:card2,border:`1px solid ${bord}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>🔔</div>
-            <div style={{position:'absolute',top:-2,right:-2,width:14,height:14,borderRadius:'50%',background:'#FF4757',border:`2px solid ${dark?'#000A18':'#F0F7FF'}`,fontSize:8,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800}}>3</div>
-          </div>
-          <div style={{width:36,height:36,borderRadius:'50%',background:'linear-gradient(135deg,#4D9FFF,#0055CC)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:14,color:'#fff',cursor:'pointer',boxShadow:'0 2px 10px rgba(77,159,255,0.4)'}}
-            onClick={()=>router.push('/dashboard/profile')}>S</div>
-        </div>
-      </header>
-
-      {/* ── MAIN CONTENT ────────────────────────────────────────── */}
-      <main style={{padding:'28px 20px',maxWidth:1200,margin:'0 auto',animation:'fadeUp 0.5s ease forwards'}}>
-
-        {/* ── ROW 1: Greeting + Overview ── */}
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:16,marginBottom:28}}>
-          <div>
-            <div style={{fontSize:12,color:ts,fontWeight:600,letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:4}}>{greeting}</div>
-            <h1 style={{fontFamily:'Playfair Display,serif',fontSize:'clamp(1.4rem,3vw,2rem)',fontWeight:800,color:tm,lineHeight:1.2,marginBottom:4}}>
-              {t.welcome} <span style={{color:'#4D9FFF'}}>Student 👋</span>
-            </h1>
-            <p style={{color:ts,fontSize:13}}>{lang==='en'?'Your NEET preparation dashboard — Stay focused, stay ranked.':'आपका NEET तैयारी डैशबोर्ड — केंद्रित रहें, रैंक में रहें।'}</p>
-          </div>
-          {/* Tip card */}
-          <div style={{background:'linear-gradient(135deg,rgba(168,85,247,0.12),rgba(77,159,255,0.08))',border:'1px solid rgba(168,85,247,0.2)',borderRadius:14,padding:'14px 18px',maxWidth:280,flexShrink:0}}>
-            <div style={{fontWeight:700,fontSize:12,color:'#A855F7',marginBottom:4}}>{t.tip}</div>
-            <div style={{color:ts,fontSize:12,lineHeight:1.6}}>{t.tipText}</div>
-          </div>
-        </div>
-
-        {/* ── ROW 2: 4 Big Stat Cards ── */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:16,marginBottom:20}}>
-          {[
-            { label:t.rank,   value:stats.rank?`#${stats.rank}`:'#—',     icon:'🏆', color:'#4D9FFF',  bg:'rgba(77,159,255,0.08)',   grad:'135deg,#4D9FFF22,#4D9FFF08', sub:lang==='en'?'All India Rank':'अखिल भारत रैंक' },
-            { label:t.score,  value:stats.score?`${stats.score}/720`:'—/720',icon:'📊', color:'#00C48C',  bg:'rgba(0,196,140,0.08)',    grad:'135deg,#00C48C22,#00C48C08', sub:lang==='en'?'Best performance':'सर्वश्रेष्ठ प्रदर्शन' },
-            { label:t.streak, value:`${stats.streak||0}`,                   icon:'🔥', color:'#FFA502',  bg:'rgba(255,165,2,0.08)',    grad:'135deg,#FFA50222,#FFA50208', sub:lang==='en'?'Days active':'दिन सक्रिय' },
-            { label:t.pct,    value:stats.percentile?`${stats.percentile}%`:'—%', icon:'📈', color:'#A855F7', bg:'rgba(168,85,247,0.08)', grad:'135deg,#A855F722,#A855F708', sub:lang==='en'?'Top percentile':'शीर्ष प्रतिशतक' },
-          ].map((s,i)=>(
-            <div key={i} className="dash-card stat-glow" style={{background:`linear-gradient(${s.grad})`,border:`1px solid ${s.color}22`,borderRadius:18,padding:'22px 20px',position:'relative',overflow:'hidden'}}>
-              {/* BG icon */}
-              <div style={{position:'absolute',top:-10,right:-10,fontSize:60,opacity:.06,pointerEvents:'none'}}>{s.icon}</div>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
-                <div style={{width:42,height:42,borderRadius:12,background:`${s.color}18`,border:`1px solid ${s.color}33`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>
-                  {s.icon}
-                </div>
-                <div style={{background:`${s.color}15`,color:s.color,fontSize:9,fontWeight:700,padding:'3px 8px',borderRadius:99,letterSpacing:'0.06em',textTransform:'uppercase'}}>
-                  {lang==='en'?'Live':'लाइव'}
-                </div>
+            {/* Hero Banner */}
+            <div style={{background:'linear-gradient(135deg,rgba(0,85,204,0.20),rgba(77,159,255,0.08))',border:`1px solid rgba(77,159,255,0.25)`,borderRadius:20,padding:'24px 20px',marginBottom:24,position:'relative',overflow:'hidden'}}>
+              <div style={{position:'absolute',right:-20,top:-20,fontSize:120,opacity:.05}}>⬡</div>
+              <div style={{position:'absolute',right:60,bottom:-10,fontSize:80,opacity:.04}}>⬡</div>
+              {/* Dashboard SVG Illustration */}
+              <div style={{position:'absolute',right:16,top:'50%',transform:'translateY(-50%)',opacity:.15}}>
+                <svg width="120" height="100" viewBox="0 0 120 100" fill="none">
+                  <circle cx="60" cy="50" r="40" stroke="#4D9FFF" strokeWidth="1.5" strokeDasharray="4 3"/>
+                  <path d="M20 80 L40 55 L55 65 L75 35 L95 45 L100 30" stroke="#4D9FFF" strokeWidth="2" strokeLinecap="round"/>
+                  <circle cx="75" cy="35" r="5" fill="#4D9FFF"/>
+                  <path d="M60 10 L63 20 L60 18 L57 20 Z" fill="#FFD700"/>
+                  <circle cx="60" cy="50" r="8" fill="rgba(77,159,255,0.3)" stroke="#4D9FFF" strokeWidth="1.5"/>
+                </svg>
               </div>
-              <div style={{fontFamily:'Playfair Display,serif',fontSize:'clamp(1.6rem,3vw,2.2rem)',fontWeight:800,color:s.color,lineHeight:1,marginBottom:4}}>{s.value}</div>
-              <div style={{fontWeight:600,fontSize:12,color:tm,marginBottom:2}}>{s.label}</div>
-              <div style={{fontSize:11,color:ts}}>{s.sub}</div>
-              {/* Bottom bar */}
-              <div style={{position:'absolute',bottom:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${s.color}33,${s.color}88,${s.color}33)`,borderRadius:'0 0 18px 18px'}}/>
-            </div>
-          ))}
-        </div>
-
-        {/* ── ROW 3: Mini info cards ── */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12,marginBottom:24}}>
-          {[
-            { icon:'🎯', label:t.targetDays, value:'89 days', color:'#FF4757', sub:'NEET 2026' },
-            { icon:'📅', label:t.nextExam,   value:lang==='en'?'Mar 15':'15 मार्च', color:'#00C48C', sub:lang==='en'?'Mock Test #13':'मॉक #13' },
-            { icon:'✅', label:t.accuracy,   value:'84.2%',  color:'#4D9FFF', sub:lang==='en'?'Last 5 tests':'पिछले 5 परीक्षा' },
-            { icon:'📚', label:t.studyGoal,  value:'4/7',    color:'#A855F7', sub:lang==='en'?'Days studied':'दिन पढ़ा' },
-            { icon:'🏅', label:lang==='en'?'Badges Earned':'बैज',  value:'3',  color:'#FFD700', sub:lang==='en'?'Total earned':'कुल बैज' },
-            { icon:'🔥', label:lang==='en'?'Tests Given':'परीक्षाएं',value:'12', color:'#FFA502', sub:lang==='en'?'This month':'इस महीने' },
-          ].map((m,i)=>(
-            <div key={i} className="dash-card" style={{background:card,border:`1px solid ${bord}`,borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:12}}>
-              <div style={{width:36,height:36,borderRadius:10,background:`${m.color}15`,border:`1px solid ${m.color}25`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>{m.icon}</div>
-              <div>
-                <div style={{fontFamily:'Playfair Display,serif',fontSize:18,fontWeight:800,color:m.color,lineHeight:1}}>{m.value}</div>
-                <div style={{fontSize:11,fontWeight:600,color:tm}}>{m.label}</div>
-                <div style={{fontSize:10,color:ts}}>{m.sub}</div>
+              <div style={{fontSize:12,color:C.primary,fontWeight:600,marginBottom:4}}>{t.hello} ☀️</div>
+              <h1 style={{fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:700,color:dm?C.text:'#0F172A',margin:'0 0 6px'}}>
+                {t.title}, <span style={{color:C.primary}}>{name}</span> 👋
+              </h1>
+              <p style={{fontSize:13,color:C.sub,marginBottom:16,maxWidth:500}}>{t.sub}</p>
+              {/* Motivational Quote */}
+              <div style={{background:'rgba(77,159,255,0.07)',border:'1px solid rgba(77,159,255,0.15)',borderRadius:10,padding:'10px 14px',maxWidth:520}}>
+                <div style={{fontSize:13,color:C.primary,fontStyle:'italic',fontWeight:600,marginBottom:3}}>{t.quote}</div>
+                <div style={{fontSize:11,color:C.sub}}>{t.quoteHi}</div>
+              </div>
+              {/* Quick buttons */}
+              <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:16}}>
+                {[['📝 '+( lang==='en'?'My Exams':'मेरी परीक्षाएं'),'/my-exams',C.primary],[' 📈 '+(lang==='en'?'Results':'परिणाम'),'/results',C.success],['🧠 '+(lang==='en'?'Smart Revision':'स्मार्ट रिवीजन'),'/revision','#A78BFA'],['🎯 '+(lang==='en'?'My Goals':'मेरे लक्ष्य'),'/goals',C.gold]].map(([l,h,c])=>(
+                  <a key={String(h)} href={String(h)} style={{padding:'8px 14px',background:`${c}22`,border:`1px solid ${c}44`,color:String(c),borderRadius:20,textDecoration:'none',fontSize:12,fontWeight:600}}>{String(l)}</a>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
 
-        {/* ── ROW 4: Upcoming Exams + Recent Results ── */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(340px,1fr))',gap:20,marginBottom:20}}>
+            {/* Stats Row */}
+            <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:20}}>
+              <StatCard dm={dm} icon="🏆" label={t.rank} value={bestRank?`#${bestRank}`:t.rank} col={C.gold}/>
+              <StatCard dm={dm} icon="📊" label={t.bestScore} value={bestScore?`${bestScore}/720`:t.bestScore} col={C.primary}/>
+              <StatCard dm={dm} icon="🔥" label={t.streak} value={`${streak} ${lang==='en'?'days':'दिन'}`} col="#FF6B6B" sub={lang==='en'?'Keep it up!':'जारी रखें!'}/>
+              <StatCard dm={dm} icon="⏳" label={t.daysLeft} value={`${daysLeft}`} col={C.warn} sub="NEET 2026"/>
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:24}}>
+              <StatCard dm={dm} icon="🎯" label={t.accuracy} value={stats?.avgAccuracy?`${stats.avgAccuracy}%`:'—'} col={C.success}/>
+              <StatCard dm={dm} icon="📝" label={t.tests} value={results.length||0} col={C.primary}/>
+              <StatCard dm={dm} icon="🎖️" label={t.badges} value={user?.badges?.length||0} col={C.purple||'#A78BFA'}/>
+              <StatCard dm={dm} icon="📅" label={t.nextExam} value={exams.filter((e:any)=>new Date(e.scheduledAt)>new Date()).length} col="#FF6B9D" sub={lang==='en'?'upcoming':'आगामी'}/>
+            </div>
 
-          {/* Upcoming Exams */}
-          <div style={{background:card,border:`1px solid ${bord}`,borderRadius:18,overflow:'hidden'}}>
-            <div style={{padding:'18px 20px',borderBottom:`1px solid ${bord}`,display:'flex',justifyContent:'space-between',alignItems:'center',background:`linear-gradient(135deg,rgba(77,159,255,0.05),transparent)`}}>
-              <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:tm}}>📝 {t.upcoming}</div>
-              <Link href="/dashboard/exams" style={{color:'#4D9FFF',fontSize:12,fontWeight:700,textDecoration:'none'}}>{t.viewAll}</Link>
-            </div>
-            <div style={{padding:'12px'}}>
-              {exams.length === 0 ? (
-                <div style={{textAlign:'center',padding:'32px 0',color:ts,fontSize:13}}>
-                  <div style={{fontSize:40,marginBottom:8}}>📋</div>
-                  {t.noExam}
-                </div>
-              ) : exams.map((ex,i)=>(
-                <div key={i} className="exam-row" style={{padding:'14px 12px',borderRadius:12,marginBottom:6,display:'flex',justifyContent:'space-between',alignItems:'center',background:`rgba(77,159,255,0.03)`,border:`1px solid ${bord}`,transition:'all 0.2s'}}>
-                  <div>
-                    <div style={{fontWeight:600,fontSize:14,color:tm,marginBottom:3}}>{ex.title||'NEET Mock Test'}</div>
-                    <div style={{fontSize:11,color:ts}}>📅 {ex.scheduledAt?new Date(ex.scheduledAt).toLocaleDateString():lang==='en'?'TBA':'जल्द'} · ⏱ {ex.totalDurationSec?`${Math.round(ex.totalDurationSec/60)}m`:'200m'}</div>
-                  </div>
-                  <Link href={`/exam/${ex._id||'demo'}/waiting`}><button style={{padding:'8px 14px',borderRadius:9,border:'none',background:'linear-gradient(135deg,#4D9FFF,#0055CC)',color:'#fff',fontWeight:700,fontSize:12,cursor:'pointer',fontFamily:'Inter,sans-serif'}}>{t.start}</button></Link>
-                </div>
-              ))}
-              {/* Placeholder exam if none */}
-              {exams.length === 0 && (
-                <div style={{padding:'14px 12px',borderRadius:12,background:'rgba(77,159,255,0.04)',border:`1px dashed rgba(77,159,255,0.2)`}}>
-                  <div style={{fontWeight:600,fontSize:13,color:ts,marginBottom:4}}>{lang==='en'?'NEET Full Mock #13 — Coming soon':'NEET मॉक #13 — जल्द आ रहा है'}</div>
-                  <div style={{fontSize:11,color:mutedL}}>📅 March 15, 2026 · ⏱ 200 min · 720 marks</div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Recent Results */}
-          <div style={{background:card,border:`1px solid ${bord}`,borderRadius:18,overflow:'hidden'}}>
-            <div style={{padding:'18px 20px',borderBottom:`1px solid ${bord}`,display:'flex',justifyContent:'space-between',alignItems:'center',background:`linear-gradient(135deg,rgba(0,196,140,0.05),transparent)`}}>
-              <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:tm}}>📊 {t.recent}</div>
-              <Link href="/dashboard/results" style={{color:'#4D9FFF',fontSize:12,fontWeight:700,textDecoration:'none'}}>{t.viewAll}</Link>
-            </div>
-            <div style={{padding:'12px'}}>
-              {results.length === 0 ? (
-                <div style={{textAlign:'center',padding:'32px 0',color:ts,fontSize:13}}>
-                  <div style={{fontSize:40,marginBottom:8}}>📭</div>
-                  {t.noResult}
-                </div>
-              ) : results.map((r,i)=>(
-                <div key={i} style={{padding:'12px',borderRadius:12,marginBottom:6,background:'rgba(0,196,140,0.03)',border:`1px solid ${bord}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                  <div>
-                    <div style={{fontWeight:600,fontSize:13,color:tm,marginBottom:3}}>{r.examTitle||'Mock Test'}</div>
-                    <div style={{display:'flex',gap:10,fontSize:11,color:ts}}>
-                      <span>✓ {r.totalCorrect||0}</span><span>✗ {r.totalIncorrect||0}</span><span>#{r.rank||'—'}</span>
+            {/* Subject Performance */}
+            <div style={{background:dm?C.card:'rgba(255,255,255,0.85)',border:`1px solid ${C.border}`,borderRadius:16,padding:18,marginBottom:20,backdropFilter:'blur(12px)'}}>
+              <div style={{fontFamily:'Playfair Display,serif',fontSize:16,fontWeight:700,color:dm?C.text:'#0F172A',marginBottom:14}}>📚 {t.subjects} ({lang==='en'?'Last Test':'पिछला टेस्ट'})</div>
+              {[{name:'Physics',icon:'⚛️',score:results[0]?.subjectScores?.physics||148,total:180,col:'#00B4FF'},{name:'Chemistry',icon:'🧪',score:results[0]?.subjectScores?.chemistry||152,total:180,col:'#FF6B9D'},{name:'Biology',icon:'🧬',score:results[0]?.subjectScores?.biology||310,total:360,col:'#00E5A0'}].map(s=>{
+                const pct = Math.round((s.score/s.total)*100)
+                return (
+                  <div key={s.name} style={{marginBottom:14}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                      <span style={{fontSize:13,fontWeight:600,color:s.col}}>{s.icon} {lang==='en'?s.name:s.name==='Physics'?'भौतिकी':s.name==='Chemistry'?'रसायन':'जीव विज्ञान'}</span>
+                      <span style={{fontSize:12,color:C.sub}}>{s.score}/{s.total} <span style={{color:s.col,fontWeight:700}}>({pct}%)</span></span>
+                    </div>
+                    <div style={{background:'rgba(255,255,255,0.06)',borderRadius:6,height:10,overflow:'hidden'}}>
+                      <div style={{height:'100%',width:`${pct}%`,background:`linear-gradient(90deg,${s.col}88,${s.col})`,borderRadius:6,transition:'width .8s ease'}}/>
                     </div>
                   </div>
-                  <div style={{textAlign:'right'}}>
-                    <div style={{fontFamily:'Playfair Display,serif',fontSize:20,fontWeight:800,color:'#4D9FFF'}}>{r.score||0}</div>
-                    <div style={{fontSize:10,color:ts}}>/720</div>
-                  </div>
-                </div>
-              ))}
-              {/* Placeholder results */}
-              {results.length === 0 && [
-                {name:lang==='en'?'NEET Mock #12':'NEET मॉक #12', score:610, rank:234, pct:'96.8'},
-                {name:lang==='en'?'NEET Mock #11':'NEET मॉक #11', score:587, rank:412, pct:'94.1'},
-              ].map((r,i)=>(
-                <div key={i} style={{padding:'12px',borderRadius:12,marginBottom:6,background:'rgba(77,159,255,0.03)',border:`1px solid ${bord}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                  <div>
-                    <div style={{fontWeight:600,fontSize:13,color:tm,marginBottom:3}}>{r.name}</div>
-                    <div style={{fontSize:11,color:ts}}>#{r.rank} AIR · {r.pct}%ile</div>
-                  </div>
-                  <div style={{textAlign:'right'}}>
-                    <div style={{fontFamily:'Playfair Display,serif',fontSize:20,fontWeight:800,color:'#00C48C'}}>{r.score}</div>
-                    <div style={{fontSize:10,color:ts}}>/720</div>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
-          </div>
-        </div>
 
-        {/* ── ROW 5: Subject Performance Bar ── */}
-        <div style={{background:card,border:`1px solid ${bord}`,borderRadius:18,padding:'20px',marginBottom:20}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18}}>
-            <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:tm}}>🧪 {lang==='en'?'Subject Performance (Last Test)':'विषय प्रदर्शन (अंतिम परीक्षा)'}</div>
-            <Link href="/dashboard/analytics" style={{color:'#4D9FFF',fontSize:12,fontWeight:700,textDecoration:'none'}}>{lang==='en'?'Full Analysis →':'पूरा विश्लेषण →'}</Link>
-          </div>
-          {[
-            {sub:lang==='en'?'Physics':'भौतिकी',       s:148,m:180,c:'#4D9FFF',  acc:82},
-            {sub:lang==='en'?'Chemistry':'रसायन',       s:152,m:180,c:'#00C48C',  acc:84},
-            {sub:lang==='en'?'Biology (Bot+Zoo)':'जीव विज्ञान', s:310,m:360,c:'#A855F7', acc:86},
-          ].map((sb,i)=>(
-            <div key={i} style={{marginBottom:14}}>
-              <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
-                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <div style={{width:8,height:8,borderRadius:'50%',background:sb.c,boxShadow:`0 0 6px ${sb.c}`}}/>
-                  <span style={{fontWeight:600,fontSize:13,color:tm}}>{sb.sub}</span>
-                  <span style={{fontSize:11,color:ts}}>({sb.acc}% acc)</span>
+            {/* 2 Column: Upcoming + Results */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+              {/* Upcoming Exams */}
+              <div style={{background:dm?C.card:'rgba(255,255,255,0.85)',border:`1px solid ${C.border}`,borderRadius:16,padding:18,backdropFilter:'blur(12px)'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                  <div style={{fontFamily:'Playfair Display,serif',fontSize:14,fontWeight:700,color:dm?C.text:'#0F172A'}}>📅 {t.upcoming}</div>
+                  <a href="/my-exams" style={{fontSize:11,color:C.primary,textDecoration:'none',fontWeight:600}}>{t.viewAll}</a>
                 </div>
-                <span style={{fontFamily:'Playfair Display,serif',fontWeight:800,fontSize:15,color:sb.c}}>{sb.s}<span style={{fontSize:11,color:ts}}>/{sb.m}</span></span>
+                {loading?<div style={{textAlign:'center',color:C.sub,padding:'20px 0',fontSize:12}}>⟳ Loading...</div>:
+                  exams.filter((e:any)=>new Date(e.scheduledAt)>new Date()).length===0?
+                  <div style={{textAlign:'center',padding:'24px 0',color:C.sub}}>
+                    <svg width="48" height="48" viewBox="0 0 48 48" style={{display:'block',margin:'0 auto 10px'}}><rect x="6" y="10" width="36" height="32" rx="4" stroke="#4D9FFF" strokeWidth="1.5" fill="none"/><path d="M6 18h36M16 6v8M32 6v8" stroke="#4D9FFF" strokeWidth="1.5" strokeLinecap="round"/><circle cx="24" cy="30" r="4" stroke="#4D9FFF" strokeWidth="1.5" fill="none"/></svg>
+                    <div style={{fontSize:12}}>{t.noExam}</div>
+                  </div>:
+                  exams.filter((e:any)=>new Date(e.scheduledAt)>new Date()).slice(0,3).map((e:any)=>(
+                    <div key={e._id} style={{padding:'10px 0',borderBottom:`1px solid ${C.border}`,fontSize:12}}>
+                      <div style={{fontWeight:600,color:dm?C.text:'#0F172A',marginBottom:3}}>{e.title}</div>
+                      <div style={{color:C.sub,fontSize:11}}>{new Date(e.scheduledAt).toLocaleDateString('en-IN',{day:'numeric',month:'short'})} · {e.duration} min · {e.totalMarks} marks</div>
+                      <a href={`/exam/${e._id}`} style={{display:'inline-block',marginTop:6,padding:'4px 12px',background:`${C.primary}22`,color:C.primary,border:`1px solid ${C.primary}44`,borderRadius:6,fontSize:11,textDecoration:'none',fontWeight:600}}>{t.startExam}</a>
+                    </div>
+                  ))
+                }
               </div>
-              <div style={{background:`rgba(77,159,255,0.08)`,borderRadius:99,height:8,overflow:'hidden'}}>
-                <div style={{height:'100%',width:`${(sb.s/sb.m)*100}%`,background:`linear-gradient(90deg,${sb.c}88,${sb.c})`,borderRadius:99,transition:'width 1.2s ease',boxShadow:`0 0 8px ${sb.c}44`}}/>
-              </div>
-            </div>
-          ))}
-        </div>
 
-        {/* ── ROW 6: Quick Access ── */}
-        <div style={{background:card,border:`1px solid ${bord}`,borderRadius:18,padding:'20px',marginBottom:20}}>
-          <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:tm,marginBottom:16}}>⚡ {t.quick}</div>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:10}}>
-            {[
-              {href:'/dashboard/analytics',   icon:'📈', label:t.analytics,   color:'#4D9FFF'},
-              {href:'/dashboard/leaderboard', icon:'🏆', label:t.leaderboard, color:'#FFD700'},
-              {href:'/dashboard/certificate', icon:'🎓', label:t.cert,        color:'#00C48C'},
-              {href:'/dashboard/admit-card',  icon:'🎫', label:t.admit,       color:'#A855F7'},
-              {href:'/dashboard/results',     icon:'📊', label:t.results,     color:'#4D9FFF'},
-              {href:'/support',               icon:'💬', label:t.support,     color:'#FFA502'},
-            ].map(q=>(
-              <Link key={q.href} href={q.href} className="quick-btn" style={{background:card2}}>
-                <div style={{width:44,height:44,borderRadius:12,background:`${q.color}15`,border:`1px solid ${q.color}25`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,transition:'transform 0.2s'}}
-                  onMouseEnter={e=>(e.currentTarget.style.transform='scale(1.1)')}
-                  onMouseLeave={e=>(e.currentTarget.style.transform='none')}>{q.icon}</div>
-                <span style={{color:tm}}>{q.label}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* ── ROW 7: Activity Feed ── */}
-        <div style={{background:card,border:`1px solid ${bord}`,borderRadius:18,padding:'20px'}}>
-          <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:tm,marginBottom:16}}>🕐 {t.activity}</div>
-          {[
-            {icon:'📝',text:lang==='en'?'Attempted NEET Mock #12 — Score: 610/720':'NEET मॉक #12 दिया — स्कोर: 610/720', time:lang==='en'?'2 days ago':'2 दिन पहले', color:'#4D9FFF'},
-            {icon:'🏆',text:lang==='en'?'Achieved AIR #234 in Mock #12':'मॉक #12 में AIR #234 प्राप्त की', time:lang==='en'?'2 days ago':'2 दिन पहले', color:'#FFD700'},
-            {icon:'🎓',text:lang==='en'?'Earned "NEET Excellence" Certificate':'NEET एक्सीलेंस प्रमाण पत्र मिला', time:lang==='en'?'5 days ago':'5 दिन पहले', color:'#00C48C'},
-            {icon:'🔥',text:lang==='en'?'Maintained 7-day study streak':'7-दिन की अध्ययन लकीर बनाए रखी', time:lang==='en'?'1 week ago':'1 सप्ताह पहले', color:'#FFA502'},
-          ].map((a,i)=>(
-            <div key={i} style={{display:'flex',gap:12,alignItems:'flex-start',paddingBottom:i<3?14:0,marginBottom:i<3?14:0,borderBottom:i<3?`1px solid ${bord}`:'none'}}>
-              <div style={{width:36,height:36,borderRadius:10,background:`${a.color}15`,border:`1px solid ${a.color}22`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>{a.icon}</div>
-              <div style={{flex:1}}>
-                <div style={{fontSize:13,color:tm,fontWeight:500,lineHeight:1.5}}>{a.text}</div>
-                <div style={{fontSize:11,color:ts,marginTop:2}}>{a.time}</div>
+              {/* Recent Results */}
+              <div style={{background:dm?C.card:'rgba(255,255,255,0.85)',border:`1px solid ${C.border}`,borderRadius:16,padding:18,backdropFilter:'blur(12px)'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                  <div style={{fontFamily:'Playfair Display,serif',fontSize:14,fontWeight:700,color:dm?C.text:'#0F172A'}}>🏅 {t.recent}</div>
+                  <a href="/results" style={{fontSize:11,color:C.primary,textDecoration:'none',fontWeight:600}}>{t.viewAll}</a>
+                </div>
+                {loading?<div style={{textAlign:'center',color:C.sub,padding:'20px 0',fontSize:12}}>⟳ Loading...</div>:
+                  results.length===0?
+                  <div style={{textAlign:'center',padding:'24px 0',color:C.sub}}>
+                    <svg width="48" height="48" viewBox="0 0 48 48" style={{display:'block',margin:'0 auto 10px'}}><path d="M24 8l3 9h9l-7 5 3 9-8-6-8 6 3-9-7-5h9z" stroke="#FFD700" strokeWidth="1.5" fill="none"/></svg>
+                    <div style={{fontSize:12}}>{t.noResult}</div>
+                  </div>:
+                  results.slice(0,3).map((r:any)=>(
+                    <div key={r._id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${C.border}`}}>
+                      <div style={{fontSize:12}}>
+                        <div style={{fontWeight:600,color:dm?C.text:'#0F172A'}}>{r.examTitle||r.exam?.title||'—'}</div>
+                        <div style={{color:C.sub,fontSize:10,marginTop:2}}>#{r.rank||'—'} AIR · {r.percentile||'—'}%ile</div>
+                      </div>
+                      <div style={{textAlign:'right'}}>
+                        <div style={{fontWeight:800,fontSize:16,color:C.primary}}>{r.score}</div>
+                        <div style={{fontSize:9,color:C.sub}}>/{r.totalMarks||720}</div>
+                      </div>
+                    </div>
+                  ))
+                }
               </div>
             </div>
-          ))}
-        </div>
 
-      </main>
-    </div>
+            {/* Pro Tip + Activity */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+              <div style={{background:'linear-gradient(135deg,rgba(255,215,0,0.08),rgba(0,22,40,0.8))',border:`1px solid ${C.gold}33`,borderRadius:16,padding:18}}>
+                <div style={{fontWeight:700,fontSize:13,color:C.gold,marginBottom:8}}>💡 {t.tip}</div>
+                <div style={{fontSize:12,color:dm?C.text:'#0F172A',lineHeight:1.6}}>{t.proTip}</div>
+                <div style={{marginTop:12,display:'flex',gap:8,flexWrap:'wrap'}}>
+                  <a href="/revision" style={{fontSize:11,padding:'5px 12px',background:`${C.primary}22`,border:`1px solid ${C.primary}44`,color:C.primary,borderRadius:6,textDecoration:'none',fontWeight:600}}>{lang==='en'?'Start Revision →':'रिवीजन शुरू करें →'}</a>
+                  <a href="/pyq-bank" style={{fontSize:11,padding:'5px 12px',background:`${C.gold}22`,border:`1px solid ${C.gold}44`,color:C.gold,borderRadius:6,textDecoration:'none',fontWeight:600}}>{lang==='en'?'PYQ Bank →':'पिछले प्रश्न →'}</a>
+                </div>
+              </div>
+              <div style={{background:dm?C.card:'rgba(255,255,255,0.85)',border:`1px solid ${C.border}`,borderRadius:16,padding:18,backdropFilter:'blur(12px)'}}>
+                <div style={{fontWeight:700,fontSize:13,color:dm?C.text:'#0F172A',marginBottom:10}}>⚡ {t.quick}</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                  {[['📝','My Exams','मेरी परीक्षाएं','/my-exams'],['📚','PYQ Bank','पिछले प्रश्न','/pyq-bank'],['🧠','Revision','रिवीजन','/revision'],['🎯','Goals','लक्ष्य','/goals']].map(([ic,en,hi,href])=>(
+                    <a key={String(href)} href={String(href)} style={{display:'flex',alignItems:'center',gap:6,padding:'10px 10px',background:'rgba(77,159,255,0.07)',border:`1px solid ${C.border}`,borderRadius:10,textDecoration:'none',color:dm?C.text:'#0F172A',fontSize:12,fontWeight:600,transition:'all .2s'}}>
+                      <span style={{fontSize:16}}>{ic}</span>
+                      <span>{lang==='en'?en:hi}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Motivational Footer SVG */}
+            <div style={{background:'linear-gradient(135deg,rgba(0,85,204,0.15),rgba(77,159,255,0.05))',border:`1px solid rgba(77,159,255,0.15)`,borderRadius:20,padding:'24px 20px',textAlign:'center',position:'relative',overflow:'hidden'}}>
+              <svg width="100%" height="80" viewBox="0 0 600 80" preserveAspectRatio="xMidYMid meet" style={{display:'block',marginBottom:12}}>
+                <text x="50%" y="40" textAnchor="middle" fontFamily="Playfair Display,serif" fontSize="28" fontWeight="700" fill="url(#dg)" opacity=".15">PROVE YOUR RANK</text>
+                <defs><linearGradient id="dg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#4D9FFF"/><stop offset="100%" stopColor="#ffffff"/></linearGradient></defs>
+                <text x="50%" y="65" textAnchor="middle" fontFamily="Inter,sans-serif" fontSize="11" fill="#4D9FFF" opacity=".6">अपनी रैंक साबित करो · Prove Your Rank · NEET 2026</text>
+              </svg>
+              <div style={{fontSize:18,color:C.primary,fontFamily:'Playfair Display,serif',fontWeight:700,marginBottom:4}}>
+                {lang==='en'?"You're on the right path! 🚀":"आप सही रास्ते पर हैं! 🚀"}
+              </div>
+              <div style={{fontSize:12,color:C.sub}}>{lang==='en'?`${daysLeft} days remaining for NEET 2026 — Make every day count!`:`NEET 2026 के लिए ${daysLeft} दिन शेष — हर दिन को सार्थक बनाएं!`}</div>
+            </div>
+          </div>
+        )
+      }}
+    </StudentShell>
   )
 }
