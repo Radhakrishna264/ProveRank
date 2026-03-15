@@ -20,6 +20,14 @@ const userSchema = new mongoose.Schema({
   verified: { type: Boolean, default: false },
   profilePhoto: { type: String },
   emailVerified: { type: Boolean, default: false },
+  
+  // OTP fields — register verify, login OTP, reset password
+  emailVerifyOTP:      { type: String, default: null },
+  emailVerifyOTPExpiry:{ type: Date,   default: null },
+  loginOTP:            { type: String, default: null },
+  loginOTPExpiry:      { type: Date,   default: null },
+  resetOTP:            { type: String, default: null },
+  resetOTPExpiry:      { type: Date,   default: null },
   emailVerifyToken: { type: String },
   emailVerifyExpiry: { type: Date },
   loginHistory: [{
