@@ -3,9 +3,9 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { useRouter } from 'next/navigation'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
-const gt  = () => { try { return localStorage.getItem('pr_token')||'' } catch { return '' } }
-const gr  = () => { try { return localStorage.getItem('pr_role')||'student' } catch { return 'student' } }
-const ca  = () => { try { localStorage.removeItem('pr_token');localStorage.removeItem('pr_role') } catch {} }
+const gt = ():string => { try { return localStorage.getItem('pr_token')||'' } catch { return '' } }
+const gr = ():string => { try { return localStorage.getItem('pr_role')||'student' } catch { return 'student' } }
+const ca = ():void   => { try { localStorage.removeItem('pr_token');localStorage.removeItem('pr_role') } catch {} }
 
 export const C = {
   primary:'#4D9FFF', card:'rgba(0,22,40,0.80)', cardL:'rgba(255,255,255,0.88)',
@@ -18,12 +18,12 @@ export interface ShellCtx {
   lang:'en'|'hi'; darkMode:boolean; user:any
   toast:(m:string,t?:'s'|'e'|'w')=>void; token:string; role:string
 }
-const Ctx = createContext<ShellCtx>({lang:'en',darkMode:true,user:null,toast:()=>{},token:'',role:'student'})
+const Ctx = createContext<ShellCtx>({ lang:'en', darkMode:true, user:null, toast:()=>{}, token:'', role:'student' })
 export const useShell = () => useContext(Ctx)
 
 export function PRLogo({ size=40 }:{ size?:number }) {
-  const r=size/2,cx=size/2,cy=size/2
-  const o=Array.from({length:6},(_,i)=>{const a=(Math.PI/180)*(60*i-30);return `${cx+r*.88*Math.cos(a)},${cy+r*.88*Math.sin(a)}`}).join(' ')
+  const r=size/2, cx=size/2, cy=size/2
+  const o  =Array.from({length:6},(_,i)=>{const a=(Math.PI/180)*(60*i-30);return `${cx+r*.88*Math.cos(a)},${cy+r*.88*Math.sin(a)}`}).join(' ')
   const inn=Array.from({length:6},(_,i)=>{const a=(Math.PI/180)*(60*i-30);return `${cx+r*.72*Math.cos(a)},${cy+r*.72*Math.sin(a)}`}).join(' ')
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -37,36 +37,36 @@ export function PRLogo({ size=40 }:{ size?:number }) {
 }
 
 const NAV=[
-  {id:'dashboard',icon:'📊',en:'Dashboard',hi:'डैशबोर्ड',href:'/dashboard'},
-  {id:'my-exams',icon:'📝',en:'My Exams',hi:'मेरी परीक्षाएं',href:'/my-exams'},
-  {id:'results',icon:'📈',en:'Results',hi:'परिणाम',href:'/results'},
-  {id:'analytics',icon:'📉',en:'Analytics',hi:'विश्लेषण',href:'/analytics'},
-  {id:'leaderboard',icon:'🏆',en:'Leaderboard',hi:'लीडरबोर्ड',href:'/leaderboard'},
-  {id:'certificate',icon:'🎖️',en:'Certificates',hi:'प्रमाणपत्र',href:'/certificate'},
-  {id:'admit-card',icon:'🪪',en:'Admit Card',hi:'प्रवेश पत्र',href:'/admit-card'},
-  {id:'pyq-bank',icon:'📚',en:'PYQ Bank',hi:'पिछले वर्ष के प्रश्न',href:'/pyq-bank'},
-  {id:'mini-tests',icon:'⚡',en:'Mini Tests',hi:'मिनी टेस्ट',href:'/mini-tests'},
-  {id:'attempt-history',icon:'🕐',en:'Attempt History',hi:'परीक्षा इतिहास',href:'/attempt-history'},
-  {id:'revision',icon:'🧠',en:'Smart Revision',hi:'स्मार्ट रिवीजन',href:'/revision'},
-  {id:'goals',icon:'🎯',en:'My Goals',hi:'मेरे लक्ष्य',href:'/goals'},
-  {id:'compare',icon:'⚖️',en:'Compare',hi:'तुलना करें',href:'/compare'},
-  {id:'announcements',icon:'📢',en:'Announcements',hi:'घोषणाएं',href:'/announcements'},
-  {id:'doubt',icon:'💬',en:'Doubt & Query',hi:'संदेह और प्रश्न',href:'/doubt'},
-  {id:'parent-portal',icon:'👨‍👩‍👧',en:'Parent Portal',hi:'अभिभावक पोर्टल',href:'/parent-portal'},
-  {id:'support',icon:'🛟',en:'Support',hi:'सहायता',href:'/support'},
-  {id:'profile',icon:'👤',en:'Profile',hi:'प्रोफ़ाइल',href:'/profile'},
+  {id:'dashboard',   icon:'📊',en:'Dashboard',        hi:'डैशबोर्ड',             href:'/dashboard'},
+  {id:'my-exams',    icon:'📝',en:'My Exams',          hi:'मेरी परीक्षाएं',        href:'/my-exams'},
+  {id:'results',     icon:'📈',en:'Results',           hi:'परिणाम',               href:'/results'},
+  {id:'analytics',   icon:'📉',en:'Analytics',         hi:'विश्लेषण',              href:'/analytics'},
+  {id:'leaderboard', icon:'🏆',en:'Leaderboard',       hi:'लीडरबोर्ड',             href:'/leaderboard'},
+  {id:'certificate', icon:'🎖️',en:'Certificates',      hi:'प्रमाणपत्र',            href:'/certificate'},
+  {id:'admit-card',  icon:'🪪',en:'Admit Card',        hi:'प्रवेश पत्र',           href:'/admit-card'},
+  {id:'pyq-bank',    icon:'📚',en:'PYQ Bank',          hi:'पिछले वर्ष के प्रश्न', href:'/pyq-bank'},
+  {id:'mini-tests',  icon:'⚡',en:'Mini Tests',        hi:'मिनी टेस्ट',            href:'/mini-tests'},
+  {id:'attempt-history',icon:'🕐',en:'Attempt History',hi:'परीक्षा इतिहास',        href:'/attempt-history'},
+  {id:'revision',    icon:'🧠',en:'Smart Revision',    hi:'स्मार्ट रिवीजन',        href:'/revision'},
+  {id:'goals',       icon:'🎯',en:'My Goals',          hi:'मेरे लक्ष्य',           href:'/goals'},
+  {id:'compare',     icon:'⚖️',en:'Compare',           hi:'तुलना करें',            href:'/compare'},
+  {id:'announcements',icon:'📢',en:'Announcements',    hi:'घोषणाएं',              href:'/announcements'},
+  {id:'doubt',       icon:'💬',en:'Doubt & Query',     hi:'संदेह और प्रश्न',        href:'/doubt'},
+  {id:'parent-portal',icon:'👨‍👩‍👧',en:'Parent Portal', hi:'अभिभावक पोर्टल',        href:'/parent-portal'},
+  {id:'support',     icon:'🛟',en:'Support',           hi:'सहायता',               href:'/support'},
+  {id:'profile',     icon:'👤',en:'Profile',           hi:'प्रोफ़ाइल',             href:'/profile'},
 ]
 
 export default function StudentShell({ pageKey, children }:{ pageKey:string; children:ReactNode }) {
   const router = useRouter()
-  const [mounted,  setMounted]  = useState(false)
-  const [lang,     setLang]     = useState<'en'|'hi'>('en')
-  const [dm,       setDm]       = useState(true)
-  const [sideOpen, setSide]     = useState(false)
-  const [user,     setUser]     = useState<any>(null)
-  const [token,    setTok]      = useState('')
-  const [role,     setRole]     = useState('student')
-  const [toast2,   setToast2]   = useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
+  const [mounted,setMounted] = useState(false)
+  const [lang,   setLang]    = useState<'en'|'hi'>('en')
+  const [dm,     setDm]      = useState(true)
+  const [side,   setSide]    = useState(false)
+  const [user,   setUser]    = useState<any>(null)
+  const [token,  setToken]   = useState('')
+  const [role,   setRole]    = useState('student')
+  const [toast2, setToast2]  = useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
 
   const toast = useCallback((msg:string,tp:'s'|'e'|'w'='s')=>{
     setToast2({msg,tp}); setTimeout(()=>setToast2(null),4000)
@@ -74,10 +74,9 @@ export default function StudentShell({ pageKey, children }:{ pageKey:string; chi
 
   useEffect(()=>{
     const tk=gt(); if(!tk){router.replace('/login');return}
-    setTok(tk); setRole(gr())
+    setToken(tk); setRole(gr())
     try {
-      const sl=localStorage.getItem('pr_lang') as 'en'|'hi'|null
-      if(sl) setLang(sl)
+      const sl=localStorage.getItem('pr_lang') as 'en'|'hi'|null; if(sl) setLang(sl)
       if(localStorage.getItem('pr_theme')==='light') setDm(false)
     } catch {}
     fetch(`${API}/api/auth/me`,{headers:{Authorization:`Bearer ${tk}`}})
@@ -108,14 +107,14 @@ export default function StudentShell({ pageKey, children }:{ pageKey:string; chi
           .btn-p{background:linear-gradient(135deg,#4D9FFF,#0055CC);color:#fff;border:none;border-radius:10px;padding:11px 22px;cursor:pointer;font-weight:700;font-size:13px;font-family:Inter,sans-serif;transition:all .2s}
           .btn-p:hover{opacity:.88;transform:translateY(-1px)}
           .btn-g{background:rgba(77,159,255,.12);color:#4D9FFF;border:1px solid rgba(77,159,255,.3);border-radius:10px;padding:9px 18px;cursor:pointer;font-weight:600;font-size:12px;font-family:Inter,sans-serif}
-          .tbtn{padding:6px 14px;border-radius:20px;border:1.5px solid rgba(77,159,255,.4);background:rgba(0,22,40,.5);color:#E8F4FF;font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif}
+          .tbtn{padding:6px 14px;border-radius:20px;border:1.5px solid rgba(77,159,255,.4);background:rgba(0,22,40,.5);color:#E8F4FF;font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;backdrop-filter:blur(8px)}
           input,textarea,select{color-scheme:dark}
         `}</style>
 
-        {/* Universe BG */}
+        {/* Universe BG — CSS only, no canvas */}
         <div style={{position:'fixed',inset:0,pointerEvents:'none',zIndex:0,overflow:'hidden'}}>
           {Array.from({length:100},(_,i)=>(
-            <div key={i} style={{position:'absolute',left:`${(i*137.5)%100}%`,top:`${(i*97.3)%100}%`,width:`${i%3===0?2:1.2}px`,height:`${i%3===0?2:1.2}px`,borderRadius:'50%',background:`rgba(200,215,255,${.1+i%8*.06})`,animation:`pulse ${2+i%4}s ${(i%20)/10}s infinite`}}/>
+            <div key={i} style={{position:'absolute',left:`${(i*137.508)%100}%`,top:`${(i*97.318)%100}%`,width:`${i%3===0?2:1.2}px`,height:`${i%3===0?2:1.2}px`,borderRadius:'50%',background:`rgba(200,215,255,${.1+i%8*.06})`,animation:`pulse ${2+i%4}s ${(i%20)/10}s infinite`}}/>
           ))}
           <div style={{position:'absolute',left:'5%',top:'15%',width:400,height:400,borderRadius:'50%',background:'radial-gradient(circle,rgba(77,159,255,.04),transparent 70%)'}}/>
           <div style={{position:'absolute',right:'10%',bottom:'20%',width:350,height:350,borderRadius:'50%',background:'radial-gradient(circle,rgba(167,139,250,.03),transparent 70%)'}}/>
@@ -131,10 +130,10 @@ export default function StudentShell({ pageKey, children }:{ pageKey:string; chi
         )}
 
         {/* Sidebar Overlay */}
-        {sideOpen&&<div onClick={()=>setSide(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:49,backdropFilter:'blur(2px)'}}/>}
+        {side&&<div onClick={()=>setSide(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:49,backdropFilter:'blur(2px)'}}/>}
 
         {/* Sidebar */}
-        <div style={{position:'fixed',top:0,left:0,width:264,height:'100vh',background:'rgba(0,6,18,.97)',borderRight:`1px solid ${bdr}`,zIndex:50,overflowY:'auto',padding:'0 0 24px',transform:sideOpen?'translateX(0)':'translateX(-100%)',transition:'transform .28s cubic-bezier(.4,0,.2,1)',backdropFilter:'blur(20px)',boxShadow:'4px 0 30px rgba(0,0,0,.5)'}}>
+        <div style={{position:'fixed',top:0,left:0,width:264,height:'100vh',background:'rgba(0,6,18,.97)',borderRight:`1px solid ${bdr}`,zIndex:50,overflowY:'auto',padding:'0 0 24px',transform:side?'translateX(0)':'translateX(-100%)',transition:'transform .28s cubic-bezier(.4,0,.2,1)',backdropFilter:'blur(20px)',boxShadow:'4px 0 30px rgba(0,0,0,.5)'}}>
           <div style={{padding:'20px 20px 16px',borderBottom:`1px solid ${bdr}`,position:'sticky',top:0,background:'rgba(0,6,18,.97)'}}>
             <div style={{display:'flex',alignItems:'center',gap:10}}>
               <PRLogo size={36}/>
@@ -174,8 +173,8 @@ export default function StudentShell({ pageKey, children }:{ pageKey:string; chi
             </div>
           </div>
           <div style={{display:'flex',alignItems:'center',gap:7}}>
-            <button className="tbtn" onClick={()=>{ const n=lang==='en'?'hi':'en'; setLang(n); try{localStorage.setItem('pr_lang',n)}catch{} }}>{lang==='en'?'हि':'EN'}</button>
-            <button className="tbtn" onClick={()=>{ const n=!dm; setDm(n); try{localStorage.setItem('pr_theme',n?'dark':'light')}catch{} }}>{dm?'☀️':'🌙'}</button>
+            <button className="tbtn" onClick={()=>{const n=lang==='en'?'hi':'en';setLang(n);try{localStorage.setItem('pr_lang',n)}catch{}}}>{lang==='en'?'हि':'EN'}</button>
+            <button className="tbtn" onClick={()=>{const n=!dm;setDm(n);try{localStorage.setItem('pr_theme',n?'dark':'light')}catch{}}}>{dm?'☀️':'🌙'}</button>
             <a href="/announcements" style={{background:'none',border:`1px solid ${bdr}`,borderRadius:8,width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none',fontSize:15,color:txt}}>🔔</a>
             <button onClick={()=>{ca();router.replace('/login')}} style={{background:'rgba(255,77,77,.12)',color:'#FF4D4D',border:'1px solid rgba(255,77,77,.25)',borderRadius:8,padding:'6px 11px',cursor:'pointer',fontWeight:700,fontSize:11,fontFamily:'Inter,sans-serif'}}>
               {lang==='en'?'Logout':'लॉगआउट'}
