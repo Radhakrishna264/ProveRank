@@ -1,3 +1,8 @@
+#!/bin/bash
+# Fix: SuperAdmin/Admin → redirect to Admin Panel from StudentShell
+FE=/home/runner/workspace/frontend
+
+cat > $FE/src/components/StudentShell.tsx << 'EOF_SHELL'
 'use client'
 import React, {
   createContext, useContext, useState, useEffect,
@@ -329,3 +334,12 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
     </ShellCtx.Provider>
   )
 }
+EOF_SHELL
+echo "[✓] StudentShell updated — Admin/Superadmin will now redirect to /admin/x7k2p"
+
+# Git push
+cd /home/runner/workspace
+git add -A
+git commit -m "fix: StudentShell — redirect admin/superadmin to /admin/x7k2p (role guard)"
+git push origin main
+echo "[✓] Pushed to GitHub — Vercel will auto-deploy"
