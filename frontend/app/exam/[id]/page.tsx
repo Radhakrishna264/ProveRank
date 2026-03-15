@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { getToken, clearAuth } from '@/lib/auth'
+const getToken=()=>{try{return localStorage.getItem('pr_token')||''}catch{return ''}}
+const clearAuth=()=>{try{localStorage.removeItem('pr_token');localStorage.removeItem('pr_role')}catch{}}
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 const C = { primary:'#4D9FFF', card:'rgba(0,22,40,0.92)', border:'rgba(77,159,255,0.22)', text:'#E8F4FF', sub:'#6B8FAF', success:'#00C48C', gold:'#FFD700', danger:'#FF4D4D', warn:'#FFB84D' }

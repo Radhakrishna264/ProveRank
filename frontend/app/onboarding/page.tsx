@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getToken } from '@/lib/auth'
+const getToken=()=>{try{return localStorage.getItem('pr_token')||''}catch{return ''}}
 
 const C = { primary:'#4D9FFF', card:'rgba(0,22,40,0.85)', border:'rgba(77,159,255,0.25)', text:'#E8F4FF', sub:'#6B8FAF', success:'#00C48C', gold:'#FFD700' }
 

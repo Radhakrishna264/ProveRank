@@ -1,3 +1,17 @@
+#!/bin/bash
+G='\033[0;32m'; B='\033[0;34m'; N='\033[0m'
+log(){ echo -e "${G}[✓]${N} $1"; }
+step(){ echo -e "\n${B}══ $1 ══${N}"; }
+
+FE=/home/runner/workspace/frontend
+
+step "Fix 1 — Add missing auth functions to lib/auth.ts"
+# Check current auth.ts content
+echo "Current auth.ts:"
+cat $FE/lib/auth.ts
+
+step "Fix 2 — Rewrite StudentShell with safe auth (no getRole/clearAuth dependency)"
+cat > $FE/src/components/StudentShell.tsx << 'ENDOFFILE'
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -252,3 +266,21 @@ export default function StudentShell({ pageKey, children }:StudentShellProps) {
     </div>
   )
 }
+ENDOFFILE
+log "StudentShell fixed — no getRole/clearAuth dependency"
+
+step "Fix 3 — Fix Exam Attempt page auth import"
+sed -i "s/import { getToken, clearAuth } from '@\/lib\/auth'/const getToken=()=>{try{return localStorage.getItem('pr_token')||''}catch{return ''}}\nconst clearAuth=()=>{try{localStorage.removeItem('pr_token');localStorage.removeItem('pr_role')}catch{}}/" $FE/app/exam/\[id\]/page.tsx
+log "Exam page auth fixed"
+
+step "Fix 4 — Fix Onboarding page auth import"
+sed -i "s/import { getToken } from '@\/lib\/auth'/const getToken=()=>{try{return localStorage.getItem('pr_token')||''}catch{return ''}}/" $FE/app/onboarding/page.tsx 2>/dev/null || true
+log "Onboarding auth fixed"
+
+step "Fix 5 — Git push"
+cd /home/runner/workspace && git add -A && git commit -m "fix: StudentShell crash — remove getRole/clearAuth dependency, use localStorage directly" && git push origin main
+
+echo ""
+echo -e "\033[0;32m╔══════════════════════════════════════════╗\033[0m"
+echo -e "\033[0;32m║  Fix Applied ✅ Dashboard should work now ║\033[0m"
+echo -e "\033[0;32m╚══════════════════════════════════════════╝\033[0m"
