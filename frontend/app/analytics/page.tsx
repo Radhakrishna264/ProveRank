@@ -67,7 +67,7 @@ function AnalyticsContent() {
         <MoleculeSVG/>
         <div style={{flex:1}}>
           <div style={{fontSize:15,color:C.purple,fontStyle:'italic',fontWeight:700,marginBottom:4}}>{t('"Data is the compass — let analytics guide your preparation."','"डेटा कम्पास है — विश्लेषण को अपनी तैयारी का मार्गदर्शक बनाएं।"')}</div>
-          <div style={{fontSize:11,color:C.sub}}>{hasData?`${results.length} ${t('tests analyzed','टेस्ट विश्लेषण')}`:t('Give your first test to unlock analytics!','पहला टेस्ट दें और एनालिटिक्स अनलॉक करें!')}</div>
+          <div style={{fontSize:11,color:C.sub}}>{hasData?(results.length+' '+t('tests analyzed','टेस्ट विश्लेषण')):t('Give your first test to unlock analytics!','पहला टेस्ट दें और एनालिटिक्स अनलॉक करें!')}</div>
         </div>
       </div>
 
@@ -115,7 +115,7 @@ function AnalyticsContent() {
                 <div key={s.n} style={{marginBottom:16,padding:'12px',background:'rgba(77,159,255,.04)',borderRadius:10}}>
                   <div style={{display:'flex',justifyContent:'space-between',marginBottom:7,fontSize:13}}>
                     <span style={{fontWeight:700,color:s.col}}>{s.icon} {s.n}</span>
-                    <span style={{color:C.sub,fontSize:12}}>{s.avg!=null?`${s.avg}/${s.tot}`:'—'} <span style={{color:s.col,fontWeight:700}}>({p}%)</span></span>
+                    <span style={{color:C.sub,fontSize:12}}>{s.avg!=null?(s.avg+'/'+s.tot):'—'} <span style={{color:s.col,fontWeight:700}}>({p}%)</span></span>
                   </div>
                   <div style={{background:'rgba(255,255,255,.06)',borderRadius:6,height:10,overflow:'hidden'}}>
                     {s.avg!=null

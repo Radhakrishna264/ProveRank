@@ -55,7 +55,7 @@ function RevisionContent() {
         <div style={{flex:1}}>
           <div style={{fontFamily:'Playfair Display,serif',fontSize:16,fontWeight:700,color:C.purple,marginBottom:4}}>{t('AI-Powered Smart Revision','AI-संचालित स्मार्ट रिवीजन')}</div>
           <div style={{fontSize:13,color:C.purple,fontStyle:'italic',fontWeight:600,marginBottom:4}}>{t('"Focus on your weak areas today — they will become your strengths tomorrow."','"आज के कमजोर क्षेत्रों पर ध्यान दें — वे कल की ताकत बनेंगे।"')}</div>
-          <div style={{fontSize:11,color:C.sub}}>{hasData?`${t('Based on your last','पिछले')} ${results.length} ${t('exam(s)','परीक्षा के आधार पर')}`:t('Give your first exam to get personalized revision suggestions!','व्यक्तिगत रिवीजन सुझाव के लिए पहला एग्जाम दें!')}</div>
+          <div style={{fontSize:11,color:C.sub}}>{hasData?(t('Based on your last','पिछले')+' '+results.length+' '+t('exam(s)','परीक्षा के आधार पर')):t('Give your first exam to get personalized revision suggestions!','व्यक्तिगत रिवीजन सुझाव के लिए पहला एग्जाम दें!')}</div>
         </div>
       </div>
 

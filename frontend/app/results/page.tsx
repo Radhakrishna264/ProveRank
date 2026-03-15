@@ -63,7 +63,7 @@ function ResultsContent() {
         <GraphSVG/>
         <div style={{flex:1}}>
           <div style={{fontSize:14,color:C.gold,fontStyle:'italic',fontWeight:700,marginBottom:4}}>{t('"Your score today is just the beginning — your potential is limitless."','"आज का स्कोर बस शुरुआत है — आपकी क्षमता असीमित है।"')}</div>
-          <div style={{fontSize:11,color:C.sub}}>{results.length>0?`${results.length} ${t('exam results recorded','परीक्षा परिणाम दर्ज')}`:{t('Give your first exam to see results!','पहली परीक्षा दें!')}}</div>
+          <div style={{fontSize:11,color:C.sub}}>{results.length>0?(results.length+' '+t('exam results recorded','परीक्षा परिणाम दर्ज')):t('Give your first exam to see results!','पहली परीक्षा दें!')}</div>
         </div>
       </div>
 

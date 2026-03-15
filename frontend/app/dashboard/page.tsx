@@ -159,7 +159,7 @@ function DashboardContent() {
             <div key={s.n} style={{marginBottom:14}}>
               <div style={{display:'flex',justifyContent:'space-between',marginBottom:6,fontSize:12}}>
                 <span style={{fontWeight:700,color:s.col,display:'flex',alignItems:'center',gap:5}}>{s.icon} {s.n}</span>
-                <span style={{color:C.sub}}>{s.sc!=null?`${s.sc}/${s.tot}`:'—'} <span style={{color:s.col,fontWeight:700}}>({p}%)</span></span>
+                <span style={{color:C.sub}}>{s.sc!=null?(s.sc+'/'+s.tot):'—'} <span style={{color:s.col,fontWeight:700}}>({p}%)</span></span>
               </div>
               <div style={{background:'rgba(255,255,255,.06)',borderRadius:8,height:11,overflow:'hidden',position:'relative'}}>
                 <div style={{height:'100%',width:`${p}%`,background:`linear-gradient(90deg,${s.col}88,${s.col})`,borderRadius:8,transition:'width .9s ease',boxShadow:`0 0 8px ${s.col}44`}}/>
@@ -277,7 +277,7 @@ function DashboardContent() {
         <div style={{fontSize:20,color:C.primary,fontFamily:'Playfair Display,serif',fontWeight:700,marginBottom:6,textShadow:`0 0 30px ${C.primary}44`}}>
           {t("You're on the right path! 🚀","आप सही रास्ते पर हैं! 🚀")}
         </div>
-        <div style={{fontSize:13,color:C.sub}}>{t(`${daysLeft} days remaining for NEET 2026 — Make every day count!`,`NEET 2026 के लिए ${daysLeft} दिन शेष — हर दिन सार्थक बनाएं!`)}</div>
+        <div style={{fontSize:13,color:C.sub}}>{t(daysLeft+' days remaining for NEET 2026 — Make every day count!','NEET 2026 के लिए '+daysLeft+' दिन शेष — हर दिन सार्थक बनाएं!')}</div>
       </div>
     </div>
   )

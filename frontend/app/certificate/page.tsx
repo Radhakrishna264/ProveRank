@@ -60,7 +60,7 @@ function CertificateContent() {
         <TrophySVG/>
         <div style={{flex:1}}>
           <div style={{fontSize:14,color:C.gold,fontStyle:'italic',fontWeight:700,marginBottom:4}}>{t('"Achievement is a journey — keep collecting your stars."','"उपलब्धि एक यात्रा है — अपने सितारे इकट्ठा करते रहो।"')}</div>
-          <div style={{fontSize:11,color:C.sub}}>{certs.length>0?`${certs.length} ${t('certificates earned','प्रमाणपत्र अर्जित')}`:t('Complete exams & milestones to earn certificates!','प्रमाणपत्र अर्जित करने के लिए परीक्षाएं और मील-पत्थर पूरे करें!')}</div>
+          <div style={{fontSize:11,color:C.sub}}>{certs.length>0?(certs.length+' '+t('certificates earned','प्रमाणपत्र अर्जित')):t('Complete exams & milestones to earn certificates!','प्रमाणपत्र अर्जित करने के लिए परीक्षाएं और मील-पत्थर पूरे करें!')}</div>
         </div>
       </div>
 

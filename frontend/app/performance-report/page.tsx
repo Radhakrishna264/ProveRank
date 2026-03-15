@@ -38,7 +38,7 @@ function PerfReportContent() {
         </svg>
         <div style={{flex:1}}>
           <div style={{fontSize:13,color:C.primary,fontStyle:'italic',fontWeight:700,marginBottom:4}}>{t('"Your report card tells your story — make it a story worth telling."','"आपकी रिपोर्ट आपकी कहानी कहती है — इसे एक अच्छी कहानी बनाएं।"')}</div>
-          <div style={{fontSize:11,color:C.sub}}>{results.length>0?`${results.length} ${t('exams included in report','परीक्षाएं शामिल')}`:{t('Give exams first to generate report','रिपोर्ट के लिए पहले परीक्षाएं दें')}}</div>
+          <div style={{fontSize:11,color:C.sub}}>{results.length>0?(results.length+' '+t('exams included in report','परीक्षाएं शामिल')):t('Give exams first to generate report','रिपोर्ट के लिए पहले परीक्षाएं दें')}</div>
         </div>
       </div>
       {/* Report Preview */}
