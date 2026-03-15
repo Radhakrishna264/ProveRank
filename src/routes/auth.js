@@ -13,7 +13,7 @@ router.post('/register', async (req, res) => {
   try {
     const regFlag = global.featureFlags && global.featureFlags['open_registration']
     if (regFlag === false) {
-      return res.status(403).json({ message: 'Registration is currently closed.' })
+      return res.status(403).json({ message: 'Registration is currently closed. Please contact admin.' })
     }
 
     const { name, email, password, phone } = req.body
@@ -22,7 +22,7 @@ router.post('/register', async (req, res) => {
     }
 
     const existing = await User.findOne({ email })
-    if (existing && existing.emailVerified) {
+    if (existing && (existing.emailVerified || existing.verified)) {
       return res.status(409).json({ message: 'Email already registered' })
     }
 
@@ -30,8 +30,10 @@ router.post('/register', async (req, res) => {
     const verifyToken = crypto.randomBytes(32).toString('hex')
     const verifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000)
 
-    if (existing && !existing.emailVerified) {
+    if (existing && !existing.emailVerified && !existing.verified) {
+      existing.name = name
       existing.password = hash
+      existing.phone = phone || existing.phone || ''
       existing.emailVerifyToken = verifyToken
       existing.emailVerifyExpiry = verifyExpiry
       await existing.save()
@@ -41,6 +43,7 @@ router.post('/register', async (req, res) => {
         password: hash,
         phone: phone || '',
         role: 'student',
+        verified: false,
         emailVerified: false,
         emailVerifyToken: verifyToken,
         emailVerifyExpiry: verifyExpiry
@@ -73,7 +76,9 @@ router.get('/verify-email', async (req, res) => {
       return res.status(400).json({ message: 'Invalid or expired verification link' })
     }
 
+    // BOTH fields set — login dono check karega
     user.emailVerified = true
+    user.verified = true
     user.emailVerifyToken = undefined
     user.emailVerifyExpiry = undefined
     await user.save()
@@ -94,7 +99,9 @@ router.post('/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.password)
     if (!match) return res.status(401).json({ message: 'Invalid email or password' })
 
-    if (user.role === 'student' && !user.emailVerified) {
+    // Check BOTH verified fields — backward compatible
+    const isVerified = user.emailVerified || user.verified
+    if (user.role === 'student' && !isVerified) {
       return res.status(403).json({ message: 'Please verify your email before logging in.' })
     }
 
@@ -107,7 +114,12 @@ router.post('/login', async (req, res) => {
     if (user.loginHistory.length > 50) user.loginHistory = user.loginHistory.slice(-50)
     await user.save()
 
-    const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' })
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    )
+
     res.json({ token, role: user.role, message: 'Login successful' })
   } catch (err) {
     console.error('Login error:', err)
