@@ -205,23 +205,21 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
 
     const r=_gr()
 
+    // ── IMPERSONATE MODE: check sessionStorage (set by /impersonate page) ──
+    try {
+      const impToken = sessionStorage.getItem('imp_token')
+      const impId    = sessionStorage.getItem('imp_id')
+      const impName  = sessionStorage.getItem('imp_name')
+      if (impToken && impId) {
+        setToken(impToken)
+        setRole('student')
+        setUser({ _id: impId, name: impName||'Student', role:'student', email:'' })
+        setMounted(true)
+        return
+      }
+    } catch(e) {}
+
     // ── ROLE GUARD: Admin/Superadmin must go to Admin Panel ──
-    // BUT: skip if this is an impersonate session
-    const _search = typeof window !== 'undefined' ? window.location.search : ''
-    const _params = new URLSearchParams(_search)
-    const _impToken = _params.get('imp_token')
-    const _impId = _params.get('imp_id')
-    const _impName = _params.get('imp_name')
-
-    if (_impToken && _impId) {
-      // Impersonate mode — admin viewing as student
-      setToken(_impToken)
-      setRole('student')
-      setUser({ _id: _impId, name: decodeURIComponent(_impName||'Student'), role:'student', email:'' })
-      setMounted(true)
-      return
-    }
-
     if(r==='admin'||r==='superadmin'){
       router.replace('/admin/x7k2p')
       return

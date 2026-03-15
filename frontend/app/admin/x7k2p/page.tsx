@@ -727,7 +727,7 @@ export default function AdminPanel() {
     if(!useId){T('Student ID required.','e');return}
     try{
       const res=await fetch(`${API}/api/admin/manage/impersonate/${useId}`,{method:'POST',headers:{Authorization:`Bearer ${token}`}})
-      if(res.ok){const d=await res.json();T(`Viewing as: ${d.name||impId}`);window.open(`/dashboard?impersonate=${useId}`,'_blank')}
+      if(res.ok){const d=await res.json();T(`Viewing as: ${d.name||impId}`);window.open(`/impersonate?token=${useId}&id=${useId}&name=${encodeURIComponent(d.name||'Student')}`, '_blank')}
       else T('Impersonate failed.','e')
     } catch{T('Network error.','e')}
   },[impId,token,T])
