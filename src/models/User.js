@@ -34,10 +34,7 @@ const userSchema = new mongoose.Schema({
   parentEmail: { type: String }
 }, { timestamps: true });
 
-userSchema.pre('save', async function() {
-  if (!this.isModified('password')) return;
-  this.password = await bcrypt.hash(this.password, 12);
-});
+// password hashing removed — done in auth.js directly;
 
 if (mongoose.models.User) delete mongoose.connection.models['User'];
 module.exports = mongoose.model('User', userSchema, 'students');
