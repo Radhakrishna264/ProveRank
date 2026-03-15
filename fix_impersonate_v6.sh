@@ -1,4 +1,11 @@
-'use client'
+#!/bin/bash
+node << 'NODEOF'
+const fs = require('fs')
+
+const path = '/home/runner/workspace/frontend/app/impersonate/page.tsx'
+fs.mkdirSync('/home/runner/workspace/frontend/app/impersonate', { recursive: true })
+
+fs.writeFileSync(path, `'use client'
 import { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
@@ -44,3 +51,12 @@ export default function ImpersonatePage() {
     </Suspense>
   )
 }
+`)
+console.log('✅ /impersonate page fixed with Suspense')
+NODEOF
+
+cd /home/runner/workspace
+git add -A
+git commit -m "fix: impersonate page — wrap useSearchParams in Suspense boundary"
+git push origin main
+echo "✅ Done"
