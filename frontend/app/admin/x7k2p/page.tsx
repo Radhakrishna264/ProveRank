@@ -725,7 +725,6 @@ export default function AdminPanel() {
   const impersonate=useCallback(async(directId?:string)=>{
     const useId=directId||impId
     if(!useId){T('Student ID required.','e');return}
-    const impId=useId
     try{
       const res=await fetch(`${API}/api/admin/manage/impersonate/${useId}`,{method:'POST',headers:{Authorization:`Bearer ${token}`}})
       if(res.ok){const d=await res.json();T(`Viewing as: ${d.name||impId}`);window.open(`/dashboard?impersonate=${useId}`,'_blank')}

@@ -184,6 +184,22 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
   },[])
 
   useEffect(()=>{
+    // Check if this is an impersonate session (admin viewing as student)
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+    const impToken = urlParams?.get('imp_token')
+    const impId    = urlParams?.get('imp_id')
+    const impName  = urlParams?.get('imp_name')
+
+    if(impToken && impId) {
+      // Impersonate mode — use student token, show student dashboard
+      setToken(impToken)
+      setRole('student')
+      setUser({ _id: impId, name: decodeURIComponent(impName||'Student'), role: 'student' })
+      try { localStorage.setItem('imp_mode','1') } catch{}
+      setMounted(true)
+      return
+    }
+
     const tk=_gt()
     if(!tk){ router.replace('/login'); return }
 
@@ -261,6 +277,12 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
         <div aria-hidden style={{position:'fixed',top:-70,left:-70,fontSize:320,color:'rgba(77,159,255,.022)',pointerEvents:'none',zIndex:0,lineHeight:1,userSelect:'none'}}>⬡</div>
         <div aria-hidden style={{position:'fixed',bottom:-70,right:-70,fontSize:320,color:'rgba(77,159,255,.022)',pointerEvents:'none',zIndex:0,lineHeight:1,userSelect:'none'}}>⬡</div>
 
+        {typeof window!=='undefined'&&new URLSearchParams(window.location.search).get('imp_id')&&(
+          <div style={{position:'fixed',top:0,left:0,right:0,zIndex:9998,padding:'8px 16px',background:'linear-gradient(90deg,#FF6B00,#FF8C00)',color:'#fff',textAlign:'center',fontSize:12,fontWeight:700,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span>👁️ Impersonate Mode — Viewing as Student</span>
+            <button onClick={()=>window.close()} style={{background:'rgba(0,0,0,.3)',border:'none',color:'#fff',borderRadius:6,padding:'3px 10px',cursor:'pointer',fontFamily:'Inter,sans-serif',fontSize:11,fontWeight:700}}>✕ Close</button>
+          </div>
+        )}
         {toastSt&&(
           <div style={{position:'fixed',top:0,left:0,right:0,zIndex:9999,padding:'14px 24px',fontWeight:700,fontSize:13,textAlign:'center',boxShadow:'0 4px 30px rgba(0,0,0,.55)',animation:'fadeIn .3s ease',background:toastSt.tp==='s'?'linear-gradient(90deg,#00C48C,#00a87a)':toastSt.tp==='w'?'linear-gradient(90deg,#FFB84D,#e6a200)':'linear-gradient(90deg,#FF4D4D,#cc0000)',color:toastSt.tp==='w'?'#000':'#fff'}}>
             {toastSt.tp==='e'?'❌':toastSt.tp==='w'?'⚠️':'✅'} {toastSt.msg}
