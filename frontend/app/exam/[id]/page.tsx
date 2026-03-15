@@ -33,7 +33,7 @@ export default function ExamAttemptPage() {
   const webcamRef = useRef<HTMLVideoElement>(null)
   const timerRef = useRef<NodeJS.Timeout>()
   const autoSaveRef = useRef<NodeJS.Timeout>()
-  const token = getToken()
+  const token = (() => { try { return localStorage.getItem('pr_token')||'' } catch { return '' } })()
 
   const TR:{[k:string]:any} = {
     en:{waitTitle:'Exam Waiting Room',waitSub:'Please wait — exam starts soon',minsLeft:'minutes remaining',instr:'Instructions',instrSub:'Read carefully before starting',points:[`Exam: {title}`,'Duration: {duration} minutes','Total Marks: {marks}','Webcam is COMPULSORY — keep it on throughout','Right-click and copy-paste are disabled','3 tab switches = auto submit','Fullscreen will be enforced','Save answers every 30 seconds automatically'],agree:'I have read and agree to all instructions',start:'Start Exam →',webcamTitle:'Webcam Check',webcamAllow:'Please allow camera access',webcamOk:'Camera ready! Starting exam...',next:'Next →',prev:'← Prev',submit:'Submit Exam',submitting:'Submitting...',result:'Your Result!',scoreLabel:'Score',rankLabel:'AIR Rank',percentileLabel:'Percentile',goResults:'View Full Results →',tabWarn:'⚠️ Tab switch detected! {n}/3 — 3 switches = auto submit',autoSubmit:'Auto submitting — 3 tab switches detected',answered:'Answered',flaggedLbl:'Flagged',unanswered:'Not Answered',notVisited:'Not Visited',sureSubmit:'Submit the exam? Make sure you have reviewed all answers.',},

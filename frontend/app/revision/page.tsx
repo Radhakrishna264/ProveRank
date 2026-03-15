@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import StudentShell from '@/src/components/StudentShell'
+import StudentShell, { useShell, C } from '@/src/components/StudentShell'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 const C = { primary:'#4D9FFF', card:'rgba(0,22,40,0.80)', border:'rgba(77,159,255,0.22)', text:'#E8F4FF', sub:'#6B8FAF', success:'#00C48C', gold:'#FFD700', danger:'#FF4D4D', warn:'#FFB84D' }
