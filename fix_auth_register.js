@@ -1,4 +1,20 @@
-const express = require('express')
+/**
+ * ProveRank — Auth Fix Script
+ * Root Cause: Double-hashing — auth.js manually hashes, then
+ *             User model pre('save') hook hashes again → bcrypt.compare() fails
+ * Fix: Use User.collection.updateOne / insertOne to BYPASS Mongoose hooks
+ * Run in Replit: node fix_auth_register.js
+ */
+const fs = require('fs');
+const path = require('path');
+
+const filePath = path.join(__dirname, 'src', 'routes', 'auth.js');
+if (!fs.existsSync(filePath)) {
+  console.error('❌ src/routes/auth.js not found. Run from workspace root.');
+  process.exit(1);
+}
+
+const newAuthJs = `const express = require('express')
 const router = express.Router()
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
@@ -141,7 +157,7 @@ router.get('/verify-email', async (req, res) => {
     const jwtToken = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' })
     // Redirect to frontend with token
     const frontendURL = process.env.FRONTEND_URL || 'https://prove-rank.vercel.app'
-    res.redirect(`${frontendURL}/verify-success?token=${jwtToken}&role=${user.role}`)
+    res.redirect(\`\${frontendURL}/verify-success?token=\${jwtToken}&role=\${user.role}\`)
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
   }
@@ -166,7 +182,7 @@ router.post('/login', async (req, res) => {
       })
     }
     if (user.banned) {
-      return res.status(403).json({ message: `Account banned: ${user.banReason || 'Contact admin'}` })
+      return res.status(403).json({ message: \`Account banned: \${user.banReason || 'Contact admin'}\` })
     }
 
     // Login history — bypass hooks
@@ -374,7 +390,7 @@ router.post('/admin/registration-control', async (req, res) => {
       )
     } catch(e) {}
     res.json({
-      message: `Registration ${enabled ? 'ENABLED' : 'DISABLED'} successfully`,
+      message: \`Registration \${enabled ? 'ENABLED' : 'DISABLED'} successfully\`,
       open_registration: Boolean(enabled)
     })
   } catch (err) {
@@ -383,3 +399,19 @@ router.post('/admin/registration-control', async (req, res) => {
 })
 
 module.exports = router
+`
+
+fs.writeFileSync(filePath, newAuthJs, 'utf8');
+console.log('✅ auth.js updated successfully!');
+console.log('');
+console.log('📋 Changes made:');
+console.log('  1. ✅ FIXED: Double-hash bug → using collection.updateOne/insertOne (bypasses pre-save hook)');
+console.log('  2. ✅ ADDED: OTP-based email verification (register → OTP → direct dashboard)');
+console.log('  3. ✅ ADDED: Email+OTP login option (send-login-otp + login-otp)');
+console.log('  4. ✅ ADDED: Forgot Password via OTP (forgot-password + reset-password)');
+console.log('  5. ✅ ADDED: Registration Control (Superadmin) → /admin/registration-control');
+console.log('  6. ✅ FIXED: change-password also bypasses hooks');
+console.log('  7. ✅ ADDED: PATCH /me for profile updates (bypass hooks)');
+console.log('');
+console.log('⚠️  Next: Update emailService.js to handle OTP emails');
+console.log('⚠️  Next: Update frontend register page for OTP flow');

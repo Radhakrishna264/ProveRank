@@ -1,4 +1,11 @@
-const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args))
+/**
+ * ProveRank — emailService.js (Brevo API — WORKING config)
+ * Run: node fix_emailService.js  (from /home/runner/workspace)
+ */
+const fs = require('fs')
+const filePath = '/home/runner/workspace/src/utils/emailService.js'
+
+const code = `const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args))
 
 // Brevo API — WORKING (confirmed)
 const BREVO_API  = 'https://api.brevo.com/v3/smtp/email'
@@ -33,7 +40,7 @@ async function sendVerificationEmail(toEmail, toName, linkToken = null, otp = nu
   const message = messages[type] || messages.verify
 
   // OTP email HTML
-  const htmlContent = `
+  const htmlContent = \`
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8">
@@ -61,10 +68,10 @@ async function sendVerificationEmail(toEmail, toName, linkToken = null, otp = nu
     <div style="color:#B8C8D8;font-size:13px;margin-top:6px">NEET 2026 Preparation Platform</div>
   </div>
   <div class="body">
-    <h2>Hi ${toName || 'Student'}! 👋</h2>
-    <p>${message}</p>
+    <h2>Hi \${toName || 'Student'}! 👋</h2>
+    <p>\${message}</p>
     <div class="otp-box">
-      <div class="otp">${otp}</div>
+      <div class="otp">\${otp}</div>
       <div class="expires">⏱️ Valid for 10 minutes only</div>
     </div>
     <p>Enter this OTP on the ProveRank platform to continue.</p>
@@ -80,7 +87,7 @@ async function sendVerificationEmail(toEmail, toName, linkToken = null, otp = nu
 </div>
 </body>
 </html>
-`
+\`
 
   try {
     const res = await fetch(BREVO_API, {
@@ -110,3 +117,13 @@ async function sendVerificationEmail(toEmail, toName, linkToken = null, otp = nu
 }
 
 module.exports = { sendVerificationEmail }
+`
+
+fs.writeFileSync(filePath, code, 'utf8')
+console.log('✅ emailService.js updated with Brevo API!')
+console.log('')
+console.log('📋 Uses: https://api.brevo.com/v3/smtp/email')
+console.log('📋 Sender: radhakrishnan100806@gmail.com')
+console.log('📋 Env var needed: BREVO_API_KEY (already set on Render)')
+console.log('')
+console.log('✅ Supports types: verify | login | reset')
