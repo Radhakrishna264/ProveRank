@@ -22,6 +22,7 @@ interface Result { _id:string;studentName:string;examTitle:string;score:number;t
 
 // ── Default Feature Flags ──
 const DEF_FEATURES: Feature[] = [
+  {key:'open_registration',label:'🔓 Student Registration',description:'Allow new student registrations. Toggle OFF to close (Superadmin only)',enabled:true},
   {key:'webcam',label:'Webcam Proctoring',description:'Camera compulsory during exams (Phase 5.2)',enabled:true},
   {key:'audio',label:'Audio Monitoring',description:'Microphone noise detection (S57)',enabled:false},
   {key:'eye_tracking',label:'Eye Tracking AI',description:'Detect looking away from screen (S-ET)',enabled:true},
@@ -574,6 +575,7 @@ export default function AdminPanel() {
   const toggleFeat=useCallback(async(key:string)=>{
     const ft=features.find(f=>f.key===key);const ne=!ft?.enabled
     setFeatures(p=>p.map(f=>f.key===key?{...f,enabled:ne}:f))
+    if(key==='open_registration'){try{const r=await fetch(`${API}/api/auth/admin/registration-control`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({enabled:ne})});const d=await r.json();if(r.ok)T(d.message||'Done','s');else{T(d.message||'Failed','e');setFeatures(p=>p.map(f=>f.key===key?{...f,enabled:!ne}:f))}}catch{T('Error','e');setFeatures(p=>p.map(f=>f.key===key?{...f,enabled:!ne}:f))};return}
     try{await fetch(`${API}/api/admin/features`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({key,enabled:ne})})}catch{}
     T(`${ft?.label||key} ${ne?'enabled':'disabled'}.`)
   },[features,token,T])
