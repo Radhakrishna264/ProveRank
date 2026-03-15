@@ -192,4 +192,16 @@ router.get('/audit-trail', verifyToken, isSuperAdmin, async (req, res) => {
   }
 });
 
+
+// DELETE student (admin only)
+router.delete('/students/:id', async (req, res) => {
+  try {
+    const User = require('../models/User')
+    await User.collection.deleteOne({ _id: new (require('mongoose').Types.ObjectId)(req.params.id) })
+    res.json({ message: 'Student deleted successfully', success: true })
+  } catch(err) {
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
 module.exports = router;
