@@ -1,5 +1,4 @@
-'use client'
-import { useState, useEffect, useRef, useCallback, memo } from 'react'
+'use climport { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import { getToken, getRole, clearAuth } from '@/lib/auth'
 
