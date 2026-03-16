@@ -22,7 +22,7 @@ interface Result { _id:string;studentName:string;examTitle:string;score:number;t
 
 // ── Default Feature Flags ──
 const DEF_FEATURES: Feature[] = [
-  {key:'open_registration',label:'🔓 Student Registration',description:'Allow new student registrations. Toggle OFF to close (Superadmin only)',enabled:true},
+  {key:'open_registration',label:'🔐 Student Registration',description:'Allow new student registrations. Toggle OFF to close (Superadmin only)',enabled:true},
   {key:'webcam',label:'Webcam Proctoring',description:'Camera compulsory during exams (Phase 5.2)',enabled:true},
   {key:'audio',label:'Audio Monitoring',description:'Microphone noise detection (S57)',enabled:false},
   {key:'eye_tracking',label:'Eye Tracking AI',description:'Detect looking away from screen (S-ET)',enabled:true},
