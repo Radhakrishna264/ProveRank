@@ -184,7 +184,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
   },[])
 
   useEffect(()=>{
-        // ── IMPERSONATE MODE (sessionStorage — isolated per tab) ──
+                // ── IMPERSONATE MODE — check sessionStorage (set by /impersonate page) ──
     try {
       const impToken = sessionStorage.getItem('imp_token')
       const impId    = sessionStorage.getItem('imp_id')

@@ -722,20 +722,21 @@ export default function AdminPanel() {
   },[perms,token,T])
 
   // ══ IMPERSONATE ══
-  const impersonate=useCallback(async(studentId?:string)=>{
-    const sid=studentId||impId
+  const impersonate=useCallback(async(sid:string)=>{
     if(!sid){T('Student ID required.','e');return}
     try{
       const res=await fetch(`${API}/api/admin/manage/impersonate/${sid}`,{method:'POST',headers:{Authorization:`Bearer ${token}`}})
       if(res.ok){
         const d=await res.json()
-        const sToken=d.studentToken||d.token||''
+        // Backend returns 'impersonateToken' field
+        const sToken=d.impersonateToken||d.studentToken||d.token||''
         const sName=encodeURIComponent(d.name||'Student')
+        if(!sToken){T('Failed to get student token','e');return}
         T(`Opening as: ${d.name||'Student'}`,'s')
         window.open(`/impersonate?token=${sToken}&id=${sid}&name=${sName}`,'_blank')
       } else {
         const e=await res.json()
-        T(e.message||'Failed','e')
+        T(e.message||'Failed to impersonate','e')
       }
     }catch{T('Network error','e')}
   },[impId,token,T])
@@ -1583,7 +1584,7 @@ export default function AdminPanel() {
                         ?<button onClick={()=>unbanStd(selStudent._id)} style={bs}>🔓 Unban</button>
                         :<button onClick={()=>{setBanId(selStudent._id);setTab('students')}} style={bd}>🚫 Ban</button>
                       }
-                      <button onClick={()=>impersonate(selStudent?._id||selStudent?._id)} style={{...bg_,fontSize:11}}>👁️ View as Student</button>
+                      <button onClick={()=>{ if(selStudent?._id) impersonate(selStudent._id) }} style={{...bg_,fontSize:11}}>👁️ View as Student</button>
                       <button onClick={()=>setSelStudent(null)} style={{background:'none',border:'none',color:DIM,cursor:'pointer',fontSize:16}}>✕</button>
                     </div>
                   </div>
