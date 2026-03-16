@@ -184,28 +184,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
   },[])
 
   useEffect(()=>{
-    // Check if this is an impersonate session (admin viewing as student)
-    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
-    const impToken = urlParams?.get('imp_token')
-    const impId    = urlParams?.get('imp_id')
-    const impName  = urlParams?.get('imp_name')
-
-    if(impToken && impId) {
-      // Impersonate mode — use student token, show student dashboard
-      setToken(impToken)
-      setRole('student')
-      setUser({ _id: impId, name: decodeURIComponent(impName||'Student'), role: 'student' })
-      try { localStorage.setItem('imp_mode','1') } catch{}
-      setMounted(true)
-      return
-    }
-
-    const tk=_gt()
-    if(!tk){ router.replace('/login'); return }
-
-    const r=_gr()
-
-    // ── IMPERSONATE MODE: check sessionStorage (set by /impersonate page) ──
+        // ── IMPERSONATE MODE (sessionStorage — isolated per tab) ──
     try {
       const impToken = sessionStorage.getItem('imp_token')
       const impId    = sessionStorage.getItem('imp_id')
@@ -219,7 +198,12 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
       }
     } catch(e) {}
 
-    // ── ROLE GUARD: Admin/Superadmin must go to Admin Panel ──
+        const tk=_gt()
+    if(!tk){ router.replace('/login'); return }
+
+    const r=_gr()
+
+        // ── ROLE GUARD: Admin/Superadmin must go to Admin Panel ──
     if(r==='admin'||r==='superadmin'){
       router.replace('/admin/x7k2p')
       return
