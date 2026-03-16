@@ -89,7 +89,7 @@ router.get('/features', verifyToken, isSuperAdmin, async (req, res) => {
     const flagsObj={};
     flags.forEach(f=>{flagsObj[f.key]=f.enabled;});
     global.featureFlags=flagsObj;
-    res.json({success:true,flags});
+    res.json(flags);
   } catch(e){ res.status(500).json({success:false,message:e.message}); }
 });
 
