@@ -2183,7 +2183,7 @@ export default function AdminPanel() {
               <PageHero icon="🚩" title="Live Feature Control" subtitle="Enable or disable any platform feature instantly without redeployment. Perfect for A/B testing, gradual rollouts, and emergency feature disabling."/>
               <div style={{fontSize:12,color:DIM,marginBottom:14}}>{features.filter(f=>f.enabled).length} of {features.length} features enabled</div>
               <div style={{display:'grid',gap:8}}>
-                {features.map(f=>(
+                {features.filter(f=>f.label).map(f=>(
                   <div key={f.key} style={{...cs,display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8,borderLeft:`4px solid ${f.enabled?SUC:BOR}`}}>
                     <div style={{flex:1,minWidth:200}}>
                       <div style={{fontWeight:600,fontSize:12,color:TS,marginBottom:2}}>{f.label}</div>
