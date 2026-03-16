@@ -577,6 +577,585 @@ export default function AdminPanel() {
   const toggleFeat=useCallback(async(key:string)=>{
     const ft=features.find(f=>f.key===key);const ne=!ft?.enabled
     setFeatures(p=>p.map(f=>f.key===key?{...f,enabled:ne}:f))
+    ient'
+import { useState, useEffect, useRef, useCallback, memo } from 'react'
+import { useRouter } from 'next/navigation'
+import { getToken, getRole, clearAuth } from '@/lib/auth'
+
+// ── API Base ──
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
+
+// ── TypeScript Interfaces ──
+interface Student { _id:string;name:string;email:string;phone?:string;role:string;createdAt:string;banned?:boolean;banReason?:string;group?:string;integrityScore?:number;loginHistory?:any[];parentEmail?:string }
+interface Exam { _id:string;title:string;scheduledAt:string;totalMarks:number;duration:number;status:string;attempts?:number;category?:string;password?:string;batch?:string;subject?:string }
+interface Question { _id:string;text:string;subject:string;chapter?:string;topic?:string;difficulty:string;type:string;options?:string[];correctAnswer?:string;explanation?:string;approvalStatus?:string }
+interface Log { _id:string;action:string;by:string;at:string;detail:string }
+interface Flag { _id:string;studentName:string;examTitle:string;type:string;count:number;severity:string;at:string;integrityScore?:number }
+interface Ticket { _id:string;studentName:string;examTitle:string;type:string;status:string;createdAt:string;description:string }
+interface Feature { key:string;label:string;description:string;enabled:boolean }
+interface Notif { id:string;icon:string;msg:string;t:string;read:boolean }
+interface Snapshot { _id:string;studentName:string;imageUrl?:string;flagged:boolean;capturedAt:string;examTitle?:string }
+interface Batch { _id:string;name:string;studentCount:number;examCount:number;createdAt:string }
+interface AdminUser { _id:string;name:string;email:string;role:string;createdAt:string;active:boolean }
+interface Result { _id:string;studentName:string;examTitle:string;score:number;totalMarks:number;rank:number;percentile:number;submittedAt:string }
+
+// ── Default Feature Flags ──
+const DEF_FEATURES: Feature[] = [
+  {key:'open_registration',label:'🔓 Student Registration',description:'Allow new student registrations. Toggle OFF to close (Superadmin only)',enabled:true},
+  {key:'webcam',label:'Webcam Proctoring',description:'Camera compulsory during exams (Phase 5.2)',enabled:true},
+  {key:'audio',label:'Audio Monitoring',description:'Microphone noise detection (S57)',enabled:false},
+  {key:'eye_tracking',label:'Eye Tracking AI',description:'Detect looking away from screen (S-ET)',enabled:true},
+  {key:'face_detect',label:'Face Detection TF.js',description:'Multi/no-face detection (Phase 5.4)',enabled:true},
+  {key:'head_pose',label:'Head Pose Detection',description:'Head angle tracking (S73)',enabled:true},
+  {key:'vbg_block',label:'Virtual Background Block',description:'Detect and block fake backgrounds (S74)',enabled:true},
+  {key:'vpn_block',label:'VPN/Proxy Block',description:'Block VPN users from attempting (S20)',enabled:false},
+  {key:'live_rank',label:'Live Rank Updates',description:'Socket.io real-time ranking (S107)',enabled:true},
+  {key:'social_share',label:'Social Share Results',description:'WhatsApp/Instagram result card (S99)',enabled:true},
+  {key:'parent_portal',label:'Parent Portal',description:'Read-only child progress access (N17)',enabled:false},
+  {key:'pyq_bank',label:'PYQ Bank Access',description:'NEET 2015-2024 questions (S104)',enabled:true},
+  {key:'maintenance',label:'Maintenance Mode',description:'Block students, keep admin accessible (S66)',enabled:false},
+  {key:'sms_notify',label:'SMS Notifications',description:'Result SMS via Twilio/Fast2SMS (M19)',enabled:false},
+  {key:'whatsapp',label:'WhatsApp Alerts',description:'Exam reminders via WhatsApp (S65)',enabled:false},
+  {key:'ai_tagger',label:'AI Auto-Tagger',description:'Auto difficulty + subject tagging (AI-1/AI-2)',enabled:true},
+  {key:'ai_explain',label:'AI Explanation Generator',description:'Auto explanation from question (AI-10)',enabled:true},
+  {key:'two_fa',label:'2FA Admin Login',description:'OTP mandatory for admin accounts (S49)',enabled:true},
+  {key:'ip_lock',label:'IP Lock During Exam',description:'Block IP change mid-exam (S20)',enabled:true},
+  {key:'fullscreen',label:'Fullscreen Force Mode',description:'3 exits triggers auto-submit (S32)',enabled:true},
+  {key:'watermark',label:'Screen Watermark',description:'Student name/ID watermark on screen (S76)',enabled:true},
+  {key:'integrity',label:'AI Integrity Score',description:'0-100 score per exam attempt (AI-6)',enabled:true},
+  {key:'n14_pattern',label:'Suspicious Pattern Detection',description:'Fast/identical answer flagging (N14)',enabled:true},
+  {key:'onboarding',label:'Platform Onboarding Tour',description:'Guided tour for new students (S100)',enabled:true},
+  {key:'n23_encrypt',label:'Paper Encryption',description:'Questions encrypted in browser (N23)',enabled:false},
+  {key:'waiting_room',label:'Exam Waiting Room',description:'Students join 10 min before exam (M6)',enabled:true},
+  {key:'cert_gen',label:'Certificate Generation',description:'Auto PDF certificate on completion (S21)',enabled:true},
+]
+
+// ══════════════════════════════════════════════════════════════
+// MOBILE KEYBOARD FIX — memo components hold own state
+// Parent re-renders do NOT cause these to re-render
+// ══════════════════════════════════════════════════════════════
+const SInput = memo(function SInput({init='',onSet,style,ph,type='text',disabled=false}:{init?:string;onSet:(v:string)=>void;style?:any;ph?:string;type?:string;disabled?:boolean}) {
+  const [v,setV]=useState(init)
+  useEffect(()=>{setV(init)},[init])
+  return <input type={type} value={v} disabled={disabled} placeholder={ph} style={style} onChange={e=>{const x=e.target.value;setV(x);onSet(x)}} />
+})
+const STextarea = memo(function STextarea({init='',onSet,style,ph,rows=4}:{init?:string;onSet:(v:string)=>void;style?:any;ph?:string;rows?:number}) {
+  const [v,setV]=useState(init)
+  useEffect(()=>{setV(init)},[init])
+  return <textarea value={v} rows={rows} placeholder={ph} style={style} onChange={e=>{const x=e.target.value;setV(x);onSet(x)}} />
+})
+const SSelect = memo(function SSelect({val,onChange,opts,style}:{val:string;onChange:(v:string)=>void;opts:{v:string;l:string}[];style?:any}) {
+  return <select value={val} onChange={e=>onChange(e.target.value)} style={style}>{opts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select>
+})
+
+// ══════════════════════════════════════════════════════════════
+// PR LOGO — Exact same as Login page (PR4 Hexagon)
+// ══════════════════════════════════════════════════════════════
+function PRLogo({size=36}:{size?:number}) {
+  const r=size/2,cx=size/2,cy=size/2
+  const outer=Array.from({length:6},(_,i)=>{const a=(Math.PI/180)*(60*i-30);return `${cx+r*0.88*Math.cos(a)},${cy+r*0.88*Math.sin(a)}`;}).join(' ')
+  const inner=Array.from({length:6},(_,i)=>{const a=(Math.PI/180)*(60*i-30);return `${cx+r*0.72*Math.cos(a)},${cy+r*0.72*Math.sin(a)}`;}).join(' ')
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <defs><filter id="gll"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      <polygon points={outer} fill="none" stroke="rgba(77,159,255,0.35)" strokeWidth="1" filter="url(#gll)"/>
+      <polygon points={inner} fill="none" stroke="#4D9FFF" strokeWidth="1.5" filter="url(#gll)"/>
+      {Array.from({length:6},(_,i)=>{const a=(Math.PI/180)*(60*i-30);return <circle key={i} cx={cx+r*0.88*Math.cos(a)} cy={cy+r*0.88*Math.sin(a)} r={size*0.05} fill="#4D9FFF" filter="url(#gll)"/>})}
+      <text x={cx} y={cy+size*0.16} textAnchor="middle" fontFamily="Playfair Display,serif" fontSize={size*0.31} fontWeight="700" fill="#4D9FFF" filter="url(#gll)">PR</text>
+    </svg>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// PARTICLES BACKGROUND — Same as Login page
+// ══════════════════════════════════════════════════════════════
+function ParticlesBg() {
+  const canvasRef=useRef<HTMLCanvasElement>(null)
+  useEffect(()=>{
+    const canvas=canvasRef.current;if(!canvas)return
+    const ctx=canvas.getContext('2d');if(!ctx)return
+    canvas.width=window.innerWidth;canvas.height=window.innerHeight
+    const particles:{x:number;y:number;vx:number;vy:number;r:number;opacity:number}[]=[]
+    for(let i=0;i<60;i++)particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*1.5+0.5,opacity:Math.random()*.3+.05})
+    let animId:number
+    const draw=()=>{
+      ctx.clearRect(0,0,canvas.width,canvas.height)
+      particles.forEach(p=>{
+        p.x+=p.vx;p.y+=p.vy
+        if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0
+        if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0
+        ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2)
+        ctx.fillStyle=`rgba(77,159,255,${p.opacity})`;ctx.fill()
+      })
+      for(let i=0;i<particles.length;i++)for(let j=i+1;j<particles.length;j++){
+        const dx=particles[i].x-particles[j].x,dy=particles[i].y-particles[j].y,dist=Math.sqrt(dx*dx+dy*dy)
+        if(dist<100){ctx.beginPath();ctx.moveTo(particles[i].x,particles[i].y);ctx.lineTo(particles[j].x,particles[j].y);ctx.strokeStyle=`rgba(77,159,255,${.08*(1-dist/100)})`;ctx.lineWidth=.5;ctx.stroke()}
+      }
+      animId=requestAnimationFrame(draw)
+    }
+    draw()
+    const resize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight}
+    window.addEventListener('resize',resize)
+    return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',resize)}
+  },[])
+  return <canvas ref={canvasRef} style={{position:'fixed',inset:0,pointerEvents:'none',zIndex:0}}/>
+}
+
+// ══════════════════════════════════════════════════════════════
+// GLOBAL SEARCH COMPONENT (M12)
+// ══════════════════════════════════════════════════════════════
+const GlobalSearch=memo(function GlobalSearch({students,exams,questions,setTab,setSelStudent,token}:{students:Student[];exams:Exam[];questions:Question[];setTab:(t:string)=>void;setSelStudent:(s:Student)=>void;token:string}) {
+  const [q,setQ]=useState('')
+  const res=q.length<2?[]:[
+    ...(students||[]).filter(s=>s.name?.toLowerCase().includes(q.toLowerCase())||s.email?.toLowerCase().includes(q.toLowerCase())).slice(0,4).map(s=>({type:'Student',label:s.name+' · '+s.email,icon:'👤',go:()=>{setSelStudent(s);setTab('students')}})),
+    ...(exams||[]).filter(e=>e.title?.toLowerCase().includes(q.toLowerCase())).slice(0,4).map(e=>({type:'Exam',label:e.title+' · '+e.status,icon:'📝',go:()=>setTab('exams')})),
+    ...(questions||[]).filter(qn=>qn.text?.toLowerCase().includes(q.toLowerCase())).slice(0,4).map(qn=>({type:'Question',label:qn.text?.slice(0,70)+'…',icon:'❓',go:()=>setTab('questions')})),
+  ]
+  return (
+    <div>
+      <div style={{position:'relative',marginBottom:16}}>
+        <span style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',fontSize:16,zIndex:1}}>🔎</span>
+        <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search students, exams, questions — type at least 2 characters"
+          style={{width:'100%',padding:'14px 14px 14px 44px',background:'rgba(0,31,58,0.8)',border:'1.5px solid rgba(77,159,255,0.3)',borderRadius:12,color:'#E8F4FF',fontSize:14,fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box',backdropFilter:'blur(10px)'}} />
+      </div>
+      {q.length>=2&&(
+        <div>
+          {res.length===0
+            ?<div style={{background:'rgba(0,22,40,0.6)',border:'1px solid rgba(77,159,255,0.15)',borderRadius:12,padding:'20px',textAlign:'center',color:'#6B8FAF',fontSize:13}}>
+              <div style={{fontSize:32,marginBottom:8}}>🔍</div>
+              No results found for "<span style={{color:'#4D9FFF'}}>{q}</span>"
+            </div>
+            :res.map((r,i)=>(
+              <button key={i} onClick={r.go} style={{display:'flex',gap:12,alignItems:'center',width:'100%',padding:'12px 16px',background:'rgba(0,22,40,0.6)',border:'1px solid rgba(77,159,255,0.15)',borderRadius:10,marginBottom:6,cursor:'pointer',textAlign:'left',transition:'all 0.2s'}}>
+                <span style={{fontSize:20}}>{r.icon}</span>
+                <div style={{flex:1}}>
+                  <span style={{fontSize:9,padding:'2px 8px',borderRadius:20,background:'rgba(77,159,255,0.15)',color:'#4D9FFF',fontWeight:700,marginRight:8}}>{r.type}</span>
+                  <span style={{fontSize:12,color:'#E8F4FF'}}>{r.label}</span>
+                </div>
+                <span style={{color:'#4D9FFF',fontSize:14}}>→</span>
+              </button>
+            ))
+          }
+        </div>
+      )}
+      {q.length<2&&(
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12,marginTop:8}}>
+          {[{icon:'👥',label:'Students',sub:`${(students||[]).length} registered`,tab:'students'},{icon:'📝',label:'Exams',sub:`${(exams||[]).length} total`,tab:'exams'},{icon:'❓',label:'Questions',sub:`${(questions||[]).length} in bank`,tab:'questions'},{icon:'📊',label:'Analytics',sub:'Performance data',tab:'analytics'}].map(c=>(
+            <button key={c.tab} onClick={()=>setTab(c.tab)} style={{padding:'16px',background:'rgba(0,22,40,0.5)',border:'1px solid rgba(77,159,255,0.15)',borderRadius:12,cursor:'pointer',textAlign:'left'}}>
+              <div style={{fontSize:24,marginBottom:6}}>{c.icon}</div>
+              <div style={{fontWeight:700,fontSize:13,color:'#E8F4FF'}}>{c.label}</div>
+              <div style={{fontSize:11,color:'#6B8FAF',marginTop:2}}>{c.sub}</div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+})
+
+// ══════════════════════════════════════════════════════════════
+// THEME CONSTANTS — N6 Neon Blue Arctic (from Login page)
+// ══════════════════════════════════════════════════════════════
+const BG_GRAD='radial-gradient(ellipse at 20% 50%,#001628 0%,#000A18 60%,#000510 100%)'
+const CRD='rgba(0,22,40,0.75)'
+const CRD2='rgba(0,31,58,0.8)'
+const ACC='#4D9FFF'
+const BOR='rgba(77,159,255,0.18)'
+const BOR2='rgba(77,159,255,0.3)'
+const TS='#E8F4FF'
+const DIM='#6B8FAF'
+const SUC='#00C48C'
+const DNG='#FF4D4D'
+const WRN='#FFB84D'
+const GOLD='#FFD700'
+
+// Shared style objects
+const inp:any={width:'100%',padding:'12px 14px',background:'rgba(0,22,40,0.85)',border:`1.5px solid ${BOR2}`,borderRadius:10,color:TS,fontSize:14,fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box',backdropFilter:'blur(8px)'}
+const bp:any={background:`linear-gradient(135deg,${ACC},#0055CC)`,color:'#fff',border:'none',borderRadius:10,padding:'11px 22px',cursor:'pointer',fontWeight:700,fontSize:13,fontFamily:'Inter,sans-serif',boxShadow:`0 4px 16px rgba(77,159,255,0.35)`}
+const bg_:any={background:'rgba(77,159,255,0.1)',color:ACC,border:`1px solid ${BOR2}`,borderRadius:10,padding:'9px 18px',cursor:'pointer',fontWeight:600,fontSize:12,fontFamily:'Inter,sans-serif',backdropFilter:'blur(8px)'}
+const bd:any={background:'rgba(255,77,77,0.15)',color:DNG,border:'1px solid rgba(255,77,77,0.3)',borderRadius:10,padding:'9px 18px',cursor:'pointer',fontWeight:700,fontSize:12}
+const bs:any={background:'rgba(0,196,140,0.12)',color:SUC,border:'1px solid rgba(0,196,140,0.3)',borderRadius:10,padding:'9px 18px',cursor:'pointer',fontWeight:700,fontSize:12}
+const cs:any={background:CRD,border:`1px solid ${BOR}`,borderRadius:14,padding:18,marginBottom:14,backdropFilter:'blur(12px)'}
+const lbl:any={display:'block',fontSize:11,color:DIM,marginBottom:5,fontFamily:'Inter,sans-serif',fontWeight:600,letterSpacing:0.5,textTransform:'uppercase'}
+const pageTitle:any={fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:700,color:TS,margin:'0 0 4px',background:`linear-gradient(90deg,${ACC},#fff)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}
+const pageSub:any={fontSize:12,color:DIM,marginBottom:20,fontFamily:'Inter,sans-serif'}
+
+// ══════════════════════════════════════════════════════════════
+// STAT BOX COMPONENT
+// ══════════════════════════════════════════════════════════════
+function StatBox({ico,lbl:label,val,sub,col=ACC}:{ico:string;lbl:string;val:any;sub?:string;col?:string}) {
+  return (
+    <div style={{background:CRD,border:`1px solid ${BOR}`,borderRadius:14,padding:'18px 16px',flex:1,minWidth:130,backdropFilter:'blur(12px)',position:'relative',overflow:'hidden'}}>
+      <div style={{position:'absolute',right:-8,bottom:-8,fontSize:48,opacity:0.06}}>{ico}</div>
+      <div style={{fontSize:22,marginBottom:6}}>{ico}</div>
+      <div style={{fontSize:22,fontWeight:700,color:col,fontFamily:'Playfair Display,Georgia,serif',lineHeight:1}}>{val}</div>
+      <div style={{fontSize:11,color:DIM,marginTop:4,fontWeight:600}}>{label}</div>
+      {sub&&<div style={{fontSize:10,color:col,marginTop:2,opacity:0.8}}>{sub}</div>}
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// PAGE HERO — SVG + Title for each empty-state page
+// ══════════════════════════════════════════════════════════════
+function PageHero({icon,title,subtitle}:{icon:string;title:string;subtitle:string}) {
+  return (
+    <div style={{textAlign:'center',padding:'32px 20px 24px',background:`linear-gradient(135deg,rgba(0,22,40,0.8),rgba(0,31,58,0.6))`,borderRadius:16,border:`1px solid ${BOR}`,marginBottom:20,backdropFilter:'blur(12px)'}}>
+      <div style={{fontSize:48,marginBottom:10}}>{icon}</div>
+      <div style={{fontFamily:'Playfair Display,serif',fontSize:20,fontWeight:700,color:TS,marginBottom:6}}>{title}</div>
+      <div style={{fontSize:13,color:DIM,maxWidth:400,margin:'0 auto',lineHeight:1.6}}>{subtitle}</div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// BADGE COMPONENT
+// ══════════════════════════════════════════════════════════════
+function Badge({label,col=ACC}:{label:string;col?:string}) {
+  return <span style={{fontSize:10,padding:'3px 9px',borderRadius:20,background:`${col}22`,color:col,fontWeight:700,border:`1px solid ${col}44`,display:'inline-block'}}>{label}</span>
+}
+
+// ══════════════════════════════════════════════════════════════
+// MAIN ADMIN PANEL COMPONENT
+// ══════════════════════════════════════════════════════════════
+export default function AdminPanel() {
+  const router=useRouter()
+  const [role,setRole]=useState('')
+  const [token,setToken]=useState('')
+  const [mounted,setMounted]=useState(false)
+  const [_tab,_setTab]=useState(()=>{ try{ return localStorage.getItem('pr_admin_tab')||'dashboard' }catch{ return 'dashboard' } })
+  const tab=_tab
+  const setTab=(t:string)=>{ try{localStorage.setItem('pr_admin_tab',t)}catch{} ; _setTab(t) }
+  const [sideOpen,setSideOpen]=useState(false)
+  const [toast,setToast]=useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
+  const [notifOpen,setNotifOpen]=useState(false)
+  const [loading,setLoading]=useState(true)
+
+  // Data states
+  const [students,setStudents]=useState<Student[]>([])
+  const [exams,setExams]=useState<Exam[]>([])
+  const [questions,setQuestions]=useState<Question[]>([])
+  const [flags,setFlags]=useState<Flag[]>([])
+  const [logs,setLogs]=useState<Log[]>([])
+  const [tickets,setTickets]=useState<Ticket[]>([])
+  const [snapshots,setSnapshots]=useState<Snapshot[]>([])
+  const [features,setFeatures]=useState<Feature[]>(DEF_FEATURES)
+  const [stats,setStats]=useState<any>(null)
+  const [batches,setBatches]=useState<Batch[]>([])
+  const [adminUsers,setAdminUsers]=useState<AdminUser[]>([])
+  const [results,setResults]=useState<Result[]>([])
+  const [notifs,setNotifs]=useState<Notif[]>([])
+
+  // Search/filter states
+  const [stdSearch,setStdSearch]=useState('')
+  const [stdFilter,setStdFilter]=useState<'all'|'active'|'banned'>('all')
+  const [examSearch,setExamSearch]=useState('')
+  const [qSearch,setQSearch]=useState('')
+  const [qSubjFilter,setQSubjFilter]=useState('all')
+  const [selStudent,setSelStudent]=useState<Student|null>(null)
+
+  // Exam Create refs (keyboard fix)
+  const eTitleR=useRef('');const eDateR=useRef('')
+  const eMarksR=useRef('720');const eDurR=useRef('200')
+  const eCatR=useRef('Full Mock');const ePassR=useRef('')
+  const eBatchR=useRef('');const eInstrR=useRef('')
+  const [eStep,setEStep]=useState(1)
+  const [createdEId,setCreatedEId]=useState('')
+  const [createdETitle,setCreatedETitle]=useState('')
+  const [qMeth,setQMeth]=useState<'copypaste'|'excel'|'pdf'|'manual'>('copypaste')
+  const cpTxtR=useRef('');const cpKeyR=useRef('')
+  const [excelF,setExcelF]=useState<File|null>(null)
+  const [pdfF,setPdfF]=useState<File|null>(null)
+  const [uploadingQ,setUploadingQ]=useState(false)
+  const [creatingE,setCreatingE]=useState(false)
+  const [upRes,setUpRes]=useState<{s:number;f:number;msg:string}|null>(null)
+
+  // Question Bank refs
+  const qTxtR=useRef('');const qHindiR=useRef('');const qChapR=useRef('');const qTopicR=useRef('');const qExpR=useRef('')
+  const qA=useRef('');const qB=useRef('');const qC=useRef('');const qD=useRef('')
+  const [qSubj,setQSubj]=useState('Physics')
+  const [qDiff,setQDiff]=useState('medium')
+  const [qType,setQType]=useState('SCQ')
+  const [qAns,setQAns]=useState('A')
+  const [savingQ,setSavingQ]=useState(false)
+  const [qPreview,setQPreview]=useState(false)
+
+  // Student management refs
+  const banReaR=useRef('')
+  const [banId,setBanId]=useState('')
+  const [banT,setBanT]=useState<'permanent'|'temporary'>('permanent')
+
+  // Announcement refs
+  const annR=useRef('');const annTitleR=useRef('')
+  const [annBatch,setAnnBatch]=useState('all')
+  const [annType,setAnnType]=useState<'in-app'|'email'|'both'>('both')
+
+  // Branding refs
+  const bNameR=useRef('ProveRank');const bTagR=useRef('Prove Your Rank')
+  const bMailR=useRef('support@proverank.com');const bPhoneR=useRef('')
+  const seoTR=useRef('ProveRank — NEET Online Test Platform')
+  const seoDR=useRef('Best NEET mock test platform with AI analytics and anti-cheat proctoring.')
+  const seoKR=useRef('NEET,online test,mock exam,ProveRank')
+  const mainMsgR=useRef('Site under maintenance. We will be back shortly.')
+  const [savingB,setSavingB]=useState(false)
+  const [mainOn,setMainOn]=useState(false)
+
+  // Impersonate / time extension
+  const [impId,setImpId]=useState('')
+  const [extStdId,setExtStdId]=useState('')
+  const [extMins,setExtMins]=useState('10')
+
+  // Permissions
+  const [perms,setPerms]=useState({
+    create_exam:true,edit_exam:true,delete_exam:false,
+    ban_student:true,view_results:true,export_data:true,
+    manage_questions:true,send_announcements:true,
+    view_audit_logs:false,manage_features:false,
+    manage_admins:false,impersonate:false,
+    manage_branding:false,view_snapshots:true,
+  })
+
+  // Admin creation refs
+  const admNameR=useRef('');const admEmailR=useRef('');const admPassR=useRef('')
+  const [admRole,setAdmRole]=useState('admin')
+  const [creatingAdm,setCreatingAdm]=useState(false)
+
+  // Batch management
+  const batchNameR=useRef('')
+  const [creatingBatch,setCreatingBatch]=useState(false)
+  const [batchTransStdId,setBatchTransStdId]=useState('')
+  const [batchTransTo,setBatchTransTo]=useState('')
+
+  // AI Smart Generator
+  const aiTopicR=useRef('');const aiChapR=useRef('')
+  const [aiCount,setAiCount]=useState('10')
+  const [aiSubj,setAiSubj]=useState('Physics')
+  const [aiDiff,setAiDiff]=useState('medium')
+  const [aiLoading,setAiLoading]=useState(false)
+  const [aiResult,setAiResult]=useState<any[]>([])
+  const [aiSaving,setAiSaving]=useState(false)
+
+  // Task manager
+  const [todos,setTodos]=useState([
+    {id:'1',text:'Review upcoming exam questions before publish',done:false,priority:'high'},
+    {id:'2',text:'Reply to pending student grievance tickets',done:false,priority:'medium'},
+    {id:'3',text:'Check server health before exam day',done:false,priority:'high'},
+    {id:'4',text:'Update PYQ bank with NEET 2024 questions',done:false,priority:'low'},
+  ])
+  const todoR=useRef('');const [todoPri,setTodoPri]=useState<'high'|'medium'|'low'>('medium')
+
+  // Changelog
+  const clogs=[
+    {v:'V4.0',d:'Mar 2026',chg:['Complete redesign — Login page theme matched','All 62+ features active with real API wiring','Mobile keyboard fix — memo components','Upload endpoints corrected — copypaste/excel/pdf','Beautiful page designs with SVG illustrations','Superadmin/Admin role display in header'],t:'major'},
+    {v:'V3.1',d:'Mar 2026',chg:['Fixed All Exams zero bug — fetchAll after create','Fixed field names: questionsText + answerKeyText','Added 9 missing features (M15,S102,S69,S71,S70,M9,M10,M12,S110)'],t:'minor'},
+  ]
+
+  // Email template refs
+  const emailSubjR=useRef('');const emailBodyR=useRef('')
+  const [emailType,setEmailType]=useState('welcome')
+  const [sendingEmail,setSendingEmail]=useState(false)
+
+  // Custom reg fields
+  const [customFields,setCustomFields]=useState([
+    {key:'school_name',label:'School Name',type:'text',required:false},
+    {key:'city',label:'City',type:'text',required:false},
+    {key:'class',label:'Class',type:'select',required:true,options:'11th,12th,Dropper'},
+  ])
+  const cfLabelR=useRef('');const cfKeyR=useRef('');const cfOptsR=useRef('')
+  const [cfType,setCfType]=useState('text')
+  const [cfRequired,setCfRequired]=useState(false)
+
+  // Certificate
+  const [certExamId,setCertExamId]=useState('')
+
+  // PYQ filter
+  const [pyqYear,setPyqYear]=useState('all')
+  const [pyqSubj,setPyqSubj]=useState('all')
+  const [pyqData,setPyqData]=useState<any[]>([])
+  const [pyqLoading,setPyqLoading]=useState(false)
+
+  // Bulk exam creator
+  const [bulkExamFile,setBulkExamFile]=useState<File|null>(null)
+  const [bulkExamLoading,setBulkExamLoading]=useState(false)
+  const [bulkResult,setBulkResult]=useState<any>(null)
+
+  // ══ TOAST ══
+  const T=useCallback((msg:string,tp:'s'|'e'|'w'='s')=>{setToast({msg,tp});setTimeout(()=>setToast(null),4500)},[])
+
+  // ══ AUTH HEADERS ══
+  const H=useCallback(()=>({Authorization:`Bearer ${token}`}),[token])
+  const HJ=useCallback(()=>({'Content-Type':'application/json',Authorization:`Bearer ${token}`}),[token])
+
+  // ══ INIT ══
+  useEffect(()=>{
+    const t=getToken(),r=getRole()
+    if(!t||!['admin','superadmin'].includes(r)){router.replace('/login');return}
+    setToken(t);setRole(r);setMounted(true)
+  },[router])
+
+  useEffect(()=>{if(token)fetchAll()},[token])
+
+  // ══ FETCH ALL DATA ══
+  const fetchAll=useCallback(async()=>{
+    if(!token)return
+    setLoading(true)
+    const get=async(u:string)=>{try{const r=await fetch(u,{headers:{Authorization:`Bearer ${token}`}});return r.ok?r.json():null}catch{return null}}
+    const getFirst=async(...urls:string[])=>{for(const u of urls){try{const r=await fetch(u,{headers:{Authorization:`Bearer ${token}`}});if(r.ok){const d=await r.json();if(d)return d}}catch{}}return null}
+    const [us,ex,qs,st,fl,al,tk,sn,ft,nf,bt,au,rs]=await Promise.all([
+      getFirst(`${API}/api/admin/students`,`${API}/api/admin/users`,`${API}/api/admin/manage/students`),
+      get(`${API}/api/exams`),
+      get(`${API}/api/questions`),
+      getFirst(`${API}/api/admin/stats`,`${API}/api/admin/dashboard`),
+      getFirst(`${API}/api/admin/manage/cheating-logs`,`${API}/api/admin/cheating-logs`),
+      getFirst(`${API}/api/admin/manage/audit`,`${API}/api/admin/audit`),
+      getFirst(`${API}/api/admin/manage/tickets`,`${API}/api/admin/tickets`),
+      getFirst(`${API}/api/admin/manage/snapshots`,`${API}/api/admin/snapshots`),
+      get(`${API}/api/admin/features`),
+      get(`${API}/api/admin/notifications`),
+      getFirst(`${API}/api/admin/batches`,`${API}/api/admin/manage/batches`),
+      get(`${API}/api/admin/manage/admins`),
+      getFirst(`${API}/api/results`,`${API}/api/admin/results`),
+    ])
+    if(us){const list=Array.isArray(us)?us:(us.students||us.data||us.users||[]);setStudents(list)}
+    if(Array.isArray(ex))setExams(ex)
+    if(Array.isArray(qs))setQuestions(qs)
+    if(st)setStats(st)
+    if(Array.isArray(fl)){setFlags(fl);if(fl.length&&fl[0].key!==undefined)setFeatures(fl);}
+    if(Array.isArray(al))setLogs(al)
+    if(Array.isArray(tk))setTickets(tk)
+    if(Array.isArray(sn))setSnapshots(sn)
+    if(Array.isArray(nf))setNotifs(nf)
+    if(Array.isArray(bt))setBatches(bt)
+    if(Array.isArray(au))setAdminUsers(au)
+    if(Array.isArray(rs))setResults(rs)
+    if(ft){
+      if(Array.isArray(ft)&&ft.length)setFeatures(ft)
+      else if(ft&&typeof ft==='object')setFeatures(DEF_FEATURES.map(f=>({...f,enabled:ft[f.key]!==undefined?Boolean(ft[f.key]):f.enabled})))
+    }
+    setLoading(false)
+  },[token])
+
+  // ══ CREATE EXAM (FIXED: correct fields) ══
+  const createExamS1=useCallback(async()=>{
+    const title=eTitleR.current,date=eDateR.current
+    if(!title||!date){T('Exam title and date are both required.','e');return}
+    setCreatingE(true)
+    try{
+      const body={title,scheduledAt:new Date(date).toISOString(),totalMarks:parseInt(eMarksR.current)||720,duration:parseInt(eDurR.current)||200,subject:'NEET',type:'NEET',difficulty:'Mixed',category:eCatR.current||'Full Mock',batch:eBatchR.current||undefined,customInstructions:eInstrR.current||undefined,password:ePassR.current||undefined}
+      const res=await fetch(`${API}/api/exams`,{method:'POST',headers:{...(()=>({'Content-Type':'application/json',Authorization:`Bearer ${token}`}))()},body:JSON.stringify(body)})
+      if(res.ok||res.status===201){
+        const d=await res.json()
+        const eid=d?.exam?._id||d?.exam?.id||d?._id||d?.id||d?.examId||''
+        const etitle=d?.exam?.title||d?.title||title
+        if(eid){
+          setCreatedEId(eid);setCreatedETitle(etitle)
+          T('Exam created successfully! Now add questions.')
+          setEStep(2)
+          setTimeout(()=>fetchAll(),500)
+        } else {
+          setCreatedEId('');setCreatedETitle(etitle)
+          T('Exam created. (ID not returned — use Question Bank to add questions)','w')
+          setEStep(2)
+          setTimeout(()=>fetchAll(),500)
+        }
+      } else {
+        const e=await res.json().catch(()=>({}))
+        T(`Error ${res.status}: ${e.message||e.error||'Check exam details.'}`, 'e')
+      }
+    } catch(err:any){T(`Network error: ${err.message||'Check connection.'}`, 'e')}
+    setCreatingE(false)
+  },[token,T,fetchAll])
+
+  // ══ UPLOAD QUESTIONS (FIXED: correct endpoints + field names) ══
+  const uploadQs=useCallback(async()=>{
+    const examId=createdEId
+    if(!examId){T('Complete Step 1 first to create the exam.','e');return}
+    setUploadingQ(true);setUpRes(null)
+    try{
+      let res:Response|null=null
+      if(qMeth==='copypaste'||qMeth==='manual'){
+        const questionsText=cpTxtR.current
+        const answerKeyText=cpKeyR.current
+        if(!questionsText){T('Please paste the question text first.','e');setUploadingQ(false);return}
+        const payload={examId,questionsText,answerKeyText,questions:questionsText,text:questionsText,answerKey:answerKeyText}
+        for(const ep of [`${API}/api/upload/copypaste/questions`,`${API}/api/upload/copy-paste`,`${API}/api/questions/bulk`]){
+          try{const r=await fetch(ep,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(payload)});if(r.ok||r.status===201){res=r;break}}catch{}
+        }
+      } else if(qMeth==='excel'){
+        if(!excelF){T('Please select an Excel file.','e');setUploadingQ(false);return}
+        for(const ep of [`${API}/api/upload/excel/questions`,`${API}/api/excel/questions`,`${API}/api/upload/excel`]){
+          try{const fd=new FormData();fd.append('file',excelF);fd.append('examId',examId);fd.append('exam_id',examId);const r=await fetch(ep,{method:'POST',headers:{Authorization:`Bearer ${token}`},body:fd});if(r.ok||r.status===201){res=r;break}}catch{}
+        }
+      } else if(qMeth==='pdf'){
+        if(!pdfF){T('Please select a PDF file.','e');setUploadingQ(false);return}
+        for(const ep of [`${API}/api/upload/pdf/questions`,`${API}/api/upload/pdf`,`${API}/api/questions/pdf`]){
+          try{const fd=new FormData();fd.append('file',pdfF);fd.append('examId',examId);fd.append('exam_id',examId);const r=await fetch(ep,{method:'POST',headers:{Authorization:`Bearer ${token}`},body:fd});if(r.ok||r.status===201){res=r;break}}catch{}
+        }
+      }
+      if(res&&(res.ok||res.status===201)){
+        const d=await res.json().catch(()=>({}))
+        const cnt=d.success||d.count||d.uploaded||d.inserted||d.saved||0
+        setUpRes({s:cnt,f:d.failed||0,msg:`${cnt} questions uploaded successfully!`})
+        T(`${cnt} questions uploaded to exam.`)
+        setEStep(3)
+        setTimeout(()=>fetchAll(),500)
+      } else {
+        setUpRes({s:0,f:0,msg:'Upload endpoint not available. Use Question Bank tab to add questions manually.'})
+        T('Upload endpoint not available. Please use Question Bank instead.','w')
+        setEStep(3)
+      }
+    } catch(err:any){
+      setUpRes({s:0,f:0,msg:'Network error occurred.'})
+      T('Network error. Check your connection.','w')
+      setEStep(3)
+    }
+    setUploadingQ(false)
+  },[createdEId,qMeth,excelF,pdfF,token,T,fetchAll])
+
+  // ══ QUESTION BANK ══
+  const addQ=useCallback(async()=>{
+    const text=qTxtR.current
+    if(!text){T('Question text is required.','e');return}
+    setSavingQ(true)
+    const payload={text,hindiText:qHindiR.current||undefined,subject:qSubj,chapter:qChapR.current||undefined,topic:qTopicR.current||undefined,difficulty:qDiff,type:qType,options:['SCQ','MSQ'].includes(qType)?[qA.current,qB.current,qC.current,qD.current].filter(Boolean):undefined,correctAnswer:qAns,explanation:qExpR.current||undefined}
+    try{
+      const res=await fetch(`${API}/api/questions`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(payload)})
+      if(res.ok||res.status===201){
+        T('Question added to bank successfully.')
+        qTxtR.current='';qHindiR.current='';qA.current='';qB.current='';qC.current='';qD.current='';qChapR.current='';qTopicR.current='';qExpR.current=''
+        const r=await fetch(`${API}/api/questions`,{headers:{Authorization:`Bearer ${token}`}})
+        if(r.ok)setQuestions(await r.json())
+      } else {
+        const e=await res.json().catch(()=>({}))
+        T(e.message||`Error ${res.status}`,'e')
+      }
+    } catch(err:any){T(`Network error: ${err.message}`,'e')}
+    setSavingQ(false)
+  },[qSubj,qDiff,qType,qAns,token,T])
+
+  // ══ BAN / UNBAN ══
+  const banStd=useCallback(async()=>{
+    const reason=banReaR.current
+    if(!banId||!reason){T('Student ID and ban reason are both required.','e');return}
+    try{
+      const res=await fetch(`${API}/api/admin/ban/${banId}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({banReason:reason,banType:banT})})
+      if(res.ok){setStudents(p=>p.map(s=>s._id===banId?{...s,banned:true,banReason:reason}:s));T('Student has been banned.');setBanId('');banReaR.current=''}
+      else{T('Failed to ban student.','e')}
+    } catch{T('Network error.','e')}
+  },[banId,banT,token,T])
+
+  const unbanStd=useCallback(async(id:string)=>{
+    try{
+      const res=await fetch(`${API}/api/admin/unban/${id}`,{method:'POST',headers:{Authorization:`Bearer ${token}`}})
+      if(res.ok){setStudents(p=>p.map(s=>s._id===id?{...s,banned:false,banReason:''}:s));T('Student unbanned successfully.')}
+      else{T('Failed to unban student.','e')}
+    } catch{T('Network error.','e')}
+  },[token,T])
+
+  // ══ FEATURE FLAGS ══
+  const toggleFeat=useCallback(async(key:string)=>{
+    const ft=features.find(f=>f.key===key);const ne=!ft?.enabled
+    setFeatures(p=>p.map(f=>f.key===key?{...f,enabled:ne}:f))
     if(key==='open_registration'){try{const r=await fetch(`${API}/api/auth/admin/registration-control`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({enabled:ne})});const d=await r.json();if(r.ok)T(d.message||'Done','s');else{T(d.message||'Failed','e');setFeatures(p=>p.map(f=>f.key===key?{...f,enabled:!ne}:f))}}catch{T('Error','e');setFeatures(p=>p.map(f=>f.key===key?{...f,enabled:!ne}:f))};return}
     try{await fetch(`${API}/api/admin/features`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({key,enabled:ne})})}catch{}
     T(`${ft?.label||key} ${ne?'enabled':'disabled'}.`)
