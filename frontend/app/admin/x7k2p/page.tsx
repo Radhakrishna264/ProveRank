@@ -441,7 +441,7 @@ export default function AdminPanel() {
     if(Array.isArray(ex))setExams(ex)
     if(Array.isArray(qs))setQuestions(qs)
     if(st)setStats(st)
-    if(Array.isArray(fl))setFlags(fl)
+    if(Array.isArray(fl)){setFlags(fl);setFeatures(prev=>prev.map(f=>{const a=fl.find(af=>af.key===f.key);return a?{...f,enabled:a.enabled}:f;}))}
     if(Array.isArray(al))setLogs(al)
     if(Array.isArray(tk))setTickets(tk)
     if(Array.isArray(sn))setSnapshots(sn)
