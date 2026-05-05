@@ -2002,9 +2002,9 @@ export default function AdminPanel() {
               <div style={pageSub}>0–100 integrity score per student — combines tab switches, face flags, answer patterns</div>
               <PageHero icon="🤖" title="AI-Powered Integrity Analysis" subtitle="Each student receives an integrity score based on their behavior during exams — tab switches, face detection, answer speed patterns, and IP anomalies. Scores below 40 indicate suspicious activity."/>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:16}}>
-                <div style={{...cs,textAlign:'center'}}><div style={{fontSize:24,color:SUC,fontWeight:700}}>{(students||[]).filter(s=>s.integrityScore!==undefined&&(s.integrityScore||0)>70).length}</div><div style={{fontSize:11,color:DIM}}>High Trust (>70)</div></div>
+                <div style={{...cs,textAlign:'center'}}><div style={{fontSize:24,color:SUC,fontWeight:700}}>{(students||[]).filter(s=>s.integrityScore!==undefined&&(s.integrityScore||0)>70).length}</div><div style={{fontSize:11,color:DIM}}>High Trust (&gt;70)</div></div>
                 <div style={{...cs,textAlign:'center'}}><div style={{fontSize:24,color:WRN,fontWeight:700}}>{(students||[]).filter(s=>s.integrityScore!==undefined&&(s.integrityScore||0)>=40&&(s.integrityScore||0)<=70).length}</div><div style={{fontSize:11,color:DIM}}>Medium Trust</div></div>
-                <div style={{...cs,textAlign:'center'}}><div style={{fontSize:24,color:DNG,fontWeight:700}}>{(students||[]).filter(s=>s.integrityScore!==undefined&&(s.integrityScore||0)<40).length}</div><div style={{fontSize:11,color:DIM}}>Low Trust (<40)</div></div>
+                <div style={{...cs,textAlign:'center'}}><div style={{fontSize:24,color:DNG,fontWeight:700}}>{(students||[]).filter(s=>s.integrityScore!==undefined&&(s.integrityScore||0)<40).length}</div><div style={{fontSize:11,color:DIM}}>Low Trust (&lt;40)</div></div>
               </div>
               {(students||[]).filter(s=>s.integrityScore!==undefined).length===0
                 ?<div style={{textAlign:'center',padding:'30px',color:DIM}}><div style={{fontSize:36,marginBottom:8}}>🤖</div><div style={{fontSize:12}}>No integrity scores computed yet</div></div>
