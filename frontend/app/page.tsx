@@ -161,7 +161,7 @@ export default function LandingPage() {
         <div style={{position:'absolute',top:'45%',right:'14%',opacity:.04,animation:'float 6s ease-in-out infinite 1s',fontSize:80,color:'#4D9FFF'}}>⬡</div>
 
         <div style={{animation:'fadeUp 0.6s ease forwards',marginBottom:28,position:'relative',zIndex:2}}>
-          <PRLogo/>
+          <PRLogo size={56}/>
         </div>
         <h1 className="hero-title" style={{marginBottom:22,maxWidth:720,whiteSpace:'pre-line',position:'relative',zIndex:2}}>
           {t.heroTitle}

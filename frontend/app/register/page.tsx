@@ -1,4 +1,5 @@
 'use client'
+import PRLogo from '@/components/PRLogo'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
@@ -79,7 +80,10 @@ export default function RegisterPage() {
       <div style={{width:'100%',maxWidth:420,animation:'fadeIn .5s ease',position:'relative',zIndex:1}}>
         {/* Logo */}
         <div style={{textAlign:'center',marginBottom:28}}>
-          <div style={{fontFamily:'Playfair Display,serif',fontSize:28,fontWeight:700,color:PRI}}>ProveRank</div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,marginBottom:4}}>
+              <PRLogo size={44}/>
+              <div style={{fontFamily:'Playfair Display,serif',fontSize:26,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF,#00D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>ProveRank</div>
+            </div>
           <div style={{fontSize:12,color:SUB,marginTop:4}}>NEET 2026 Preparation Platform</div>
         </div>
 
