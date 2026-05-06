@@ -141,8 +141,8 @@ export default function LandingPage() {
       <nav style={{position:'fixed',top:0,left:0,right:0,zIndex:100,padding:'0 5%',height:64,display:'flex',alignItems:'center',justifyContent:'space-between',background:scrolled?(dark?'rgba(0,6,18,0.94)':'rgba(248,252,255,0.94)'):'transparent',backdropFilter:scrolled?'blur(20px)':'none',borderBottom:scrolled?`1px solid ${bord}`:'none',transition:'all 0.3s'}}>
         <Link href="/" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:10}}>
           
-          <PRLogo size={28}/>
-            <span style={{fontFamily:'Playfair Display,serif',fontSize:19,fontWeight:800,background:'linear-gradient(90deg,#4D9FFF,#fff,#4D9FFF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>ProveRank</span>
+          <PRLogo size={32}/>
+            
         </Link>
         <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
           <a href="#features" className="nav-link">{t.features}</a>
