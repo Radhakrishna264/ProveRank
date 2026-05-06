@@ -1000,7 +1000,7 @@ export default function AdminPanel() {
         </div>
 
         {/* ══ MAIN CONTENT ══ */}
-        <div style={{flex:1,padding:'20px 16px',minHeight:'calc(100vh - 58px)',maxWidth:'100vw',overflow:'auto',animation:'fadeIn 0.4s ease'}}>
+        <div style={{flex:1,padding:'20px 16px',maxWidth:'100vw',overflow:'auto',animation:'fadeIn 0.4s ease',paddingBottom:32}}>
 
           {/* ══ DASHBOARD ══ */}
           {tab==='dashboard'&&(
@@ -1014,8 +1014,8 @@ export default function AdminPanel() {
               <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:20}}>
                 <StatBox ico='👥' lbl='Total Students' val={loading?'…':stats?.totalStudents||(students||[]).length||0} col={ACC}/>
                 <StatBox ico='📝' lbl='Total Exams' val={loading?'…':stats?.totalExams||(exams||[]).length||0} col={GOLD}/>
-                <StatBox ico='📈' lbl='Exam Attempts' val={loading?'…':stats?.totalAttempts||'—'} col={SUC}/>
-                <StatBox ico='🟢' lbl='Active Today' val={loading?'…':stats?.activeStudents||'—'} col='#00E5FF'/>
+                <StatBox ico='📈' lbl='Exam Attempts' val={loading?'…':stats?.totalAttempts??0} col={SUC}/>
+                <StatBox ico='🟢' lbl='Active Today' val={loading?'…':stats?.activeStudents??0} col='#00E5FF'/>
                 <StatBox ico='❓' lbl='Questions' val={loading?'…':stats?.totalQuestions||(questions||[]).length||0} col='#FF6B9D'/>
               </div>
 
@@ -1088,7 +1088,7 @@ export default function AdminPanel() {
               </div>
 
               {/* Bottom row */}
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:12}}>
                 <div style={cs}>
                   <div style={{fontWeight:700,marginBottom:8,fontSize:12}}>🏆 Top Students</div>
                   {(students||[]).filter(s=>!s.banned).slice(0,4).map((s,i)=>(
@@ -1140,7 +1140,7 @@ export default function AdminPanel() {
               <PageHero icon="🔴" title="Live Exam Control Center" subtitle="Monitor all active exams in real-time. View connected students, server response time, and flag suspicious activity as it happens."/>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:20}}>
                 <StatBox ico='🟢' lbl='Active Exams' val={(exams||[]).filter(e=>e.status==='active').length} col={SUC}/>
-                <StatBox ico='👥' lbl='Connected Now' val={stats?.activeStudents||'—'} col={ACC}/>
+                <StatBox ico='👥' lbl='Connected Now' val={stats?.activeStudents??0} col={ACC}/>
                 <StatBox ico='🚨' lbl='Live Flags' val={(flags||[]).filter(f=>f.severity==='high').length} col={DNG}/>
                 <StatBox ico='⚡' lbl='Server Status' val='Online' col={SUC}/>
               </div>
