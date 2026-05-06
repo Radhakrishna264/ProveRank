@@ -53,7 +53,7 @@ function StatCard({icon,label,value,col,dm,sub}:{icon:string;label:string;value:
     <div className="card-h" style={{background:dm?C.card:C.cardL,border:`1px solid ${C.border}`,borderRadius:16,padding:'18px 16px',flex:1,minWidth:130,backdropFilter:'blur(14px)',position:'relative',overflow:'hidden',transition:'all .25s',textAlign:'center',boxShadow:'0 4px 16px rgba(0,0,0,.2)'}}>
       <div style={{position:'absolute',right:-8,bottom:-8,fontSize:48,opacity:.07,filter:'blur(2px)'}}>{icon}</div>
       <div style={{fontSize:26,marginBottom:8,display:'block'}}>{icon}</div>
-      <div style={{fontSize:26,fontWeight:800,color:col,fontFamily:'Playfair Display,serif',lineHeight:1,textShadow:`0 0 20px ${col}44`}}>{value??'—'}</div>
+      <div style={{fontSize:26,fontWeight:800,color:col,fontFamily:'Inter,sans-serif',lineHeight:1,textShadow:`0 0 20px ${col}44`}}>{value??'—'}</div>
       <div style={{fontSize:10,color:C.sub,marginTop:4,fontWeight:600,letterSpacing:.3}}>{label}</div>
       {sub&&<div style={{fontSize:9,color:col,marginTop:2,opacity:.85}}>{sub}</div>}
     </div>
