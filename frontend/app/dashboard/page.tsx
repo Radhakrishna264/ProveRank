@@ -131,12 +131,12 @@ function DashboardContent() {
         <StatCard dm={dm} icon="🏆" label={t('Best Rank','सर्वश्रेष्ठ रैंक')} value={bestRank&&bestRank<99999?`#${bestRank}`:'—'} col={C.gold}/>
         <StatCard dm={dm} icon="📊" label={t('Best Score','सर्वश्रेष्ठ स्कोर')} value={bestScore?`${bestScore}/720`:'—'} col={C.primary}/>
         <StatCard dm={dm} icon="📈" label={t('Avg Score','औसत स्कोर')} value={avgScore?`${avgScore}/720`:'—'} col={C.success}/>
-        <StatCard dm={dm} icon="⏳" label={t('Days to NEET','NEET तक दिन')} value={daysLeft} col={C.warn} sub="NEET 2026"/>
+        <StatCard dm={dm} icon="⏳" label={t('Days to NEET','NEET तक दिन')} value={daysLeft} col={C.warn} sub="NEET"/>
       </div>
       <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:24}}>
         <StatCard dm={dm} icon="📝" label={t('Tests Given','दिए टेस्ट')} value={results.length} col={C.primary}/>
         <StatCard dm={dm} icon="📅" label={t('Upcoming','आगामी')} value={upcoming.length} col={C.pink}/>
-        <StatCard dm={dm} icon="🔥" label={t('Streak','स्ट्रीक')} value={`${user?.streak||0}d`} col={C.danger} sub={t('Keep going!','जारी रखें!')}/>
+        <StatCard dm={dm} icon="🔥" label={t('Streak','स्ट्रीक')} value={String(Math.floor(Number(user?.streak)||0))+"d"} col={C.danger} sub={t('Keep going!','जारी रखें!')}/>
         <StatCard dm={dm} icon="🎖️" label={t('Badges','बैज')} value={user?.badges?.length||0} col={C.purple}/>
       </div>
 
@@ -240,11 +240,11 @@ function DashboardContent() {
         {/* Animated orbit circles */}
         <div style={{position:'absolute',right:20,top:'50%',transform:'translateY(-50%)',width:80,height:80,borderRadius:'50%',border:'1px dashed rgba(255,215,0,.2)',animation:'spinSlow 20s linear infinite',pointerEvents:'none'}}/>
         <div style={{position:'absolute',right:30,top:'50%',transform:'translateY(-50%)',width:55,height:55,borderRadius:'50%',border:'1px dashed rgba(255,215,0,.3)',animation:'spinSlow 12s linear infinite reverse',pointerEvents:'none'}}/>
-        <div style={{fontSize:13,color:C.gold,fontWeight:700,marginBottom:4}}>🏆 NEET 2026</div>
+        <div style={{fontSize:13,color:C.gold,fontWeight:700,marginBottom:4}}>🏆 NEET</div>
         <div style={{fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:700,color:dm?C.text:C.textL,marginBottom:4}}>
           <span style={{color:C.gold,textShadow:`0 0 20px ${C.gold}44`}}>{daysLeft}</span> {t('Days Remaining','दिन शेष')}
         </div>
-        <div style={{fontSize:12,color:C.sub,marginBottom:14}}>{t('NEET 2026 — May 3, 2026 · 180 Questions · 720 Marks','NEET 2026 — 3 मई 2026 · 180 प्रश्न · 720 अंक')}</div>
+        <div style={{fontSize:12,color:C.sub,marginBottom:14}}>{t('NEET · 180 Questions · 720 Marks','NEET · 180 प्रश्न · 720 अंक')}</div>
         {/* Progress bar */}
         <div style={{background:'rgba(255,255,255,.06)',borderRadius:6,height:8,overflow:'hidden',marginBottom:12}}>
           <div style={{height:'100%',width:`${Math.max(5,100-Math.round(daysLeft/365*100))}%`,background:`linear-gradient(90deg,${C.gold},#FF8C00)`,borderRadius:6,transition:'width .8s'}}/>
@@ -277,7 +277,7 @@ function DashboardContent() {
         <div style={{fontSize:20,color:C.primary,fontFamily:'Playfair Display,serif',fontWeight:700,marginBottom:6,textShadow:`0 0 30px ${C.primary}44`}}>
           {t("You're on the right path! 🚀","आप सही रास्ते पर हैं! 🚀")}
         </div>
-        <div style={{fontSize:13,color:C.sub}}>{t(daysLeft+' days remaining for NEET 2026 — Make every day count!','NEET 2026 के लिए '+daysLeft+' दिन शेष — हर दिन सार्थक बनाएं!')}</div>
+        <div style={{fontSize:13,color:C.sub}}>{t(daysLeft+' days remaining — Make every day count!',''+daysLeft+' दिन शेष — हर दिन सार्थक बनाएं!')}</div>
       </div>
     </div>
   )
