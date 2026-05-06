@@ -1,60 +1,36 @@
 'use client'
 
-function PRLogo() {
-  const size = 64; const r = 32; const cx = 32; const cy = 32;
-  const outer = Array.from({length:6},(_,i)=>{
-    const a=(Math.PI/180)*(60*i-30);
-    return `${cx+r*0.88*Math.cos(a)},${cy+r*0.88*Math.sin(a)}`;
-  }).join(' ');
-  const inner = Array.from({length:6},(_,i)=>{
-    const a=(Math.PI/180)*(60*i-30);
-    return `${cx+r*0.72*Math.cos(a)},${cy+r*0.72*Math.sin(a)}`;
-  }).join(' ');
-
+function PRLogo({size=36}:{size?:number}) {
+  const blockSize = size * 0.94
+  const pSize = Math.round(blockSize * 0.63)
+  const rSize = Math.round(blockSize * 0.63)
+  const fontSize = Math.round(pSize * 0.52)
+  const radius = Math.round(pSize * 0.28)
   return (
-    <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:10}}>
-      <svg width={size} height={size} viewBox="0 0 64 64">
-        <defs>
-          <filter id="gl">
-            <feGaussianBlur stdDeviation="2.5" result="b"/>
-            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-        </defs>
-        {/* Outer glow ring */}
-        <polygon points={outer} fill="none"
-          stroke="rgba(77,159,255,0.35)" strokeWidth="1" filter="url(#gl)"/>
-        {/* Inner ring */}
-        <polygon points={inner} fill="none"
-          stroke="#4D9FFF" strokeWidth="2" filter="url(#gl)"/>
-        {/* Honeycomb dots */}
-        {Array.from({length:6},(_,i)=>{
-          const a=(Math.PI/180)*(60*i-30);
-          return <circle key={i}
-            cx={cx+r*0.88*Math.cos(a)} cy={cy+r*0.88*Math.sin(a)}
-            r={3} fill="#4D9FFF" filter="url(#gl)"/>;
-        })}
-        {/* PR text */}
-        <text x={cx} y={cy+6}
-          textAnchor="middle"
-          fontFamily="Playfair Display,serif"
-          fontSize="20" fontWeight="700"
-          fill="#4D9FFF" filter="url(#gl)">PR</text>
-      </svg>
-      {/* ProveRank gradient text — exact from login page */}
+    <div style={{position:'relative',width:blockSize,height:blockSize,flexShrink:0,display:'inline-flex'}}>
       <div style={{
-        fontFamily:'Playfair Display,serif',
-        fontSize:30, fontWeight:700,
-        background:'linear-gradient(90deg,#4D9FFF 0%,#FFFFFF 50%,#4D9FFF 100%)',
-        WebkitBackgroundClip:'text',
-        WebkitTextFillColor:'transparent',
-        letterSpacing:1, lineHeight:1
-      }}>ProveRank</div>
+        position:'absolute',top:0,left:0,
+        width:pSize,height:pSize,
+        borderRadius:radius,
+        background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',
+        display:'flex',alignItems:'center',justifyContent:'center',
+        fontSize:fontSize,fontWeight:900,fontFamily:'Inter,sans-serif',
+        color:'#030810',
+        boxShadow:'0 4px 16px rgba(77,159,255,0.4)'
+      }}>P</div>
       <div style={{
-        fontSize:11, color:'#6B8BAF',
-        letterSpacing:4, textTransform:'uppercase'
-      }}>Online Test Platform</div>
+        position:'absolute',bottom:0,right:0,
+        width:rSize,height:rSize,
+        borderRadius:radius,
+        background:'rgba(0,212,255,0.1)',
+        border:'1.5px solid rgba(0,212,255,0.45)',
+        display:'flex',alignItems:'center',justifyContent:'center',
+        fontSize:fontSize,fontWeight:900,fontFamily:'Inter,sans-serif',
+        color:'#00D4FF',
+        backdropFilter:'blur(8px)'
+      }}>R</div>
     </div>
-  );
+  )
 }
 
 export default PRLogo;
