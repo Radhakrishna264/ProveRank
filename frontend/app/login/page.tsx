@@ -182,7 +182,7 @@ export default function LoginPage() {
               <PRLogo size={44}/>
               <div style={{fontFamily:'Playfair Display,serif',fontSize:26,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF,#00D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>ProveRank</div>
             </div>
-            <div style={{fontSize:12,color:SUB,marginTop:4}}>NEET 2026 Preparation Platform</div>
+            <div style={{fontSize:12,color:SUB,marginTop:4}}>NEET Preparation Platform</div>
           </div>
 
           {/* Form Card */}
@@ -248,7 +248,7 @@ export default function LoginPage() {
               <div key={sub} style={{background:'rgba(0,22,40,0.55)',border:'1px solid rgba(77,159,255,0.15)',borderRadius:12,padding:'12px 6px',textAlign:'center',backdropFilter:'blur(8px)'}}>
                 <div style={{fontSize:22,marginBottom:5}}>{ic}</div>
                 <div style={{fontSize:11,color:TXT,fontWeight:600}}>{sub}</div>
-                <div style={{fontSize:10,color:SUB,marginTop:2}}>NEET 2026</div>
+                <div style={{fontSize:10,color:SUB,marginTop:2}}>NEET</div>
               </div>
             ))}
           </div>
@@ -270,7 +270,7 @@ export default function LoginPage() {
                 ))}
               </svg>
             </div>
-            <div style={{fontSize:10,color:'rgba(107,143,175,0.5)',marginTop:4}}>ProveRank · NEET 2026 · prove-rank.vercel.app</div>
+            <div style={{fontSize:10,color:'rgba(107,143,175,0.5)',marginTop:4}}>ProveRank · NEET · prove-rank.vercel.app</div>
           </div>
         </div>
       </div>

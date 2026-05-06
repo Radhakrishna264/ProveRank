@@ -149,7 +149,7 @@ export default function RegisterPage() {
               <PRLogo size={44}/>
               <div style={{fontFamily:'Playfair Display,serif',fontSize:26,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF,#00D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>ProveRank</div>
             </div>
-            <div style={{fontSize:12,color:SUB,marginTop:4}}>NEET 2026 Preparation Platform</div>
+            <div style={{fontSize:12,color:SUB,marginTop:4}}>NEET Preparation Platform</div>
           </div>
 
           {/* Form Card */}
@@ -226,7 +226,7 @@ export default function RegisterPage() {
                 <circle cx="141" cy="47" r="2.5" fill="#4D9FFF" opacity={0.8}/>
               </svg>
             </div>
-            <div style={{fontSize:10,color:'rgba(107,143,175,0.45)',marginTop:4}}>ProveRank · NEET 2026 · prove-rank.vercel.app</div>
+            <div style={{fontSize:10,color:'rgba(107,143,175,0.45)',marginTop:4}}>ProveRank · NEET · prove-rank.vercel.app</div>
           </div>
 
         </div>
