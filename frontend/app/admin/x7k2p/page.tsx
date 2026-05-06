@@ -924,7 +924,7 @@ export default function AdminPanel() {
       )}
 
       {/* ══ TOP NAVIGATION BAR ══ */}
-      <div style={{position:'sticky',top:0,zIndex:100,background:'rgba(0,10,24,0.95)',backdropFilter:'blur(20px)',borderBottom:`1px solid ${BOR}`,padding:'0 16px',height:58,display:'flex',alignItems:'center',justifyContent:'space-between',boxShadow:'0 2px 20px rgba(0,0,0,0.4)'}}>
+      <div style={{position:'sticky',top:0,zIndex:100,background:'rgba(0,10,24,0.95)',backdropFilter:'blur(20px)',borderBottom:`1px solid ${BOR}`,padding:'0 12px',height:56,display:'flex',alignItems:'center',justifyContent:'space-between',boxShadow:'0 2px 20px rgba(0,0,0,0.4)',overflow:'hidden'}}>
 
         {/* Left: Hamburger + Logo */}
         <div style={{display:'flex',alignItems:'center',gap:12}}>
@@ -932,11 +932,11 @@ export default function AdminPanel() {
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             <PRLogo size={32}/>
             <div>
-              <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:16,background:`linear-gradient(90deg,${ACC},#fff)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',lineHeight:1}}>
+              <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:13,background:`linear-gradient(90deg,${ACC},#fff)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',lineHeight:1,whiteSpace:'nowrap'}}>
                 ProveRank
               </div>
               {/* SCREENSHOT-MATCHED: role display with lightning bolt */}
-              <div style={{fontSize:10,fontWeight:700,letterSpacing:1.5,color:role==='superadmin'?GOLD:ACC,lineHeight:1.2}}>
+              <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:role==='superadmin'?GOLD:ACC,lineHeight:1.2,whiteSpace:'nowrap'}}>
                 ⚡ {role.toUpperCase()}
               </div>
             </div>
@@ -944,17 +944,17 @@ export default function AdminPanel() {
         </div>
 
         {/* Right: Notifs + Refresh + Logout */}
-        <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          {loading&&<span style={{fontSize:11,color:DIM,animation:'pulse 1s infinite'}}>⟳ Loading…</span>}
+        <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
+          {loading&&<span style={{fontSize:10,color:DIM,animation:'pulse 1s infinite'}}>⟳</span>}
 
           {/* Notifications */}
-          <button onClick={()=>setNotifOpen(p=>!p)} style={{background:'none',border:`1px solid ${BOR}`,color:TS,fontSize:15,cursor:'pointer',position:'relative',width:36,height:36,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(8px)'}}>
+          <button onClick={()=>setNotifOpen(p=>!p)} style={{background:'none',border:`1px solid ${BOR}`,color:TS,fontSize:14,cursor:'pointer',position:'relative',width:32,height:32,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
             🔔
             {(notifs||[]).filter(n=>!n.read).length>0&&<span style={{position:'absolute',top:-2,right:-2,background:DNG,color:'#fff',fontSize:8,borderRadius:'50%',width:14,height:14,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{(notifs||[]).filter(n=>!n.read).length}</span>}
           </button>
 
-          <button onClick={fetchAll} style={{...bg_,padding:'7px 12px',fontSize:11}}>🔄 Refresh</button>
-          <button onClick={()=>{clearAuth();router.replace('/login')}} style={{background:'rgba(255,77,77,0.12)',color:DNG,border:'1px solid rgba(255,77,77,0.25)',borderRadius:8,padding:'7px 12px',cursor:'pointer',fontWeight:700,fontSize:11}}>Logout</button>
+          <button onClick={fetchAll} title="Refresh" style={{background:'rgba(77,159,255,0.1)',color:ACC,border:`1px solid ${BOR2}`,borderRadius:8,width:32,height:32,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>🔄</button>
+          <button onClick={()=>{clearAuth();router.replace('/login')}} style={{background:'rgba(255,77,77,0.12)',color:DNG,border:'1px solid rgba(255,77,77,0.25)',borderRadius:8,width:32,height:32,cursor:'pointer',fontWeight:700,fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>⏻</button>
         </div>
       </div>
 
@@ -1973,7 +1973,7 @@ export default function AdminPanel() {
                 :(flags||[]).map((f,i)=>(
                   <div key={f._id||i} style={{...cs,borderLeft:`4px solid ${f.severity==='high'?DNG:f.severity==='medium'?WRN:DIM}`}}>
                     <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:8,marginBottom:6}}>
-                      <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                      <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
                         <span style={{fontWeight:700,fontSize:13,color:TS}}>{f.studentName||'—'}</span>
                         <Badge label={f.severity||'low'} col={f.severity==='high'?DNG:f.severity==='medium'?WRN:DIM}/>
                         <Badge label={f.type||'—'} col={ACC}/>
@@ -2570,7 +2570,7 @@ export default function AdminPanel() {
               {clogs.map(c=>(
                 <div key={c.v} style={{...cs,borderLeft:`4px solid ${c.t==='major'?ACC:DIM}`}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-                    <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                    <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
                       <span style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:ACC}}>{c.v}</span>
                       <Badge label={c.t} col={c.t==='major'?ACC:DIM}/>
                     </div>
