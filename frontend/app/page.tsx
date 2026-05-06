@@ -159,8 +159,8 @@ export default function LandingPage() {
       {/* ── HERO ────────────────────────────────────────────────── */}
       <section style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',textAlign:'center',padding:'100px 5% 60px',position:'relative'}}>
         {/* BG decorations */}
-        <div style={{position:'absolute',top:'15%',left:'5%',opacity:.05,animation:'float 8s ease-in-out infinite',fontSize:160,color:'#4D9FFF'}}>⬡</div>
-        <div style={{position:'absolute',bottom:'20%',right:'4%',opacity:.04,animation:'float 10s ease-in-out infinite 2s',fontSize:220,color:'#4D9FFF'}}>⬡</div>
+        <div style={{position:'absolute',top:'15%',left:'5%',opacity:.05,animation:'float 8s ease-in-out infinite',fontSize:160,color:'#4D9FFF',display:'none'}}>⬡</div>
+        <div style={{position:'absolute',bottom:'20%',right:'4%',opacity:.04,animation:'float 10s ease-in-out infinite 2s',fontSize:220,color:'#4D9FFF',display:'none'}}>⬡</div>
         <div style={{position:'absolute',top:'45%',right:'14%',opacity:.04,animation:'float 6s ease-in-out infinite 1s',fontSize:80,color:'#4D9FFF'}}>⬡</div>
 
         <div style={{animation:'fadeUp 0.6s ease forwards',marginBottom:28,position:'relative',zIndex:2}}>
