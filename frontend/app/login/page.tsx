@@ -1,251 +1,277 @@
 'use client'
 import PRLogo from '@/components/PRLogo'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
-const PRI='#4D9FFF',SUC='#00C48C',DNG='#FF4D4D',GLD='#FFD700',SUB='#6B8FAF',TXT='#E8F4FF'
+const PRI='#4D9FFF',SUC='#00C48C',DNG='#FF4D4D',SUB='#6B8FAF',TXT='#E8F4FF'
 const inp:any={width:'100%',padding:'12px 14px',background:'rgba(0,22,40,.85)',border:'1.5px solid rgba(77,159,255,.3)',borderRadius:10,color:TXT,fontSize:14,fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box',transition:'border-color .2s'}
 
 export default function LoginPage() {
   const router = useRouter()
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   type Tab = 'password'|'otp'|'forgot'
-  const [tab,      setTab]     = useState<Tab>('password')
-  // Password login
-  const [email,    setEmail]   = useState('')
-  const [password, setPassword]= useState('')
-  // OTP login
-  const [otpEmail, setOtpEmail]= useState('')
-  const [loginOtp, setLoginOtp]= useState('')
-  const [otpSent,  setOtpSent] = useState(false)
-  // Forgot password
-  const [fpEmail,  setFpEmail] = useState('')
-  const [fpOtp,    setFpOtp]   = useState('')
-  const [fpNew,    setFpNew]   = useState('')
-  const [fpStep,   setFpStep]  = useState<'email'|'otp'|'done'>('email')
-  // Common
-  const [loading,  setLoading] = useState(false)
-  const [error,    setError]   = useState('')
-  const [msg,      setMsg]     = useState('')
+  const [tab, setTab] = useState<Tab>('password')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [otpEmail, setOtpEmail] = useState('')
+  const [loginOtp, setLoginOtp] = useState('')
+  const [otpSent, setOtpSent] = useState(false)
+  const [fpEmail, setFpEmail] = useState('')
+  const [fpOtp, setFpOtp] = useState('')
+  const [fpNew, setFpNew] = useState('')
+  const [fpStep, setFpStep] = useState<'email'|'otp'|'done'>('email')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [msg, setMsg] = useState('')
 
   useEffect(()=>{
     try{
       const tk=localStorage.getItem('pr_token')
       const role=localStorage.getItem('pr_role')||'student'
-      if(tk){
-        if(role==='admin'||role==='superadmin') router.replace('/admin/x7k2p')
-        else router.replace('/dashboard')
-      }
+      if(tk){ if(role==='admin'||role==='superadmin') router.replace('/admin/x7k2p'); else router.replace('/dashboard') }
     }catch{}
   },[router])
 
+  // ── Galaxy Canvas ──
+  useEffect(()=>{
+    const canvas=canvasRef.current; if(!canvas) return
+    const ctx=canvas.getContext('2d'); if(!ctx) return
+    let raf:number
+    const resize=()=>{ canvas.width=window.innerWidth; canvas.height=window.innerHeight }
+    resize(); window.addEventListener('resize',resize)
+    const W=()=>canvas.width, H=()=>canvas.height
+    const stars=Array.from({length:220},(_,i)=>({
+      x:Math.random()*window.innerWidth, y:Math.random()*window.innerHeight,
+      r:Math.random()*1.8+0.2, o:Math.random()*0.6+0.1,
+      sp:Math.random()*0.04+0.01, ph:Math.random()*Math.PI*2
+    }))
+    const shoots:any[]=[]
+    let frame=0
+    const draw=()=>{
+      ctx.clearRect(0,0,W(),H())
+      frame++
+      // Nebula 1 — blue
+      const g1=ctx.createRadialGradient(W()*0.15,H()*0.25,0,W()*0.15,H()*0.25,W()*0.4)
+      g1.addColorStop(0,'rgba(0,80,200,0.13)'); g1.addColorStop(1,'transparent')
+      ctx.fillStyle=g1; ctx.fillRect(0,0,W(),H())
+      // Nebula 2 — purple
+      const g2=ctx.createRadialGradient(W()*0.85,H()*0.75,0,W()*0.85,H()*0.75,W()*0.35)
+      g2.addColorStop(0,'rgba(100,0,200,0.1)'); g2.addColorStop(1,'transparent')
+      ctx.fillStyle=g2; ctx.fillRect(0,0,W(),H())
+      // Nebula 3 — cyan center
+      const g3=ctx.createRadialGradient(W()*0.5,H()*0.5,0,W()*0.5,H()*0.5,W()*0.25)
+      g3.addColorStop(0,'rgba(0,200,255,0.05)'); g3.addColorStop(1,'transparent')
+      ctx.fillStyle=g3; ctx.fillRect(0,0,W(),H())
+      // Stars twinkle
+      stars.forEach(s=>{
+        s.ph+=s.sp
+        const op=s.o*(0.5+0.5*Math.sin(s.ph))
+        ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2)
+        ctx.fillStyle=`rgba(200,220,255,${op})`; ctx.fill()
+      })
+      // Shooting stars
+      const shouldSpawn = frame%100===0
+      if(shouldSpawn && shoots.length<3){
+        shoots.push({x:Math.random()*W()*0.6,y:Math.random()*H()*0.35,vx:4+Math.random()*3,vy:2+Math.random()*2,life:1})
+      }
+      for(let i=shoots.length-1;i>=0;i--){
+        const sh=shoots[i]; sh.x+=sh.vx; sh.y+=sh.vy; sh.life-=0.02
+        if(sh.life<=0){shoots.splice(i,1);continue}
+        const sg=ctx.createLinearGradient(sh.x-sh.vx*14,sh.y-sh.vy*14,sh.x,sh.y)
+        sg.addColorStop(0,'transparent'); sg.addColorStop(1,`rgba(180,220,255,${sh.life})`)
+        ctx.beginPath(); ctx.moveTo(sh.x-sh.vx*14,sh.y-sh.vy*14); ctx.lineTo(sh.x,sh.y)
+        ctx.strokeStyle=sg; ctx.lineWidth=1.8; ctx.stroke()
+      }
+      raf=requestAnimationFrame(draw)
+    }
+    draw()
+    return ()=>{ cancelAnimationFrame(raf); window.removeEventListener('resize',resize) }
+  },[])
+
   const goAfterLogin=(token:string,role:string)=>{
     try{localStorage.setItem('pr_token',token);localStorage.setItem('pr_role',role)}catch{}
-    if(role==='admin'||role==='superadmin') router.replace('/admin/x7k2p')
-    else router.replace('/dashboard')
+    if(role==='admin'||role==='superadmin') router.replace('/admin/x7k2p'); else router.replace('/dashboard')
   }
-
-  const loginPassword = async () => {
-    setError(''); setLoading(true)
-    try{
-      const r=await fetch(`${API}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})})
-      const d=await r.json()
-      if(r.ok) goAfterLogin(d.token,d.role)
-      else setError(d.message||'Invalid email or password')
-    }catch{setError('Network error. Please try again.')}
+  const loginPassword=async()=>{
+    setError('');setLoading(true)
+    try{ const r=await fetch(`${API}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})}); const d=await r.json(); if(r.ok) goAfterLogin(d.token,d.role); else setError(d.message||'Invalid email or password') }catch{setError('Network error. Please try again.')}
     setLoading(false)
   }
-
-  const sendLoginOtp = async () => {
-    setError(''); setLoading(true)
-    try{
-      const r=await fetch(`${API}/api/auth/send-login-otp`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:otpEmail})})
-      const d=await r.json()
-      if(r.ok){setOtpSent(true);setMsg(d.message||'OTP sent!')}
-      else setError(d.message||'Failed to send OTP')
-    }catch{setError('Network error')}
+  const sendLoginOtp=async()=>{
+    setError('');setLoading(true)
+    try{ const r=await fetch(`${API}/api/auth/send-login-otp`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:otpEmail})}); const d=await r.json(); if(r.ok){setOtpSent(true);setMsg(d.message||'OTP sent!')}else setError(d.message||'Failed') }catch{setError('Network error')}
     setLoading(false)
   }
-
-  const loginWithOtp = async () => {
-    setError(''); setLoading(true)
-    try{
-      const r=await fetch(`${API}/api/auth/login-otp`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:otpEmail,otp:loginOtp})})
-      const d=await r.json()
-      if(r.ok) goAfterLogin(d.token,d.role)
-      else setError(d.message||'Invalid OTP')
-    }catch{setError('Network error')}
+  const loginWithOtp=async()=>{
+    setError('');setLoading(true)
+    try{ const r=await fetch(`${API}/api/auth/login-otp`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:otpEmail,otp:loginOtp})}); const d=await r.json(); if(r.ok) goAfterLogin(d.token,d.role); else setError(d.message||'Invalid OTP') }catch{setError('Network error')}
     setLoading(false)
   }
-
-  const sendFpOtp = async () => {
-    setError(''); setLoading(true)
-    try{
-      const r=await fetch(`${API}/api/auth/forgot-password`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:fpEmail})})
-      const d=await r.json()
-      if(r.ok){setFpStep('otp');setMsg(d.message||'OTP sent!')}
-      else setError(d.message||'Failed')
-    }catch{setError('Network error')}
+  const sendFpOtp=async()=>{
+    setError('');setLoading(true)
+    try{ const r=await fetch(`${API}/api/auth/forgot-password`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:fpEmail})}); const d=await r.json(); if(r.ok){setFpStep('otp');setMsg(d.message||'OTP sent!')}else setError(d.message||'Failed') }catch{setError('Network error')}
     setLoading(false)
   }
-
-  const resetPassword = async () => {
-    setError(''); setLoading(true)
-    try{
-      const r=await fetch(`${API}/api/auth/reset-password`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:fpEmail,otp:fpOtp,newPassword:fpNew})})
-      const d=await r.json()
-      if(r.ok){setFpStep('done');setMsg(d.message||'Password reset!')}
-      else setError(d.message||'Failed')
-    }catch{setError('Network error')}
+  const resetPassword=async()=>{
+    setError('');setLoading(true)
+    try{ const r=await fetch(`${API}/api/auth/reset-password`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:fpEmail,otp:fpOtp,newPassword:fpNew})}); const d=await r.json(); if(r.ok){setFpStep('done');setMsg(d.message||'Password reset!')}else setError(d.message||'Failed') }catch{setError('Network error')}
     setLoading(false)
   }
-
   const clearAll=()=>{setError('');setMsg('')}
 
   return (
-    <div style={{minHeight:'100vh',background:'radial-gradient(ellipse at 15% 55%,#001020,#000A18 50%,#000308)',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'Inter,sans-serif',padding:20}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600;700&display=swap');*{box-sizing:border-box}@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,100%{opacity:.4}50%{opacity:.9}}`}</style>
+    <div style={{minHeight:'100vh',background:'radial-gradient(ellipse at 20% 50%,#000D1A,#000308 60%,#00010A)',fontFamily:'Inter,sans-serif',overflowX:'hidden'}}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600;700&display=swap');*{box-sizing:border-box}@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}@keyframes rotateSlow{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes glowPulse{0%,100%{filter:drop-shadow(0 0 6px #4D9FFF66)}50%{filter:drop-shadow(0 0 20px #4D9FFFaa)}}@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
-      {Array.from({length:50},(_,i)=>(
-        <div key={i} style={{position:'fixed',left:`${(i*137.5)%100}%`,top:`${(i*97.3)%100}%`,width:`${i%3===0?2:1.2}px`,height:`${i%3===0?2:1.2}px`,borderRadius:'50%',background:`rgba(200,218,255,${.07+i%8*.045})`,pointerEvents:'none',animation:`pulse ${2+i%4}s ${(i%20)/10}s infinite`}}/>
-      ))}
+      {/* ── Galaxy Canvas BG ── */}
+      <canvas ref={canvasRef} style={{position:'fixed',top:0,left:0,width:'100%',height:'100%',pointerEvents:'none',zIndex:0}}/>
 
-      <div style={{width:'100%',maxWidth:420,animation:'fadeIn .5s ease',position:'relative',zIndex:1}}>
-        <div style={{textAlign:'center',marginBottom:24}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,marginBottom:4}}>
+      {/* ── Floating DNA — top left ── */}
+      <div style={{position:'fixed',top:'6%',left:'2%',opacity:0.2,pointerEvents:'none',animation:'floatY 7s ease-in-out infinite',zIndex:1}}>
+        <svg width="60" height="130" viewBox="0 0 60 130">
+          {[0,1,2,3,4,5,6].map(i=>{
+            const y=i*18+8; const w=Math.sin(i*0.9)*18
+            return <g key={i}><ellipse cx={30+w} cy={y} rx={10} ry={4} fill="none" stroke="#4D9FFF" strokeWidth="1.5" opacity={0.8}/><line x1={30+w} y1={y} x2={30-w} y2={y+18} stroke="#00D4FF" strokeWidth="1" opacity={0.5}/><circle cx={30+w} cy={y} r={2.5} fill="#4D9FFF" opacity={0.7}/></g>
+          })}
+        </svg>
+      </div>
+
+      {/* ── Rotating Atom — top right ── */}
+      <div style={{position:'fixed',top:'5%',right:'3%',opacity:0.18,pointerEvents:'none',animation:'rotateSlow 18s linear infinite',zIndex:1}}>
+        <svg width="85" height="85" viewBox="0 0 85 85">
+          <circle cx="42" cy="42" r="5" fill="#00D4FF"/>
+          <ellipse cx="42" cy="42" rx="38" ry="14" fill="none" stroke="#4D9FFF" strokeWidth="1.5"/>
+          <ellipse cx="42" cy="42" rx="38" ry="14" fill="none" stroke="#00D4FF" strokeWidth="1.5" transform="rotate(60 42 42)"/>
+          <ellipse cx="42" cy="42" rx="38" ry="14" fill="none" stroke="#7B4DFF" strokeWidth="1.5" transform="rotate(120 42 42)"/>
+          <circle cx="80" cy="42" r="3.5" fill="#4D9FFF"/>
+          <circle cx="23" cy="10" r="3.5" fill="#00D4FF"/>
+          <circle cx="23" cy="74" r="3.5" fill="#7B4DFF"/>
+        </svg>
+      </div>
+
+      {/* ── Hexagons — bottom left ── */}
+      <div style={{position:'fixed',bottom:'8%',left:'1%',opacity:0.12,pointerEvents:'none',zIndex:1}}>
+        <svg width="110" height="110" viewBox="0 0 110 110">
+          {[[55,32],[33,60],[77,60],[55,88],[20,88],[90,88]].map(([cx,cy],i)=>(
+            <polygon key={i} points={`${cx},${cy-15} ${cx+13},${cy-7} ${cx+13},${cy+7} ${cx},${cy+15} ${cx-13},${cy+7} ${cx-13},${cy-7}`} fill="none" stroke="#4D9FFF" strokeWidth="1.2"/>
+          ))}
+        </svg>
+      </div>
+
+      {/* ── Test Tube — bottom right ── */}
+      <div style={{position:'fixed',bottom:'10%',right:'2%',opacity:0.16,pointerEvents:'none',animation:'floatY 9s ease-in-out infinite 1s',zIndex:1}}>
+        <svg width="48" height="95" viewBox="0 0 48 95">
+          <rect x="17" y="4" width="14" height="62" rx="2" fill="none" stroke="#00D4FF" strokeWidth="2"/>
+          <path d="M17 66 Q24 86 31 66" fill="rgba(0,212,255,0.25)" stroke="#00D4FF" strokeWidth="2"/>
+          <rect x="13" y="4" width="22" height="8" rx="2" fill="none" stroke="#4D9FFF" strokeWidth="1.5"/>
+          <circle cx="24" cy="52" r="3" fill="#00D4FF" opacity="0.8"/>
+          <circle cx="21" cy="42" r="2" fill="#4D9FFF" opacity="0.7"/>
+          <circle cx="27" cy="60" r="2" fill="#7B4DFF" opacity="0.7"/>
+          <circle cx="24" cy="35" r="1.5" fill="#00D4FF" opacity="0.5"/>
+        </svg>
+      </div>
+
+      {/* ── Main Content ── */}
+      <div style={{position:'relative',zIndex:2,display:'flex',flexDirection:'column',alignItems:'center',padding:'24px 20px 48px',minHeight:'100vh'}}>
+
+        <div style={{width:'100%',maxWidth:420,animation:'fadeIn .5s ease',paddingTop:50}}>
+
+          {/* Logo */}
+          <div style={{textAlign:'center',marginBottom:24,animation:'glowPulse 3s ease-in-out infinite'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,marginBottom:4}}>
               <PRLogo size={44}/>
               <div style={{fontFamily:'Playfair Display,serif',fontSize:26,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF,#00D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>ProveRank</div>
             </div>
-          <div style={{fontSize:12,color:SUB,marginTop:4}}>NEET 2026 Preparation Platform</div>
-        </div>
+            <div style={{fontSize:12,color:SUB,marginTop:4}}>NEET 2026 Preparation Platform</div>
+          </div>
 
-        <div style={{background:'rgba(0,22,40,.88)',border:'1px solid rgba(77,159,255,.28)',borderRadius:20,padding:'28px 24px',backdropFilter:'blur(20px)',boxShadow:'0 8px 40px rgba(0,0,0,.5)'}}>
+          {/* Form Card */}
+          <div style={{background:'rgba(0,22,40,.88)',border:'1px solid rgba(77,159,255,.28)',borderRadius:20,padding:'28px 24px',backdropFilter:'blur(20px)',boxShadow:'0 8px 40px rgba(0,0,0,.5)'}}>
+            <div style={{display:'flex',gap:0,marginBottom:22,borderRadius:10,overflow:'hidden',border:'1px solid rgba(77,159,255,.25)'}}>
+              {([['password','🔑 Password'],['otp','📱 OTP Login'],['forgot','🔓 Forgot']] as const).map(([t,l])=>(
+                <button key={t} onClick={()=>{setTab(t);clearAll()}} style={{flex:1,padding:'10px 4px',background:tab===t?`linear-gradient(135deg,${PRI},#0055CC)`:'rgba(0,22,40,.8)',color:tab===t?'#fff':SUB,border:'none',cursor:'pointer',fontFamily:'Inter,sans-serif',fontSize:11,fontWeight:tab===t?700:400,borderRight:t!=='forgot'?'1px solid rgba(77,159,255,.2)':'none',transition:'all .2s'}}>
+                  {l}
+                </button>
+              ))}
+            </div>
 
-          {/* ── TABS ── */}
-          <div style={{display:'flex',gap:0,marginBottom:22,borderRadius:10,overflow:'hidden',border:'1px solid rgba(77,159,255,.25)'}}>
-            {([['password','🔑 Password'],['otp','📱 OTP Login'],['forgot','🔓 Forgot']] as const).map(([t,l])=>(
-              <button key={t} onClick={()=>{setTab(t);clearAll()}} style={{flex:1,padding:'10px 4px',background:tab===t?`linear-gradient(135deg,${PRI},#0055CC)`:'rgba(0,22,40,.8)',color:tab===t?'#fff':SUB,border:'none',cursor:'pointer',fontFamily:'Inter,sans-serif',fontSize:11,fontWeight:tab===t?700:400,borderRight:t!=='forgot'?'1px solid rgba(77,159,255,.2)':'none',transition:'all .2s'}}>
-                {l}
-              </button>
+            {error&&<div style={{background:'rgba(255,77,77,.12)',border:'1px solid rgba(255,77,77,.3)',borderRadius:9,padding:'10px 14px',fontSize:13,color:DNG,marginBottom:14,textAlign:'center'}}>{error}</div>}
+            {msg&&<div style={{background:'rgba(0,196,140,.1)',border:'1px solid rgba(0,196,140,.3)',borderRadius:9,padding:'10px 14px',fontSize:13,color:SUC,marginBottom:14,textAlign:'center'}}>{msg}</div>}
+
+            {tab==='password'&&(
+              <>
+                <div style={{display:'flex',flexDirection:'column',gap:13,marginBottom:16}}>
+                  <div><label style={{fontSize:11,color:PRI,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>Email</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&loginPassword()} style={inp} placeholder="your@email.com"/></div>
+                  <div><label style={{fontSize:11,color:PRI,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>Password</label><input type="password" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==='Enter'&&loginPassword()} style={inp} placeholder="••••••••"/></div>
+                </div>
+                <div style={{textAlign:'right',marginBottom:16}}><button onClick={()=>{setTab('forgot');clearAll()}} style={{background:'none',border:'none',color:PRI,fontSize:12,cursor:'pointer',fontFamily:'Inter,sans-serif',fontWeight:600,padding:0,textDecoration:'underline'}}>Forgot Password?</button></div>
+                <button onClick={loginPassword} disabled={loading||!email||!password} style={{width:'100%',padding:'13px',background:`linear-gradient(135deg,${PRI},#0055CC)`,color:'#fff',border:'none',borderRadius:12,cursor:(loading||!email||!password)?'not-allowed':'pointer',fontWeight:700,fontSize:14,fontFamily:'Inter,sans-serif',opacity:(loading||!email||!password)?.6:1,boxShadow:`0 4px 16px ${PRI}44`}}>{loading?'Logging in...':'Login →'}</button>
+              </>
+            )}
+
+            {tab==='otp'&&(
+              <>
+                <div style={{marginBottom:13}}><label style={{fontSize:11,color:PRI,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>Email</label><input type="email" value={otpEmail} onChange={e=>setOtpEmail(e.target.value)} style={inp} placeholder="your@email.com" disabled={otpSent}/></div>
+                {!otpSent?(
+                  <button onClick={sendLoginOtp} disabled={loading||!otpEmail} style={{width:'100%',padding:'13px',background:`linear-gradient(135deg,${PRI},#0055CC)`,color:'#fff',border:'none',borderRadius:12,cursor:(loading||!otpEmail)?'not-allowed':'pointer',fontWeight:700,fontSize:14,fontFamily:'Inter,sans-serif',opacity:(loading||!otpEmail)?.6:1}}>{loading?'Sending OTP...':'Send OTP →'}</button>
+                ):(
+                  <>
+                    <div style={{marginBottom:13}}><label style={{fontSize:11,color:PRI,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>Enter OTP</label><input value={loginOtp} onChange={e=>setLoginOtp(e.target.value.replace(/\D/g,'').slice(0,6))} style={{...inp,fontSize:24,fontWeight:900,textAlign:'center',letterSpacing:10,fontFamily:'monospace'}} placeholder="000000" maxLength={6} inputMode="numeric"/><div style={{fontSize:11,color:SUB,marginTop:5,textAlign:'center'}}>OTP sent to {otpEmail} · <button onClick={sendLoginOtp} style={{background:'none',border:'none',color:PRI,fontSize:11,cursor:'pointer',fontFamily:'Inter,sans-serif',fontWeight:600,padding:0}}>Resend</button></div></div>
+                    <button onClick={loginWithOtp} disabled={loading||loginOtp.length!==6} style={{width:'100%',padding:'13px',background:loginOtp.length===6?`linear-gradient(135deg,${SUC},#00a87a)`:'rgba(77,159,255,.2)',color:loginOtp.length===6?'#000':'#fff',border:'none',borderRadius:12,cursor:(loading||loginOtp.length!==6)?'not-allowed':'pointer',fontWeight:700,fontSize:14,fontFamily:'Inter,sans-serif',opacity:(loading||loginOtp.length!==6)?.6:1}}>{loading?'Verifying...':'✅ Login with OTP →'}</button>
+                    <button onClick={()=>{setOtpSent(false);setLoginOtp('');clearAll()}} style={{width:'100%',marginTop:10,padding:'8px',background:'none',border:'1px solid rgba(77,159,255,.2)',borderRadius:9,color:SUB,cursor:'pointer',fontSize:12,fontFamily:'Inter,sans-serif'}}>← Change Email</button>
+                  </>
+                )}
+              </>
+            )}
+
+            {tab==='forgot'&&(
+              <>
+                {fpStep==='email'&&(<><p style={{fontSize:13,color:SUB,marginBottom:16,textAlign:'center'}}>Enter your registered email — we&apos;ll send a reset OTP.</p><div style={{marginBottom:14}}><label style={{fontSize:11,color:PRI,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>Email</label><input type="email" value={fpEmail} onChange={e=>setFpEmail(e.target.value)} style={inp} placeholder="your@email.com"/></div><button onClick={sendFpOtp} disabled={loading||!fpEmail} style={{width:'100%',padding:'13px',background:`linear-gradient(135deg,${PRI},#0055CC)`,color:'#fff',border:'none',borderRadius:12,cursor:(loading||!fpEmail)?'not-allowed':'pointer',fontWeight:700,fontSize:14,fontFamily:'Inter,sans-serif',opacity:(loading||!fpEmail)?.6:1}}>{loading?'Sending OTP...':'Send Reset OTP →'}</button></>)}
+                {fpStep==='otp'&&(<><p style={{fontSize:13,color:SUB,marginBottom:16,textAlign:'center'}}>OTP sent to <span style={{color:PRI,fontWeight:600}}>{fpEmail}</span></p><div style={{display:'flex',flexDirection:'column',gap:12,marginBottom:14}}><div><label style={{fontSize:11,color:PRI,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>OTP</label><input value={fpOtp} onChange={e=>setFpOtp(e.target.value.replace(/\D/g,'').slice(0,6))} style={{...inp,fontSize:22,fontWeight:900,textAlign:'center',letterSpacing:10,fontFamily:'monospace'}} placeholder="000000" maxLength={6} inputMode="numeric"/></div><div><label style={{fontSize:11,color:PRI,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>New Password</label><input type="password" value={fpNew} onChange={e=>setFpNew(e.target.value)} style={inp} placeholder="Min 6 characters"/></div></div><button onClick={resetPassword} disabled={loading||fpOtp.length!==6||fpNew.length<6} style={{width:'100%',padding:'13px',background:`linear-gradient(135deg,${SUC},#00a87a)`,color:'#000',border:'none',borderRadius:12,cursor:(loading||fpOtp.length!==6||fpNew.length<6)?'not-allowed':'pointer',fontWeight:700,fontSize:14,fontFamily:'Inter,sans-serif',opacity:(loading||fpOtp.length!==6||fpNew.length<6)?.6:1}}>{loading?'Resetting...':'🔑 Reset Password →'}</button><button onClick={()=>{setFpStep('email');clearAll()}} style={{width:'100%',marginTop:10,padding:'8px',background:'none',border:'1px solid rgba(77,159,255,.2)',borderRadius:9,color:SUB,cursor:'pointer',fontSize:12,fontFamily:'Inter,sans-serif'}}>← Back</button></>)}
+                {fpStep==='done'&&(<div style={{textAlign:'center',padding:'20px 0'}}><div style={{fontSize:48,marginBottom:12}}>✅</div><div style={{fontFamily:'Playfair Display,serif',fontSize:18,fontWeight:700,color:TXT,marginBottom:8}}>Password Reset!</div><div style={{fontSize:13,color:SUB,marginBottom:20}}>You can now login with your new password.</div><button onClick={()=>{setTab('password');setFpStep('email');setFpEmail('');setFpOtp('');setFpNew('');clearAll()}} style={{padding:'11px 24px',background:`linear-gradient(135deg,${PRI},#0055CC)`,color:'#fff',border:'none',borderRadius:10,cursor:'pointer',fontWeight:700,fontFamily:'Inter,sans-serif'}}>Go to Login →</button></div>)}
+              </>
+            )}
+
+            {tab!=='forgot'&&(<div style={{textAlign:'center',marginTop:16,fontSize:13,color:SUB}}>New to ProveRank?{' '}<a href="/register" style={{color:PRI,fontWeight:600,textDecoration:'none'}}>Create Account →</a></div>)}
+          </div>
+
+          {/* ── Motivational Quote ── */}
+          <div style={{marginTop:24,background:'rgba(0,30,55,0.65)',border:'1px solid rgba(77,159,255,0.18)',borderRadius:16,padding:'18px 22px',backdropFilter:'blur(12px)',animation:'fadeInUp 0.8s ease 0.4s both'}}>
+            <div style={{fontSize:10,color:'#00D4FF',fontWeight:700,textTransform:'uppercase',letterSpacing:1.2,marginBottom:8}}>🧬 Science Quote</div>
+            <div style={{fontFamily:'Playfair Display,serif',fontSize:14,color:TXT,lineHeight:1.7,fontStyle:'italic'}}>&ldquo;The good thing about science is that it&apos;s true whether or not you believe in it.&rdquo;</div>
+            <div style={{fontSize:11,color:SUB,marginTop:8}}>— Neil deGrasse Tyson</div>
+          </div>
+
+          {/* ── Subject Pills ── */}
+          <div style={{marginTop:16,display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,animation:'fadeInUp 0.8s ease 0.6s both'}}>
+            {[['🧬','Biology'],['⚛️','Physics'],['🧪','Chemistry']].map(([ic,sub])=>(
+              <div key={sub} style={{background:'rgba(0,22,40,0.55)',border:'1px solid rgba(77,159,255,0.15)',borderRadius:12,padding:'12px 6px',textAlign:'center',backdropFilter:'blur(8px)'}}>
+                <div style={{fontSize:22,marginBottom:5}}>{ic}</div>
+                <div style={{fontSize:11,color:TXT,fontWeight:600}}>{sub}</div>
+                <div style={{fontSize:10,color:SUB,marginTop:2}}>NEET 2026</div>
+              </div>
             ))}
           </div>
 
-          {error&&<div style={{background:'rgba(255,77,77,.12)',border:'1px solid rgba(255,77,77,.3)',borderRadius:9,padding:'10px 14px',fontSize:13,color:DNG,marginBottom:14,textAlign:'center'}}>{error}</div>}
-          {msg&&<div style={{background:'rgba(0,196,140,.1)',border:'1px solid rgba(0,196,140,.3)',borderRadius:9,padding:'10px 14px',fontSize:13,color:SUC,marginBottom:14,textAlign:'center'}}>{msg}</div>}
-
-          {/* ── PASSWORD TAB ── */}
-          {tab==='password'&&(
-            <>
-              <div style={{display:'flex',flexDirection:'column',gap:13,marginBottom:16}}>
-                <div>
-                  <label style={{fontSize:11,color:PRI,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>Email</label>
-                  <input type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&loginPassword()} style={inp} placeholder="your@email.com"/>
-                </div>
-                <div>
-                  <label style={{fontSize:11,color:PRI,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>Password</label>
-                  <input type="password" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==='Enter'&&loginPassword()} style={inp} placeholder="••••••••"/>
-                </div>
-              </div>
-
-              {/* Forgot Password link — clickable */}
-              <div style={{textAlign:'right',marginBottom:16}}>
-                <button onClick={()=>{setTab('forgot');clearAll()}} style={{background:'none',border:'none',color:PRI,fontSize:12,cursor:'pointer',fontFamily:'Inter,sans-serif',fontWeight:600,padding:0,textDecoration:'underline'}}>
-                  Forgot Password?
-                </button>
-              </div>
-
-              <button onClick={loginPassword} disabled={loading||!email||!password} style={{width:'100%',padding:'13px',background:`linear-gradient(135deg,${PRI},#0055CC)`,color:'#fff',border:'none',borderRadius:12,cursor:(loading||!email||!password)?'not-allowed':'pointer',fontWeight:700,fontSize:14,fontFamily:'Inter,sans-serif',opacity:(loading||!email||!password)?.6:1,boxShadow:`0 4px 16px ${PRI}44`}}>
-                {loading?'Logging in...':'Login →'}
-              </button>
-            </>
-          )}
-
-          {/* ── OTP LOGIN TAB ── */}
-          {tab==='otp'&&(
-            <>
-              <div style={{marginBottom:13}}>
-                <label style={{fontSize:11,color:PRI,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>Email</label>
-                <input type="email" value={otpEmail} onChange={e=>setOtpEmail(e.target.value)} style={inp} placeholder="your@email.com" disabled={otpSent}/>
-              </div>
-
-              {!otpSent?(
-                <button onClick={sendLoginOtp} disabled={loading||!otpEmail} style={{width:'100%',padding:'13px',background:`linear-gradient(135deg,${PRI},#0055CC)`,color:'#fff',border:'none',borderRadius:12,cursor:(loading||!otpEmail)?'not-allowed':'pointer',fontWeight:700,fontSize:14,fontFamily:'Inter,sans-serif',opacity:(loading||!otpEmail)?.6:1}}>
-                  {loading?'Sending OTP...':'Send OTP →'}
-                </button>
-              ):(
-                <>
-                  <div style={{marginBottom:13}}>
-                    <label style={{fontSize:11,color:PRI,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>Enter OTP</label>
-                    <input value={loginOtp} onChange={e=>setLoginOtp(e.target.value.replace(/\D/g,'').slice(0,6))} style={{...inp,fontSize:24,fontWeight:900,textAlign:'center',letterSpacing:10,fontFamily:'monospace'}} placeholder="000000" maxLength={6} inputMode="numeric"/>
-                    <div style={{fontSize:11,color:SUB,marginTop:5,textAlign:'center'}}>
-                      OTP sent to {otpEmail} · {' '}
-                      <button onClick={sendLoginOtp} style={{background:'none',border:'none',color:PRI,fontSize:11,cursor:'pointer',fontFamily:'Inter,sans-serif',fontWeight:600,padding:0}}>Resend</button>
-                    </div>
-                  </div>
-                  <button onClick={loginWithOtp} disabled={loading||loginOtp.length!==6} style={{width:'100%',padding:'13px',background:loginOtp.length===6?`linear-gradient(135deg,${SUC},#00a87a)`:'rgba(77,159,255,.2)',color:loginOtp.length===6?'#000':'#fff',border:'none',borderRadius:12,cursor:(loading||loginOtp.length!==6)?'not-allowed':'pointer',fontWeight:700,fontSize:14,fontFamily:'Inter,sans-serif',opacity:(loading||loginOtp.length!==6)?.6:1}}>
-                    {loading?'Verifying...':'✅ Login with OTP →'}
-                  </button>
-                  <button onClick={()=>{setOtpSent(false);setLoginOtp('');clearAll()}} style={{width:'100%',marginTop:10,padding:'8px',background:'none',border:`1px solid rgba(77,159,255,.2)`,borderRadius:9,color:SUB,cursor:'pointer',fontSize:12,fontFamily:'Inter,sans-serif'}}>← Change Email</button>
-                </>
-              )}
-            </>
-          )}
-
-          {/* ── FORGOT PASSWORD TAB ── */}
-          {tab==='forgot'&&(
-            <>
-              {fpStep==='email'&&(
-                <>
-                  <p style={{fontSize:13,color:SUB,marginBottom:16,textAlign:'center'}}>Enter your registered email — we&apos;ll send a reset OTP.</p>
-                  <div style={{marginBottom:14}}>
-                    <label style={{fontSize:11,color:PRI,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>Email</label>
-                    <input type="email" value={fpEmail} onChange={e=>setFpEmail(e.target.value)} style={inp} placeholder="your@email.com"/>
-                  </div>
-                  <button onClick={sendFpOtp} disabled={loading||!fpEmail} style={{width:'100%',padding:'13px',background:`linear-gradient(135deg,${PRI},#0055CC)`,color:'#fff',border:'none',borderRadius:12,cursor:(loading||!fpEmail)?'not-allowed':'pointer',fontWeight:700,fontSize:14,fontFamily:'Inter,sans-serif',opacity:(loading||!fpEmail)?.6:1}}>
-                    {loading?'Sending OTP...':'Send Reset OTP →'}
-                  </button>
-                </>
-              )}
-              {fpStep==='otp'&&(
-                <>
-                  <p style={{fontSize:13,color:SUB,marginBottom:16,textAlign:'center'}}>OTP sent to <span style={{color:PRI,fontWeight:600}}>{fpEmail}</span></p>
-                  <div style={{display:'flex',flexDirection:'column',gap:12,marginBottom:14}}>
-                    <div>
-                      <label style={{fontSize:11,color:PRI,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>OTP</label>
-                      <input value={fpOtp} onChange={e=>setFpOtp(e.target.value.replace(/\D/g,'').slice(0,6))} style={{...inp,fontSize:22,fontWeight:900,textAlign:'center',letterSpacing:10,fontFamily:'monospace'}} placeholder="000000" maxLength={6} inputMode="numeric"/>
-                    </div>
-                    <div>
-                      <label style={{fontSize:11,color:PRI,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>New Password</label>
-                      <input type="password" value={fpNew} onChange={e=>setFpNew(e.target.value)} style={inp} placeholder="Min 6 characters"/>
-                    </div>
-                  </div>
-                  <button onClick={resetPassword} disabled={loading||fpOtp.length!==6||fpNew.length<6} style={{width:'100%',padding:'13px',background:`linear-gradient(135deg,${SUC},#00a87a)`,color:'#000',border:'none',borderRadius:12,cursor:(loading||fpOtp.length!==6||fpNew.length<6)?'not-allowed':'pointer',fontWeight:700,fontSize:14,fontFamily:'Inter,sans-serif',opacity:(loading||fpOtp.length!==6||fpNew.length<6)?.6:1}}>
-                    {loading?'Resetting...':'🔑 Reset Password →'}
-                  </button>
-                  <button onClick={()=>{setFpStep('email');clearAll()}} style={{width:'100%',marginTop:10,padding:'8px',background:'none',border:`1px solid rgba(77,159,255,.2)`,borderRadius:9,color:SUB,cursor:'pointer',fontSize:12,fontFamily:'Inter,sans-serif'}}>← Back</button>
-                </>
-              )}
-              {fpStep==='done'&&(
-                <div style={{textAlign:'center',padding:'20px 0'}}>
-                  <div style={{fontSize:48,marginBottom:12}}>✅</div>
-                  <div style={{fontFamily:'Playfair Display,serif',fontSize:18,fontWeight:700,color:TXT,marginBottom:8}}>Password Reset!</div>
-                  <div style={{fontSize:13,color:SUB,marginBottom:20}}>You can now login with your new password.</div>
-                  <button onClick={()=>{setTab('password');setFpStep('email');setFpEmail('');setFpOtp('');setFpNew('');clearAll()}} style={{padding:'11px 24px',background:`linear-gradient(135deg,${PRI},#0055CC)`,color:'#fff',border:'none',borderRadius:10,cursor:'pointer',fontWeight:700,fontFamily:'Inter,sans-serif'}}>Go to Login →</button>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Register link */}
-          {tab!=='forgot'&&(
-            <div style={{textAlign:'center',marginTop:16,fontSize:13,color:SUB}}>
-              New to ProveRank?{' '}
-              <a href="/register" style={{color:PRI,fontWeight:600,textDecoration:'none'}}>Create Account →</a>
+          {/* ── Animated Science Illustration ── */}
+          <div style={{marginTop:20,textAlign:'center',animation:'fadeInUp 0.8s ease 0.8s both'}}>
+            <div style={{display:'inline-block',animation:'floatY 5s ease-in-out infinite'}}>
+              <svg width="180" height="80" viewBox="0 0 180 80">
+                {/* Chromosome */}
+                <ellipse cx="30" cy="40" rx="8" ry="22" fill="none" stroke="#4D9FFF" strokeWidth="1.5" opacity="0.7"/>
+                <ellipse cx="30" cy="40" rx="4" ry="10" fill="rgba(77,159,255,0.15)" stroke="#4D9FFF" strokeWidth="1"/>
+                {[24,30,36].map((y,i)=><line key={i} x1="22" y1={y} x2="38" y2={y} stroke="#00D4FF" strokeWidth="1" opacity="0.6"/>)}
+                {/* Molecule chain */}
+                {[60,80,100,120,140,160].map((x,i)=>(
+                  <g key={i}>
+                    <circle cx={x} cy={40} r={i%2===0?6:4} fill="none" stroke={i%2===0?'#4D9FFF':'#7B4DFF'} strokeWidth="1.5" opacity="0.8"/>
+                    {i<5&&<line x1={x+(i%2===0?6:4)} y1={40} x2={x+(i%2===0?6:4)+(i%2===0?6:8)} y2={40} stroke="#00D4FF" strokeWidth="1" opacity="0.6"/>}
+                  </g>
+                ))}
+              </svg>
             </div>
-          )}
-        </div>
-
-        <div style={{textAlign:'center',marginTop:16,fontSize:11,color:'rgba(107,143,175,.5)'}}>
-          ProveRank · NEET 2026 · prove-rank.vercel.app
+            <div style={{fontSize:10,color:'rgba(107,143,175,0.5)',marginTop:4}}>ProveRank · NEET 2026 · prove-rank.vercel.app</div>
+          </div>
         </div>
       </div>
     </div>
