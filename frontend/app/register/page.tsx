@@ -20,7 +20,7 @@ export default function RegisterPage() {
   const [msg, setMsg] = useState('')
   const [resending, setResend] = useState(false)
 
-  // ── Galaxy Canvas (different nebula colors from login) ──
+  // ── Galaxy Canvas — FIXED: brighter nebula ──
   useEffect(()=>{
     const canvas=canvasRef.current; if(!canvas) return
     const ctx=canvas.getContext('2d'); if(!ctx) return
@@ -37,15 +37,17 @@ export default function RegisterPage() {
     let frame=0
     const draw=()=>{
       ctx.clearRect(0,0,W(),H()); frame++
-      // Nebula — green-teal (different from login blue-purple)
+      // Nebula g1 — green-teal  ★ FIX: 0.11 → 0.32
       const g1=ctx.createRadialGradient(W()*0.8,H()*0.2,0,W()*0.8,H()*0.2,W()*0.4)
-      g1.addColorStop(0,'rgba(0,160,120,0.11)'); g1.addColorStop(1,'transparent')
+      g1.addColorStop(0,'rgba(0,160,120,0.32)'); g1.addColorStop(1,'transparent')
       ctx.fillStyle=g1; ctx.fillRect(0,0,W(),H())
+      // Nebula g2 — blue  ★ FIX: 0.10 → 0.28
       const g2=ctx.createRadialGradient(W()*0.15,H()*0.8,0,W()*0.15,H()*0.8,W()*0.35)
-      g2.addColorStop(0,'rgba(0,100,200,0.1)'); g2.addColorStop(1,'transparent')
+      g2.addColorStop(0,'rgba(0,100,200,0.28)'); g2.addColorStop(1,'transparent')
       ctx.fillStyle=g2; ctx.fillRect(0,0,W(),H())
+      // Nebula g3 — cyan-teal  ★ FIX: 0.05 → 0.18
       const g3=ctx.createRadialGradient(W()*0.5,H()*0.4,0,W()*0.5,H()*0.4,W()*0.22)
-      g3.addColorStop(0,'rgba(0,220,180,0.05)'); g3.addColorStop(1,'transparent')
+      g3.addColorStop(0,'rgba(0,220,180,0.18)'); g3.addColorStop(1,'transparent')
       ctx.fillStyle=g3; ctx.fillRect(0,0,W(),H())
       stars.forEach(s=>{
         s.ph+=s.sp
@@ -90,48 +92,48 @@ export default function RegisterPage() {
 
   return (
     <div style={{minHeight:'100vh',background:'radial-gradient(ellipse at 80% 40%,#000D1A,#000510 55%,#000108)',fontFamily:'Inter,sans-serif',overflowX:'hidden'}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600;700&display=swap');*{box-sizing:border-box}@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}@keyframes spinSlow{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes glowGreen{0%,100%{filter:drop-shadow(0 0 6px #00C48C55)}50%{filter:drop-shadow(0 0 18px #00C48C99)}}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600;700&display=swap');*{box-sizing:border-box}@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}@keyframes spinSlow{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes glowGreen{0%,100%{filter:drop-shadow(0 0 6px #00C48C55)}50%{filter:drop-shadow(0 0 18px #00C48C99)}}@keyframes bounce{0%,100%{transform:translateY(0) scale(1)}30%{transform:translateY(-18px) scale(1.06)}60%{transform:translateY(-8px) scale(0.97)}}`}</style>
 
       {/* Galaxy Canvas */}
       <canvas ref={canvasRef} style={{position:'fixed',top:0,left:0,width:'100%',height:'100%',pointerEvents:'none',zIndex:0}}/>
 
-      {/* ── Semiconductor chip SVG — top left ── */}
-      <div style={{position:'fixed',top:'5%',left:'2%',opacity:0.16,pointerEvents:'none',zIndex:1}}>
-        <svg width="90" height="90" viewBox="0 0 90 90">
-          <rect x="25" y="25" width="40" height="40" rx="4" fill="none" stroke="#00C48C" strokeWidth="1.5"/>
-          <rect x="31" y="31" width="28" height="28" rx="2" fill="rgba(0,196,140,0.08)" stroke="#4D9FFF" strokeWidth="1"/>
-          {[35,45,55].map(y=><line key={y} x1={31} y1={y} x2={59} y2={y} stroke="#4D9FFF" strokeWidth="0.8" opacity={0.5}/>)}
-          {[35,45,55].map(x=><line key={x} x1={x} y1={31} x2={x} y2={59} stroke="#00C48C" strokeWidth="0.8" opacity={0.5}/>)}
-          {[20,30,40,50,60,70].map((v,i)=>(
-            <line key={i} x1={i<3?v:25} y1={i<3?25:v-30} x2={i<3?v:25} y2={i<3?15:v-40} stroke="#4D9FFF" strokeWidth="1.2" opacity="0.7"/>
-          ))}
-        </svg>
-      </div>
-
-      {/* ── Spiral galaxy SVG — top right ── */}
-      <div style={{position:'fixed',top:'4%',right:'2%',opacity:0.15,pointerEvents:'none',animation:'spinSlow 25s linear infinite',zIndex:1}}>
+      {/* ── Semiconductor chip SVG — top left  ★ FIX: opacity 0.16→0.38 ── */}
+      <div style={{position:'fixed',top:'5%',left:'2%',opacity:0.38,pointerEvents:'none',zIndex:1}}>
         <svg width="95" height="95" viewBox="0 0 95 95">
-          <circle cx="47" cy="47" r="4" fill="#00C48C"/>
-          {[8,16,24,32,40].map((r,i)=>(
-            <ellipse key={i} cx="47" cy="47" rx={r} ry={r*0.4} fill="none" stroke={i%2===0?'#4D9FFF':'#00C48C'} strokeWidth="1" opacity={0.7-i*0.08} transform={`rotate(${i*36} 47 47)`}/>
+          <rect x="26" y="26" width="43" height="43" rx="4" fill="none" stroke="#00C48C" strokeWidth="1.8"/>
+          <rect x="33" y="33" width="29" height="29" rx="2" fill="rgba(0,196,140,0.10)" stroke="#4D9FFF" strokeWidth="1.2"/>
+          {[38,48,58].map(y=><line key={y} x1={33} y1={y} x2={62} y2={y} stroke="#4D9FFF" strokeWidth="1" opacity={0.6}/>)}
+          {[38,48,58].map(x=><line key={x} x1={x} y1={33} x2={x} y2={62} stroke="#00C48C" strokeWidth="1" opacity={0.6}/>)}
+          {[21,31,41,51,61,71].map((v,i)=>(
+            <line key={i} x1={i<3?v:26} y1={i<3?26:v-30} x2={i<3?v:26} y2={i<3?16:v-40} stroke="#4D9FFF" strokeWidth="1.4" opacity="0.8"/>
           ))}
         </svg>
       </div>
 
-      {/* ── Mitochondria SVG — bottom left ── */}
-      <div style={{position:'fixed',bottom:'6%',left:'2%',opacity:0.14,pointerEvents:'none',animation:'floatY 8s ease-in-out infinite',zIndex:1}}>
-        <svg width="80" height="60" viewBox="0 0 80 60">
-          <ellipse cx="40" cy="30" rx="32" ry="18" fill="none" stroke="#00C48C" strokeWidth="1.5"/>
-          <ellipse cx="40" cy="30" rx="22" ry="10" fill="none" stroke="#4D9FFF" strokeWidth="1"/>
-          {[22,30,38,46,58].map((x,i)=><path key={i} d={`M${x} 20 Q${x+4} 30 ${x} 40`} fill="none" stroke="#00C48C" strokeWidth="1" opacity={0.6}/>)}
+      {/* ── Spiral galaxy SVG — top right  ★ FIX: opacity 0.15→0.32 ── */}
+      <div style={{position:'fixed',top:'4%',right:'2%',opacity:0.32,pointerEvents:'none',animation:'spinSlow 25s linear infinite',zIndex:1}}>
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="5" fill="#00C48C"/>
+          {[9,18,27,36,44].map((r,i)=>(
+            <ellipse key={i} cx="50" cy="50" rx={r} ry={r*0.42} fill="none" stroke={i%2===0?'#4D9FFF':'#00C48C'} strokeWidth="1.2" opacity={0.75-i*0.08} transform={`rotate(${i*36} 50 50)`}/>
+          ))}
         </svg>
       </div>
 
-      {/* ── Hexagon pattern — bottom right ── */}
-      <div style={{position:'fixed',bottom:'5%',right:'1%',opacity:0.12,pointerEvents:'none',zIndex:1}}>
-        <svg width="100" height="100" viewBox="0 0 100 100">
-          {[[50,28],[28,56],[72,56],[50,84]].map(([cx,cy],i)=>(
-            <polygon key={i} points={`${cx},${cy-16} ${cx+14},${cy-8} ${cx+14},${cy+8} ${cx},${cy+16} ${cx-14},${cy+8} ${cx-14},${cy-8}`} fill="none" stroke="#00C48C" strokeWidth="1.2"/>
+      {/* ── Mitochondria SVG — bottom left  ★ FIX: opacity 0.14→0.30, bounce anim ── */}
+      <div style={{position:'fixed',bottom:'6%',left:'2%',opacity:0.30,pointerEvents:'none',animation:'bounce 6s ease-in-out infinite',zIndex:1}}>
+        <svg width="85" height="65" viewBox="0 0 85 65">
+          <ellipse cx="42" cy="32" rx="34" ry="19" fill="none" stroke="#00C48C" strokeWidth="1.8"/>
+          <ellipse cx="42" cy="32" rx="23" ry="11" fill="none" stroke="#4D9FFF" strokeWidth="1.2"/>
+          {[24,32,40,48,60].map((x,i)=><path key={i} d={`M${x} 21 Q${x+5} 32 ${x} 43`} fill="none" stroke="#00C48C" strokeWidth="1.2" opacity={0.7}/>)}
+        </svg>
+      </div>
+
+      {/* ── Hexagon pattern — bottom right  ★ FIX: opacity 0.12→0.26 ── */}
+      <div style={{position:'fixed',bottom:'5%',right:'1%',opacity:0.26,pointerEvents:'none',zIndex:1}}>
+        <svg width="110" height="110" viewBox="0 0 110 110">
+          {[[55,30],[32,60],[78,60],[55,90]].map(([cx,cy],i)=>(
+            <polygon key={i} points={`${cx},${cy-17} ${cx+15},${cy-8} ${cx+15},${cy+8} ${cx},${cy+17} ${cx-15},${cy+8} ${cx-15},${cy-8}`} fill="none" stroke="#00C48C" strokeWidth="1.4"/>
           ))}
         </svg>
       </div>
@@ -185,7 +187,7 @@ export default function RegisterPage() {
             )}
           </div>
 
-          {/* ── Motivational Quote (different from login) ── */}
+          {/* ── Motivational Quote ── */}
           <div style={{marginTop:24,background:'rgba(0,35,25,0.65)',border:'1px solid rgba(0,196,140,0.2)',borderRadius:16,padding:'18px 22px',backdropFilter:'blur(12px)',animation:'fadeInUp 0.8s ease 0.4s both'}}>
             <div style={{fontSize:10,color:'#00C48C',fontWeight:700,textTransform:'uppercase',letterSpacing:1.2,marginBottom:8}}>🚀 Start Your Journey</div>
             <div style={{fontFamily:'Playfair Display,serif',fontSize:14,color:TXT,lineHeight:1.7,fontStyle:'italic'}}>&ldquo;Every expert was once a beginner. Your NEET preparation starts with a single step.&rdquo;</div>
@@ -202,26 +204,26 @@ export default function RegisterPage() {
             ))}
           </div>
 
-          {/* ── Animated SVG illustration ── */}
+          {/* ── Animated Molecule SVG illustration  ★ FIX: bounce animation ── */}
           <div style={{marginTop:20,textAlign:'center',animation:'fadeInUp 0.8s ease 0.9s both'}}>
-            <div style={{display:'inline-block',animation:'floatY 6s ease-in-out infinite'}}>
-              <svg width="170" height="70" viewBox="0 0 170 70">
+            <div style={{display:'inline-block',animation:'bounce 5s ease-in-out infinite'}}>
+              <svg width="175" height="72" viewBox="0 0 175 72">
                 {/* Semiconductor pattern */}
-                <rect x="5" y="20" width="30" height="30" rx="3" fill="none" stroke="#00C48C" strokeWidth="1.2" opacity="0.7"/>
-                {[26,32,38].map((y,i)=><line key={i} x1={5} y1={y} x2={35} y2={y} stroke="#4D9FFF" strokeWidth="0.8" opacity={0.5}/>)}
-                <line x1="35" y1="35" x2="55" y2="35" stroke="#00C48C" strokeWidth="1.2" opacity="0.7"/>
+                <rect x="5" y="18" width="32" height="32" rx="3" fill="none" stroke="#00C48C" strokeWidth="1.4" opacity="0.8"/>
+                {[25,33,41].map((y,i)=><line key={i} x1={5} y1={y} x2={37} y2={y} stroke="#4D9FFF" strokeWidth="0.9" opacity={0.6}/>)}
+                <line x1="37" y1="34" x2="57" y2="34" stroke="#00C48C" strokeWidth="1.4" opacity="0.8"/>
                 {/* Benzene ring */}
                 {[0,1,2,3,4,5].map(i=>{
                   const a1=i*Math.PI/3-Math.PI/6; const a2=(i+1)*Math.PI/3-Math.PI/6
-                  return <line key={i} x1={85+18*Math.cos(a1)} y1={35+18*Math.sin(a1)} x2={85+18*Math.cos(a2)} y2={35+18*Math.sin(a2)} stroke="#4D9FFF" strokeWidth="1.5" opacity="0.8"/>
+                  return <line key={i} x1={87+19*Math.cos(a1)} y1={34+19*Math.sin(a1)} x2={87+19*Math.cos(a2)} y2={34+19*Math.sin(a2)} stroke="#4D9FFF" strokeWidth="1.6" opacity="0.85"/>
                 })}
-                <circle cx="85" cy="35" r="8" fill="none" stroke="#00C48C" strokeWidth="1" opacity="0.6"/>
-                <line x1="103" y1="35" x2="125" y2="35" stroke="#00C48C" strokeWidth="1.2" opacity="0.7"/>
+                <circle cx="87" cy="34" r="8" fill="none" stroke="#00C48C" strokeWidth="1.2" opacity="0.7"/>
+                <line x1="106" y1="34" x2="126" y2="34" stroke="#00C48C" strokeWidth="1.4" opacity="0.8"/>
                 {/* Flask */}
-                <path d="M130 15 L130 35 L120 55 L150 55 L140 35 L140 15 Z" fill="rgba(0,196,140,0.1)" stroke="#00C48C" strokeWidth="1.5"/>
-                <line x1="125" y1="15" x2="145" y2="15" stroke="#4D9FFF" strokeWidth="1.5"/>
-                <circle cx="132" cy="45" r="3" fill="#00C48C" opacity="0.7"/>
-                <circle cx="140" cy="48" r="2" fill="#4D9FFF" opacity="0.7"/>
+                <path d="M131 13 L131 33 L121 54 L151 54 L141 33 L141 13 Z" fill="rgba(0,196,140,0.12)" stroke="#00C48C" strokeWidth="1.6"/>
+                <line x1="126" y1="13" x2="146" y2="13" stroke="#4D9FFF" strokeWidth="1.6"/>
+                <circle cx="133" cy="44" r="3.5" fill="#00C48C" opacity={0.8}/>
+                <circle cx="141" cy="47" r="2.5" fill="#4D9FFF" opacity={0.8}/>
               </svg>
             </div>
             <div style={{fontSize:10,color:'rgba(107,143,175,0.45)',marginTop:4}}>ProveRank · NEET 2026 · prove-rank.vercel.app</div>
