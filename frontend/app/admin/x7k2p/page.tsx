@@ -107,32 +107,55 @@ function PRLogo({size=36}:{size?:number}) {
 // ══════════════════════════════════════════════════════════════
 // PARTICLES BACKGROUND — Same as Login page
 // ══════════════════════════════════════════════════════════════
-function ParticlesBg() {
+function GalaxyBg() {
   const canvasRef=useRef<HTMLCanvasElement>(null)
   useEffect(()=>{
     const canvas=canvasRef.current;if(!canvas)return
     const ctx=canvas.getContext('2d');if(!ctx)return
-    canvas.width=window.innerWidth;canvas.height=window.innerHeight
-    const particles:{x:number;y:number;vx:number;vy:number;r:number;opacity:number}[]=[]
-    for(let i=0;i<60;i++)particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*1.5+0.5,opacity:Math.random()*.3+.05})
+    const resize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight}
+    resize()
+    const stars:{x:number;y:number;r:number;op:number;tw:number}[]=[]
+    for(let i=0;i<220;i++)stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.8+0.2,op:Math.random()*0.8+0.2,tw:Math.random()*Math.PI*2})
+    const nebX=[0.15,0.80,0.50],nebY=[0.25,0.60,0.85]
+    const nebC=['rgba(77,159,255,0.045)','rgba(0,212,255,0.035)','rgba(100,77,255,0.04)']
+    const nebR=[180,220,160]
+    const shoots:{x:number;y:number;op:number;act:boolean;t:number}[]=[]
+    for(let i=0;i<4;i++)shoots.push({x:0,y:0,op:0,act:false,t:Math.floor(Math.random()*300)})
+    const parts:{x:number;y:number;vx:number;vy:number;r:number;op:number}[]=[]
+    for(let i=0;i<60;i++)parts.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*1.5+0.5,op:Math.random()*.3+.05})
     let animId:number
     const draw=()=>{
       ctx.clearRect(0,0,canvas.width,canvas.height)
-      particles.forEach(p=>{
+      for(let n=0;n<3;n++){
+        const gx=nebX[n]*canvas.width,gy=nebY[n]*canvas.height,gr=nebR[n]
+        const g=ctx.createRadialGradient(gx,gy,0,gx,gy,gr)
+        g.addColorStop(0,nebC[n]);g.addColorStop(1,'transparent')
+        ctx.beginPath();ctx.arc(gx,gy,gr,0,Math.PI*2);ctx.fillStyle=g;ctx.fill()
+      }
+      stars.forEach(s=>{s.tw+=0.012;const o=s.op*(0.5+0.5*Math.sin(s.tw));ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle=`rgba(200,230,255,${o})`;ctx.fill()})
+      shoots.forEach(s=>{
+        if(!s.act){s.t--;if(s.t<=0){s.act=true;s.x=Math.random()*canvas.width;s.y=Math.random()*canvas.height*0.4;s.op=0.9}}
+        else{s.x+=8;s.y+=3;s.op-=0.02
+          if(s.op>0){ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x-90,s.y-35)
+            const sg=ctx.createLinearGradient(s.x,s.y,s.x-90,s.y-35)
+            sg.addColorStop(0,`rgba(200,230,255,${s.op})`);sg.addColorStop(1,'transparent')
+            ctx.strokeStyle=sg;ctx.lineWidth=1.5;ctx.stroke()}
+          else{s.act=false;s.t=200+Math.floor(Math.random()*400)}}
+      })
+      parts.forEach(p=>{
         p.x+=p.vx;p.y+=p.vy
         if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0
         if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0
         ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2)
-        ctx.fillStyle=`rgba(77,159,255,${p.opacity})`;ctx.fill()
+        ctx.fillStyle=`rgba(77,159,255,${p.op})`;ctx.fill()
       })
-      for(let i=0;i<particles.length;i++)for(let j=i+1;j<particles.length;j++){
-        const dx=particles[i].x-particles[j].x,dy=particles[i].y-particles[j].y,dist=Math.sqrt(dx*dx+dy*dy)
-        if(dist<100){ctx.beginPath();ctx.moveTo(particles[i].x,particles[i].y);ctx.lineTo(particles[j].x,particles[j].y);ctx.strokeStyle=`rgba(77,159,255,${.08*(1-dist/100)})`;ctx.lineWidth=.5;ctx.stroke()}
+      for(let i=0;i<parts.length;i++)for(let j=i+1;j<parts.length;j++){
+        const dx=parts[i].x-parts[j].x,dy=parts[i].y-parts[j].y,dist=Math.sqrt(dx*dx+dy*dy)
+        if(dist<100){ctx.beginPath();ctx.moveTo(parts[i].x,parts[i].y);ctx.lineTo(parts[j].x,parts[j].y);ctx.strokeStyle=`rgba(77,159,255,${.07*(1-dist/100)})`;ctx.lineWidth=.5;ctx.stroke()}
       }
       animId=requestAnimationFrame(draw)
     }
     draw()
-    const resize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight}
     window.addEventListener('resize',resize)
     return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',resize)}
   },[])
@@ -194,9 +217,9 @@ const GlobalSearch=memo(function GlobalSearch({students,exams,questions,setTab,s
 // ══════════════════════════════════════════════════════════════
 // THEME CONSTANTS — N6 Neon Blue Arctic (from Login page)
 // ══════════════════════════════════════════════════════════════
-const BG_GRAD='radial-gradient(ellipse at 20% 50%,#001628 0%,#000A18 60%,#000510 100%)'
-const CRD='rgba(0,22,40,0.75)'
-const CRD2='rgba(0,31,58,0.8)'
+const BG_GRAD='radial-gradient(ellipse at 20% 50%,#001e38 0%,#000f22 60%,#000810 100%)'
+const CRD='rgba(0,28,52,0.88)'
+const CRD2='rgba(0,36,65,0.92)'
 const ACC='#4D9FFF'
 const BOR='rgba(77,159,255,0.18)'
 const BOR2='rgba(77,159,255,0.3)'
@@ -223,7 +246,7 @@ const pageSub:any={fontSize:12,color:DIM,marginBottom:20,fontFamily:'Inter,sans-
 // ══════════════════════════════════════════════════════════════
 function StatBox({ico,lbl:label,val,sub,col=ACC}:{ico:string;lbl:string;val:any;sub?:string;col?:string}) {
   return (
-    <div style={{background:CRD,border:`1px solid ${BOR}`,borderRadius:14,padding:'18px 16px',flex:1,minWidth:130,backdropFilter:'blur(12px)',position:'relative',overflow:'hidden'}}>
+    <div style={{background:CRD,border:`1px solid ${BOR}`,borderRadius:14,padding:'16px 12px',width:'100%',backdropFilter:'blur(12px)',position:'relative',overflow:'hidden'}}>
       <div style={{position:'absolute',right:-8,bottom:-8,fontSize:48,opacity:0.06}}>{ico}</div>
       <div style={{fontSize:22,marginBottom:6}}>{ico}</div>
       <div style={{fontSize:22,fontWeight:700,color:col,fontFamily:'Playfair Display,Georgia,serif',lineHeight:1}}>{val}</div>
@@ -870,7 +893,7 @@ export default function AdminPanel() {
     <div style={{background:BG_GRAD,minHeight:'100vh',color:TS,fontFamily:'Inter,sans-serif',position:'relative'}}>
 
       {/* Particles Background */}
-      <ParticlesBg />
+      <GalaxyBg />
 
       {/* Decorative hexagons like login page */}
       <div style={{position:'fixed',top:-60,left:-60,fontSize:280,color:'rgba(77,159,255,0.03)',pointerEvents:'none',zIndex:0,lineHeight:1}}>⬡</div>
@@ -988,7 +1011,7 @@ export default function AdminPanel() {
               </div>
 
               {/* Stats Row */}
-              <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:20}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:20}}>
                 <StatBox ico='👥' lbl='Total Students' val={loading?'…':stats?.totalStudents||(students||[]).length||0} col={ACC}/>
                 <StatBox ico='📝' lbl='Total Exams' val={loading?'…':stats?.totalExams||(exams||[]).length||0} col={GOLD}/>
                 <StatBox ico='📈' lbl='Exam Attempts' val={loading?'…':stats?.totalAttempts||'—'} col={SUC}/>
@@ -997,7 +1020,7 @@ export default function AdminPanel() {
               </div>
 
               {/* Hero Banner */}
-              <div style={{background:`linear-gradient(135deg,rgba(0,85,204,0.25),rgba(77,159,255,0.1))`,border:`1px solid rgba(77,159,255,0.25)`,borderRadius:16,padding:'24px 20px',marginBottom:20,position:'relative',overflow:'hidden'}}>
+              <div style={{background:`linear-gradient(135deg,rgba(0,85,204,0.40),rgba(77,159,255,0.20))`,border:`1px solid rgba(77,159,255,0.25)`,borderRadius:16,padding:'24px 20px',marginBottom:20,position:'relative',overflow:'hidden'}}>
                 <div style={{position:'absolute',right:-20,top:-20,fontSize:100,opacity:0.06}}>⬡</div>
                 <div style={{position:'absolute',right:30,top:20,fontSize:60,opacity:0.08}}>⬡</div>
                 <div style={{fontFamily:'Playfair Display,serif',fontSize:18,fontWeight:700,color:TS,marginBottom:6}}>🎯 ProveRank Admin Center</div>
@@ -1012,7 +1035,7 @@ export default function AdminPanel() {
               </div>
 
               {/* 2-col grid */}
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:14,marginBottom:14}}>
                 {/* Recent Exams */}
                 <div style={cs}>
                   <div style={{fontWeight:700,marginBottom:12,fontSize:13,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -1065,7 +1088,7 @@ export default function AdminPanel() {
               </div>
 
               {/* Bottom row */}
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12}}>
                 <div style={cs}>
                   <div style={{fontWeight:700,marginBottom:8,fontSize:12}}>🏆 Top Students</div>
                   {(students||[]).filter(s=>!s.banned).slice(0,4).map((s,i)=>(
@@ -1852,13 +1875,13 @@ export default function AdminPanel() {
             <div>
               <div style={pageTitle}>📉 Analytics Dashboard (S13/S53/S108)</div>
               <div style={pageSub}>Visual performance data — student trends, exam stats, platform health</div>
-              <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:20}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:20}}>
                 <StatBox ico='👥' lbl='Total Students' val={(students||[]).length} col={ACC}/>
                 <StatBox ico='📝' lbl='Total Exams' val={(exams||[]).length} col={GOLD}/>
                 <StatBox ico='❓' lbl='Questions' val={(questions||[]).length} col={SUC}/>
                 <StatBox ico='🚨' lbl='Active Flags' val={(flags||[]).length} col={DNG}/>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:14,marginBottom:14}}>
                 <div style={cs}>
                   <div style={{fontWeight:700,marginBottom:12,fontSize:13}}>📊 Subject Distribution</div>
                   {['Physics','Chemistry','Biology'].map(subj=>{
