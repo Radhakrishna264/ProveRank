@@ -105,57 +105,66 @@ function PRLogo({size=36}:{size?:number}) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// PARTICLES BACKGROUND — Same as Login page
+// GALAXY BACKGROUND — Stars + Nebula + Shooting Stars + Particles
 // ══════════════════════════════════════════════════════════════
-function GalaxyBg() {
+function ParticlesBg() {
   const canvasRef=useRef<HTMLCanvasElement>(null)
   useEffect(()=>{
     const canvas=canvasRef.current;if(!canvas)return
     const ctx=canvas.getContext('2d');if(!ctx)return
-    const resize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight}
-    resize()
-    const stars:{x:number;y:number;r:number;op:number;tw:number}[]=[]
-    for(let i=0;i<220;i++)stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.8+0.2,op:Math.random()*0.8+0.2,tw:Math.random()*Math.PI*2})
-    const nebX=[0.15,0.80,0.50],nebY=[0.25,0.60,0.85]
-    const nebC=['rgba(77,159,255,0.045)','rgba(0,212,255,0.035)','rgba(100,77,255,0.04)']
-    const nebR=[180,220,160]
-    const shoots:{x:number;y:number;op:number;act:boolean;t:number}[]=[]
-    for(let i=0;i<4;i++)shoots.push({x:0,y:0,op:0,act:false,t:Math.floor(Math.random()*300)})
-    const parts:{x:number;y:number;vx:number;vy:number;r:number;op:number}[]=[]
-    for(let i=0;i<60;i++)parts.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*1.5+0.5,op:Math.random()*.3+.05})
-    let animId:number
+    let W=window.innerWidth,H=window.innerHeight
+    canvas.width=W;canvas.height=H
+    const stars:{x:number;y:number;r:number;op:number;ts:number;tp:number}[]=[]
+    for(let i=0;i<200;i++)stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.5+0.2,op:Math.random()*0.65+0.15,ts:Math.random()*0.025+0.005,tp:Math.random()*Math.PI*2})
+    const gStars:{x:number;y:number;r:number;op:number}[]=[]
+    const cx=W*0.74,cy=H*0.25
+    for(let i=0;i<160;i++){const arm=Math.floor(Math.random()*3);const t=Math.random()*Math.PI*3;const sp=Math.random()*50+8;const gx=cx+Math.cos(t+arm*2.09)*sp*(1+t*0.18)+(Math.random()-0.5)*20;const gy=cy+Math.sin(t+arm*2.09)*sp*0.55*(1+t*0.12)+(Math.random()-0.5)*18;gStars.push({x:gx,y:gy,r:Math.random()*1.3+0.2,op:Math.random()*0.5+0.15})}
+    const particles:{x:number;y:number;vx:number;vy:number;r:number;opacity:number}[]=[]
+    for(let i=0;i<50;i++)particles.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:Math.random()*1.2+0.3,opacity:Math.random()*.22+.04})
+    const shoots:{x:number;y:number;len:number;life:number;maxL:number;active:boolean}[]=[]
+    for(let i=0;i<4;i++)shoots.push({x:Math.random()*W,y:Math.random()*H*0.45,len:Math.random()*85+55,life:0,maxL:Math.random()*55+35,active:Math.random()>0.5})
+    let frame=0,animId:number
+    const ANG=Math.PI/5
     const draw=()=>{
-      ctx.clearRect(0,0,canvas.width,canvas.height)
-      for(let n=0;n<3;n++){
-        const gx=nebX[n]*canvas.width,gy=nebY[n]*canvas.height,gr=nebR[n]
-        const g=ctx.createRadialGradient(gx,gy,0,gx,gy,gr)
-        g.addColorStop(0,nebC[n]);g.addColorStop(1,'transparent')
-        ctx.beginPath();ctx.arc(gx,gy,gr,0,Math.PI*2);ctx.fillStyle=g;ctx.fill()
-      }
-      stars.forEach(s=>{s.tw+=0.012;const o=s.op*(0.5+0.5*Math.sin(s.tw));ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle=`rgba(200,230,255,${o})`;ctx.fill()})
+      ctx.clearRect(0,0,W,H)
+      const bg=ctx.createRadialGradient(W*0.5,H*0.35,0,W*0.5,H*0.5,W*0.8)
+      bg.addColorStop(0,'rgba(4,8,32,1)');bg.addColorStop(0.5,'rgba(1,5,18,1)');bg.addColorStop(1,'rgba(0,2,10,1)')
+      ctx.fillStyle=bg;ctx.fillRect(0,0,W,H)
+      const n1=ctx.createRadialGradient(W*0.18,H*0.62,0,W*0.18,H*0.62,W*0.35)
+      n1.addColorStop(0,'rgba(75,35,155,0.13)');n1.addColorStop(1,'rgba(0,0,0,0)')
+      ctx.fillStyle=n1;ctx.fillRect(0,0,W,H)
+      const n2=ctx.createRadialGradient(W*0.78,H*0.18,0,W*0.78,H*0.18,W*0.3)
+      n2.addColorStop(0,'rgba(25,75,175,0.14)');n2.addColorStop(1,'rgba(0,0,0,0)')
+      ctx.fillStyle=n2;ctx.fillRect(0,0,W,H)
+      const n3=ctx.createRadialGradient(W*0.88,H*0.78,0,W*0.88,H*0.78,W*0.22)
+      n3.addColorStop(0,'rgba(0,155,175,0.08)');n3.addColorStop(1,'rgba(0,0,0,0)')
+      ctx.fillStyle=n3;ctx.fillRect(0,0,W,H)
+      const gc=ctx.createRadialGradient(cx,cy,0,cx,cy,120)
+      gc.addColorStop(0,'rgba(110,155,255,0.18)');gc.addColorStop(0.45,'rgba(55,95,195,0.08)');gc.addColorStop(1,'rgba(0,0,0,0)')
+      ctx.fillStyle=gc;ctx.fillRect(0,0,W,H)
+      gStars.forEach(s=>{ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle='rgba(155,195,255,'+s.op+')';ctx.fill()})
+      frame++
+      stars.forEach(s=>{
+        const tw=s.op*(0.45+0.55*Math.sin(frame*s.ts+s.tp))
+        ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle='rgba(215,232,255,'+tw+')';ctx.fill()
+        if(s.r>1.1){ctx.beginPath();ctx.arc(s.x,s.y,s.r*2.5,0,Math.PI*2);ctx.fillStyle='rgba(175,210,255,'+(tw*0.07)+')';ctx.fill()}
+      })
       shoots.forEach(s=>{
-        if(!s.act){s.t--;if(s.t<=0){s.act=true;s.x=Math.random()*canvas.width;s.y=Math.random()*canvas.height*0.4;s.op=0.9}}
-        else{s.x+=8;s.y+=3;s.op-=0.02
-          if(s.op>0){ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x-90,s.y-35)
-            const sg=ctx.createLinearGradient(s.x,s.y,s.x-90,s.y-35)
-            sg.addColorStop(0,`rgba(200,230,255,${s.op})`);sg.addColorStop(1,'transparent')
-            ctx.strokeStyle=sg;ctx.lineWidth=1.5;ctx.stroke()}
-          else{s.act=false;s.t=200+Math.floor(Math.random()*400)}}
+        if(!s.active){s.life++;if(s.life>s.maxL*2.5){s.life=0;s.active=true;s.x=Math.random()*W;s.y=Math.random()*H*0.4;s.maxL=Math.random()*55+35}return}
+        s.life++;const prog=s.life/s.maxL
+        if(prog>=1){s.active=false;s.life=0;return}
+        const op=prog<0.2?prog/0.2:prog>0.8?(1-prog)/0.2:1
+        const ex=s.x+Math.cos(ANG)*s.len*prog,ey=s.y+Math.sin(ANG)*s.len*prog
+        const sg=ctx.createLinearGradient(s.x,s.y,ex,ey)
+        sg.addColorStop(0,'rgba(255,255,255,0)');sg.addColorStop(0.5,'rgba(175,215,255,'+(op*0.55)+')');sg.addColorStop(1,'rgba(255,255,255,'+op+')')
+        ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(ex,ey);ctx.strokeStyle=sg;ctx.lineWidth=1.5;ctx.stroke()
       })
-      parts.forEach(p=>{
-        p.x+=p.vx;p.y+=p.vy
-        if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0
-        if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0
-        ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2)
-        ctx.fillStyle=`rgba(77,159,255,${p.op})`;ctx.fill()
-      })
-      for(let i=0;i<parts.length;i++)for(let j=i+1;j<parts.length;j++){
-        const dx=parts[i].x-parts[j].x,dy=parts[i].y-parts[j].y,dist=Math.sqrt(dx*dx+dy*dy)
-        if(dist<100){ctx.beginPath();ctx.moveTo(parts[i].x,parts[i].y);ctx.lineTo(parts[j].x,parts[j].y);ctx.strokeStyle=`rgba(77,159,255,${.07*(1-dist/100)})`;ctx.lineWidth=.5;ctx.stroke()}
-      }
+      particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle='rgba(77,159,255,'+p.opacity+')';ctx.fill()})
+      for(let i=0;i<particles.length;i++)for(let j=i+1;j<particles.length;j++){const dx=particles[i].x-particles[j].x,dy=particles[i].y-particles[j].y,dist=Math.sqrt(dx*dx+dy*dy);if(dist<110){ctx.beginPath();ctx.moveTo(particles[i].x,particles[i].y);ctx.lineTo(particles[j].x,particles[j].y);ctx.strokeStyle='rgba(77,159,255,'+(.07*(1-dist/110))+')';ctx.lineWidth=.4;ctx.stroke()}}
       animId=requestAnimationFrame(draw)
     }
     draw()
+    const resize=()=>{W=window.innerWidth;H=window.innerHeight;canvas.width=W;canvas.height=H}
     window.addEventListener('resize',resize)
     return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',resize)}
   },[])
@@ -1009,34 +1018,69 @@ export default function AdminPanel() {
                 <div style={pageTitle}>📊 Dashboard Overview</div>
                 <div style={pageSub}>Welcome back, {role==='superadmin'?'Super Admin':'Admin'} — Here is your platform at a glance</div>
               </div>
-
-              {/* Stats Row */}
-              <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:20}}>
+              <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:20}}>
                 <StatBox ico='👥' lbl='Total Students' val={loading?'…':stats?.totalStudents||(students||[]).length||0} col={ACC}/>
                 <StatBox ico='📝' lbl='Total Exams' val={loading?'…':stats?.totalExams||(exams||[]).length||0} col={GOLD}/>
-                <StatBox ico='📈' lbl='Exam Attempts' val={loading?'…':stats?.totalAttempts??0} col={SUC}/>
-                <StatBox ico='🟢' lbl='Active Today' val={loading?'…':stats?.activeStudents??0} col='#00E5FF'/>
-                <div style={{gridColumn:"span 2"}}><StatBox ico='❓' lbl='Questions' val={loading?'\u2026':stats?.totalQuestions||(questions||[]).length||0} col='#FF6B9D'/></div>
+                <StatBox ico='📈' lbl='Exam Attempts' val={loading?'…':stats?.totalAttempts||'—'} col={SUC}/>
+                <StatBox ico='🟢' lbl='Active Today' val={loading?'…':stats?.activeStudents||'—'} col='#00E5FF'/>
+                <StatBox ico='❓' lbl='Questions' val={loading?'…':stats?.totalQuestions||(questions||[]).length||0} col='#FF6B9D'/>
               </div>
-
-              {/* Hero Banner */}
-              <div style={{background:`linear-gradient(135deg,rgba(0,85,204,0.40),rgba(77,159,255,0.20))`,border:`1px solid rgba(77,159,255,0.25)`,borderRadius:16,padding:'24px 20px',marginBottom:20,position:'relative',overflow:'hidden'}}>
+              <div style={{background:'linear-gradient(135deg,rgba(0,85,204,0.25),rgba(77,159,255,0.1))',border:'1px solid rgba(77,159,255,0.25)',borderRadius:16,padding:'24px 20px',marginBottom:20,position:'relative',overflow:'hidden'}}>
                 <div style={{position:'absolute',right:-20,top:-20,fontSize:100,opacity:0.06}}>⬡</div>
-                <div style={{position:'absolute',right:30,top:20,fontSize:60,opacity:0.08}}>⬡</div>
                 <div style={{fontFamily:'Playfair Display,serif',fontSize:18,fontWeight:700,color:TS,marginBottom:6}}>🎯 ProveRank Admin Center</div>
-                <div style={{fontSize:12,color:DIM,lineHeight:1.7,maxWidth:500}}>
-                  Manage your complete NEET test platform from here. Create exams, monitor students, review analytics, and keep your platform running smoothly.
-                </div>
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:8,marginTop:14}}>
-                  {[['➕ Create Exam','create_exam',ACC],['👥 All Students','students',SUC],['🔴 Live Monitor','live',DNG],['📊 Analytics','analytics',GOLD]].map(([l,t,c])=>(
-                    <button key={String(t)} onClick={()=>setTab(String(t))} style={{padding:'8px 16px',background:`${c}22`,border:`1px solid ${c}44`,color:String(c),borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600}}>{String(l)}</button>
+                <div style={{fontSize:12,color:DIM,lineHeight:1.7,maxWidth:500}}>Manage your complete NEET test platform. Create exams, monitor students, review analytics, and keep your platform running smoothly.</div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:14}}>
+                  {([['➕ Create Exam','create_exam',ACC],['👥 All Students','students',SUC],['🔴 Live Monitor','live',DNG],['📊 Analytics','analytics',GOLD]] as [string,string,string][]).map(([l,t,c])=>(
+                    <button key={t} onClick={()=>setTab(t)} style={{padding:'8px 16px',background:c+'22',border:'1px solid '+c+'44',color:c,borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600}}>{l}</button>
                   ))}
                 </div>
               </div>
-
-              {/* 2-col grid */}
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:14,marginBottom:14}}>
-                {/* Recent Exams */}
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:20}}>
+                <div style={{...cs,textAlign:'center',padding:'18px 10px'}}>
+                  <svg viewBox="0 0 110 100" width="88" style={{display:'block',margin:'0 auto 10px'}} xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="55" cy="30" r="16" fill="rgba(77,159,255,0.15)" stroke="rgba(77,159,255,0.6)" strokeWidth="1.5"/>
+                    <circle cx="55" cy="26" r="7" fill="rgba(77,159,255,0.7)"/>
+                    <path d="M38 50 Q55 44 72 50 L74 72 Q55 78 36 72 Z" fill="rgba(0,22,40,0.85)" stroke="rgba(77,159,255,0.5)" strokeWidth="1.2"/>
+                    <rect x="42" y="55" width="26" height="3" rx="1.5" fill="rgba(77,159,255,0.6)"/>
+                    <rect x="42" y="62" width="20" height="2.5" rx="1.2" fill="rgba(77,159,255,0.4)"/>
+                    <circle cx="55" cy="30" r="24" fill="none" stroke="rgba(77,159,255,0.1)" strokeWidth="1" strokeDasharray="3,5"/>
+                  </svg>
+                  <div style={{fontSize:11,fontWeight:700,color:ACC,marginBottom:3}}>Students</div>
+                  <div style={{fontSize:22,fontWeight:900,color:TS}}>{(students||[]).length}</div>
+                  <div style={{fontSize:10,color:DIM}}>Registered learners</div>
+                </div>
+                <div style={{...cs,textAlign:'center',padding:'18px 10px'}}>
+                  <svg viewBox="0 0 110 100" width="88" style={{display:'block',margin:'0 auto 10px'}} xmlns="http://www.w3.org/2000/svg">
+                    <rect x="20" y="15" width="70" height="78" rx="6" fill="rgba(0,22,40,0.85)" stroke="rgba(255,215,0,0.45)" strokeWidth="1.5"/>
+                    <rect x="32" y="25" width="46" height="5" rx="2.5" fill="rgba(255,215,0,0.75)"/>
+                    <rect x="32" y="34" width="32" height="3" rx="1.5" fill="rgba(77,159,255,0.5)"/>
+                    <rect x="32" y="44" width="20" height="3" rx="1.5" fill="rgba(200,220,255,0.35)"/>
+                    <circle cx="58" cy="45.5" r="3.5" fill="rgba(0,196,140,0.75)" stroke="rgba(77,159,255,0.3)" strokeWidth="1"/>
+                    <rect x="32" y="53" width="20" height="3" rx="1.5" fill="rgba(200,220,255,0.35)"/>
+                    <circle cx="58" cy="54.5" r="3.5" fill="rgba(0,196,140,0.75)" stroke="rgba(77,159,255,0.3)" strokeWidth="1"/>
+                    <path d="M78 72 L85 65 L87 67 L80 75 Z" fill="rgba(255,215,0,0.85)"/>
+                  </svg>
+                  <div style={{fontSize:11,fontWeight:700,color:GOLD,marginBottom:3}}>Exams</div>
+                  <div style={{fontSize:22,fontWeight:900,color:TS}}>{(exams||[]).length}</div>
+                  <div style={{fontSize:10,color:DIM}}>Created on platform</div>
+                </div>
+                <div style={{...cs,textAlign:'center',padding:'18px 10px'}}>
+                  <svg viewBox="0 0 110 100" width="88" style={{display:'block',margin:'0 auto 10px'}} xmlns="http://www.w3.org/2000/svg">
+                    <rect x="12" y="66" width="86" height="26" rx="4" fill="rgba(0,22,40,0.85)" stroke="rgba(0,196,140,0.4)" strokeWidth="1.2"/>
+                    <rect x="28" y="52" width="54" height="15" rx="3" fill="rgba(0,22,40,0.8)" stroke="rgba(0,196,140,0.3)" strokeWidth="1"/>
+                    <rect x="44" y="38" width="22" height="15" rx="2" fill="rgba(0,22,40,0.8)" stroke="rgba(0,196,140,0.3)" strokeWidth="1"/>
+                    <polygon points="50,18 55,10 60,18" fill="rgba(0,196,140,0.85)"/>
+                    <circle cx="55" cy="4" r="3" fill="rgba(0,196,140,0.95)"/>
+                    <rect x="20" y="72" width="9" height="13" rx="2" fill="rgba(77,159,255,0.3)"/>
+                    <rect x="50" y="72" width="9" height="13" rx="2" fill="rgba(77,159,255,0.3)"/>
+                    <rect x="80" y="72" width="9" height="13" rx="2" fill="rgba(77,159,255,0.3)"/>
+                  </svg>
+                  <div style={{fontSize:11,fontWeight:700,color:SUC,marginBottom:3}}>Features</div>
+                  <div style={{fontSize:22,fontWeight:900,color:TS}}>{features.filter((f:any)=>f.enabled).length}/{features.length}</div>
+                  <div style={{fontSize:10,color:DIM}}>Enabled on platform</div>
+                </div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
                 <div style={cs}>
                   <div style={{fontWeight:700,marginBottom:12,fontSize:13,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <span>📝 Recent Exams</span>
@@ -1048,8 +1092,8 @@ export default function AdminPanel() {
                       <div style={{fontSize:12}}>No exams yet</div>
                       <button onClick={()=>setTab('create_exam')} style={{...bp,fontSize:11,padding:'6px 14px',marginTop:8}}>Create First Exam</button>
                     </div>
-                    :(exams||[]).slice(0,4).map(e=>(
-                      <div key={e._id} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:`1px solid ${BOR}`,fontSize:12}}>
+                    :(exams||[]).slice(0,4).map((e:any)=>(
+                      <div key={e._id} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid '+BOR,fontSize:12}}>
                         <div>
                           <div style={{fontWeight:600,color:TS}}>{e.title}</div>
                           <div style={{fontSize:10,color:DIM,marginTop:2}}>{e.scheduledAt?new Date(e.scheduledAt).toLocaleDateString():''}</div>
@@ -1059,24 +1103,21 @@ export default function AdminPanel() {
                     ))
                   }
                 </div>
-
-                {/* Alerts + Quick Actions */}
                 <div>
                   <div style={{...cs,marginBottom:12}}>
                     <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>🚨 Alerts</div>
-                    {(flags||[]).length===0&&(tickets||[]).filter(t=>t.status==='open').length===0
+                    {(flags||[]).length===0&&(tickets||[]).filter((t:any)=>t.status==='open').length===0
                       ?<div style={{color:SUC,fontSize:12,display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:20}}>✅</span> All clear — no alerts</div>
                       :<div>
-                        {(flags||[]).length>0&&<div style={{fontSize:12,color:WRN,marginBottom:6,padding:'6px 10px',background:'rgba(255,184,77,0.08)',borderRadius:8}}>⚠️ {flags.length} cheating flag{flags.length>1?'s':''}</div>}
-                        {(tickets||[]).filter(t=>t.status==='open').length>0&&<div style={{fontSize:12,color:ACC,padding:'6px 10px',background:'rgba(77,159,255,0.08)',borderRadius:8}}>🎫 {tickets.filter(t=>t.status==='open').length} open ticket{tickets.filter(t=>t.status==='open').length>1?'s':''}</div>}
+                        {(flags||[]).length>0&&<div style={{fontSize:12,color:WRN,padding:'6px 10px',background:'rgba(255,184,77,0.08)',borderRadius:8}}>⚠️ {flags.length} cheating flag{flags.length>1?'s':''}</div>}
                       </div>
                     }
                   </div>
                   <div style={cs}>
                     <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>⚡ Quick Actions</div>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
-                      {[['➕ Exam','create_exam'],['❓ Question','questions'],['📢 Announce','announcements'],['💾 Backup','backup']].map(([l,t])=>(
-                        <button key={String(t)} onClick={()=>setTab(String(t))} style={{...bg_,textAlign:'center',fontSize:11,padding:'8px 6px'}}>{String(l)}</button>
+                      {([['➕ Exam','create_exam'],['❓ Question','questions'],['📢 Announce','announcements'],['💾 Backup','backup']] as [string,string][]).map(([l,t])=>(
+                        <button key={t} onClick={()=>setTab(t)} style={{...bg_,textAlign:'center',fontSize:11,padding:'8px 6px'}}>{l}</button>
                       ))}
                     </div>
                     <div style={{marginTop:10,fontSize:11,color:DIM,display:'flex',gap:12}}>
@@ -1086,13 +1127,11 @@ export default function AdminPanel() {
                   </div>
                 </div>
               </div>
-
-              {/* Bottom row */}
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:12}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:16}}>
                 <div style={cs}>
                   <div style={{fontWeight:700,marginBottom:8,fontSize:12}}>🏆 Top Students</div>
-                  {(students||[]).filter(s=>!s.banned).slice(0,4).map((s,i)=>(
-                    <div key={s._id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 0',borderBottom:`1px solid ${BOR}`,fontSize:11}}>
+                  {(students||[]).filter((s:any)=>!s.banned).slice(0,4).map((s:any,i:number)=>(
+                    <div key={s._id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 0',borderBottom:'1px solid '+BOR,fontSize:11}}>
                       <span style={{width:20,height:20,borderRadius:'50%',background:i===0?GOLD:i===1?'#C0C0C0':i===2?'#CD7F32':CRD2,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:10,color:i<3?'#000':DIM,flexShrink:0}}>{i+1}</span>
                       <span style={{flex:1,fontWeight:500,color:TS,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.name||'—'}</span>
                     </div>
@@ -1103,8 +1142,8 @@ export default function AdminPanel() {
                   <div style={{fontWeight:700,marginBottom:8,fontSize:12}}>🚨 Recent Flags</div>
                   {(flags||[]).length===0
                     ?<div style={{color:SUC,fontSize:11,textAlign:'center',padding:'10px 0'}}>✅ No cheating flags</div>
-                    :(flags||[]).slice(0,4).map((f,i)=>(
-                      <div key={f._id||i} style={{fontSize:11,padding:'5px 0',borderBottom:`1px solid ${BOR}`,color:DIM}}>
+                    :(flags||[]).slice(0,4).map((f:any,i:number)=>(
+                      <div key={f._id||i} style={{fontSize:11,padding:'5px 0',borderBottom:'1px solid '+BOR,color:DIM}}>
                         <span style={{color:f.severity==='high'?DNG:WRN,fontWeight:600}}>{f.type}</span> — {f.studentName||'—'}
                       </div>
                     ))
@@ -1112,18 +1151,58 @@ export default function AdminPanel() {
                 </div>
                 <div style={cs}>
                   <div style={{fontWeight:700,marginBottom:8,fontSize:12}}>📊 Platform Health</div>
-                  {[['Students',`${(students||[]).filter(s=>!s.banned).length}/${(students||[]).length}`,SUC],['Exams',`${(exams||[]).filter(e=>e.status==='active').length} active`,ACC],['Questions',`${(questions||[]).length} in bank`,GOLD],['Features',`${features.filter(f=>f.enabled).length}/${features.length} on`,'#FF6B9D']].map(([l,v,c])=>(
-                    <div key={String(l)} style={{display:'flex',justifyContent:'space-between',fontSize:11,padding:'4px 0',borderBottom:`1px solid ${BOR}`}}>
-                      <span style={{color:DIM}}>{String(l)}</span>
-                      <span style={{color:String(c),fontWeight:600}}>{String(v)}</span>
+                  {([['Students',(students||[]).filter((s:any)=>!s.banned).length+'/'+(students||[]).length,SUC],['Exams',(exams||[]).filter((e:any)=>e.status==='active').length+' active',ACC],['Questions',(questions||[]).length+' in bank',GOLD],['Features',features.filter((f:any)=>f.enabled).length+'/'+features.length+' on','#FF6B9D']] as [string,string,string][]).map(([l,v,c])=>(
+                    <div key={l} style={{display:'flex',justifyContent:'space-between',fontSize:11,padding:'4px 0',borderBottom:'1px solid '+BOR}}>
+                      <span style={{color:DIM}}>{l}</span><span style={{color:c,fontWeight:600}}>{v}</span>
                     </div>
                   ))}
+                </div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+                <div style={{...cs,background:'linear-gradient(135deg,rgba(0,85,204,0.18),rgba(0,22,40,0.75))'}}>
+                  <div style={{fontWeight:700,marginBottom:12,fontSize:13,color:ACC}}>🚀 Admin Quick-Start Guide</div>
+                  {([['1','Create a Batch','Students → Batches — group students first','students'],['2','Add Questions','Question Bank → add manually or bulk upload','questions'],['3','Create Exam','All Exams → Create — title, duration, questions','create_exam'],['4','Monitor Live','Live Monitor → watch students in real-time','live']] as [string,string,string,string][]).map(([n,title,desc,t])=>(
+                    <div key={n} onClick={()=>setTab(t)} style={{display:'flex',gap:10,padding:'8px 0',borderBottom:'1px solid '+BOR,cursor:'pointer'}} className="card-hover">
+                      <div style={{width:22,height:22,borderRadius:'50%',background:ACC+'22',border:'1px solid '+ACC+'44',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,color:ACC,flexShrink:0}}>{n}</div>
+                      <div>
+                        <div style={{fontSize:12,fontWeight:600,color:TS}}>{title}</div>
+                        <div style={{fontSize:10,color:DIM,marginTop:2}}>{desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{...cs,background:'linear-gradient(135deg,rgba(0,100,80,0.15),rgba(0,22,40,0.75))'}}>
+                  <div style={{fontWeight:700,marginBottom:12,fontSize:13,color:SUC}}>📋 Platform Summary</div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                    {([['👥','Students',(students||[]).length+' total',ACC],['📝','Exams',(exams||[]).length+' created',GOLD],['❓','Questions',(questions||[]).length+' in bank','#FF6B9D'],['🛡️','Admins',(adminUsers||[]).length+' active',SUC],['📦','Batches',(batches||[]).length+' groups','#00E5FF'],['🚩','Flags',(flags||[]).length+' total',(flags||[]).length>0?DNG:SUC]] as [string,string,string,string][]).map(([ico,lbl,val,col])=>(
+                      <div key={lbl} style={{background:'rgba(0,0,0,0.2)',borderRadius:10,padding:'10px',border:'1px solid '+BOR}}>
+                        <div style={{fontSize:18,marginBottom:4}}>{ico}</div>
+                        <div style={{fontSize:10,color:DIM}}>{lbl}</div>
+                        <div style={{fontSize:12,fontWeight:700,color:col}}>{val}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div style={{...cs,background:'linear-gradient(135deg,rgba(77,159,255,0.08),rgba(0,22,40,0.75))',marginBottom:4}}>
+                <div style={{fontWeight:700,marginBottom:14,fontSize:13,color:TS}}>🎓 Student Journey on ProveRank</div>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-around',flexWrap:'wrap',gap:6}}>
+                  {['📝|Register|Signs up & verifies','📚|Practice|PYQ Bank & Mini Tests','🎯|Attempt|Live exam + anti-cheat','📊|Analyse|Results & AIR Rank','🏆|Improve|Certs & study plan'].map((item,i,arr)=>{const [ico,t,d]=item.split('|');return(
+                    <div key={t} style={{display:'flex',alignItems:'center',gap:5}}>
+                      <div style={{textAlign:'center',minWidth:54}}>
+                        <div style={{fontSize:20,marginBottom:3}}>{ico}</div>
+                        <div style={{fontSize:11,fontWeight:700,color:ACC}}>{t}</div>
+                        <div style={{fontSize:9,color:DIM,lineHeight:1.4,maxWidth:60}}>{d}</div>
+                      </div>
+                      {i<arr.length-1&&<div style={{fontSize:14,color:'rgba(77,159,255,0.35)',flexShrink:0,marginBottom:12}}>→</div>}
+                    </div>
+                  )})}
                 </div>
               </div>
             </div>
           )}
 
-          {/* ══ GLOBAL SEARCH ══ */}
+                    {/* ══ GLOBAL SEARCH ══ */}
           {tab==='global_search'&&(
             <div>
               <div style={pageTitle}>🔎 Global Search (M12)</div>
