@@ -475,7 +475,7 @@ export default function AdminPanel() {
       get(`${API}/api/admin/manage/admins`),
       getFirst(`${API}/api/results`,`${API}/api/admin/results`),
     ])
-    if(Array.isArray(us))setStudents(us)
+    const stuArr=Array.isArray(us)?us:(us?.students||us?.data||us?.users||[]);if(stuArr.length>0)setStudents(stuArr)
     if(Array.isArray(ex))setExams(ex)
     if(Array.isArray(qs))setQuestions(qs)
     if(st)setStats(st)
