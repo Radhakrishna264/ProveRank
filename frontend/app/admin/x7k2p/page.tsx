@@ -1027,7 +1027,7 @@ export default function AdminPanel() {
                 <div style={{fontSize:12,color:DIM,lineHeight:1.7,maxWidth:500}}>
                   Manage your complete NEET test platform from here. Create exams, monitor students, review analytics, and keep your platform running smoothly.
                 </div>
-                <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:14}}>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:8,marginTop:14}}>
                   {[['➕ Create Exam','create_exam',ACC],['👥 All Students','students',SUC],['🔴 Live Monitor','live',DNG],['📊 Analytics','analytics',GOLD]].map(([l,t,c])=>(
                     <button key={String(t)} onClick={()=>setTab(String(t))} style={{padding:'8px 16px',background:`${c}22`,border:`1px solid ${c}44`,color:String(c),borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600}}>{String(l)}</button>
                   ))}
