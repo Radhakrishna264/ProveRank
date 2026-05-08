@@ -94,7 +94,7 @@ export default function LoginPage() {
   }
   const loginPassword=async()=>{
     setError('');setLoading(true)
-    try{ const r=await fetch(`${API}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})}); const d=await r.json(); if(r.ok) goAfterLogin(d.token,d.role); else setError(d.message||'Invalid email or password') }catch{setError('Network error. Please try again.')}
+    try{ const r=await fetch(`${API}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})}); const d=await r.json(); if(r.ok) goAfterLogin(d.token,d.role); else setError(d.error||d.message||'Login failed. Please try again.') }catch{setError('Network error. Please try again.')}
     setLoading(false)
   }
   const sendLoginOtp=async()=>{
