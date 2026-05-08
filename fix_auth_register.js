@@ -35,17 +35,17 @@ router.post('/register', async (req, res) => {
   try {
     const regFlag = global.featureFlags && global.featureFlags['open_registration']
     if (regFlag === false) {
-      return res.status(403).json({ message: 'Registration is currently closed. Please contact admin.' })
+      return res.status(403).json({ error: 'Registration is currently closed. Please contact admin.' })
     }
 
     const { name, email, password, phone } = req.body
     if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Name, email and password required' })
+      return res.status(400).json({ error: 'Name, email and password required' })
     }
 
     const existing = await User.findOne({ email })
     if (existing && (existing.emailVerified || existing.verified)) {
-      return res.status(409).json({ message: 'Email already registered' })
+      return res.status(409).json({ error: 'Email already registered' })
     }
 
     // Hash once here — use collection.updateOne/insertOne to BYPASS pre-save hook
@@ -96,7 +96,7 @@ router.post('/register', async (req, res) => {
     })
   } catch (err) {
     console.error('Register error:', err)
-    res.status(500).json({ message: 'Server error during registration' })
+    res.status(500).json({ error: 'Server error during registration' })
   }
 })
 
@@ -104,16 +104,16 @@ router.post('/register', async (req, res) => {
 router.post('/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body
-    if (!email || !otp) return res.status(400).json({ message: 'Email and OTP required' })
+    if (!email || !otp) return res.status(400).json({ error: 'Email and OTP required' })
 
     const user = await User.findOne({ email })
-    if (!user) return res.status(404).json({ message: 'User not found' })
+    if (!user) return res.status(404).json({ error: 'No account found with this email.' })
 
     if (!user.emailVerifyOTP || user.emailVerifyOTP !== String(otp).trim()) {
-      return res.status(400).json({ message: 'Invalid OTP' })
+      return res.status(400).json({ error: 'Invalid OTP' })
     }
     if (user.emailVerifyOTPExpiry && new Date() > user.emailVerifyOTPExpiry) {
-      return res.status(400).json({ message: 'OTP expired. Please register again.' })
+      return res.status(400).json({ error: 'OTP expired. Please register again.' })
     }
 
     // Mark verified — bypass hooks
@@ -136,7 +136,7 @@ router.post('/verify-otp', async (req, res) => {
     })
   } catch (err) {
     console.error('OTP verify error:', err)
-    res.status(500).json({ message: 'Server error' })
+    res.status(500).json({ error: 'Server error' })
   }
 })
 
@@ -144,12 +144,12 @@ router.post('/verify-otp', async (req, res) => {
 router.get('/verify-email', async (req, res) => {
   try {
     const { token } = req.query
-    if (!token) return res.status(400).json({ message: 'Token missing' })
+    if (!token) return res.status(400).json({ error: 'Token missing' })
     const user = await User.findOne({
       emailVerifyToken: token,
       emailVerifyExpiry: { $gt: new Date() }
     })
-    if (!user) return res.status(400).json({ message: 'Invalid or expired verification link' })
+    if (!user) return res.status(400).json({ error: 'Invalid or expired verification link' })
     await User.collection.updateOne(
       { _id: user._id },
       { $set: { emailVerified: true, verified: true, emailVerifyToken: null, emailVerifyExpiry: null }}
@@ -159,7 +159,7 @@ router.get('/verify-email', async (req, res) => {
     const frontendURL = process.env.FRONTEND_URL || 'https://prove-rank.vercel.app'
     res.redirect(\`\${frontendURL}/verify-success?token=\${jwtToken}&role=\${user.role}\`)
   } catch (err) {
-    res.status(500).json({ message: 'Server error' })
+    res.status(500).json({ error: 'Server error' })
   }
 })
 
@@ -168,15 +168,14 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body
     const user = await User.findOne({ email })
-    if (!user) return res.status(401).json({ message: 'Invalid email or password' })
+    if (!user) return res.status(401).json({ error: 'No account found with this email.' })
 
     const match = await bcrypt.compare(password, user.password)
-    if (!match) return res.status(401).json({ message: 'Invalid email or password' })
+    if (!match) return res.status(401).json({ error: 'Invalid email or password' })
 
     const isVerified = user.emailVerified || user.verified
     if (user.role === 'student' && !isVerified) {
-      return res.status(403).json({
-        message: 'Please verify your email. Check inbox for OTP.',
+      return res.status(403).json({ error: 'Please verify your email. Check inbox for OTP.',
         requireOTP: true,
         email
       })
@@ -197,7 +196,7 @@ router.post('/login', async (req, res) => {
     res.json({ token, role: user.role, message: 'Login successful' })
   } catch (err) {
     console.error('Login error:', err)
-    res.status(500).json({ message: 'Server error during login' })
+    res.status(500).json({ error: 'Server error during login' })
   }
 })
 
@@ -205,12 +204,12 @@ router.post('/login', async (req, res) => {
 router.post('/send-login-otp', async (req, res) => {
   try {
     const { email } = req.body
-    if (!email) return res.status(400).json({ message: 'Email required' })
+    if (!email) return res.status(400).json({ error: 'Email required' })
     const user = await User.findOne({ email })
-    if (!user) return res.status(404).json({ message: 'No account found with this email' })
+    if (!user) return res.status(404).json({ error: 'No account found with this email' })
     const isVerified = user.emailVerified || user.verified
-    if (!isVerified) return res.status(403).json({ message: 'Please verify your account first' })
-    if (user.banned) return res.status(403).json({ message: 'Account banned' })
+    if (!isVerified) return res.status(403).json({ error: 'Please verify your account first' })
+    if (user.banned) return res.status(403).json({ error: 'Account banned' })
 
     const otp = genOTP()
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000)
@@ -221,23 +220,23 @@ router.post('/send-login-otp', async (req, res) => {
     await sendVerificationEmail(email, user.name, null, otp, 'login')
     res.json({ message: 'OTP sent to your email. Valid for 10 minutes.' })
   } catch (err) {
-    res.status(500).json({ message: 'Server error' })
+    res.status(500).json({ error: 'Server error' })
   }
 })
 
 router.post('/login-otp', async (req, res) => {
   try {
     const { email, otp } = req.body
-    if (!email || !otp) return res.status(400).json({ message: 'Email and OTP required' })
+    if (!email || !otp) return res.status(400).json({ error: 'Email and OTP required' })
     const user = await User.findOne({ email })
-    if (!user) return res.status(404).json({ message: 'User not found' })
+    if (!user) return res.status(404).json({ error: 'No account found with this email.' })
     if (!user.loginOTP || user.loginOTP !== String(otp).trim()) {
-      return res.status(400).json({ message: 'Invalid OTP' })
+      return res.status(400).json({ error: 'Invalid OTP' })
     }
     if (user.loginOTPExpiry && new Date() > user.loginOTPExpiry) {
-      return res.status(400).json({ message: 'OTP expired. Request a new one.' })
+      return res.status(400).json({ error: 'OTP expired. Request a new one.' })
     }
-    if (user.banned) return res.status(403).json({ message: 'Account banned' })
+    if (user.banned) return res.status(403).json({ error: 'Account banned' })
 
     await User.collection.updateOne(
       { _id: user._id },
@@ -250,7 +249,7 @@ router.post('/login-otp', async (req, res) => {
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' })
     res.json({ token, role: user.role, message: 'Login successful' })
   } catch (err) {
-    res.status(500).json({ message: 'Server error' })
+    res.status(500).json({ error: 'Server error' })
   }
 })
 
@@ -258,7 +257,7 @@ router.post('/login-otp', async (req, res) => {
 router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body
-    if (!email) return res.status(400).json({ message: 'Email required' })
+    if (!email) return res.status(400).json({ error: 'Email required' })
     const user = await User.findOne({ email })
     // Don't reveal if email exists or not (security)
     if (!user) return res.json({ message: 'If this email is registered, you will receive an OTP.' })
@@ -272,7 +271,7 @@ router.post('/forgot-password', async (req, res) => {
     await sendVerificationEmail(email, user.name, null, otp, 'reset')
     res.json({ message: 'OTP sent to your email. Valid for 10 minutes.' })
   } catch (err) {
-    res.status(500).json({ message: 'Server error' })
+    res.status(500).json({ error: 'Server error' })
   }
 })
 
@@ -280,18 +279,18 @@ router.post('/reset-password', async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body
     if (!email || !otp || !newPassword) {
-      return res.status(400).json({ message: 'Email, OTP and new password required' })
+      return res.status(400).json({ error: 'Email, OTP and new password required' })
     }
     if (newPassword.length < 6) {
-      return res.status(400).json({ message: 'Password must be at least 6 characters' })
+      return res.status(400).json({ error: 'Password must be at least 6 characters' })
     }
     const user = await User.findOne({ email })
-    if (!user) return res.status(404).json({ message: 'User not found' })
+    if (!user) return res.status(404).json({ error: 'No account found with this email.' })
     if (!user.resetOTP || user.resetOTP !== String(otp).trim()) {
-      return res.status(400).json({ message: 'Invalid OTP' })
+      return res.status(400).json({ error: 'Invalid OTP' })
     }
     if (user.resetOTPExpiry && new Date() > user.resetOTPExpiry) {
-      return res.status(400).json({ message: 'OTP expired. Request a new one.' })
+      return res.status(400).json({ error: 'OTP expired. Request a new one.' })
     }
 
     // Hash and save — bypass hooks
@@ -302,7 +301,7 @@ router.post('/reset-password', async (req, res) => {
     )
     res.json({ message: 'Password reset successfully! You can now login.' })
   } catch (err) {
-    res.status(500).json({ message: 'Server error' })
+    res.status(500).json({ error: 'Server error' })
   }
 })
 
@@ -310,27 +309,27 @@ router.post('/reset-password', async (req, res) => {
 router.post('/change-password', async (req, res) => {
   try {
     const auth = req.headers.authorization
-    if (!auth) return res.status(401).json({ message: 'No token' })
+    if (!auth) return res.status(401).json({ error: 'No token' })
     const token = auth.split(' ')[1]
     const payload = jwt.verify(token, JWT_SECRET)
     const user = await User.findById(payload.id)
-    if (!user) return res.status(404).json({ message: 'User not found' })
+    if (!user) return res.status(404).json({ error: 'No account found with this email.' })
 
     const { currentPassword, newPassword } = req.body
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: 'Both passwords required' })
+      return res.status(400).json({ error: 'Both passwords required' })
     }
     const match = await bcrypt.compare(currentPassword, user.password)
-    if (!match) return res.status(400).json({ message: 'Current password is incorrect' })
+    if (!match) return res.status(400).json({ error: 'Current password is incorrect' })
     if (newPassword.length < 6) {
-      return res.status(400).json({ message: 'New password must be at least 6 characters' })
+      return res.status(400).json({ error: 'New password must be at least 6 characters' })
     }
     const hash = await bcrypt.hash(newPassword, 12)
     // Bypass hooks
     await User.collection.updateOne({ _id: user._id }, { $set: { password: hash }})
     res.json({ message: 'Password changed successfully!' })
   } catch (err) {
-    res.status(500).json({ message: 'Server error' })
+    res.status(500).json({ error: 'Server error' })
   }
 })
 
@@ -338,14 +337,14 @@ router.post('/change-password', async (req, res) => {
 router.get('/me', async (req, res) => {
   try {
     const auth = req.headers.authorization
-    if (!auth) return res.status(401).json({ message: 'No token' })
+    if (!auth) return res.status(401).json({ error: 'No token' })
     const token = auth.split(' ')[1]
     const payload = jwt.verify(token, JWT_SECRET)
     const user = await User.findById(payload.id).select('-password -emailVerifyOTP -loginOTP -resetOTP')
-    if (!user) return res.status(404).json({ message: 'User not found' })
+    if (!user) return res.status(404).json({ error: 'No account found with this email.' })
     res.json({ ...user.toObject(), loginHistory: user.loginHistory || [] })
   } catch (err) {
-    res.status(401).json({ message: 'Invalid token' })
+    res.status(401).json({ error: 'Invalid token' })
   }
 })
 
@@ -353,7 +352,7 @@ router.get('/me', async (req, res) => {
 router.patch('/me', async (req, res) => {
   try {
     const auth = req.headers.authorization
-    if (!auth) return res.status(401).json({ message: 'No token' })
+    if (!auth) return res.status(401).json({ error: 'No token' })
     const token = auth.split(' ')[1]
     const payload = jwt.verify(token, JWT_SECRET)
     const allowed = ['name','phone','dob','city','targetExam','board','school','bio','parentEmail','goals','avatar']
@@ -363,7 +362,7 @@ router.patch('/me', async (req, res) => {
     await User.collection.updateOne({ _id: payload.id }, { $set: update })
     res.json({ message: 'Profile updated successfully' })
   } catch (err) {
-    res.status(500).json({ message: 'Server error' })
+    res.status(500).json({ error: 'Server error' })
   }
 })
 
@@ -371,11 +370,11 @@ router.patch('/me', async (req, res) => {
 router.post('/admin/registration-control', async (req, res) => {
   try {
     const auth = req.headers.authorization
-    if (!auth) return res.status(401).json({ message: 'No token' })
+    if (!auth) return res.status(401).json({ error: 'No token' })
     const token = auth.split(' ')[1]
     const payload = jwt.verify(token, JWT_SECRET)
     if (payload.role !== 'superadmin') {
-      return res.status(403).json({ message: 'Superadmin only' })
+      return res.status(403).json({ error: 'Superadmin only' })
     }
     const { enabled } = req.body
     global.featureFlags = global.featureFlags || {}
@@ -394,7 +393,7 @@ router.post('/admin/registration-control', async (req, res) => {
       open_registration: Boolean(enabled)
     })
   } catch (err) {
-    res.status(500).json({ message: 'Server error' })
+    res.status(500).json({ error: 'Server error' })
   }
 })
 
