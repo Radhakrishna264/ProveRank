@@ -7,7 +7,7 @@ import { getToken, getRole, clearAuth } from '@/lib/auth'
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 
 // ── TypeScript Interfaces ──
-interface Student { _id:string;name:string;email:string;phone?:string;role:string;createdAt:string;banned?:boolean;banReason?:string;group?:string;integrityScore?:number;loginHistory?:any[];parentEmail?:string }
+interface Student { _id:string;name:string;email:string;phone?:string;role:string;createdAt:string;banned?:boolean;banReason?:string;group?:string;integrityScore?:number;loginHistory?:any[];parentEmail?:string;deleted?:boolean;deletedAt?:string;deleteReason?:string;city?:string;school?:string;dob?:string;targetExam?:string;qualifications?:string;_snapshot?:any }
 interface Exam { _id:string;title:string;scheduledAt:string;totalMarks:number;duration:number;status:string;attempts?:number;category?:string;password?:string;batch?:string;subject?:string }
 interface Question { _id:string;text:string;subject:string;chapter?:string;topic?:string;difficulty:string;type:string;options?:string[];correctAnswer?:string;explanation?:string;approvalStatus?:string }
 interface Log { _id:string;action:string;by:string;at:string;detail:string }
@@ -340,7 +340,7 @@ export default function AdminPanel() {
 
   // Search/filter states
   const [stdSearch,setStdSearch]=useState('')
-  const [stdFilter,setStdFilter]=useState<'all'|'active'|'banned'>('all')
+  const [stdFilter,setStdFilter]=useState<'all'|'active'|'banned'|'deleted'>('all')
   const [examSearch,setExamSearch]=useState('')
   const [qSearch,setQSearch]=useState('')
   const [qSubjFilter,setQSubjFilter]=useState('all')
@@ -375,6 +375,11 @@ export default function AdminPanel() {
   // Student management refs
   const banReaR=useRef('')
   const [banId,setBanId]=useState('')
+  const [delConfirmId,setDelConfirmId]=useState('')
+  const delReasonR=useRef('')
+  const [deletedStds,setDeletedStds]=useState<any[]>([])
+  const [stdDelLoading,setStdDelLoading]=useState(false)
+  const [stdSort,setStdSort]=useState<'newest'|'name'|'active'>('newest')
   const [banT,setBanT]=useState<'permanent'|'temporary'>('permanent')
 
   // Announcement refs
@@ -649,6 +654,49 @@ export default function AdminPanel() {
     } catch{T('Network error.','e')}
   },[token,T])
 
+  // ── SOFT DELETE STUDENT (SuperAdmin only) ──
+  const softDelStd=useCallback(async(id:string)=>{
+    setStdDelLoading(true)
+    try{
+      const res=await fetch(`${API}/api/admin/delete/${id}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({reason:delReasonR.current||'Removed by SuperAdmin'})})
+      if(res.ok){
+        setStudents((p:any)=>p.filter((s:any)=>s._id!==id))
+        if(selStudent?._id===id) setSelStudent(null)
+        setDelConfirmId('')
+        delReasonR.current=''
+        T('Student account archived successfully.','s')
+      } else {
+        const d=await res.json()
+        T(d.error||'Delete failed. Try again.','e')
+      }
+    } catch{ T('Network error.','e') }
+    finally{ setStdDelLoading(false) }
+  },[token,T,selStudent])
+
+  // ── RESTORE DELETED STUDENT (SuperAdmin only) ──
+  const restoreStd=useCallback(async(id:string)=>{
+    try{
+      const res=await fetch(`${API}/api/admin/restore/${id}`,{method:'POST',headers:{Authorization:`Bearer ${token}`}})
+      if(res.ok){
+        setDeletedStds((p:any)=>p.filter((s:any)=>s._id!==id))
+        T('Student account restored successfully! 🎉','s')
+        fetchAll()
+      } else { T('Restore failed. Try again.','e') }
+    } catch{ T('Network error.','e') }
+  },[token,T,fetchAll])
+
+  // ── FETCH DELETED STUDENTS ──
+  const fetchDeletedStds=useCallback(async()=>{
+    try{
+      const res=await fetch(`${API}/api/admin/deleted-students`,{headers:{Authorization:`Bearer ${token}`}})
+      if(res.ok){
+        const d=await res.json()
+        setDeletedStds(Array.isArray(d)?d:(d.students||[]))
+      }
+    } catch{}
+  },[token])
+
+
   // ══ FEATURE FLAGS ══
   const toggleFeat=useCallback(async(key:string)=>{
     const ft=features.find(f=>f.key===key);const ne=!ft?.enabled
@@ -861,7 +909,9 @@ export default function AdminPanel() {
   if(!mounted)return null
 
   // ══ COMPUTED DATA ══
-  const fStds=(students||[]).filter(s=>{
+  const fStds=(students||[]).filter((s:any)=>{
+    if(s.deleted)return false  // hide archived from main list
+    if(stdFilter==='deleted')return false  // archived shown separately
     const m=stdSearch.toLowerCase()
     const ok=!m||(s.name?.toLowerCase().includes(m)||s.email?.toLowerCase().includes(m)||s._id?.includes(m))
     if(stdFilter==='banned')return ok&&!!s.banned
@@ -1645,98 +1695,364 @@ export default function AdminPanel() {
           {/* ══ STUDENTS ══ */}
           {tab==='students'&&(
             <div>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16,flexWrap:'wrap',gap:10}}>
+              {/* ── HEADER ───────────────────────────────────── */}
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20,flexWrap:'wrap',gap:12}}>
                 <div>
                   <div style={pageTitle}>👥 Student Management</div>
-                  <div style={pageSub}>{(students||[]).length} students registered · {(students||[]).filter(s=>s.banned).length} banned</div>
+                  <div style={pageSub}>
+                    {(students||[]).filter((s:any)=>!s.deleted).length} registered
+                    &nbsp;·&nbsp;{(students||[]).filter((s:any)=>s.banned&&!s.deleted).length} banned
+                    {typeof window!=='undefined'&&localStorage.getItem('pr_role')==='superadmin'&&(
+                      <span style={{color:'#FFB84D'}}>&nbsp;·&nbsp;{deletedStds.length} archived</span>
+                    )}
+                  </div>
                 </div>
-                <div style={{display:'flex',gap:8}}>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                   <button onClick={()=>doExport(`${API}/api/admin/export/students`,'students.csv')} style={{...bg_,fontSize:11}}>📥 Export CSV</button>
+                  <button onClick={()=>setTab('import_students')} style={{...bg_,fontSize:11}}>📤 Import CSV</button>
                 </div>
               </div>
 
-              {/* Search + Filter */}
-              <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
-                <SInput init={stdSearch} onSet={setStdSearch} ph='🔍 Search by name, email, ID…' style={{...inp,flex:1,minWidth:200}}/>
-                <div style={{display:'flex',gap:6}}>
+              {/* ── STATS ROW ────────────────────────────────── */}
+              <div style={{display:'grid',gridTemplateColumns:`repeat(${typeof window!=='undefined'&&localStorage.getItem('pr_role')==='superadmin'?4:3},1fr)`,gap:10,marginBottom:20}}>
+                {[
+                  {ico:'👥',lbl:'Total Students',val:(students||[]).filter((s:any)=>!s.deleted).length,col:'#4D9FFF'},
+                  {ico:'✅',lbl:'Active',val:(students||[]).filter((s:any)=>!s.banned&&!s.deleted).length,col:'#00C48C'},
+                  {ico:'🚫',lbl:'Banned',val:(students||[]).filter((s:any)=>s.banned&&!s.deleted).length,col:'#FF4757'},
+                  ...(typeof window!=='undefined'&&localStorage.getItem('pr_role')==='superadmin'
+                    ?[{ico:'🗃️',lbl:'Archived',val:deletedStds.length,col:'#FFB84D'}]
+                    :[])
+                ].map((s,i)=>(
+                  <div key={i} style={{
+                    background:`linear-gradient(135deg,${s.col}18 0%,${s.col}06 100%)`,
+                    border:`1px solid ${s.col}35`,
+                    borderRadius:14,
+                    padding:'14px 12px',
+                    textAlign:'center',
+                    transition:'transform 0.2s',
+                    cursor:'default'
+                  }}>
+                    <div style={{fontSize:22,marginBottom:5}}>{s.ico}</div>
+                    <div style={{fontSize:24,fontWeight:800,color:s.col,lineHeight:1}}>{s.val}</div>
+                    <div style={{fontSize:10,color:'#8899AA',marginTop:4,letterSpacing:'0.3px'}}>{s.lbl}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── SEARCH + FILTER BAR ───────────────────────── */}
+              <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+                <SInput init={stdSearch} onSet={setStdSearch} ph='🔍 Search by name, email, ID…' style={{flex:1,minWidth:200,background:'rgba(0,22,40,0.7)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:10,padding:'9px 14px',color:'#E8F4FD',fontSize:12,outline:'none'}}/>
+                <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
                   {(['all','active','banned'] as const).map(f=>(
-                    <button key={f} onClick={()=>setStdFilter(f)} style={{padding:'8px 14px',borderRadius:8,border:`1px solid ${stdFilter===f?ACC:BOR}`,background:stdFilter===f?`${ACC}22`:CRD2,color:stdFilter===f?ACC:DIM,cursor:'pointer',fontSize:11,fontWeight:stdFilter===f?700:400}}>
-                      {f==='all'?'All':f==='active'?'Active':'Banned'}
-                    </button>
+                    <button key={f} onClick={()=>setStdFilter(f)} style={{
+                      padding:'8px 14px',
+                      borderRadius:8,
+                      border:`1px solid ${stdFilter===f?'#4D9FFF':'rgba(77,159,255,0.15)'}`,
+                      background:stdFilter===f?'rgba(77,159,255,0.18)':'rgba(0,22,40,0.6)',
+                      color:stdFilter===f?'#4D9FFF':'#8899AA',
+                      cursor:'pointer',fontSize:11,fontWeight:stdFilter===f?700:500,
+                      transition:'all 0.2s',
+                      textTransform:'capitalize' as const
+                    }}>{f}</button>
                   ))}
+                  {typeof window!=='undefined'&&localStorage.getItem('pr_role')==='superadmin'&&(
+                    <button onClick={()=>{setStdFilter('deleted' as any);fetchDeletedStds()}} style={{
+                      padding:'8px 14px',borderRadius:8,
+                      border:`1px solid ${stdFilter==='deleted'?'#FFB84D':'rgba(255,184,77,0.2)'}`,
+                      background:stdFilter==='deleted'?'rgba(255,184,77,0.15)':'rgba(0,22,40,0.6)',
+                      color:stdFilter==='deleted'?'#FFB84D':'#8899AA',
+                      cursor:'pointer',fontSize:11,fontWeight:stdFilter==='deleted'?700:500,
+                      transition:'all 0.2s'
+                    }}>🗃️ Archived</button>
+                  )}
                 </div>
+                <select
+                  value={stdSort}
+                  onChange={(e:any)=>setStdSort(e.target.value)}
+                  style={{background:'rgba(0,22,40,0.7)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:8,padding:'8px 10px',color:'#8899AA',fontSize:11,cursor:'pointer',outline:'none'}}
+                >
+                  <option value='newest'>🕐 Newest First</option>
+                  <option value='name'>🔤 Name A–Z</option>
+                  <option value='active'>✅ Active First</option>
+                </select>
               </div>
 
-              {/* Selected Student Detail */}
+              {/* ── SELECTED STUDENT DETAIL PANEL ─────────────── */}
               {selStudent&&(
-                <div style={{...cs,border:`1px solid ${ACC}`,marginBottom:16}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:10}}>
-                    <div>
-                      <div style={{fontFamily:'Playfair Display,serif',fontSize:16,fontWeight:700,color:TS,marginBottom:4}}>{selStudent.name}</div>
-                      <div style={{fontSize:12,color:DIM}}>{selStudent.email}</div>
-                      {selStudent.phone&&<div style={{fontSize:12,color:DIM}}>📱 {selStudent.phone}</div>}
-                      <div style={{fontSize:11,color:DIM,marginTop:4}}>Joined: {selStudent.createdAt?new Date(selStudent.createdAt).toLocaleDateString():'-'}</div>
-                      {selStudent.group&&<div style={{marginTop:6}}><Badge label={selStudent.group} col={GOLD}/></div>}
-                      {selStudent.integrityScore!==undefined&&<div style={{marginTop:6,fontSize:12}}>🤖 Integrity Score: <span style={{color:selStudent.integrityScore>70?SUC:selStudent.integrityScore>40?WRN:DNG,fontWeight:700}}>{selStudent.integrityScore}/100</span></div>}
+                <div style={{
+                  borderRadius:16,
+                  border:'2px solid rgba(77,159,255,0.3)',
+                  background:'linear-gradient(135deg,rgba(0,22,40,0.97) 0%,rgba(0,31,58,0.95) 100%)',
+                  padding:'18px',
+                  marginBottom:18,
+                  boxShadow:'0 8px 32px rgba(77,159,255,0.1)'
+                }}>
+                  <div style={{display:'flex',gap:16,alignItems:'flex-start',flexWrap:'wrap'}}>
+                    {/* Avatar */}
+                    <div style={{
+                      width:58,height:58,borderRadius:16,flexShrink:0,
+                      background:'linear-gradient(135deg,#4D9FFF,#0055CC)',
+                      display:'flex',alignItems:'center',justifyContent:'center',
+                      fontSize:24,fontWeight:800,color:'#fff',
+                      boxShadow:'0 6px 20px rgba(77,159,255,0.4)'
+                    }}>
+                      {(selStudent.name||'?').charAt(0).toUpperCase()}
                     </div>
-                    <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    {/* Details */}
+                    <div style={{flex:1,minWidth:180}}>
+                      <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:'#E8F4FD',marginBottom:4}}>{selStudent.name}</div>
+                      <div style={{fontSize:12,color:'#8899AA',marginBottom:2}}>✉️ {selStudent.email}</div>
+                      {selStudent.phone&&<div style={{fontSize:11,color:'#8899AA',marginBottom:2}}>📱 {selStudent.phone}</div>}
+                      {(selStudent as any).city&&<div style={{fontSize:11,color:'#8899AA',marginBottom:2}}>📍 {(selStudent as any).city}</div>}
+                      {(selStudent as any).school&&<div style={{fontSize:11,color:'#8899AA',marginBottom:2}}>🏫 {(selStudent as any).school}</div>}
+                      {(selStudent as any).targetExam&&<div style={{fontSize:11,color:'#8899AA',marginBottom:2}}>🎯 Target: {(selStudent as any).targetExam}</div>}
+                      {(selStudent as any).dob&&<div style={{fontSize:11,color:'#8899AA',marginBottom:2}}>🎂 DOB: {(selStudent as any).dob}</div>}
+                      {(selStudent as any).qualifications&&<div style={{fontSize:11,color:'#8899AA',marginBottom:4}}>🎓 {(selStudent as any).qualifications}</div>}
+                      <div style={{fontSize:10,color:'#8899AA',marginBottom:8}}>📅 Joined: {selStudent.createdAt?new Date(selStudent.createdAt).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'-'}</div>
+                      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                        {selStudent.banned&&<span style={{fontSize:10,background:'rgba(255,71,87,0.15)',color:'#FF4757',padding:'2px 8px',borderRadius:6,border:'1px solid rgba(255,71,87,0.3)'}}>🚫 Banned</span>}
+                        {selStudent.group&&<Badge label={selStudent.group} col='#FFD700'/>}
+                        {selStudent.integrityScore!==undefined&&(
+                          <span style={{fontSize:10,background:`rgba(${selStudent.integrityScore>70?'0,196,140':selStudent.integrityScore>40?'255,184,77':'255,71,87'},0.15)`,color:selStudent.integrityScore>70?'#00C48C':selStudent.integrityScore>40?'#FFB84D':'#FF4757',padding:'2px 8px',borderRadius:6,border:`1px solid rgba(${selStudent.integrityScore>70?'0,196,140':selStudent.integrityScore>40?'255,184,77':'255,71,87'},0.3)`}}>
+                            🤖 Integrity {selStudent.integrityScore}/100
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Action Buttons */}
+                    <div style={{display:'flex',flexDirection:'column' as const,gap:7,alignItems:'stretch',minWidth:120}}>
+                      <button onClick={()=>{setImpId(selStudent._id);impersonate()}} style={{...bg_,fontSize:11,textAlign:'center' as const}}>👁️ View as Student</button>
                       {selStudent.banned
-                        ?<button onClick={()=>unbanStd(selStudent._id)} style={bs}>🔓 Unban</button>
-                        :<button onClick={()=>{setBanId(selStudent._id);setTab('students')}} style={bd}>🚫 Ban</button>
+                        ?<button onClick={()=>unbanStd(selStudent._id)} style={{...bs,fontSize:11}}>🔓 Unban</button>
+                        :<button onClick={()=>{setBanId(selStudent._id)}} style={{...bd,fontSize:11}}>🚫 Ban</button>
                       }
-                      <button onClick={()=>{setImpId(selStudent._id);impersonate()}} style={{...bg_,fontSize:11}}>👁️ View as Student</button>
-                      <button onClick={()=>setSelStudent(null)} style={{background:'none',border:'none',color:DIM,cursor:'pointer',fontSize:16}}>✕</button>
+                      {typeof window!=='undefined'&&localStorage.getItem('pr_role')==='superadmin'&&(
+                        <button
+                          onClick={()=>setDelConfirmId(selStudent._id)}
+                          style={{background:'rgba(255,71,87,0.08)',border:'1px solid rgba(255,71,87,0.35)',color:'#FF4757',borderRadius:10,padding:'9px 14px',cursor:'pointer',fontSize:11,fontWeight:600}}
+                        >🗑️ Delete Account</button>
+                      )}
+                      <button onClick={()=>setSelStudent(null)} style={{background:'none',border:'1px solid rgba(77,159,255,0.15)',color:'#8899AA',borderRadius:10,padding:'7px',cursor:'pointer',fontSize:12,textAlign:'center' as const}}>✕ Close</button>
                     </div>
                   </div>
+                  {/* Login History */}
                   {selStudent.loginHistory&&selStudent.loginHistory.length>0&&(
-                    <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${BOR}`}}>
-                      <div style={{fontWeight:600,fontSize:11,color:DIM,marginBottom:6}}>Recent Login History (S48)</div>
-                      {selStudent.loginHistory.slice(0,3).map((l:any,i:number)=>(
-                        <div key={i} style={{fontSize:10,color:DIM,marginBottom:2}}>📍 {l.city||'—'} · {l.device||'—'} · {l.ip||'—'}</div>
-                      ))}
+                    <div style={{marginTop:14,paddingTop:12,borderTop:'1px solid rgba(77,159,255,0.12)'}}>
+                      <div style={{fontWeight:700,fontSize:10,color:'#8899AA',marginBottom:8,letterSpacing:'0.8px',textTransform:'uppercase' as const}}>📊 Recent Login Activity (S48)</div>
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(170px,1fr))',gap:6}}>
+                        {selStudent.loginHistory.slice(0,4).map((l:any,i:number)=>(
+                          <div key={i} style={{background:'rgba(0,22,40,0.7)',borderRadius:8,padding:'8px 10px',border:'1px solid rgba(77,159,255,0.1)'}}>
+                            <div style={{fontSize:10,color:'#E8F4FD',fontWeight:600}}>📍 {l.city||'Unknown'}</div>
+                            <div style={{fontSize:10,color:'#8899AA',marginTop:2}}>{l.device||'—'}</div>
+                            <div style={{fontSize:9,color:'#8899AA',marginTop:1}}>{l.ip||'—'}</div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Student List */}
-              {fStds.length===0
-                ?<PageHero icon="👥" title="No Students Found" subtitle="Students will appear here after they register. Use bulk import to add multiple students at once."/>
-                :fStds.map(s=>(
-                  <div key={s._id} className="card-hover" style={{...cs,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',justifyContent:'space-between',cursor:'pointer',transition:'all 0.2s',borderLeft:s.banned?`3px solid ${DNG}`:`3px solid transparent`}} onClick={()=>setSelStudent(s)}>
-                    <div style={{flex:1,minWidth:150}}>
-                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}>
-                        <span style={{fontWeight:600,fontSize:13,color:TS}}>{s.name||'—'}</span>
-                        {s.banned&&<Badge label='Banned' col={DNG}/>}
-                        {s.group&&<Badge label={s.group} col={GOLD}/>}
-                      </div>
-                      <div style={{fontSize:11,color:DIM}}>{s.email}</div>
-                      {s.integrityScore!==undefined&&<div style={{fontSize:10,marginTop:2,color:s.integrityScore>70?SUC:s.integrityScore>40?WRN:DNG}}>🤖 {s.integrityScore}/100</div>}
+              {/* ── DELETE CONFIRMATION MODAL (SuperAdmin only) ── */}
+              {delConfirmId&&(
+                <div style={{position:'fixed' as const,top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.75)',backdropFilter:'blur(4px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:16}}>
+                  <div style={{
+                    background:'linear-gradient(135deg,rgba(5,10,20,0.99),rgba(10,18,35,0.98))',
+                    border:'2px solid rgba(255,71,87,0.4)',
+                    borderRadius:20,
+                    padding:'28px 24px',
+                    maxWidth:400,width:'100%',
+                    boxShadow:'0 20px 60px rgba(0,0,0,0.6)'
+                  }}>
+                    <div style={{fontSize:44,textAlign:'center' as const,marginBottom:10}}>⚠️</div>
+                    <div style={{fontWeight:800,fontSize:16,color:'#FF4757',textAlign:'center' as const,marginBottom:6,fontFamily:'Playfair Display,serif'}}>Delete Student Account</div>
+                    <div style={{fontSize:12,color:'#8899AA',textAlign:'center' as const,marginBottom:6,lineHeight:1.7}}>
+                      Ye account active list se hata diya jayega.<br/>
+                      Superadmin ise kabhi bhi restore kar sakta hai.
                     </div>
-                    <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                      {s.banned
-                        ?<button onClick={e=>{e.stopPropagation();unbanStd(s._id)}} style={{...bs,fontSize:10,padding:'5px 10px'}}>🔓 Unban</button>
-                        :<button onClick={e=>{e.stopPropagation();setBanId(s._id);}} style={{...bd,fontSize:10,padding:'5px 10px'}}>🚫 Ban</button>
-                      }
+                    <div style={{fontSize:11,color:'#00C48C',textAlign:'center' as const,marginBottom:16,padding:'8px 12px',background:'rgba(0,196,140,0.08)',borderRadius:8,border:'1px solid rgba(0,196,140,0.2)'}}>
+                      ✅ Student same email se fresh account bana sakta hai
+                    </div>
+                    <div style={{marginBottom:16}}>
+                      <label style={{fontSize:11,color:'#8899AA',display:'block',marginBottom:6,fontWeight:600}}>Delete Reason (SuperAdmin archive mein save hoga)</label>
+                      <STextarea init='' onSet={(v:string)=>{delReasonR.current=v}} ph='e.g. Test account, Rules violation, Duplicate account…' rows={2} style={{width:'100%',background:'rgba(255,71,87,0.06)',border:'1px solid rgba(255,71,87,0.3)',borderRadius:10,padding:'10px 12px',color:'#E8F4FD',fontSize:12,outline:'none',resize:'vertical' as const}}/>
+                    </div>
+                    <div style={{display:'flex',gap:10}}>
+                      <button
+                        onClick={()=>softDelStd(delConfirmId)}
+                        disabled={stdDelLoading}
+                        style={{flex:1,padding:'12px',background:'linear-gradient(135deg,#FF4757,#CC0020)',border:'none',borderRadius:12,color:'#fff',fontWeight:700,cursor:stdDelLoading?'not-allowed' as const:'pointer' as const,opacity:stdDelLoading?0.7:1,fontSize:13}}
+                      >{stdDelLoading?'⟳ Deleting…':'🗑️ Confirm Delete'}</button>
+                      <button onClick={()=>setDelConfirmId('')} style={{...bg_,padding:'12px 18px'}}>Cancel</button>
                     </div>
                   </div>
-                ))
-              }
+                </div>
+              )}
 
-              {/* Ban Panel */}
+              {/* ── ARCHIVED STUDENTS (SuperAdmin only, deleted filter) ── */}
+              {stdFilter==='deleted'&&typeof window!=='undefined'&&localStorage.getItem('pr_role')==='superadmin'&&(
+                <div>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:13,color:'#FFB84D'}}>🗃️ Archived Student Accounts</div>
+                      <div style={{fontSize:11,color:'#8899AA',marginTop:3}}>{deletedStds.length} archived · Only visible to SuperAdmin · Restore anytime</div>
+                    </div>
+                    <button onClick={fetchDeletedStds} style={{...bg_,fontSize:11}}>🔄 Refresh</button>
+                  </div>
+                  {deletedStds.length===0
+                    ?<div style={{background:'rgba(255,184,77,0.05)',border:'1px solid rgba(255,184,77,0.15)',borderRadius:16,padding:'40px 20px',textAlign:'center' as const}}>
+                      <div style={{fontSize:48,marginBottom:12}}>🗃️</div>
+                      <div style={{fontWeight:700,fontSize:14,color:'#E8F4FD',marginBottom:6}}>No Archived Students</div>
+                      <div style={{fontSize:12,color:'#8899AA'}}>Deleted student accounts will appear here. You can restore them anytime.</div>
+                    </div>
+                    :<div style={{display:'grid',gap:10}}>
+                      {deletedStds.map((s:any)=>(
+                        <div key={s._id} style={{
+                          background:'linear-gradient(135deg,rgba(255,184,77,0.05),rgba(0,22,40,0.8))',
+                          border:'1px solid rgba(255,184,77,0.2)',
+                          borderRadius:14,
+                          padding:'14px 16px',
+                          display:'flex',gap:12,alignItems:'center',flexWrap:'wrap' as const,justifyContent:'space-between' as const
+                        }}>
+                          <div style={{display:'flex',gap:12,alignItems:'center',flex:1,minWidth:180}}>
+                            <div style={{width:44,height:44,borderRadius:12,background:'linear-gradient(135deg,rgba(255,184,77,0.5),rgba(255,71,87,0.5))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:800,color:'#fff',flexShrink:0}}>
+                              {(s.name||'?').charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div style={{fontWeight:700,fontSize:13,color:'#E8F4FD'}}>{s.name||'—'}</div>
+                              <div style={{fontSize:11,color:'#8899AA'}}>✉️ {s.email}</div>
+                              {s.phone&&<div style={{fontSize:10,color:'#8899AA'}}>📱 {s.phone}</div>}
+                              <div style={{display:'flex',gap:6,marginTop:5,flexWrap:'wrap' as const}}>
+                                {s.group&&<span style={{fontSize:9,background:'rgba(255,215,0,0.15)',color:'#FFD700',padding:'2px 7px',borderRadius:5,border:'1px solid rgba(255,215,0,0.3)'}}>{s.group}</span>}
+                                {s._snapshot?.targetExam&&<span style={{fontSize:9,background:'rgba(77,159,255,0.12)',color:'#4D9FFF',padding:'2px 7px',borderRadius:5,border:'1px solid rgba(77,159,255,0.25)'}}>🎯 {s._snapshot.targetExam}</span>}
+                              </div>
+                              {s.deleteReason&&<div style={{fontSize:10,color:'#FF4757',marginTop:4}}>Reason: {s.deleteReason}</div>}
+                              {s.deletedAt&&<div style={{fontSize:10,color:'#8899AA',marginTop:2}}>🗑️ Archived: {new Date(s.deletedAt).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</div>}
+                            </div>
+                          </div>
+                          <button
+                            onClick={()=>restoreStd(s._id)}
+                            style={{background:'rgba(0,196,140,0.1)',border:'1px solid rgba(0,196,140,0.3)',color:'#00C48C',borderRadius:10,padding:'9px 16px',cursor:'pointer',fontSize:11,fontWeight:700}}
+                          >🔄 Restore</button>
+                        </div>
+                      ))}
+                    </div>
+                  }
+                </div>
+              )}
+
+              {/* ── ACTIVE STUDENT LIST ──────────────────────── */}
+              {stdFilter!=='deleted'&&(
+                <>
+                  {fStds.filter((s:any)=>!s.deleted).length===0
+                    ?<PageHero icon="👥" title="No Students Found" subtitle="Students will appear here after they register. Use bulk import to add multiple students at once."/>
+                    :(()=>{
+                      const raw=fStds.filter((s:any)=>!s.deleted);
+                      const sorted=stdSort==='name'
+                        ?[...raw].sort((a,b)=>(a.name||'').localeCompare(b.name||''))
+                        :stdSort==='active'
+                        ?[...raw].sort((a,b)=>Number(!!a.banned)-Number(!!b.banned))
+                        :[...raw].sort((a,b)=>new Date(b.createdAt||0).getTime()-new Date(a.createdAt||0).getTime());
+                      const avatarColors=['#4D9FFF','#00C48C','#A78BFA','#FF6B9D','#FFD700','#00E5FF','#FF8C42','#7CFC00'];
+                      return sorted.map((s:any,idx:number)=>(
+                        <div
+                          key={s._id}
+                          className="card-hover"
+                          style={{
+                            background:selStudent?._id===s._id?'rgba(77,159,255,0.08)':'rgba(0,22,40,0.75)',
+                            border:`1px solid ${s.banned?'rgba(255,71,87,0.3)':selStudent?._id===s._id?'rgba(77,159,255,0.4)':'rgba(77,159,255,0.12)'}`,
+                            borderLeft:`3px solid ${s.banned?'#FF4757':avatarColors[idx%8]}`,
+                            borderRadius:14,
+                            padding:'12px 14px',
+                            marginBottom:8,
+                            display:'flex',gap:12,alignItems:'center',flexWrap:'wrap' as const,
+                            justifyContent:'space-between' as const,
+                            cursor:'pointer',
+                            transition:'all 0.22s'
+                          }}
+                          onClick={()=>setSelStudent(s)}
+                        >
+                          <div style={{display:'flex',gap:12,alignItems:'center',flex:1,minWidth:150}}>
+                            {/* Color Avatar */}
+                            <div style={{
+                              width:42,height:42,borderRadius:12,flexShrink:0,
+                              background:`linear-gradient(135deg,${avatarColors[idx%8]},${avatarColors[(idx+3)%8]})`,
+                              display:'flex',alignItems:'center',justifyContent:'center',
+                              fontSize:17,fontWeight:800,color:'#fff',
+                              boxShadow:`0 3px 10px ${avatarColors[idx%8]}44`
+                            }}>
+                              {(s.name||'?').charAt(0).toUpperCase()}
+                            </div>
+                            <div style={{flex:1}}>
+                              <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap' as const,marginBottom:2}}>
+                                <span style={{fontWeight:700,fontSize:13,color:'#E8F4FD'}}>{s.name||'—'}</span>
+                                {s.banned&&<span style={{fontSize:9,background:'rgba(255,71,87,0.15)',color:'#FF4757',padding:'1px 6px',borderRadius:5,border:'1px solid rgba(255,71,87,0.3)'}}>BANNED</span>}
+                                {s.group&&<span style={{fontSize:9,background:'rgba(255,215,0,0.12)',color:'#FFD700',padding:'1px 6px',borderRadius:5,border:'1px solid rgba(255,215,0,0.25)'}}>{s.group}</span>}
+                              </div>
+                              <div style={{fontSize:11,color:'#8899AA'}}>{s.email}</div>
+                              <div style={{display:'flex',gap:10,marginTop:2,fontSize:10,color:'#8899AA',flexWrap:'wrap' as const}}>
+                                {s.phone&&<span>📱 {s.phone}</span>}
+                                <span>📅 {s.createdAt?new Date(s.createdAt).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'-'}</span>
+                              </div>
+                              {s.integrityScore!==undefined&&(
+                                <div style={{display:'flex',alignItems:'center',gap:7,marginTop:5}}>
+                                  <div style={{width:70,height:3,background:'rgba(255,255,255,0.07)',borderRadius:2}}>
+                                    <div style={{width:`${Math.min(s.integrityScore,100)}%`,height:'100%',borderRadius:2,background:s.integrityScore>70?'#00C48C':s.integrityScore>40?'#FFB84D':'#FF4757',transition:'width 0.5s'}}/>
+                                  </div>
+                                  <span style={{fontSize:9,color:s.integrityScore>70?'#00C48C':s.integrityScore>40?'#FFB84D':'#FF4757',fontWeight:600}}>{s.integrityScore}/100</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {/* Action Buttons */}
+                          <div style={{display:'flex',gap:6,flexWrap:'wrap' as const}} onClick={(e:any)=>e.stopPropagation()}>
+                            <button onClick={(e:any)=>{e.stopPropagation();setSelStudent(s)}} style={{...bg_,fontSize:10,padding:'6px 10px'}}>👁️ View</button>
+                            {s.banned
+                              ?<button onClick={(e:any)=>{e.stopPropagation();unbanStd(s._id)}} style={{...bs,fontSize:10,padding:'6px 10px'}}>🔓 Unban</button>
+                              :<button onClick={(e:any)=>{e.stopPropagation();setBanId(s._id)}} style={{...bd,fontSize:10,padding:'6px 10px'}}>🚫 Ban</button>
+                            }
+                            {typeof window!=='undefined'&&localStorage.getItem('pr_role')==='superadmin'&&(
+                              <button
+                                onClick={(e:any)=>{e.stopPropagation();setDelConfirmId(s._id)}}
+                                title="Delete account (SuperAdmin only)"
+                                style={{background:'rgba(255,71,87,0.08)',border:'1px solid rgba(255,71,87,0.3)',color:'#FF4757',borderRadius:8,padding:'6px 10px',cursor:'pointer',fontSize:10,fontWeight:700}}
+                              >🗑️</button>
+                            )}
+                          </div>
+                        </div>
+                      ));
+                    })()
+                  }
+                </>
+              )}
+
+              {/* ── BAN PANEL ────────────────────────────────── */}
               {banId&&(
-                <div style={{...cs,border:`1px solid ${DNG}`,marginTop:16}}>
-                  <div style={{fontWeight:700,fontSize:13,color:DNG,marginBottom:10}}>🚫 Ban Student</div>
-                  <div style={{marginBottom:10}}><label style={lbl}>Ban Reason *</label><STextarea init='' onSet={v=>{banReaR.current=v}} ph='Explain why this student is being banned…' rows={2} style={{...inp,resize:'vertical'}}/></div>
-                  <div style={{marginBottom:12}}><label style={lbl}>Ban Type</label><SSelect val={banT} onChange={v=>setBanT(v as 'permanent'|'temporary')} opts={[{v:'permanent',l:'Permanent Ban'},{v:'temporary',l:'Temporary Ban (30 days)'}]} style={{...inp}}/></div>
-                  <div style={{display:'flex',gap:8}}>
-                    <button onClick={banStd} style={{...bd,flex:1}}>🚫 Confirm Ban</button>
-                    <button onClick={()=>setBanId('')} style={{...bg_}}>Cancel</button>
+                <div style={{
+                  background:'linear-gradient(135deg,rgba(255,71,87,0.05),rgba(0,22,40,0.95))',
+                  border:'2px solid rgba(255,71,87,0.3)',
+                  borderRadius:16,
+                  padding:'18px',
+                  marginTop:16
+                }}>
+                  <div style={{fontWeight:700,fontSize:14,color:'#FF4757',marginBottom:14}}>🚫 Ban Student</div>
+                  <div style={{marginBottom:12}}>
+                    <label style={{fontSize:11,color:'#8899AA',display:'block',marginBottom:6,fontWeight:600}}>Ban Reason *</label>
+                    <STextarea init='' onSet={(v:string)=>{banReaR.current=v}} ph='Explain why this student is being banned…' rows={2} style={{width:'100%',background:'rgba(0,22,40,0.7)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:10,padding:'10px 12px',color:'#E8F4FD',fontSize:12,outline:'none',resize:'vertical' as const}}/>
+                  </div>
+                  <div style={{marginBottom:14}}>
+                    <label style={{fontSize:11,color:'#8899AA',display:'block',marginBottom:6,fontWeight:600}}>Ban Type</label>
+                    <SSelect val={banT} onChange={(v:string)=>setBanT(v as 'permanent'|'temporary')} opts={[{v:'permanent',l:'Permanent Ban'},{v:'temporary',l:'Temporary Ban (30 days)'}]} style={{width:'100%',background:'rgba(0,22,40,0.7)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:10,padding:'10px 12px',color:'#E8F4FD',fontSize:12,outline:'none'}}/>
+                  </div>
+                  <div style={{display:'flex',gap:10}}>
+                    <button onClick={banStd} style={{...bd,flex:1,padding:'11px',fontSize:13}}>🚫 Confirm Ban</button>
+                    <button onClick={()=>setBanId('')} style={{...bg_,padding:'11px 20px'}}>Cancel</button>
                   </div>
                 </div>
               )}
             </div>
           )}
+
 
           {/* ══ BATCHES ══ */}
           {tab==='batches'&&(

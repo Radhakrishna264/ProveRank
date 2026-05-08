@@ -204,4 +204,68 @@ router.delete('/students/:id', async (req, res) => {
   }
 })
 
+
+// ── SOFT DELETE STUDENT (SuperAdmin only) ──────────────────
+router.post('/delete/:userId', verifyToken, async(req, res) => {
+  try {
+    if(req.user.role !== 'superadmin') return res.status(403).json({ error: 'SuperAdmin only' });
+    const mongoose = require('mongoose');
+    const User = require('../models/User');
+    const { reason } = req.body;
+    const student = await User.collection.findOne({ _id: new mongoose.Types.ObjectId(req.params.userId) });
+    if(!student) return res.status(404).json({ error: 'Student not found' });
+    // Save snapshot before soft-delete
+    await User.collection.updateOne(
+      { _id: new mongoose.Types.ObjectId(req.params.userId) },
+      {
+        $set: {
+          deleted: true,
+          deletedAt: new Date(),
+          deletedBy: req.user.id,
+          deleteReason: reason || 'Removed by SuperAdmin',
+          _snapshot: {
+            name: student.name,
+            email: student.email,
+            phone: student.phone,
+            group: student.group,
+            city: student.city,
+            school: student.school,
+            targetExam: student.targetExam,
+            qualifications: student.qualifications,
+            createdAt: student.createdAt
+          }
+        }
+      }
+    );
+    res.json({ success: true, message: 'Student soft-deleted successfully' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── RESTORE DELETED STUDENT (SuperAdmin only) ──────────────
+router.post('/restore/:userId', verifyToken, async(req, res) => {
+  try {
+    if(req.user.role !== 'superadmin') return res.status(403).json({ error: 'SuperAdmin only' });
+    const mongoose = require('mongoose');
+    const User = require('../models/User');
+    await User.collection.updateOne(
+      { _id: new mongoose.Types.ObjectId(req.params.userId) },
+      { $unset: { deleted: 1, deletedAt: 1, deletedBy: 1, deleteReason: 1, _snapshot: 1 } }
+    );
+    res.json({ success: true, message: 'Student account restored successfully' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── GET DELETED STUDENTS (SuperAdmin only) ─────────────────
+router.get('/deleted-students', verifyToken, async(req, res) => {
+  try {
+    if(req.user.role !== 'superadmin') return res.status(403).json({ error: 'SuperAdmin only' });
+    const User = require('../models/User');
+    const students = await User.collection.find(
+      { role: 'student', deleted: true },
+      { sort: { deletedAt: -1 } }
+    ).toArray();
+    res.json({ students });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;
