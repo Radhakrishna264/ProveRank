@@ -135,6 +135,11 @@ router.post('/login', async (req, res) => {
     const user = await User.collection.findOne({ email })
     if (!user) return res.status(401).json({ message: 'Invalid email or password' })
 
+    // ── Block login for soft-deleted / archived accounts ──
+    if(user && user.deleted === true){
+      return res.status(403).json({ error: 'This account has been removed. Please contact support.' });
+    }
+
     const match = await bcrypt.compare(password, user.password)
     console.log(`Login attempt: ${email} | match: ${match}`)
 
