@@ -116,17 +116,17 @@ function GalaxyBg() {
     canvas.width=W;canvas.height=H
     // Stars
     const stars=[]
-    for(let i=0;i<280;i++)stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.2+0.2,op:Math.random(),spd:0.003+Math.random()*0.007})
+    for(let i=0;i<220;i++)stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.2+0.2,op:Math.random(),spd:0.003+Math.random()*0.007})
     // Particles
     const pts=[]
-    for(let i=0;i<55;i++)pts.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.4,vy:(Math.random()-.5)*.4,r:Math.random()*1.4+0.4,op:Math.random()*.35+.12})
+    for(let i=0;i<55;i++)pts.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.4,vy:(Math.random()-.5)*.4,r:Math.random()*1.4+0.4,op:Math.random()*.2+.06})
     // Nebula defs
     const nebs=[
-      {fx:0.12,fy:0.22,fr:0.22,c:'rgba(77,159,255,0.18)'},
-      {fx:0.82,fy:0.55,fr:0.26,c:'rgba(110,70,255,0.15)'},
-      {fx:0.48,fy:0.88,fr:0.20,c:'rgba(0,212,255,0.14)'},
-      {fx:0.28,fy:0.68,fr:0.17,c:'rgba(255,90,180,0.12)'},
-      {fx:0.65,fy:0.15,fr:0.19,c:'rgba(0,230,160,0.11)'},
+      {fx:0.12,fy:0.22,fr:0.22,c:'rgba(77,159,255,0.055)'},
+      {fx:0.82,fy:0.55,fr:0.26,c:'rgba(110,70,255,0.045)'},
+      {fx:0.48,fy:0.88,fr:0.20,c:'rgba(0,212,255,0.040)'},
+      {fx:0.28,fy:0.68,fr:0.17,c:'rgba(255,90,180,0.035)'},
+      {fx:0.65,fy:0.15,fr:0.19,c:'rgba(0,230,160,0.032)'},
     ]
     let angle=0
     let animId
@@ -148,7 +148,7 @@ function GalaxyBg() {
           const dist=t*2.8
           const sx=cx+Math.cos(a)*dist,sy=cy+Math.sin(a)*dist*0.42
           if(sx<0||sx>W||sy<0||sy>H)continue
-          const op=Math.max(0,(1-t/90)*0.35)
+          const op=Math.max(0,(1-t/90)*0.11)
           ctx.beginPath();ctx.arc(sx,sy,0.9,0,Math.PI*2)
           ctx.fillStyle='rgba(120,190,255,'+op+')'
           ctx.fill()
@@ -156,7 +156,7 @@ function GalaxyBg() {
       }
       // Galaxy core
       const cg=ctx.createRadialGradient(cx,cy,0,cx,cy,20)
-      cg.addColorStop(0,'rgba(180,220,255,0.55)')
+      cg.addColorStop(0,'rgba(180,220,255,0.20)')
       cg.addColorStop(1,'rgba(0,0,0,0)')
       ctx.fillStyle=cg;ctx.beginPath();ctx.arc(cx,cy,20,0,Math.PI*2);ctx.fill()
       angle+=0.0007
@@ -164,7 +164,7 @@ function GalaxyBg() {
       stars.forEach(function(s){
         s.op+=s.spd;if(s.op>=1||s.op<=0.02)s.spd*=-1
         ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2)
-        ctx.fillStyle='rgba(215,235,255,'+Math.min(s.op*1.0,0.95)+')'
+        ctx.fillStyle='rgba(215,235,255,'+s.op*0.9+')'
         ctx.fill()
       })
       // Particles
@@ -181,7 +181,7 @@ function GalaxyBg() {
         const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y,d=Math.sqrt(dx*dx+dy*dy)
         if(d<115){
           ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y)
-          ctx.strokeStyle='rgba(77,159,255,'+0.12*(1-d/115)+')'
+          ctx.strokeStyle='rgba(77,159,255,'+0.065*(1-d/115)+')'
           ctx.lineWidth=.5;ctx.stroke()
         }
       }
@@ -528,8 +528,6 @@ export default function AdminPanel() {
       else if(ft&&typeof ft==='object')setFeatures(DEF_FEATURES.map(f=>({...f,enabled:ft[f.key]!==undefined?Boolean(ft[f.key]):f.enabled})))
     }
     setLoading(false)
-    // Fallback: 4 sec baad bhi loading true ho to force false
-    setTimeout(()=>setLoading(false), 4000)
   },[token])
 
   // ══ CREATE EXAM (FIXED: correct fields) ══
