@@ -133,7 +133,7 @@ router.post('/login', async (req, res) => {
 
     // collection.findOne — gets password field always
     const user = await User.collection.findOne({ email })
-    if (!user) return res.status(401).json({ message: 'Invalid email or password' })
+    if (!user) return res.status(401).json({ message: 'No account found with this email.' })
 
     // ── Block login for soft-deleted / archived accounts ──
     if(user && user.deleted === true){
@@ -143,7 +143,7 @@ router.post('/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.password)
     console.log(`Login attempt: ${email} | match: ${match}`)
 
-    if (!match) return res.status(401).json({ message: 'Invalid email or password' })
+    if (!match) return res.status(401).json({ message: 'Incorrect password. Please try again.' })
 
     const isVerified = user.emailVerified || user.verified
     if ((user.role === 'student' || !user.role) && !isVerified) {
