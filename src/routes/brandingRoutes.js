@@ -1,10 +1,10 @@
 const express = require('express')
 const router = express.Router()
 const Settings = require('../models/Settings')
-const { verifyToken, requireRole } = require('../middleware/auth')
+const { verifyToken, isAdmin } = require('../middleware/auth')
 
 // GET /api/admin/branding
-router.get('/branding', verifyToken, requireRole(['superadmin','admin']), async (req, res) => {
+router.get('/branding', verifyToken, isAdmin, async (req, res) => {
   try {
     let s = await Settings.findOne({ key: 'platform' })
     if (!s) s = await Settings.create({ key: 'platform' })
@@ -15,7 +15,7 @@ router.get('/branding', verifyToken, requireRole(['superadmin','admin']), async 
 })
 
 // POST /api/admin/branding
-router.post('/branding', verifyToken, requireRole(['superadmin','admin']), async (req, res) => {
+router.post('/branding', verifyToken, isAdmin, async (req, res) => {
   try {
     const { brandName, tagline, supportEmail, phone, seoTitle, seoDesc, seoKeywords } = req.body
     const s = await Settings.findOneAndUpdate(
