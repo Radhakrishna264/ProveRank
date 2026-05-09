@@ -65,6 +65,27 @@ function GalaxyBg() {
   const ref = useRef<HTMLCanvasElement>(null)
   
   // ── Maintenance Mode Check ──
+  
+  // ── Maintenance Mode Check (S66) ──
+  useEffect(()=>{
+    fetch('https://proverank.onrender.com/api/admin/maintenance')
+      .then(r=>r.ok?r.json():null)
+      .then(d=>{
+        if(d && d.enabled===true){
+          document.body.style.cssText='margin:0;padding:0'
+          document.body.innerHTML=`
+            <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#0a0a1a 0%,#0d1b2a 100%);color:#fff;font-family:Inter,sans-serif;text-align:center;padding:24px">
+              <div style="font-size:64px;margin-bottom:20px">🔧</div>
+              <div style="font-size:24px;font-weight:700;color:#4d9fff;margin-bottom:10px;letter-spacing:1px">ProveRank</div>
+              <div style="font-size:18px;font-weight:600;margin-bottom:14px;color:#fff">Platform Under Maintenance</div>
+              <div style="color:#aaa;max-width:360px;line-height:1.7;font-size:14px;margin-bottom:32px">${d.message||'We are upgrading the platform. Please check back shortly.'}</div>
+              <button onclick="localStorage.removeItem('pr_token');localStorage.removeItem('pr_role');window.location.href='/login'" style="background:linear-gradient(135deg,#4d9fff,#0066cc);color:#fff;border:none;border-radius:10px;padding:13px 28px;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:0.5px">← Back to Login</button>
+            </div>
+          `
+        }
+      }).catch(()=>{})
+  },[])
+
   useEffect(()=>{
     fetch('https://proverank.onrender.com/api/admin/maintenance')
       .then(r=>r.ok?r.json():null)

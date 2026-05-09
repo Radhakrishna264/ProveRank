@@ -531,7 +531,7 @@ export default function AdminPanel() {
     if(Array.isArray(bt))setBatches(bt)
     if(Array.isArray(au))setAdminUsers(au)
     if(Array.isArray(rs))setResults(rs)
-    if(mn!=null) setMainOn(mn.enabled??mn.isEnabled??mn.maintenance??false)
+    setMainOn(mn && mn.enabled===true ? true : false)
     if(ft){
       if(Array.isArray(ft)&&ft.length)setFeatures(ft)
       else if(ft&&typeof ft==='object')setFeatures(DEF_FEATURES.map(f=>({...f,enabled:ft[f.key]!==undefined?Boolean(ft[f.key]):f.enabled})))
