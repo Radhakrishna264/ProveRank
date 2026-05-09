@@ -70,4 +70,31 @@ p{color:#444;font-size:15px;line-height:1.6;margin:0 0 14px}
   }
 }
 
-module.exports = { sendVerificationEmail }
+
+async function sendCustomEmail(toEmails, subject, htmlBody) {
+  try {
+    const BREVO_KEY = process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || ''
+    if (!BREVO_KEY) throw new Error('BREVO_API_KEY env variable not set in Render')
+    const recipients = Array.isArray(toEmails)
+      ? toEmails.slice(0,50).map(e=>({email:typeof e==='string'?e:e.email}))
+      : [{email:toEmails}]
+    const payload = {
+      sender:{name:'ProveRank',email:'radhakrishnan100806@gmail.com'},
+      to:recipients,
+      subject:subject||'Message from ProveRank',
+      htmlContent:htmlBody||'<p>No content</p>'
+    }
+    const response = await fetch(BREVO_API,{
+      method:'POST',
+      headers:{'accept':'application/json','api-key':BREVO_KEY,'content-type':'application/json'},
+      body:JSON.stringify(payload)
+    })
+    if(!response.ok){const t=await response.text();throw new Error(t)}
+    return {success:true}
+  } catch(e){
+    console.error('[sendCustomEmail]',e.message)
+    return {success:false,error:e.message}
+  }
+}
+
+module.exports = { sendVerificationEmail, sendCustomEmail }

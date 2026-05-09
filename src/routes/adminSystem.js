@@ -108,4 +108,30 @@ router.post('/features', verifyToken, isSuperAdmin, async (req, res) => {
   } catch(e){ res.status(500).json({success:false,message:e.message}); }
 });
 
-module.exports = router;
+
+// ── S109: Admin Email Send (POST /api/admin/email/send) ──────────
+router.post('/email/send', verifyToken, async (req, res) => {
+  try {
+    const { type, subject, body } = req.body
+    if (!subject || !body) return res.status(400).json({success:false,message:'Subject aur body required hai'})
+    const { sendCustomEmail } = require('../utils/emailService')
+    const User = require('../models/User')
+    let recipients = []
+    if (type==='broadcast'||type==='reminder'||type==='result'||type==='announcement') {
+      const students = await User.collection.find(
+        {role:'student',banned:{$ne:true}},{projection:{email:1}}
+      ).toArray()
+      recipients = students.map(s=>s.email).filter(Boolean)
+    }
+    if (!recipients.includes('admin@proverank.com')) recipients.unshift('admin@proverank.com')
+    if (recipients.length===0) recipients = ['admin@proverank.com']
+    const result = await sendCustomEmail(recipients, subject, body)
+    if (!result.success) return res.status(500).json({success:false,message:'Email failed: '+(result.error||'Unknown')})
+    res.json({success:true,message:`Email sent to ${recipients.length} recipient(s)`})
+  } catch(e){
+    console.error('[S109]',e.message)
+    res.status(500).json({success:false,message:e.message})
+  }
+})
+
+module.exports = router
