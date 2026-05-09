@@ -7,7 +7,7 @@ import { getToken, getRole, clearAuth } from '@/lib/auth'
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 
 // ── TypeScript Interfaces ──
-interface Student { _id:string;name:string;email:string;phone?:string;role:string;createdAt:string;banned?:boolean;banReason?:string;group?:string;integrityScore?:number;loginHistory?:any[];parentEmail?:string }
+interface Student { _id:string;name:string;email:string;phone?:string;role:string;createdAt:string;banned?:boolean;banReason?:string;group?:string;integrityScore?:number;loginHistory?:any[];parentEmail?:string;deleted?:boolean;deletedAt?:string;deleteReason?:string;city?:string;school?:string;dob?:string;targetExam?:string;qualifications?:string;_snapshot?:any }
 interface Exam { _id:string;title:string;scheduledAt:string;totalMarks:number;duration:number;status:string;attempts?:number;category?:string;password?:string;batch?:string;subject?:string }
 interface Question { _id:string;text:string;subject:string;chapter?:string;topic?:string;difficulty:string;type:string;options?:string[];correctAnswer?:string;explanation?:string;approvalStatus?:string }
 interface Log { _id:string;action:string;by:string;at:string;detail:string }
@@ -107,34 +107,90 @@ function PRLogo({size=36}:{size?:number}) {
 // ══════════════════════════════════════════════════════════════
 // PARTICLES BACKGROUND — Same as Login page
 // ══════════════════════════════════════════════════════════════
-function ParticlesBg() {
-  const canvasRef=useRef<HTMLCanvasElement>(null)
+function GalaxyBg() {
+  const canvasRef=useRef(null)
   useEffect(()=>{
     const canvas=canvasRef.current;if(!canvas)return
     const ctx=canvas.getContext('2d');if(!ctx)return
-    canvas.width=window.innerWidth;canvas.height=window.innerHeight
-    const particles:{x:number;y:number;vx:number;vy:number;r:number;opacity:number}[]=[]
-    for(let i=0;i<60;i++)particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*1.5+0.5,opacity:Math.random()*.3+.05})
-    let animId:number
+    let W=window.innerWidth,H=window.innerHeight
+    canvas.width=W;canvas.height=H
+    // Stars
+    const stars=[]
+    for(let i=0;i<280;i++)stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.2+0.2,op:Math.random(),spd:0.003+Math.random()*0.007})
+    // Particles
+    const pts=[]
+    for(let i=0;i<55;i++)pts.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.4,vy:(Math.random()-.5)*.4,r:Math.random()*1.4+0.4,op:Math.random()*.35+.12})
+    // Nebula defs
+    const nebs=[
+      {fx:0.12,fy:0.22,fr:0.22,c:'rgba(77,159,255,0.18)'},
+      {fx:0.82,fy:0.55,fr:0.26,c:'rgba(110,70,255,0.15)'},
+      {fx:0.48,fy:0.88,fr:0.20,c:'rgba(0,212,255,0.14)'},
+      {fx:0.28,fy:0.68,fr:0.17,c:'rgba(255,90,180,0.12)'},
+      {fx:0.65,fy:0.15,fr:0.19,c:'rgba(0,230,160,0.11)'},
+    ]
+    let angle=0
+    let animId
     const draw=()=>{
-      ctx.clearRect(0,0,canvas.width,canvas.height)
-      particles.forEach(p=>{
-        p.x+=p.vx;p.y+=p.vy
-        if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0
-        if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0
-        ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2)
-        ctx.fillStyle=`rgba(77,159,255,${p.opacity})`;ctx.fill()
+      ctx.clearRect(0,0,W,H)
+      // Nebula blobs
+      nebs.forEach(function(n){
+        const nx=n.fx*W,ny=n.fy*H,nr=n.fr*W
+        const g=ctx.createRadialGradient(nx,ny,0,nx,ny,nr)
+        g.addColorStop(0,n.c)
+        g.addColorStop(1,'rgba(0,0,0,0)')
+        ctx.fillStyle=g;ctx.beginPath();ctx.arc(nx,ny,nr,0,Math.PI*2);ctx.fill()
       })
-      for(let i=0;i<particles.length;i++)for(let j=i+1;j<particles.length;j++){
-        const dx=particles[i].x-particles[j].x,dy=particles[i].y-particles[j].y,dist=Math.sqrt(dx*dx+dy*dy)
-        if(dist<100){ctx.beginPath();ctx.moveTo(particles[i].x,particles[i].y);ctx.lineTo(particles[j].x,particles[j].y);ctx.strokeStyle=`rgba(77,159,255,${.08*(1-dist/100)})`;ctx.lineWidth=.5;ctx.stroke()}
+      // Galaxy spiral arms
+      const cx=W*0.5,cy=H*0.42
+      for(let arm=0;arm<3;arm++){
+        for(let t=0;t<90;t++){
+          const a=angle+(arm*Math.PI*2/3)+(t*0.11)
+          const dist=t*2.8
+          const sx=cx+Math.cos(a)*dist,sy=cy+Math.sin(a)*dist*0.42
+          if(sx<0||sx>W||sy<0||sy>H)continue
+          const op=Math.max(0,(1-t/90)*0.35)
+          ctx.beginPath();ctx.arc(sx,sy,0.9,0,Math.PI*2)
+          ctx.fillStyle='rgba(120,190,255,'+op+')'
+          ctx.fill()
+        }
+      }
+      // Galaxy core
+      const cg=ctx.createRadialGradient(cx,cy,0,cx,cy,20)
+      cg.addColorStop(0,'rgba(180,220,255,0.55)')
+      cg.addColorStop(1,'rgba(0,0,0,0)')
+      ctx.fillStyle=cg;ctx.beginPath();ctx.arc(cx,cy,20,0,Math.PI*2);ctx.fill()
+      angle+=0.0007
+      // Twinkling stars
+      stars.forEach(function(s){
+        s.op+=s.spd;if(s.op>=1||s.op<=0.02)s.spd*=-1
+        ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2)
+        ctx.fillStyle='rgba(215,235,255,'+Math.min(s.op*1.0,0.95)+')'
+        ctx.fill()
+      })
+      // Particles
+      pts.forEach(function(p){
+        p.x+=p.vx;p.y+=p.vy
+        if(p.x<0)p.x=W;if(p.x>W)p.x=0
+        if(p.y<0)p.y=H;if(p.y>H)p.y=0
+        ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2)
+        ctx.fillStyle='rgba(77,159,255,'+p.op+')'
+        ctx.fill()
+      })
+      // Connection lines
+      for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){
+        const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y,d=Math.sqrt(dx*dx+dy*dy)
+        if(d<115){
+          ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y)
+          ctx.strokeStyle='rgba(77,159,255,'+0.12*(1-d/115)+')'
+          ctx.lineWidth=.5;ctx.stroke()
+        }
       }
       animId=requestAnimationFrame(draw)
     }
     draw()
-    const resize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight}
+    const resize=function(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight}
     window.addEventListener('resize',resize)
-    return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',resize)}
+    return function(){cancelAnimationFrame(animId);window.removeEventListener('resize',resize)}
   },[])
   return <canvas ref={canvasRef} style={{position:'fixed',inset:0,pointerEvents:'none',zIndex:0}}/>
 }
@@ -194,9 +250,9 @@ const GlobalSearch=memo(function GlobalSearch({students,exams,questions,setTab,s
 // ══════════════════════════════════════════════════════════════
 // THEME CONSTANTS — N6 Neon Blue Arctic (from Login page)
 // ══════════════════════════════════════════════════════════════
-const BG_GRAD='radial-gradient(ellipse at 20% 50%,#001628 0%,#000A18 60%,#000510 100%)'
-const CRD='rgba(0,22,40,0.75)'
-const CRD2='rgba(0,31,58,0.8)'
+const BG_GRAD='radial-gradient(ellipse at 20% 50%,#001e38 0%,#000f22 60%,#000810 100%)'
+const CRD='rgba(0,28,52,0.88)'
+const CRD2='rgba(0,36,65,0.92)'
 const ACC='#4D9FFF'
 const BOR='rgba(77,159,255,0.18)'
 const BOR2='rgba(77,159,255,0.3)'
@@ -223,7 +279,7 @@ const pageSub:any={fontSize:12,color:DIM,marginBottom:20,fontFamily:'Inter,sans-
 // ══════════════════════════════════════════════════════════════
 function StatBox({ico,lbl:label,val,sub,col=ACC}:{ico:string;lbl:string;val:any;sub?:string;col?:string}) {
   return (
-    <div style={{background:CRD,border:`1px solid ${BOR}`,borderRadius:14,padding:'18px 16px',flex:1,minWidth:130,backdropFilter:'blur(12px)',position:'relative',overflow:'hidden'}}>
+    <div style={{background:CRD,border:`1px solid ${BOR}`,borderRadius:14,padding:'16px 12px',width:'100%',backdropFilter:'blur(12px)',position:'relative',overflow:'hidden'}}>
       <div style={{position:'absolute',right:-8,bottom:-8,fontSize:48,opacity:0.06}}>{ico}</div>
       <div style={{fontSize:22,marginBottom:6}}>{ico}</div>
       <div style={{fontSize:22,fontWeight:700,color:col,fontFamily:'Playfair Display,Georgia,serif',lineHeight:1}}>{val}</div>
@@ -284,7 +340,7 @@ export default function AdminPanel() {
 
   // Search/filter states
   const [stdSearch,setStdSearch]=useState('')
-  const [stdFilter,setStdFilter]=useState<'all'|'active'|'banned'>('all')
+  const [stdFilter,setStdFilter]=useState<'all'|'active'|'banned'|'deleted'>('all')
   const [examSearch,setExamSearch]=useState('')
   const [qSearch,setQSearch]=useState('')
   const [qSubjFilter,setQSubjFilter]=useState('all')
@@ -319,6 +375,11 @@ export default function AdminPanel() {
   // Student management refs
   const banReaR=useRef('')
   const [banId,setBanId]=useState('')
+  const [delConfirmId,setDelConfirmId]=useState('')
+  const delReasonR=useRef('')
+  const [deletedStds,setDeletedStds]=useState<any[]>([])
+  const [stdDelLoading,setStdDelLoading]=useState(false)
+  const [stdSort,setStdSort]=useState<'newest'|'name'|'active'>('newest')
   const [banT,setBanT]=useState<'permanent'|'temporary'>('permanent')
 
   // Announcement refs
@@ -453,6 +514,9 @@ export default function AdminPanel() {
       getFirst(`${API}/api/results`,`${API}/api/admin/results`),
     ])
     if(Array.isArray(us))setStudents(us)
+    else if(us&&Array.isArray(us.students))setStudents(us.students)
+    else if(us&&Array.isArray(us.data))setStudents(us.data)
+    else if(us&&Array.isArray(us.users))setStudents(us.users)
     if(Array.isArray(ex))setExams(ex)
     if(Array.isArray(qs))setQuestions(qs)
     if(st)setStats(st)
@@ -469,6 +533,8 @@ export default function AdminPanel() {
       else if(ft&&typeof ft==='object')setFeatures(DEF_FEATURES.map(f=>({...f,enabled:ft[f.key]!==undefined?Boolean(ft[f.key]):f.enabled})))
     }
     setLoading(false)
+    // Fallback: 4 sec baad bhi loading true ho to force false
+    setTimeout(()=>setLoading(false), 4000)
   },[token])
 
   // ══ CREATE EXAM (FIXED: correct fields) ══
@@ -587,6 +653,49 @@ export default function AdminPanel() {
       else{T('Failed to unban student.','e')}
     } catch{T('Network error.','e')}
   },[token,T])
+
+  // ── SOFT DELETE STUDENT (SuperAdmin only) ──
+  const softDelStd=useCallback(async(id:string)=>{
+    setStdDelLoading(true)
+    try{
+      const res=await fetch(`${API}/api/admin/delete/${id}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({reason:delReasonR.current||'Removed by SuperAdmin'})})
+      if(res.ok){
+        setStudents((p:any)=>p.filter((s:any)=>s._id!==id))
+        if(selStudent?._id===id) setSelStudent(null)
+        setDelConfirmId('')
+        delReasonR.current=''
+        T('Student account archived successfully.','s')
+      } else {
+        const d=await res.json()
+        T(d.error||'Delete failed. Try again.','e')
+      }
+    } catch{ T('Network error.','e') }
+    finally{ setStdDelLoading(false) }
+  },[token,T,selStudent])
+
+  // ── RESTORE DELETED STUDENT (SuperAdmin only) ──
+  const restoreStd=useCallback(async(id:string)=>{
+    try{
+      const res=await fetch(`${API}/api/admin/restore/${id}`,{method:'POST',headers:{Authorization:`Bearer ${token}`}})
+      if(res.ok){
+        setDeletedStds((p:any)=>p.filter((s:any)=>s._id!==id))
+        T('Student account restored successfully! 🎉','s')
+        fetchAll()
+      } else { T('Restore failed. Try again.','e') }
+    } catch{ T('Network error.','e') }
+  },[token,T,fetchAll])
+
+  // ── FETCH DELETED STUDENTS ──
+  const fetchDeletedStds=useCallback(async()=>{
+    try{
+      const res=await fetch(`${API}/api/admin/deleted-students`,{headers:{Authorization:`Bearer ${token}`}})
+      if(res.ok){
+        const d=await res.json()
+        setDeletedStds(Array.isArray(d)?d:(d.students||[]))
+      }
+    } catch{}
+  },[token])
+
 
   // ══ FEATURE FLAGS ══
   const toggleFeat=useCallback(async(key:string)=>{
@@ -800,7 +909,9 @@ export default function AdminPanel() {
   if(!mounted)return null
 
   // ══ COMPUTED DATA ══
-  const fStds=(students||[]).filter(s=>{
+  const fStds=(students||[]).filter((s:any)=>{
+    if(s.deleted)return false  // hide archived from main list
+    if(stdFilter==='deleted')return false  // archived shown separately
     const m=stdSearch.toLowerCase()
     const ok=!m||(s.name?.toLowerCase().includes(m)||s.email?.toLowerCase().includes(m)||s._id?.includes(m))
     if(stdFilter==='banned')return ok&&!!s.banned
@@ -870,7 +981,7 @@ export default function AdminPanel() {
     <div style={{background:BG_GRAD,minHeight:'100vh',color:TS,fontFamily:'Inter,sans-serif',position:'relative'}}>
 
       {/* Particles Background */}
-      <ParticlesBg />
+      <GalaxyBg />
 
       {/* Decorative hexagons like login page */}
       <div style={{position:'fixed',top:-60,left:-60,fontSize:280,color:'rgba(77,159,255,0.03)',pointerEvents:'none',zIndex:0,lineHeight:1}}>⬡</div>
@@ -901,7 +1012,7 @@ export default function AdminPanel() {
       )}
 
       {/* ══ TOP NAVIGATION BAR ══ */}
-      <div style={{position:'sticky',top:0,zIndex:100,background:'rgba(0,10,24,0.95)',backdropFilter:'blur(20px)',borderBottom:`1px solid ${BOR}`,padding:'0 16px',height:58,display:'flex',alignItems:'center',justifyContent:'space-between',boxShadow:'0 2px 20px rgba(0,0,0,0.4)'}}>
+      <div style={{position:'sticky',top:0,zIndex:100,background:'rgba(0,10,24,0.95)',backdropFilter:'blur(20px)',borderBottom:`1px solid ${BOR}`,padding:'0 12px',height:56,display:'flex',alignItems:'center',justifyContent:'space-between',boxShadow:'0 2px 20px rgba(0,0,0,0.4)',overflow:'hidden'}}>
 
         {/* Left: Hamburger + Logo */}
         <div style={{display:'flex',alignItems:'center',gap:12}}>
@@ -909,11 +1020,11 @@ export default function AdminPanel() {
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             <PRLogo size={32}/>
             <div>
-              <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:16,background:`linear-gradient(90deg,${ACC},#fff)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',lineHeight:1}}>
+              <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:13,background:`linear-gradient(90deg,${ACC},#fff)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',lineHeight:1,whiteSpace:'nowrap'}}>
                 ProveRank
               </div>
               {/* SCREENSHOT-MATCHED: role display with lightning bolt */}
-              <div style={{fontSize:10,fontWeight:700,letterSpacing:1.5,color:role==='superadmin'?GOLD:ACC,lineHeight:1.2}}>
+              <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:role==='superadmin'?GOLD:ACC,lineHeight:1.2,whiteSpace:'nowrap'}}>
                 ⚡ {role.toUpperCase()}
               </div>
             </div>
@@ -921,17 +1032,17 @@ export default function AdminPanel() {
         </div>
 
         {/* Right: Notifs + Refresh + Logout */}
-        <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          {loading&&<span style={{fontSize:11,color:DIM,animation:'pulse 1s infinite'}}>⟳ Loading…</span>}
+        <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
+          {loading&&<span style={{fontSize:10,color:DIM,animation:'pulse 1s infinite'}}>⟳</span>}
 
           {/* Notifications */}
-          <button onClick={()=>setNotifOpen(p=>!p)} style={{background:'none',border:`1px solid ${BOR}`,color:TS,fontSize:15,cursor:'pointer',position:'relative',width:36,height:36,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(8px)'}}>
+          <button onClick={()=>setNotifOpen(p=>!p)} style={{background:'none',border:`1px solid ${BOR}`,color:TS,fontSize:14,cursor:'pointer',position:'relative',width:32,height:32,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
             🔔
             {(notifs||[]).filter(n=>!n.read).length>0&&<span style={{position:'absolute',top:-2,right:-2,background:DNG,color:'#fff',fontSize:8,borderRadius:'50%',width:14,height:14,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{(notifs||[]).filter(n=>!n.read).length}</span>}
           </button>
 
-          <button onClick={fetchAll} style={{...bg_,padding:'7px 12px',fontSize:11}}>🔄 Refresh</button>
-          <button onClick={()=>{clearAuth();router.replace('/login')}} style={{background:'rgba(255,77,77,0.12)',color:DNG,border:'1px solid rgba(255,77,77,0.25)',borderRadius:8,padding:'7px 12px',cursor:'pointer',fontWeight:700,fontSize:11}}>Logout</button>
+          <button onClick={fetchAll} title="Refresh" style={{background:'rgba(77,159,255,0.1)',color:ACC,border:`1px solid ${BOR2}`,borderRadius:8,width:32,height:32,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>↻</button>
+          <button onClick={()=>{clearAuth();router.replace('/login')}} style={{background:'rgba(255,77,77,0.12)',color:DNG,border:'1px solid rgba(255,77,77,0.25)',borderRadius:8,width:32,height:32,cursor:'pointer',fontWeight:700,fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:11,fontWeight:700}}>OUT</button>
         </div>
       </div>
 
@@ -977,7 +1088,7 @@ export default function AdminPanel() {
         </div>
 
         {/* ══ MAIN CONTENT ══ */}
-        <div style={{flex:1,padding:'20px 16px',minHeight:'calc(100vh - 58px)',maxWidth:'100vw',overflow:'auto',animation:'fadeIn 0.4s ease'}}>
+        <div style={{flex:1,padding:'20px 16px',maxWidth:'100vw',overflow:'auto',animation:'fadeIn 0.4s ease',paddingBottom:32}}>
 
           {/* ══ DASHBOARD ══ */}
           {tab==='dashboard'&&(
@@ -988,16 +1099,16 @@ export default function AdminPanel() {
               </div>
 
               {/* Stats Row */}
-              <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:20}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:20}}>
                 <StatBox ico='👥' lbl='Total Students' val={loading?'…':stats?.totalStudents||(students||[]).length||0} col={ACC}/>
                 <StatBox ico='📝' lbl='Total Exams' val={loading?'…':stats?.totalExams||(exams||[]).length||0} col={GOLD}/>
-                <StatBox ico='📈' lbl='Exam Attempts' val={loading?'…':stats?.totalAttempts||'—'} col={SUC}/>
-                <StatBox ico='🟢' lbl='Active Today' val={loading?'…':stats?.activeStudents||'—'} col='#00E5FF'/>
+                <StatBox ico='📈' lbl='Exam Attempts' val={loading?'…':stats?.totalAttempts??0} col={SUC}/>
+                <StatBox ico='🟢' lbl='Active Today' val={loading?'…':stats?.activeStudents??0} col='#00E5FF'/>
                 <StatBox ico='❓' lbl='Questions' val={loading?'…':stats?.totalQuestions||(questions||[]).length||0} col='#FF6B9D'/>
               </div>
 
               {/* Hero Banner */}
-              <div style={{background:`linear-gradient(135deg,rgba(0,85,204,0.25),rgba(77,159,255,0.1))`,border:`1px solid rgba(77,159,255,0.25)`,borderRadius:16,padding:'24px 20px',marginBottom:20,position:'relative',overflow:'hidden'}}>
+              <div style={{background:`linear-gradient(135deg,rgba(0,85,204,0.40),rgba(77,159,255,0.20))`,border:`1px solid rgba(77,159,255,0.25)`,borderRadius:16,padding:'24px 20px',marginBottom:20,position:'relative',overflow:'hidden'}}>
                 <div style={{position:'absolute',right:-20,top:-20,fontSize:100,opacity:0.06}}>⬡</div>
                 <div style={{position:'absolute',right:30,top:20,fontSize:60,opacity:0.08}}>⬡</div>
                 <div style={{fontFamily:'Playfair Display,serif',fontSize:18,fontWeight:700,color:TS,marginBottom:6}}>🎯 ProveRank Admin Center</div>
@@ -1012,7 +1123,7 @@ export default function AdminPanel() {
               </div>
 
               {/* 2-col grid */}
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:14,marginBottom:14}}>
                 {/* Recent Exams */}
                 <div style={cs}>
                   <div style={{fontWeight:700,marginBottom:12,fontSize:13,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -1065,7 +1176,7 @@ export default function AdminPanel() {
               </div>
 
               {/* Bottom row */}
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:12}}>
                 <div style={cs}>
                   <div style={{fontWeight:700,marginBottom:8,fontSize:12}}>🏆 Top Students</div>
                   {(students||[]).filter(s=>!s.banned).slice(0,4).map((s,i)=>(
@@ -1097,6 +1208,39 @@ export default function AdminPanel() {
                   ))}
                 </div>
               </div>
+
+              {/* ══ SCIENCE ILLUSTRATION SECTION ══ */}
+              <div style={{marginTop:20,display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12}}>
+                {[
+                  {icon:<svg viewBox="0 0 80 80" width="48" height="48"><circle cx="40" cy="40" r="8" fill="none" stroke="#4D9FFF" strokeWidth="2"/><ellipse cx="40" cy="40" rx="30" ry="12" fill="none" stroke="#4D9FFF" strokeWidth="1.5" opacity="0.7"/><ellipse cx="40" cy="40" rx="30" ry="12" fill="none" stroke="#00D4FF" strokeWidth="1" transform="rotate(60 40 40)" opacity="0.5"/><ellipse cx="40" cy="40" rx="30" ry="12" fill="none" stroke="#7050FF" strokeWidth="1" transform="rotate(120 40 40)" opacity="0.5"/><circle cx="40" cy="40" r="3" fill="#4D9FFF"/></svg>,title:'Atomic Structure',fact:'An atom is 99.99% empty space'},
+                  {icon:<svg viewBox="0 0 80 80" width="48" height="48"><path d="M20 20 Q40 5 60 20 Q75 40 60 60 Q40 75 20 60 Q5 40 20 20Z" fill="none" stroke="#00E5A0" strokeWidth="1.5"/><circle cx="30" cy="35" r="4" fill="#00E5A0" opacity="0.8"/><circle cx="50" cy="35" r="4" fill="#00E5A0" opacity="0.8"/><circle cx="40" cy="50" r="4" fill="#00E5A0" opacity="0.8"/><line x1="30" y1="35" x2="50" y2="35" stroke="#00E5A0" strokeWidth="1"/><line x1="30" y1="35" x2="40" y2="50" stroke="#00E5A0" strokeWidth="1"/><line x1="50" y1="35" x2="40" y2="50" stroke="#00E5A0" strokeWidth="1"/></svg>,title:'DNA Structure',fact:'Human DNA has ~3 billion base pairs'},
+                  {icon:<svg viewBox="0 0 80 80" width="48" height="48"><rect x="15" y="15" width="50" height="50" rx="6" fill="none" stroke="#FF6B9D" strokeWidth="1.5"/><rect x="25" y="25" width="30" height="30" rx="4" fill="none" stroke="#FF6B9D" strokeWidth="1" opacity="0.6"/><circle cx="40" cy="40" r="6" fill="#FF6B9D" opacity="0.4"/><line x1="40" y1="15" x2="40" y2="25" stroke="#FF6B9D" strokeWidth="1.5"/><line x1="40" y1="55" x2="40" y2="65" stroke="#FF6B9D" strokeWidth="1.5"/><line x1="15" y1="40" x2="25" y2="40" stroke="#FF6B9D" strokeWidth="1.5"/><line x1="55" y1="40" x2="65" y2="40" stroke="#FF6B9D" strokeWidth="1.5"/></svg>,title:'Cell Nucleus',fact:'Cell nucleus contains 46 chromosomes'},
+                  {icon:<svg viewBox="0 0 80 80" width="48" height="48"><polygon points="40,10 65,55 15,55" fill="none" stroke="#FFB84D" strokeWidth="1.5"/><polygon points="40,22 58,52 22,52" fill="none" stroke="#FFB84D" strokeWidth="1" opacity="0.5"/><circle cx="40" cy="10" r="3" fill="#FFB84D"/><circle cx="65" cy="55" r="3" fill="#FFB84D"/><circle cx="15" cy="55" r="3" fill="#FFB84D"/></svg>,title:'Geometry',fact:'Triangle has angle sum of exactly 180°'},
+                  {icon:<svg viewBox="0 0 80 80" width="48" height="48"><path d="M20 60 Q30 20 40 40 Q50 60 60 20" fill="none" stroke="#4D9FFF" strokeWidth="2"/><circle cx="20" cy="60" r="3" fill="#4D9FFF"/><circle cx="60" cy="20" r="3" fill="#4D9FFF"/><line x1="10" y1="65" x2="70" y2="65" stroke="#4D9FFF" strokeWidth="1" opacity="0.4"/><line x1="15" y1="70" x2="15" y2="10" stroke="#4D9FFF" strokeWidth="1" opacity="0.4"/></svg>,title:'Wave Motion',fact:'Light travels at 3×10⁸ m/s in vacuum'},
+                ].map((item,i)=>(
+                  <div key={i} style={{background:'rgba(0,22,40,0.7)',border:'1px solid rgba(77,159,255,0.15)',borderRadius:14,padding:'16px 14px',textAlign:'center',backdropFilter:'blur(12px)',transition:'all 0.3s'}}>
+                    <div style={{display:'flex',justifyContent:'center',marginBottom:10}}>{item.icon}</div>
+                    <div style={{fontSize:11,fontWeight:700,color:'#E8F4FF',marginBottom:4}}>{item.title}</div>
+                    <div style={{fontSize:10,color:'rgba(107,143,175,0.9)',lineHeight:1.5}}>{item.fact}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ══ PLATFORM ACTIVITY STRIP ══ */}
+              <div style={{marginTop:16,background:'linear-gradient(135deg,rgba(77,159,255,0.08),rgba(0,212,255,0.05))',border:'1px solid rgba(77,159,255,0.18)',borderRadius:14,padding:'16px 20px',display:'flex',flexWrap:'wrap',gap:16,alignItems:'center',justifyContent:'space-between'}}>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:'#E8F4FF',marginBottom:2}}>⚡ Platform Status</div>
+                  <div style={{fontSize:10,color:'rgba(107,143,175,0.9)'}}>All systems operational · Backend connected · DB active</div>
+                </div>
+                <div style={{display:'flex',gap:12}}>
+                  {[{l:'Backend',c:'#00E5A0',s:'Live'},{l:'Database',c:'#00E5A0',s:'Connected'},{l:'Auth',c:'#00E5A0',s:'Active'}].map(x=>(
+                    <div key={x.l} style={{textAlign:'center'}}>
+                      <div style={{width:8,height:8,borderRadius:'50%',background:x.c,margin:'0 auto 4px',boxShadow:`0 0 8px ${x.c}`}}/>
+                      <div style={{fontSize:9,color:'rgba(107,143,175,0.8)'}}>{x.l}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -1117,7 +1261,7 @@ export default function AdminPanel() {
               <PageHero icon="🔴" title="Live Exam Control Center" subtitle="Monitor all active exams in real-time. View connected students, server response time, and flag suspicious activity as it happens."/>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:20}}>
                 <StatBox ico='🟢' lbl='Active Exams' val={(exams||[]).filter(e=>e.status==='active').length} col={SUC}/>
-                <StatBox ico='👥' lbl='Connected Now' val={stats?.activeStudents||'—'} col={ACC}/>
+                <StatBox ico='👥' lbl='Connected Now' val={stats?.activeStudents??0} col={ACC}/>
                 <StatBox ico='🚨' lbl='Live Flags' val={(flags||[]).filter(f=>f.severity==='high').length} col={DNG}/>
                 <StatBox ico='⚡' lbl='Server Status' val='Online' col={SUC}/>
               </div>
@@ -1551,98 +1695,364 @@ export default function AdminPanel() {
           {/* ══ STUDENTS ══ */}
           {tab==='students'&&(
             <div>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16,flexWrap:'wrap',gap:10}}>
+              {/* ── HEADER ───────────────────────────────────── */}
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20,flexWrap:'wrap',gap:12}}>
                 <div>
                   <div style={pageTitle}>👥 Student Management</div>
-                  <div style={pageSub}>{(students||[]).length} students registered · {(students||[]).filter(s=>s.banned).length} banned</div>
+                  <div style={pageSub}>
+                    {(students||[]).filter((s:any)=>!s.deleted).length} registered
+                    &nbsp;·&nbsp;{(students||[]).filter((s:any)=>s.banned&&!s.deleted).length} banned
+                    {typeof window!=='undefined'&&localStorage.getItem('pr_role')==='superadmin'&&(
+                      <span style={{color:'#FFB84D'}}>&nbsp;·&nbsp;{deletedStds.length} archived</span>
+                    )}
+                  </div>
                 </div>
-                <div style={{display:'flex',gap:8}}>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                   <button onClick={()=>doExport(`${API}/api/admin/export/students`,'students.csv')} style={{...bg_,fontSize:11}}>📥 Export CSV</button>
+                  <button onClick={()=>setTab('import_students')} style={{...bg_,fontSize:11}}>📤 Import CSV</button>
                 </div>
               </div>
 
-              {/* Search + Filter */}
-              <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
-                <SInput init={stdSearch} onSet={setStdSearch} ph='🔍 Search by name, email, ID…' style={{...inp,flex:1,minWidth:200}}/>
-                <div style={{display:'flex',gap:6}}>
+              {/* ── STATS ROW ────────────────────────────────── */}
+              <div style={{display:'grid',gridTemplateColumns:`repeat(${typeof window!=='undefined'&&localStorage.getItem('pr_role')==='superadmin'?4:3},1fr)`,gap:10,marginBottom:20}}>
+                {[
+                  {ico:'👥',lbl:'Total Students',val:(students||[]).filter((s:any)=>!s.deleted).length,col:'#4D9FFF'},
+                  {ico:'✅',lbl:'Active',val:(students||[]).filter((s:any)=>!s.banned&&!s.deleted).length,col:'#00C48C'},
+                  {ico:'🚫',lbl:'Banned',val:(students||[]).filter((s:any)=>s.banned&&!s.deleted).length,col:'#FF4757'},
+                  ...(typeof window!=='undefined'&&localStorage.getItem('pr_role')==='superadmin'
+                    ?[{ico:'🗃️',lbl:'Archived',val:deletedStds.length,col:'#FFB84D'}]
+                    :[])
+                ].map((s,i)=>(
+                  <div key={i} style={{
+                    background:`linear-gradient(135deg,${s.col}18 0%,${s.col}06 100%)`,
+                    border:`1px solid ${s.col}35`,
+                    borderRadius:14,
+                    padding:'14px 12px',
+                    textAlign:'center',
+                    transition:'transform 0.2s',
+                    cursor:'default'
+                  }}>
+                    <div style={{fontSize:22,marginBottom:5}}>{s.ico}</div>
+                    <div style={{fontSize:24,fontWeight:800,color:s.col,lineHeight:1}}>{s.val}</div>
+                    <div style={{fontSize:10,color:'#8899AA',marginTop:4,letterSpacing:'0.3px'}}>{s.lbl}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── SEARCH + FILTER BAR ───────────────────────── */}
+              <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+                <SInput init={stdSearch} onSet={setStdSearch} ph='🔍 Search by name, email, ID…' style={{flex:1,minWidth:200,background:'rgba(0,22,40,0.7)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:10,padding:'9px 14px',color:'#E8F4FD',fontSize:12,outline:'none'}}/>
+                <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
                   {(['all','active','banned'] as const).map(f=>(
-                    <button key={f} onClick={()=>setStdFilter(f)} style={{padding:'8px 14px',borderRadius:8,border:`1px solid ${stdFilter===f?ACC:BOR}`,background:stdFilter===f?`${ACC}22`:CRD2,color:stdFilter===f?ACC:DIM,cursor:'pointer',fontSize:11,fontWeight:stdFilter===f?700:400}}>
-                      {f==='all'?'All':f==='active'?'Active':'Banned'}
-                    </button>
+                    <button key={f} onClick={()=>setStdFilter(f)} style={{
+                      padding:'8px 14px',
+                      borderRadius:8,
+                      border:`1px solid ${stdFilter===f?'#4D9FFF':'rgba(77,159,255,0.15)'}`,
+                      background:stdFilter===f?'rgba(77,159,255,0.18)':'rgba(0,22,40,0.6)',
+                      color:stdFilter===f?'#4D9FFF':'#8899AA',
+                      cursor:'pointer',fontSize:11,fontWeight:stdFilter===f?700:500,
+                      transition:'all 0.2s',
+                      textTransform:'capitalize' as const
+                    }}>{f}</button>
                   ))}
+                  {typeof window!=='undefined'&&localStorage.getItem('pr_role')==='superadmin'&&(
+                    <button onClick={()=>{setStdFilter('deleted' as any);fetchDeletedStds()}} style={{
+                      padding:'8px 14px',borderRadius:8,
+                      border:`1px solid ${stdFilter==='deleted'?'#FFB84D':'rgba(255,184,77,0.2)'}`,
+                      background:stdFilter==='deleted'?'rgba(255,184,77,0.15)':'rgba(0,22,40,0.6)',
+                      color:stdFilter==='deleted'?'#FFB84D':'#8899AA',
+                      cursor:'pointer',fontSize:11,fontWeight:stdFilter==='deleted'?700:500,
+                      transition:'all 0.2s'
+                    }}>🗃️ Archived</button>
+                  )}
                 </div>
+                <select
+                  value={stdSort}
+                  onChange={(e:any)=>setStdSort(e.target.value)}
+                  style={{background:'rgba(0,22,40,0.7)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:8,padding:'8px 10px',color:'#8899AA',fontSize:11,cursor:'pointer',outline:'none'}}
+                >
+                  <option value='newest'>🕐 Newest First</option>
+                  <option value='name'>🔤 Name A–Z</option>
+                  <option value='active'>✅ Active First</option>
+                </select>
               </div>
 
-              {/* Selected Student Detail */}
+              {/* ── SELECTED STUDENT DETAIL PANEL ─────────────── */}
               {selStudent&&(
-                <div style={{...cs,border:`1px solid ${ACC}`,marginBottom:16}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:10}}>
-                    <div>
-                      <div style={{fontFamily:'Playfair Display,serif',fontSize:16,fontWeight:700,color:TS,marginBottom:4}}>{selStudent.name}</div>
-                      <div style={{fontSize:12,color:DIM}}>{selStudent.email}</div>
-                      {selStudent.phone&&<div style={{fontSize:12,color:DIM}}>📱 {selStudent.phone}</div>}
-                      <div style={{fontSize:11,color:DIM,marginTop:4}}>Joined: {selStudent.createdAt?new Date(selStudent.createdAt).toLocaleDateString():'-'}</div>
-                      {selStudent.group&&<div style={{marginTop:6}}><Badge label={selStudent.group} col={GOLD}/></div>}
-                      {selStudent.integrityScore!==undefined&&<div style={{marginTop:6,fontSize:12}}>🤖 Integrity Score: <span style={{color:selStudent.integrityScore>70?SUC:selStudent.integrityScore>40?WRN:DNG,fontWeight:700}}>{selStudent.integrityScore}/100</span></div>}
+                <div style={{
+                  borderRadius:16,
+                  border:'2px solid rgba(77,159,255,0.3)',
+                  background:'linear-gradient(135deg,rgba(0,22,40,0.97) 0%,rgba(0,31,58,0.95) 100%)',
+                  padding:'18px',
+                  marginBottom:18,
+                  boxShadow:'0 8px 32px rgba(77,159,255,0.1)'
+                }}>
+                  <div style={{display:'flex',gap:16,alignItems:'flex-start',flexWrap:'wrap'}}>
+                    {/* Avatar */}
+                    <div style={{
+                      width:58,height:58,borderRadius:16,flexShrink:0,
+                      background:'linear-gradient(135deg,#4D9FFF,#0055CC)',
+                      display:'flex',alignItems:'center',justifyContent:'center',
+                      fontSize:24,fontWeight:800,color:'#fff',
+                      boxShadow:'0 6px 20px rgba(77,159,255,0.4)'
+                    }}>
+                      {(selStudent.name||'?').charAt(0).toUpperCase()}
                     </div>
-                    <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    {/* Details */}
+                    <div style={{flex:1,minWidth:180}}>
+                      <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:'#E8F4FD',marginBottom:4}}>{selStudent.name}</div>
+                      <div style={{fontSize:12,color:'#8899AA',marginBottom:2}}>✉️ {selStudent.email}</div>
+                      {selStudent.phone&&<div style={{fontSize:11,color:'#8899AA',marginBottom:2}}>📱 {selStudent.phone}</div>}
+                      {(selStudent as any).city&&<div style={{fontSize:11,color:'#8899AA',marginBottom:2}}>📍 {(selStudent as any).city}</div>}
+                      {(selStudent as any).school&&<div style={{fontSize:11,color:'#8899AA',marginBottom:2}}>🏫 {(selStudent as any).school}</div>}
+                      {(selStudent as any).targetExam&&<div style={{fontSize:11,color:'#8899AA',marginBottom:2}}>🎯 Target: {(selStudent as any).targetExam}</div>}
+                      {(selStudent as any).dob&&<div style={{fontSize:11,color:'#8899AA',marginBottom:2}}>🎂 DOB: {(selStudent as any).dob}</div>}
+                      {(selStudent as any).qualifications&&<div style={{fontSize:11,color:'#8899AA',marginBottom:4}}>🎓 {(selStudent as any).qualifications}</div>}
+                      <div style={{fontSize:10,color:'#8899AA',marginBottom:8}}>📅 Joined: {selStudent.createdAt?new Date(selStudent.createdAt).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'-'}</div>
+                      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                        {selStudent.banned&&<span style={{fontSize:10,background:'rgba(255,71,87,0.15)',color:'#FF4757',padding:'2px 8px',borderRadius:6,border:'1px solid rgba(255,71,87,0.3)'}}>🚫 Banned</span>}
+                        {selStudent.group&&<Badge label={selStudent.group} col='#FFD700'/>}
+                        {selStudent.integrityScore!==undefined&&(
+                          <span style={{fontSize:10,background:`rgba(${selStudent.integrityScore>70?'0,196,140':selStudent.integrityScore>40?'255,184,77':'255,71,87'},0.15)`,color:selStudent.integrityScore>70?'#00C48C':selStudent.integrityScore>40?'#FFB84D':'#FF4757',padding:'2px 8px',borderRadius:6,border:`1px solid rgba(${selStudent.integrityScore>70?'0,196,140':selStudent.integrityScore>40?'255,184,77':'255,71,87'},0.3)`}}>
+                            🤖 Integrity {selStudent.integrityScore}/100
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Action Buttons */}
+                    <div style={{display:'flex',flexDirection:'column' as const,gap:7,alignItems:'stretch',minWidth:120}}>
+                      <button onClick={()=>{setImpId(selStudent._id);impersonate()}} style={{...bg_,fontSize:11,textAlign:'center' as const}}>👁️ View as Student</button>
                       {selStudent.banned
-                        ?<button onClick={()=>unbanStd(selStudent._id)} style={bs}>🔓 Unban</button>
-                        :<button onClick={()=>{setBanId(selStudent._id);setTab('students')}} style={bd}>🚫 Ban</button>
+                        ?<button onClick={()=>unbanStd(selStudent._id)} style={{...bs,fontSize:11}}>🔓 Unban</button>
+                        :<button onClick={()=>{setBanId(selStudent._id)}} style={{...bd,fontSize:11}}>🚫 Ban</button>
                       }
-                      <button onClick={()=>{setImpId(selStudent._id);impersonate()}} style={{...bg_,fontSize:11}}>👁️ View as Student</button>
-                      <button onClick={()=>setSelStudent(null)} style={{background:'none',border:'none',color:DIM,cursor:'pointer',fontSize:16}}>✕</button>
+                      {typeof window!=='undefined'&&localStorage.getItem('pr_role')==='superadmin'&&(
+                        <button
+                          onClick={()=>setDelConfirmId(selStudent._id)}
+                          style={{background:'rgba(255,71,87,0.08)',border:'1px solid rgba(255,71,87,0.35)',color:'#FF4757',borderRadius:10,padding:'9px 14px',cursor:'pointer',fontSize:11,fontWeight:600}}
+                        >🗑️ Delete Account</button>
+                      )}
+                      <button onClick={()=>setSelStudent(null)} style={{background:'none',border:'1px solid rgba(77,159,255,0.15)',color:'#8899AA',borderRadius:10,padding:'7px',cursor:'pointer',fontSize:12,textAlign:'center' as const}}>✕ Close</button>
                     </div>
                   </div>
+                  {/* Login History */}
                   {selStudent.loginHistory&&selStudent.loginHistory.length>0&&(
-                    <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${BOR}`}}>
-                      <div style={{fontWeight:600,fontSize:11,color:DIM,marginBottom:6}}>Recent Login History (S48)</div>
-                      {selStudent.loginHistory.slice(0,3).map((l:any,i:number)=>(
-                        <div key={i} style={{fontSize:10,color:DIM,marginBottom:2}}>📍 {l.city||'—'} · {l.device||'—'} · {l.ip||'—'}</div>
-                      ))}
+                    <div style={{marginTop:14,paddingTop:12,borderTop:'1px solid rgba(77,159,255,0.12)'}}>
+                      <div style={{fontWeight:700,fontSize:10,color:'#8899AA',marginBottom:8,letterSpacing:'0.8px',textTransform:'uppercase' as const}}>📊 Recent Login Activity (S48)</div>
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(170px,1fr))',gap:6}}>
+                        {selStudent.loginHistory.slice(0,4).map((l:any,i:number)=>(
+                          <div key={i} style={{background:'rgba(0,22,40,0.7)',borderRadius:8,padding:'8px 10px',border:'1px solid rgba(77,159,255,0.1)'}}>
+                            <div style={{fontSize:10,color:'#E8F4FD',fontWeight:600}}>📍 {l.city||'Unknown'}</div>
+                            <div style={{fontSize:10,color:'#8899AA',marginTop:2}}>{l.device||'—'}</div>
+                            <div style={{fontSize:9,color:'#8899AA',marginTop:1}}>{l.ip||'—'}</div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Student List */}
-              {fStds.length===0
-                ?<PageHero icon="👥" title="No Students Found" subtitle="Students will appear here after they register. Use bulk import to add multiple students at once."/>
-                :fStds.map(s=>(
-                  <div key={s._id} className="card-hover" style={{...cs,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',justifyContent:'space-between',cursor:'pointer',transition:'all 0.2s',borderLeft:s.banned?`3px solid ${DNG}`:`3px solid transparent`}} onClick={()=>setSelStudent(s)}>
-                    <div style={{flex:1,minWidth:150}}>
-                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}>
-                        <span style={{fontWeight:600,fontSize:13,color:TS}}>{s.name||'—'}</span>
-                        {s.banned&&<Badge label='Banned' col={DNG}/>}
-                        {s.group&&<Badge label={s.group} col={GOLD}/>}
-                      </div>
-                      <div style={{fontSize:11,color:DIM}}>{s.email}</div>
-                      {s.integrityScore!==undefined&&<div style={{fontSize:10,marginTop:2,color:s.integrityScore>70?SUC:s.integrityScore>40?WRN:DNG}}>🤖 {s.integrityScore}/100</div>}
+              {/* ── DELETE CONFIRMATION MODAL (SuperAdmin only) ── */}
+              {delConfirmId&&(
+                <div style={{position:'fixed' as const,top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.75)',backdropFilter:'blur(4px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:16}}>
+                  <div style={{
+                    background:'linear-gradient(135deg,rgba(5,10,20,0.99),rgba(10,18,35,0.98))',
+                    border:'2px solid rgba(255,71,87,0.4)',
+                    borderRadius:20,
+                    padding:'28px 24px',
+                    maxWidth:400,width:'100%',
+                    boxShadow:'0 20px 60px rgba(0,0,0,0.6)'
+                  }}>
+                    <div style={{fontSize:44,textAlign:'center' as const,marginBottom:10}}>⚠️</div>
+                    <div style={{fontWeight:800,fontSize:16,color:'#FF4757',textAlign:'center' as const,marginBottom:6,fontFamily:'Playfair Display,serif'}}>Delete Student Account</div>
+                    <div style={{fontSize:12,color:'#8899AA',textAlign:'center' as const,marginBottom:6,lineHeight:1.7}}>
+                      Ye account active list se hata diya jayega.<br/>
+                      Superadmin ise kabhi bhi restore kar sakta hai.
                     </div>
-                    <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                      {s.banned
-                        ?<button onClick={e=>{e.stopPropagation();unbanStd(s._id)}} style={{...bs,fontSize:10,padding:'5px 10px'}}>🔓 Unban</button>
-                        :<button onClick={e=>{e.stopPropagation();setBanId(s._id);}} style={{...bd,fontSize:10,padding:'5px 10px'}}>🚫 Ban</button>
-                      }
+                    <div style={{fontSize:11,color:'#00C48C',textAlign:'center' as const,marginBottom:16,padding:'8px 12px',background:'rgba(0,196,140,0.08)',borderRadius:8,border:'1px solid rgba(0,196,140,0.2)'}}>
+                      ✅ Student same email se fresh account bana sakta hai
+                    </div>
+                    <div style={{marginBottom:16}}>
+                      <label style={{fontSize:11,color:'#8899AA',display:'block',marginBottom:6,fontWeight:600}}>Delete Reason (SuperAdmin archive mein save hoga)</label>
+                      <STextarea init='' onSet={(v:string)=>{delReasonR.current=v}} ph='e.g. Test account, Rules violation, Duplicate account…' rows={2} style={{width:'100%',background:'rgba(255,71,87,0.06)',border:'1px solid rgba(255,71,87,0.3)',borderRadius:10,padding:'10px 12px',color:'#E8F4FD',fontSize:12,outline:'none',resize:'vertical' as const}}/>
+                    </div>
+                    <div style={{display:'flex',gap:10}}>
+                      <button
+                        onClick={()=>softDelStd(delConfirmId)}
+                        disabled={stdDelLoading}
+                        style={{flex:1,padding:'12px',background:'linear-gradient(135deg,#FF4757,#CC0020)',border:'none',borderRadius:12,color:'#fff',fontWeight:700,cursor:stdDelLoading?'not-allowed' as const:'pointer' as const,opacity:stdDelLoading?0.7:1,fontSize:13}}
+                      >{stdDelLoading?'⟳ Deleting…':'🗑️ Confirm Delete'}</button>
+                      <button onClick={()=>setDelConfirmId('')} style={{...bg_,padding:'12px 18px'}}>Cancel</button>
                     </div>
                   </div>
-                ))
-              }
+                </div>
+              )}
 
-              {/* Ban Panel */}
+              {/* ── ARCHIVED STUDENTS (SuperAdmin only, deleted filter) ── */}
+              {stdFilter==='deleted'&&typeof window!=='undefined'&&localStorage.getItem('pr_role')==='superadmin'&&(
+                <div>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:13,color:'#FFB84D'}}>🗃️ Archived Student Accounts</div>
+                      <div style={{fontSize:11,color:'#8899AA',marginTop:3}}>{deletedStds.length} archived · Only visible to SuperAdmin · Restore anytime</div>
+                    </div>
+                    <button onClick={fetchDeletedStds} style={{...bg_,fontSize:11}}>🔄 Refresh</button>
+                  </div>
+                  {deletedStds.length===0
+                    ?<div style={{background:'rgba(255,184,77,0.05)',border:'1px solid rgba(255,184,77,0.15)',borderRadius:16,padding:'40px 20px',textAlign:'center' as const}}>
+                      <div style={{fontSize:48,marginBottom:12}}>🗃️</div>
+                      <div style={{fontWeight:700,fontSize:14,color:'#E8F4FD',marginBottom:6}}>No Archived Students</div>
+                      <div style={{fontSize:12,color:'#8899AA'}}>Deleted student accounts will appear here. You can restore them anytime.</div>
+                    </div>
+                    :<div style={{display:'grid',gap:10}}>
+                      {deletedStds.map((s:any)=>(
+                        <div key={s._id} style={{
+                          background:'linear-gradient(135deg,rgba(255,184,77,0.05),rgba(0,22,40,0.8))',
+                          border:'1px solid rgba(255,184,77,0.2)',
+                          borderRadius:14,
+                          padding:'14px 16px',
+                          display:'flex',gap:12,alignItems:'center',flexWrap:'wrap' as const,justifyContent:'space-between' as const
+                        }}>
+                          <div style={{display:'flex',gap:12,alignItems:'center',flex:1,minWidth:180}}>
+                            <div style={{width:44,height:44,borderRadius:12,background:'linear-gradient(135deg,rgba(255,184,77,0.5),rgba(255,71,87,0.5))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:800,color:'#fff',flexShrink:0}}>
+                              {(s.name||'?').charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div style={{fontWeight:700,fontSize:13,color:'#E8F4FD'}}>{s.name||'—'}</div>
+                              <div style={{fontSize:11,color:'#8899AA'}}>✉️ {s.email}</div>
+                              {s.phone&&<div style={{fontSize:10,color:'#8899AA'}}>📱 {s.phone}</div>}
+                              <div style={{display:'flex',gap:6,marginTop:5,flexWrap:'wrap' as const}}>
+                                {s.group&&<span style={{fontSize:9,background:'rgba(255,215,0,0.15)',color:'#FFD700',padding:'2px 7px',borderRadius:5,border:'1px solid rgba(255,215,0,0.3)'}}>{s.group}</span>}
+                                {s._snapshot?.targetExam&&<span style={{fontSize:9,background:'rgba(77,159,255,0.12)',color:'#4D9FFF',padding:'2px 7px',borderRadius:5,border:'1px solid rgba(77,159,255,0.25)'}}>🎯 {s._snapshot.targetExam}</span>}
+                              </div>
+                              {s.deleteReason&&<div style={{fontSize:10,color:'#FF4757',marginTop:4}}>Reason: {s.deleteReason}</div>}
+                              {s.deletedAt&&<div style={{fontSize:10,color:'#8899AA',marginTop:2}}>🗑️ Archived: {new Date(s.deletedAt).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</div>}
+                            </div>
+                          </div>
+                          <button
+                            onClick={()=>restoreStd(s._id)}
+                            style={{background:'rgba(0,196,140,0.1)',border:'1px solid rgba(0,196,140,0.3)',color:'#00C48C',borderRadius:10,padding:'9px 16px',cursor:'pointer',fontSize:11,fontWeight:700}}
+                          >🔄 Restore</button>
+                        </div>
+                      ))}
+                    </div>
+                  }
+                </div>
+              )}
+
+              {/* ── ACTIVE STUDENT LIST ──────────────────────── */}
+              {stdFilter!=='deleted'&&(
+                <>
+                  {fStds.filter((s:any)=>!s.deleted).length===0
+                    ?<PageHero icon="👥" title="No Students Found" subtitle="Students will appear here after they register. Use bulk import to add multiple students at once."/>
+                    :(()=>{
+                      const raw=fStds.filter((s:any)=>!s.deleted);
+                      const sorted=stdSort==='name'
+                        ?[...raw].sort((a,b)=>(a.name||'').localeCompare(b.name||''))
+                        :stdSort==='active'
+                        ?[...raw].sort((a,b)=>Number(!!a.banned)-Number(!!b.banned))
+                        :[...raw].sort((a,b)=>new Date(b.createdAt||0).getTime()-new Date(a.createdAt||0).getTime());
+                      const avatarColors=['#4D9FFF','#00C48C','#A78BFA','#FF6B9D','#FFD700','#00E5FF','#FF8C42','#7CFC00'];
+                      return sorted.map((s:any,idx:number)=>(
+                        <div
+                          key={s._id}
+                          className="card-hover"
+                          style={{
+                            background:selStudent?._id===s._id?'rgba(77,159,255,0.08)':'rgba(0,22,40,0.75)',
+                            border:`1px solid ${s.banned?'rgba(255,71,87,0.3)':selStudent?._id===s._id?'rgba(77,159,255,0.4)':'rgba(77,159,255,0.12)'}`,
+                            borderLeft:`3px solid ${s.banned?'#FF4757':avatarColors[idx%8]}`,
+                            borderRadius:14,
+                            padding:'12px 14px',
+                            marginBottom:8,
+                            display:'flex',gap:12,alignItems:'center',flexWrap:'wrap' as const,
+                            justifyContent:'space-between' as const,
+                            cursor:'pointer',
+                            transition:'all 0.22s'
+                          }}
+                          onClick={()=>setSelStudent(s)}
+                        >
+                          <div style={{display:'flex',gap:12,alignItems:'center',flex:1,minWidth:150}}>
+                            {/* Color Avatar */}
+                            <div style={{
+                              width:42,height:42,borderRadius:12,flexShrink:0,
+                              background:`linear-gradient(135deg,${avatarColors[idx%8]},${avatarColors[(idx+3)%8]})`,
+                              display:'flex',alignItems:'center',justifyContent:'center',
+                              fontSize:17,fontWeight:800,color:'#fff',
+                              boxShadow:`0 3px 10px ${avatarColors[idx%8]}44`
+                            }}>
+                              {(s.name||'?').charAt(0).toUpperCase()}
+                            </div>
+                            <div style={{flex:1}}>
+                              <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap' as const,marginBottom:2}}>
+                                <span style={{fontWeight:700,fontSize:13,color:'#E8F4FD'}}>{s.name||'—'}</span>
+                                {s.banned&&<span style={{fontSize:9,background:'rgba(255,71,87,0.15)',color:'#FF4757',padding:'1px 6px',borderRadius:5,border:'1px solid rgba(255,71,87,0.3)'}}>BANNED</span>}
+                                {s.group&&<span style={{fontSize:9,background:'rgba(255,215,0,0.12)',color:'#FFD700',padding:'1px 6px',borderRadius:5,border:'1px solid rgba(255,215,0,0.25)'}}>{s.group}</span>}
+                              </div>
+                              <div style={{fontSize:11,color:'#8899AA'}}>{s.email}</div>
+                              <div style={{display:'flex',gap:10,marginTop:2,fontSize:10,color:'#8899AA',flexWrap:'wrap' as const}}>
+                                {s.phone&&<span>📱 {s.phone}</span>}
+                                <span>📅 {s.createdAt?new Date(s.createdAt).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'-'}</span>
+                              </div>
+                              {s.integrityScore!==undefined&&(
+                                <div style={{display:'flex',alignItems:'center',gap:7,marginTop:5}}>
+                                  <div style={{width:70,height:3,background:'rgba(255,255,255,0.07)',borderRadius:2}}>
+                                    <div style={{width:`${Math.min(s.integrityScore,100)}%`,height:'100%',borderRadius:2,background:s.integrityScore>70?'#00C48C':s.integrityScore>40?'#FFB84D':'#FF4757',transition:'width 0.5s'}}/>
+                                  </div>
+                                  <span style={{fontSize:9,color:s.integrityScore>70?'#00C48C':s.integrityScore>40?'#FFB84D':'#FF4757',fontWeight:600}}>{s.integrityScore}/100</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {/* Action Buttons */}
+                          <div style={{display:'flex',gap:6,flexWrap:'wrap' as const}} onClick={(e:any)=>e.stopPropagation()}>
+                            <button onClick={(e:any)=>{e.stopPropagation();setSelStudent(s)}} style={{...bg_,fontSize:10,padding:'6px 10px'}}>👁️ View</button>
+                            {s.banned
+                              ?<button onClick={(e:any)=>{e.stopPropagation();unbanStd(s._id)}} style={{...bs,fontSize:10,padding:'6px 10px'}}>🔓 Unban</button>
+                              :<button onClick={(e:any)=>{e.stopPropagation();setBanId(s._id)}} style={{...bd,fontSize:10,padding:'6px 10px'}}>🚫 Ban</button>
+                            }
+                            {typeof window!=='undefined'&&localStorage.getItem('pr_role')==='superadmin'&&(
+                              <button
+                                onClick={(e:any)=>{e.stopPropagation();setDelConfirmId(s._id)}}
+                                title="Delete account (SuperAdmin only)"
+                                style={{background:'rgba(255,71,87,0.08)',border:'1px solid rgba(255,71,87,0.3)',color:'#FF4757',borderRadius:8,padding:'6px 10px',cursor:'pointer',fontSize:10,fontWeight:700}}
+                              >🗑️</button>
+                            )}
+                          </div>
+                        </div>
+                      ));
+                    })()
+                  }
+                </>
+              )}
+
+              {/* ── BAN PANEL ────────────────────────────────── */}
               {banId&&(
-                <div style={{...cs,border:`1px solid ${DNG}`,marginTop:16}}>
-                  <div style={{fontWeight:700,fontSize:13,color:DNG,marginBottom:10}}>🚫 Ban Student</div>
-                  <div style={{marginBottom:10}}><label style={lbl}>Ban Reason *</label><STextarea init='' onSet={v=>{banReaR.current=v}} ph='Explain why this student is being banned…' rows={2} style={{...inp,resize:'vertical'}}/></div>
-                  <div style={{marginBottom:12}}><label style={lbl}>Ban Type</label><SSelect val={banT} onChange={v=>setBanT(v as 'permanent'|'temporary')} opts={[{v:'permanent',l:'Permanent Ban'},{v:'temporary',l:'Temporary Ban (30 days)'}]} style={{...inp}}/></div>
-                  <div style={{display:'flex',gap:8}}>
-                    <button onClick={banStd} style={{...bd,flex:1}}>🚫 Confirm Ban</button>
-                    <button onClick={()=>setBanId('')} style={{...bg_}}>Cancel</button>
+                <div style={{
+                  background:'linear-gradient(135deg,rgba(255,71,87,0.05),rgba(0,22,40,0.95))',
+                  border:'2px solid rgba(255,71,87,0.3)',
+                  borderRadius:16,
+                  padding:'18px',
+                  marginTop:16
+                }}>
+                  <div style={{fontWeight:700,fontSize:14,color:'#FF4757',marginBottom:14}}>🚫 Ban Student</div>
+                  <div style={{marginBottom:12}}>
+                    <label style={{fontSize:11,color:'#8899AA',display:'block',marginBottom:6,fontWeight:600}}>Ban Reason *</label>
+                    <STextarea init='' onSet={(v:string)=>{banReaR.current=v}} ph='Explain why this student is being banned…' rows={2} style={{width:'100%',background:'rgba(0,22,40,0.7)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:10,padding:'10px 12px',color:'#E8F4FD',fontSize:12,outline:'none',resize:'vertical' as const}}/>
+                  </div>
+                  <div style={{marginBottom:14}}>
+                    <label style={{fontSize:11,color:'#8899AA',display:'block',marginBottom:6,fontWeight:600}}>Ban Type</label>
+                    <SSelect val={banT} onChange={(v:string)=>setBanT(v as 'permanent'|'temporary')} opts={[{v:'permanent',l:'Permanent Ban'},{v:'temporary',l:'Temporary Ban (30 days)'}]} style={{width:'100%',background:'rgba(0,22,40,0.7)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:10,padding:'10px 12px',color:'#E8F4FD',fontSize:12,outline:'none'}}/>
+                  </div>
+                  <div style={{display:'flex',gap:10}}>
+                    <button onClick={banStd} style={{...bd,flex:1,padding:'11px',fontSize:13}}>🚫 Confirm Ban</button>
+                    <button onClick={()=>setBanId('')} style={{...bg_,padding:'11px 20px'}}>Cancel</button>
                   </div>
                 </div>
               )}
             </div>
           )}
+
 
           {/* ══ BATCHES ══ */}
           {tab==='batches'&&(
@@ -1852,13 +2262,13 @@ export default function AdminPanel() {
             <div>
               <div style={pageTitle}>📉 Analytics Dashboard (S13/S53/S108)</div>
               <div style={pageSub}>Visual performance data — student trends, exam stats, platform health</div>
-              <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:20}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:20}}>
                 <StatBox ico='👥' lbl='Total Students' val={(students||[]).length} col={ACC}/>
                 <StatBox ico='📝' lbl='Total Exams' val={(exams||[]).length} col={GOLD}/>
                 <StatBox ico='❓' lbl='Questions' val={(questions||[]).length} col={SUC}/>
                 <StatBox ico='🚨' lbl='Active Flags' val={(flags||[]).length} col={DNG}/>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:14,marginBottom:14}}>
                 <div style={cs}>
                   <div style={{fontWeight:700,marginBottom:12,fontSize:13}}>📊 Subject Distribution</div>
                   {['Physics','Chemistry','Biology'].map(subj=>{
@@ -1950,7 +2360,7 @@ export default function AdminPanel() {
                 :(flags||[]).map((f,i)=>(
                   <div key={f._id||i} style={{...cs,borderLeft:`4px solid ${f.severity==='high'?DNG:f.severity==='medium'?WRN:DIM}`}}>
                     <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:8,marginBottom:6}}>
-                      <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                      <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
                         <span style={{fontWeight:700,fontSize:13,color:TS}}>{f.studentName||'—'}</span>
                         <Badge label={f.severity||'low'} col={f.severity==='high'?DNG:f.severity==='medium'?WRN:DIM}/>
                         <Badge label={f.type||'—'} col={ACC}/>
@@ -2547,7 +2957,7 @@ export default function AdminPanel() {
               {clogs.map(c=>(
                 <div key={c.v} style={{...cs,borderLeft:`4px solid ${c.t==='major'?ACC:DIM}`}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-                    <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                    <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
                       <span style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:ACC}}>{c.v}</span>
                       <Badge label={c.t} col={c.t==='major'?ACC:DIM}/>
                     </div>

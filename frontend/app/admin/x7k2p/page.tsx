@@ -201,9 +201,9 @@ function GalaxyBg() {
 const GlobalSearch=memo(function GlobalSearch({students,exams,questions,setTab,setSelStudent,token}:{students:Student[];exams:Exam[];questions:Question[];setTab:(t:string)=>void;setSelStudent:(s:Student)=>void;token:string}) {
   const [q,setQ]=useState('')
   const res=q.length<2?[]:[
-    ...(students||[]).filter(s=>s.name?.toLowerCase().includes(q.toLowerCase())||s.email?.toLowerCase().includes(q.toLowerCase())).slice(0,4).map(s=>({type:'Student',label:s.name+' · '+s.email,icon:'👤',go:()=>{setSelStudent(s);setTab('students')}})),
-    ...(exams||[]).filter(e=>e.title?.toLowerCase().includes(q.toLowerCase())).slice(0,4).map(e=>({type:'Exam',label:e.title+' · '+e.status,icon:'📝',go:()=>setTab('exams')})),
-    ...(questions||[]).filter(qn=>qn.text?.toLowerCase().includes(q.toLowerCase())).slice(0,4).map(qn=>({type:'Question',label:qn.text?.slice(0,70)+'…',icon:'❓',go:()=>setTab('questions')})),
+    ...(students||[]).filter(s=>s.name?.toLowerCase().includes(q.toLowerCase())||s.email?.toLowerCase().includes(q.toLowerCase())).slice(0,4).map(s=>({type:'Student',label:s.name+' · '+s.email,icon:'👤',go:()=>{setSelStudent(s);_setTab('students')}})),
+    ...(exams||[]).filter(e=>e.title?.toLowerCase().includes(q.toLowerCase())).slice(0,4).map(e=>({type:'Exam',label:e.title+' · '+e.status,icon:'📝',go:()=>_setTab('exams')})),
+    ...(questions||[]).filter(qn=>qn.text?.toLowerCase().includes(q.toLowerCase())).slice(0,4).map(qn=>({type:'Question',label:qn.text?.slice(0,70)+'…',icon:'❓',go:()=>_setTab('questions')})),
   ]
   return (
     <div>
@@ -235,7 +235,7 @@ const GlobalSearch=memo(function GlobalSearch({students,exams,questions,setTab,s
       {q.length<2&&(
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12,marginTop:8}}>
           {[{icon:'👥',label:'Students',sub:`${(students||[]).length} registered`,tab:'students'},{icon:'📝',label:'Exams',sub:`${(exams||[]).length} total`,tab:'exams'},{icon:'❓',label:'Questions',sub:`${(questions||[]).length} in bank`,tab:'questions'},{icon:'📊',label:'Analytics',sub:'Performance data',tab:'analytics'}].map(c=>(
-            <button key={c.tab} onClick={()=>setTab(c.tab)} style={{padding:'16px',background:'rgba(0,22,40,0.5)',border:'1px solid rgba(77,159,255,0.15)',borderRadius:12,cursor:'pointer',textAlign:'left'}}>
+            <button key={c.tab} onClick={()=>_setTab(c.tab)} style={{padding:'16px',background:'rgba(0,22,40,0.5)',border:'1px solid rgba(77,159,255,0.15)',borderRadius:12,cursor:'pointer',textAlign:'left'}}>
               <div style={{fontSize:24,marginBottom:6}}>{c.icon}</div>
               <div style={{fontWeight:700,fontSize:13,color:'#E8F4FF'}}>{c.label}</div>
               <div style={{fontSize:11,color:'#6B8FAF',marginTop:2}}>{c.sub}</div>
@@ -317,7 +317,8 @@ export default function AdminPanel() {
   const [role,setRole]=useState('')
   const [token,setToken]=useState('')
   const [mounted,setMounted]=useState(false)
-  const [tab,setTab]=useState('dashboard')
+  const [tab,setTab]=useState(()=>{try{return localStorage.getItem('pr_admin_tab')||'dashboard'}catch{return'dashboard'}})
+  const _setTab=(t:string)=>{try{localStorage.setItem('pr_admin_tab',t)}catch{};setTab(t)}
   const [sideOpen,setSideOpen]=useState(false)
   const [toast,setToast]=useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
   const [notifOpen,setNotifOpen]=useState(false)
@@ -1077,7 +1078,7 @@ export default function AdminPanel() {
             <div key={grp} style={{marginBottom:4}}>
               <div style={{fontSize:9,fontWeight:700,color:'rgba(107,143,175,0.5)',letterSpacing:1.5,textTransform:'uppercase',padding:'10px 14px 4px'}}>{grp}</div>
               {NAV.filter(n=>n.grp===grp).map(n=>(
-                <button key={n.id} className="nav-btn" onClick={()=>{setTab(n.id);setSideOpen(false)}}
+                <button key={n.id} className="nav-btn" onClick={()=>{_setTab(n.id);setSideOpen(false)}}
                   style={{display:'flex',alignItems:'center',gap:9,padding:'8px 12px',borderRadius:8,border:'none',background:tab===n.id?'rgba(77,159,255,0.15)':'transparent',color:tab===n.id?ACC:DIM,cursor:'pointer',fontFamily:'Inter,sans-serif',fontSize:12,fontWeight:tab===n.id?700:400,width:'100%',textAlign:'left',borderLeft:tab===n.id?`3px solid ${ACC}`:'3px solid transparent'}}>
                   <span style={{fontSize:14,width:18,textAlign:'center'}}>{n.ico}</span>
                   <span>{n.lbl}</span>
@@ -1117,7 +1118,7 @@ export default function AdminPanel() {
                 </div>
                 <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:14}}>
                   {[['➕ Create Exam','create_exam',ACC],['👥 All Students','students',SUC],['🔴 Live Monitor','live',DNG],['📊 Analytics','analytics',GOLD]].map(([l,t,c])=>(
-                    <button key={String(t)} onClick={()=>setTab(String(t))} style={{padding:'8px 16px',background:`${c}22`,border:`1px solid ${c}44`,color:String(c),borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600}}>{String(l)}</button>
+                    <button key={String(t)} onClick={()=>_setTab(String(t))} style={{padding:'8px 16px',background:`${c}22`,border:`1px solid ${c}44`,color:String(c),borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600}}>{String(l)}</button>
                   ))}
                 </div>
               </div>
@@ -1128,13 +1129,13 @@ export default function AdminPanel() {
                 <div style={cs}>
                   <div style={{fontWeight:700,marginBottom:12,fontSize:13,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <span>📝 Recent Exams</span>
-                    <button onClick={()=>setTab('exams')} style={{...bg_,padding:'4px 10px',fontSize:10}}>View All</button>
+                    <button onClick={()=>_setTab('exams')} style={{...bg_,padding:'4px 10px',fontSize:10}}>View All</button>
                   </div>
                   {(exams||[]).length===0
                     ?<div style={{textAlign:'center',padding:'20px 0',color:DIM}}>
                       <div style={{fontSize:30,marginBottom:8}}>📭</div>
                       <div style={{fontSize:12}}>No exams yet</div>
-                      <button onClick={()=>setTab('create_exam')} style={{...bp,fontSize:11,padding:'6px 14px',marginTop:8}}>Create First Exam</button>
+                      <button onClick={()=>_setTab('create_exam')} style={{...bp,fontSize:11,padding:'6px 14px',marginTop:8}}>Create First Exam</button>
                     </div>
                     :(exams||[]).slice(0,4).map(e=>(
                       <div key={e._id} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:`1px solid ${BOR}`,fontSize:12}}>
@@ -1164,7 +1165,7 @@ export default function AdminPanel() {
                     <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>⚡ Quick Actions</div>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
                       {[['➕ Exam','create_exam'],['❓ Question','questions'],['📢 Announce','announcements'],['💾 Backup','backup']].map(([l,t])=>(
-                        <button key={String(t)} onClick={()=>setTab(String(t))} style={{...bg_,textAlign:'center',fontSize:11,padding:'8px 6px'}}>{String(l)}</button>
+                        <button key={String(t)} onClick={()=>_setTab(String(t))} style={{...bg_,textAlign:'center',fontSize:11,padding:'8px 6px'}}>{String(l)}</button>
                       ))}
                     </div>
                     <div style={{marginTop:10,fontSize:11,color:DIM,display:'flex',gap:12}}>
@@ -1329,7 +1330,7 @@ export default function AdminPanel() {
                   <div style={pageTitle}>📝 All Exams</div>
                   <div style={pageSub}>{(exams||[]).length} exams total — manage, edit, clone, and monitor</div>
                 </div>
-                <button onClick={()=>setTab('create_exam')} style={bp}>➕ Create Exam</button>
+                <button onClick={()=>_setTab('create_exam')} style={bp}>➕ Create Exam</button>
               </div>
 
               <div style={{marginBottom:14}}>
@@ -1356,7 +1357,7 @@ export default function AdminPanel() {
                         </div>
                       </div>
                       <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                        <button onClick={()=>setTab('create_exam')} style={{...bg_,fontSize:11}}>✏️ Edit</button>
+                        <button onClick={()=>_setTab('create_exam')} style={{...bg_,fontSize:11}}>✏️ Edit</button>
                         <button onClick={()=>cloneExam(e._id)} style={{...bg_,fontSize:11}}>📋 Clone</button>
                         <button onClick={()=>delExam(e._id)} style={{...bd,fontSize:11}}>🗑️ Delete</button>
                       </div>
@@ -1480,8 +1481,8 @@ export default function AdminPanel() {
                   </div>
                   <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                     <button onClick={()=>{setEStep(1);setCreatedEId('');setCreatedETitle('');setUpRes(null)}} style={{...bp}}>➕ Create Another Exam</button>
-                    <button onClick={()=>setTab('exams')} style={{...bg_}}>📝 View All Exams</button>
-                    <button onClick={()=>setTab('questions')} style={{...bg_}}>❓ Question Bank</button>
+                    <button onClick={()=>_setTab('exams')} style={{...bg_}}>📝 View All Exams</button>
+                    <button onClick={()=>_setTab('questions')} style={{...bg_}}>❓ Question Bank</button>
                   </div>
                 </div>
               )}
@@ -1496,7 +1497,7 @@ export default function AdminPanel() {
               <PageHero icon="📋" title="Save Time with Templates" subtitle="Create templates for recurring exam formats like Full Mock, Chapter Tests, and Grand Tests. One click to apply all settings."/>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:14,marginBottom:20}}>
                 {[{ico:'🎯',name:'NEET Full Mock',desc:'180 Qs · 720 marks · 200 min · Physics+Chemistry+Biology',marks:720,dur:200,cat:'Full Mock'},{ico:'📖',name:'NEET Chapter Test',desc:'45 Qs · 180 marks · 60 min · Single chapter focus',marks:180,dur:60,cat:'Chapter Test'},{ico:'⚡',name:'NEET Part Test',desc:'90 Qs · 360 marks · 100 min · 2 subjects',marks:360,dur:100,cat:'Part Test'},{ico:'🏆',name:'Grand Test',desc:'180 Qs · 720 marks · 200 min · Full syllabus',marks:720,dur:200,cat:'Grand Test'},{ico:'📅',name:'PYQ Practice',desc:'50 Qs · 200 marks · 70 min · Previous year questions',marks:200,dur:70,cat:'PYQ'}].map(t=>(
-                  <div key={t.name} className="card-hover" style={{...cs,cursor:'pointer',transition:'all 0.2s'}} onClick={()=>{eTitleR.current=t.name;eMarksR.current=String(t.marks);eDurR.current=String(t.dur);eCatR.current=t.cat;setTab('create_exam');T(`Template "${t.name}" applied.`)}}>
+                  <div key={t.name} className="card-hover" style={{...cs,cursor:'pointer',transition:'all 0.2s'}} onClick={()=>{eTitleR.current=t.name;eMarksR.current=String(t.marks);eDurR.current=String(t.dur);eCatR.current=t.cat;_setTab('create_exam');T(`Template "${t.name}" applied.`)}}>
                     <div style={{fontSize:32,marginBottom:8}}>{t.ico}</div>
                     <div style={{fontWeight:700,fontSize:13,color:TS,marginBottom:4}}>{t.name}</div>
                     <div style={{fontSize:11,color:DIM,marginBottom:12,lineHeight:1.5}}>{t.desc}</div>
@@ -1709,7 +1710,7 @@ export default function AdminPanel() {
                 </div>
                 <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                   <button onClick={()=>doExport(`${API}/api/admin/export/students`,'students.csv')} style={{...bg_,fontSize:11}}>📥 Export CSV</button>
-                  <button onClick={()=>setTab('import_students')} style={{...bg_,fontSize:11}}>📤 Import CSV</button>
+                  <button onClick={()=>_setTab('import_students')} style={{...bg_,fontSize:11}}>📤 Import CSV</button>
                 </div>
               </div>
 
