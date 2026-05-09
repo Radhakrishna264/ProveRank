@@ -769,6 +769,19 @@ export default function AdminPanel() {
   // ══ MAINTENANCE ══
   const toggleMaint=useCallback(async()=>{
     const nm=!mainOn;setMainOn(nm)
+    try{
+      const mr=await fetch(`${API}/api/admin/maintenance`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({enabled:nm,message:mainMsgR.current})})
+      const md=await mr.json()
+      if(md.success){
+        await new Promise(r=>setTimeout(r,800))
+        const vr=await fetch(`${API}/api/admin/maintenance`,{headers:{Authorization:`Bearer ${token}`}})
+        const vd=await vr.json()
+        const real=vd.enabled===true
+        setMainOn(real)
+        if(real===nm) T(nm?'🔴 Maintenance Mode ON':'🟢 Platform is Live','s')
+        else{T('Save failed — Render server waking up, try again in 30s','e');setMainOn(!nm)}
+      }else{setMainOn(!nm);T('Failed to save — try again','e')}
+    }catch(e){setMainOn(!nm);T('Network error — try again','e')}
     setFeatures(p=>p.map(f=>f.key==='maintenance'?{...f,enabled:nm}:f))
     try{
       const mr=await fetch(`${API}/api/admin/maintenance`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({enabled:nm,message:mainMsgR.current})})
