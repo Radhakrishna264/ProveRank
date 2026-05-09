@@ -63,6 +63,19 @@ export function PRLogo({size=40}:{size?:number}) {
 // ── CANVAS GALAXY BACKGROUND ──
 function GalaxyBg() {
   const ref = useRef<HTMLCanvasElement>(null)
+  
+  // ── Maintenance Mode Check ──
+  useEffect(()=>{
+    fetch('https://proverank.onrender.com/api/admin/maintenance')
+      .then(r=>r.ok?r.json():null)
+      .then(d=>{
+        if(d&&(d.enabled||d.maintenance)){
+          document.body.style.margin='0'
+          document.body.innerHTML=`<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0a0a1a;color:#fff;font-family:Inter,sans-serif;text-align:center;padding:20px"><div style="font-size:64px;margin-bottom:24px">🔧</div><div style="font-size:22px;font-weight:700;color:#4d9fff;margin-bottom:12px">ProveRank</div><div style="font-size:17px;font-weight:600;margin-bottom:16px">Platform Under Maintenance</div><div style="color:#aaa;max-width:380px;line-height:1.6">${d.message||'We are upgrading the platform. Please check back shortly.'}</div><div style="color:#555;font-size:12px;margin-top:28px">If you are an admin, access the panel directly.</div></div>`
+        }
+      }).catch(()=>{})
+  },[])
+
   useEffect(()=>{
     const canvas = ref.current; if(!canvas) return
     const ctx = canvas.getContext('2d'); if(!ctx) return
