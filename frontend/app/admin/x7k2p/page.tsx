@@ -917,8 +917,9 @@ export default function AdminPanel() {
     setSendingEmail(true)
     try{
       const res=await fetch(`${API}/api/admin/email/send`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({type:emailType,subject:emailSubjR.current,body:emailBodyR.current})})
-      if(res.ok)T('Email sent successfully.')
-      else T('Failed to send email.','e')
+      const d=await res.json()
+      if(res.ok)T(d.message||'Email sent successfully.')
+      else T(d.error||'Failed to send email.','e')
     } catch{T('Network error.','e')}
     setSendingEmail(false)
   },[emailType,token,T])
