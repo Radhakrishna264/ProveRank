@@ -23,7 +23,7 @@ router.post('/maintenance', verifyToken, isSuperAdmin, (req, res) => {
   res.json({ success: true, message: `Maintenance mode ${enabled ? 'ON' : 'OFF'} ho gaya`, state: saved });
 });
 
-router.get('/maintenance', (req, res) => {
+router.get('/maintenance', async (req, res) => {
   const mongoose = require('mongoose')
   const state = await mongoose.connection.db.collection('settings').findOne({ key: 'maintenance' })
   res.json({ success: true, maintenance: state || { enabled: false, message: '' } });
