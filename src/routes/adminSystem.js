@@ -3,7 +3,7 @@ const router = express.Router();
 const { verifyToken, isSuperAdmin } = require('../middleware/auth');
 
 // In-memory store (MongoDB mein save karna ho toh model banao)
-let maintenanceState = { enabled: false, message: '', updatedAt: null };
+// Maintenance state ab MongoDB mein save hoga
 let featureFlags = {
   darkMode: true, liveRank: true, webcam: true,
   twoFactor: true, aiFeatures: true, pyqBank: true,
@@ -13,12 +13,20 @@ let featureFlags = {
 // ── S66: MAINTENANCE MODE ────────────────────────────────────
 router.post('/maintenance', verifyToken, isSuperAdmin, (req, res) => {
   const { enabled, message } = req.body;
-  maintenanceState = { enabled: enabled === true, message: message || '', updatedAt: new Date() };
-  res.json({ success: true, message: `Maintenance mode ${enabled ? 'ON' : 'OFF'} ho gaya`, state: maintenanceState });
+  const mongoose = require('mongoose')
+  await mongoose.connection.db.collection('settings').updateOne(
+    { key: 'maintenance' },
+    { $set: { enabled: enabled === true, message: message || 'Site under maintenance. We will be back shortly.', updatedAt: new Date() } },
+    { upsert: true }
+  )
+  const saved = await mongoose.connection.db.collection('settings').findOne({ key: 'maintenance' })
+  res.json({ success: true, message: `Maintenance mode ${enabled ? 'ON' : 'OFF'} ho gaya`, state: saved });
 });
 
 router.get('/maintenance', (req, res) => {
-  res.json({ success: true, maintenance: maintenanceState });
+  const mongoose = require('mongoose')
+  const state = await mongoose.connection.db.collection('settings').findOne({ key: 'maintenance' })
+  res.json({ success: true, maintenance: state || { enabled: false, message: '' } });
 });
 
 // ── N21: FEATURE FLAG SYSTEM ─────────────────────────────────
