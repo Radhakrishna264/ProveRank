@@ -125,7 +125,16 @@ router.post('/email/send', verifyToken, async (req, res) => {
     }
     if (!recipients.includes('admin@proverank.com')) recipients.unshift('admin@proverank.com')
     if (recipients.length===0) recipients = ['admin@proverank.com']
-    const result = await sendCustomEmail(recipients, subject, body)
+    // Send individually with name personalization
+        let sentCount = 0
+        for(const r of recipientObjs){
+          try{
+            const personalBody = body.replace(/{student_name}/g, r.name).replace(/{date}/g, new Date().toLocaleDateString('en-IN'))
+            await sendCustomEmail([r.email], subject, personalBody)
+            sentCount++
+          }catch(e){console.error('Failed:',r.email,e.message)}
+        }
+        const result = {success:true, message:'Sent to '+sentCount+' students!'}
     if (!result.success) return res.status(500).json({success:false,message:'Email failed: '+(result.error||'Unknown')})
     res.json({success:true,message:`Email sent to ${recipients.length} recipient(s)`})
   } catch(e){
@@ -182,7 +191,8 @@ router.post('/email/send', verifyToken, isSuperAdmin, async (req, res) => {
       { role:'student', banned:{ $ne:true } },
       { projection:{ email:1 } }
     ).toArray()
-    let recipients = students.map(s=>s.email).filter(Boolean)
+    let recipientObjs = students.map(s=>({email:s.email,name:s.name||'Student'})).filter(r=>r.email)
+        let recipients = recipientObjs.map(r=>r.email)
     const adminEmail = req.user?.email || 'admin@proverank.com'
     // adminEmail unshift removed — only student emails
     if (recipients.length===0) recipients = [adminEmail]
