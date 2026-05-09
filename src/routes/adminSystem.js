@@ -117,11 +117,12 @@ router.post('/email/send', verifyToken, async (req, res) => {
     const { sendCustomEmail } = require('../utils/emailService')
     const User = require('../models/User')
     let recipients = []
+        let recipientObjs = []
     if (type==='broadcast'||type==='reminder'||type==='result'||type==='announcement'||type==='welcome'||type==='custom'||true) {
       const students = await User.collection.find(
         {role:'student',banned:{$ne:true}},{projection:{email:1}}
       ).toArray()
-          const recipientObjs = students.filter(s=>s.email&&!s.email.includes('@proverank.com')).map(s=>({email:s.email,name:s.name||'Student'}))
+          recipientObjs = students.filter(s=>s.email&&!s.email.includes('@proverank.com')).map(s=>({email:s.email,name:s.name||'Student'}))
           recipients = recipientObjs.map(r=>r.email)
     }
           // admin email removed
