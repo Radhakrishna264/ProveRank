@@ -390,6 +390,7 @@ export default function AdminPanel() {
 
   // Branding refs
   const bNameR=useRef('ProveRank');const bTagR=useRef('Prove Your Rank')
+  const [brandLoaded,setBrandLoaded]=useState({bName:'ProveRank',bTag:'Prove Your Rank',bMail:'support@proverank.com',bPhone:'',seoT:'ProveRank — NEET Online Test Platform',seoD:'',seoK:'NEET,online test,mock exam'})
   const bMailR=useRef('support@proverank.com');const bPhoneR=useRef('')
   const seoTR=useRef('ProveRank — NEET Online Test Platform')
   const seoDR=useRef('Best NEET mock test platform with AI analytics and anti-cheat proctoring.')
@@ -737,6 +738,22 @@ export default function AdminPanel() {
   },[token,T,fetchAll])
 
   // ══ BRANDING ══
+  useEffect(()=>{
+  if(tab==='branding'){
+    const tk=getToken();if(!tk)return
+    fetch(API+'/api/admin/branding',{headers:{Authorization:'Bearer '+tk}})
+      .then(r=>r.json()).then(d=>{
+        if(d.success&&d.branding){
+          const b=d.branding
+          const loaded={bName:b.brandName||'ProveRank',bTag:b.tagline||'Prove Your Rank',bMail:b.supportEmail||'support@proverank.com',bPhone:b.phone||'',seoT:b.seoTitle||'ProveRank — NEET Online Test Platform',seoD:b.seoDesc||'',seoK:b.seoKeywords||'NEET,online test,mock exam'}
+          setBrandLoaded(loaded)
+          bNameR.current=loaded.bName;bTagR.current=loaded.bTag
+          bMailR.current=loaded.bMail;bPhoneR.current=loaded.bPhone
+          seoTR.current=loaded.seoT;seoDR.current=loaded.seoD;seoKR.current=loaded.seoK
+        }
+      }).catch(()=>{})
+  }
+},[tab])
   const saveBrand=useCallback(async()=>{
     setSavingB(true)
     try{
@@ -2615,16 +2632,16 @@ export default function AdminPanel() {
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
                 <div style={cs}>
                   <div style={{fontWeight:700,marginBottom:12,fontSize:13}}>🏷️ Platform Identity</div>
-                  <div style={{marginBottom:8}}><label style={lbl}>Platform Name</label><SInput init='ProveRank' onSet={v=>{bNameR.current=v}} ph='ProveRank' style={inp}/></div>
-                  <div style={{marginBottom:8}}><label style={lbl}>Tagline</label><SInput init='Prove Your Rank' onSet={v=>{bTagR.current=v}} ph='Prove Your Rank' style={inp}/></div>
-                  <div style={{marginBottom:8}}><label style={lbl}>Support Email</label><SInput init='support@proverank.com' onSet={v=>{bMailR.current=v}} type='email' ph='support@proverank.com' style={inp}/></div>
-                  <div><label style={lbl}>Support Phone</label><SInput init='' onSet={v=>{bPhoneR.current=v}} ph='+91 9999999999' style={inp}/></div>
+                  <div style={{marginBottom:8}}><label style={lbl}>Platform Name</label><SInput init={brandLoaded.bName} onSet={v=>{bNameR.current=v}} ph='ProveRank' style={inp}/></div>
+                  <div style={{marginBottom:8}}><label style={lbl}>Tagline</label><SInput init={brandLoaded.bTag} onSet={v=>{bTagR.current=v}} ph='Prove Your Rank' style={inp}/></div>
+                  <div style={{marginBottom:8}}><label style={lbl}>Support Email</label><SInput init={brandLoaded.bMail} onSet={v=>{bMailR.current=v}} type='email' ph='support@proverank.com' style={inp}/></div>
+                  <div><label style={lbl}>Support Phone</label><SInput init={brandLoaded.bPhone} onSet={v=>{bPhoneR.current=v}} ph='+91 9999999999' style={inp}/></div>
                 </div>
                 <div style={cs}>
                   <div style={{fontWeight:700,marginBottom:12,fontSize:13}}>🔍 SEO Settings (M17)</div>
-                  <div style={{marginBottom:8}}><label style={lbl}>SEO Title</label><SInput init='ProveRank — NEET Online Test Platform' onSet={v=>{seoTR.current=v}} ph='ProveRank — NEET…' style={inp}/></div>
-                  <div style={{marginBottom:8}}><label style={lbl}>Meta Description</label><STextarea init='' onSet={v=>{seoDR.current=v}} rows={3} ph='Platform description for search engines…' style={{...inp,resize:'vertical'}}/></div>
-                  <div><label style={lbl}>Keywords</label><SInput init='NEET,online test,mock exam' onSet={v=>{seoKR.current=v}} ph='NEET, online test, mock exam…' style={inp}/></div>
+                  <div style={{marginBottom:8}}><label style={lbl}>SEO Title</label><SInput init={brandLoaded.seoT} onSet={v=>{seoTR.current=v}} ph='ProveRank — NEET…' style={inp}/></div>
+                  <div style={{marginBottom:8}}><label style={lbl}>Meta Description</label><STextarea init={brandLoaded.seoD} onSet={v=>{seoDR.current=v}} rows={3} ph='Platform description for search engines…' style={{...inp,resize:'vertical'}}/></div>
+                  <div><label style={lbl}>Keywords</label><SInput init={brandLoaded.seoK} onSet={v=>{seoKR.current=v}} ph='NEET, online test, mock exam…' style={inp}/></div>
                 </div>
               </div>
               <button onClick={saveBrand} disabled={savingB} style={{...bp,width:'100%',fontSize:14,opacity:savingB?0.7:1}}>
