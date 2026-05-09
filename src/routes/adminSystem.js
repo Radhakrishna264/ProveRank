@@ -117,7 +117,7 @@ router.post('/email/send', verifyToken, async (req, res) => {
     const { sendCustomEmail } = require('../utils/emailService')
     const User = require('../models/User')
     let recipients = []
-    if (type==='broadcast'||type==='reminder'||type==='result'||type==='announcement') {
+    if (type==='broadcast'||type==='reminder'||type==='result'||type==='announcement'||type==='welcome'||type==='custom'||true) {
       const students = await User.collection.find(
         {role:'student',banned:{$ne:true}},{projection:{email:1}}
       ).toArray()
@@ -184,7 +184,7 @@ router.post('/email/send', verifyToken, isSuperAdmin, async (req, res) => {
     ).toArray()
     let recipients = students.map(s=>s.email).filter(Boolean)
     const adminEmail = req.user?.email || 'admin@proverank.com'
-    if (!recipients.includes(adminEmail)) recipients.unshift(adminEmail)
+    // adminEmail unshift removed — only student emails
     if (recipients.length===0) recipients = [adminEmail]
     const result = await sendCustomEmail(recipients, subject, body)
     if (!result.success) return res.status(500).json({ success:false, message:result.error })
