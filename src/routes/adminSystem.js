@@ -11,7 +11,7 @@ let featureFlags = {
 };
 
 // ── S66: MAINTENANCE MODE ────────────────────────────────────
-router.post('/maintenance', verifyToken, isSuperAdmin, (req, res) => {
+router.post('/maintenance', verifyToken, isSuperAdmin, async (req, res) => {
   const { enabled, message } = req.body;
   const mongoose = require('mongoose')
   await mongoose.connection.db.collection('settings').updateOne(
