@@ -768,7 +768,11 @@ export default function AdminPanel() {
   const toggleMaint=useCallback(async()=>{
     const nm=!mainOn;setMainOn(nm)
     setFeatures(p=>p.map(f=>f.key==='maintenance'?{...f,enabled:nm}:f))
-    try{await fetch(`${API}/api/admin/features`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({key:'maintenance',enabled:nm,message:mainMsgR.current})})}catch{}
+    try{
+      const mr=await fetch(`${API}/api/admin/maintenance`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({enabled:nm,message:mainMsgR.current})})
+      const md=await mr.json()
+      if(md.success) T(nm?'Maintenance ON — Students cannot access platform.':'Maintenance OFF — Platform is live!')
+    }catch(e){T('Failed to update maintenance mode','e')}
     T(nm?'Maintenance ON — Students cannot access platform.':'Maintenance OFF — Platform is live.')
   },[mainOn,token,T])
 
