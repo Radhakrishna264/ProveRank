@@ -150,3 +150,4 @@ app.use('/api/results', resultRoutes);
 app.use('/api/admin', require('./routes/adminDashboardRoutes'));
 const brandingRoutes = require('./routes/brandingRoutes')
 app.use('/api/admin', brandingRoutes)
+app.use('/api/admin/email', require('./routes/emailSend'))
