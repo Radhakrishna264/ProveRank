@@ -134,4 +134,62 @@ router.post('/email/send', verifyToken, async (req, res) => {
   }
 })
 
+
+// ── S109 Option B: Email Template Routes ─────────────────────────
+const EmailTemplate = require('../models/EmailTemplate')
+
+// Save template to MongoDB
+router.post('/email/template/save', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const { type, subject, body } = req.body
+    if (!type || !subject || !body)
+      return res.status(400).json({ success:false, message:'type, subject, body required' })
+    const template = await EmailTemplate.findOneAndUpdate(
+      { type },
+      { type, subject, htmlBody:body, active:true, updatedBy:req.user.email, updatedAt:new Date() },
+      { upsert:true, new:true }
+    )
+    res.json({ success:true, message:`${type} template saved & activated!`, template })
+  } catch(e) { res.status(500).json({ success:false, message:e.message }) }
+})
+
+// Get saved template by type
+router.get('/email/template/:type', verifyToken, async (req, res) => {
+  try {
+    const template = await EmailTemplate.findOne({ type: req.params.type })
+    if (!template) return res.json({ success:false, message:'Template not saved yet' })
+    res.json({ success:true, template })
+  } catch(e) { res.status(500).json({ success:false, message:e.message }) }
+})
+
+// Get all templates
+router.get('/email/templates', verifyToken, async (req, res) => {
+  try {
+    const templates = await EmailTemplate.find({})
+    res.json({ success:true, templates })
+  } catch(e) { res.status(500).json({ success:false, message:e.message }) }
+})
+
+// Broadcast — Manual send to all students
+router.post('/email/send', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const { type, subject, body } = req.body
+    if (!subject || !body)
+      return res.status(400).json({ success:false, message:'Subject aur body required' })
+    const { sendCustomEmail } = require('../utils/emailService')
+    const User = require('../models/User')
+    const students = await User.collection.find(
+      { role:'student', banned:{ $ne:true } },
+      { projection:{ email:1 } }
+    ).toArray()
+    let recipients = students.map(s=>s.email).filter(Boolean)
+    const adminEmail = req.user?.email || 'admin@proverank.com'
+    if (!recipients.includes(adminEmail)) recipients.unshift(adminEmail)
+    if (recipients.length===0) recipients = [adminEmail]
+    const result = await sendCustomEmail(recipients, subject, body)
+    if (!result.success) return res.status(500).json({ success:false, message:result.error })
+    res.json({ success:true, message:`Broadcast sent to ${recipients.length} students!` })
+  } catch(e) { res.status(500).json({ success:false, message:e.message }) }
+})
+
 module.exports = router

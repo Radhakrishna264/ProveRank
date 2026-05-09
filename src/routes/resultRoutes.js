@@ -15,8 +15,7 @@ router.post('/:attemptId/calculate', verifyToken, async (req, res) => {
   try {
     const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
     const attempt = await calculateResult(attemptId);
-    const { rank, percentile, totalStudents } =
-      await calculateRankAndPercentile(attemptId);
+    const { rank, percentile, totalStudents } = await calculateRankAndPercentile(attemptId);
     await broadcastLiveRank(
       attempt.examId, attempt.studentId,
       rank, attempt.score, percentile
@@ -24,6 +23,33 @@ router.post('/:attemptId/calculate', verifyToken, async (req, res) => {
     const diffResult = await checkDifficultyFlag(attempt.examId);
     await generateOMRData(attemptId);
     await generateShareCard(attemptId);
+
+    // S109_RESULT_HOOK — Result Email Auto-trigger (CORRECT position)
+    try {
+      const EmailTemplate = require('../models/EmailTemplate')
+      const { sendCustomEmail } = require('../utils/emailService')
+      const tmpl = await EmailTemplate.findOne({ type: 'result', active: true })
+      if (tmpl) {
+        const User = require('../models/User')
+        const { ObjectId } = require('mongodb')
+        const sid = attempt.studentId || attempt.userId
+        const student = await User.collection.findOne({
+          _id: typeof sid === 'string' ? new ObjectId(sid) : sid
+        })
+        if (student && student.email) {
+          const emailBody = tmpl.htmlBody
+            .replace(/{student_name}/g, student.name || 'Student')
+            .replace(/{score}/g, attempt.score || 0)
+            .replace(/{rank}/g, attempt.rank || '-')
+            .replace(/{percentile}/g, attempt.percentile || 0)
+            .replace(/{exam_title}/g, attempt.examTitle || 'Exam')
+            .replace(/{date}/g, new Date().toLocaleDateString('en-IN'))
+          sendCustomEmail([student.email], tmpl.subject, emailBody)
+            .catch(e => console.error('[Result Email]', e.message))
+        }
+      }
+    } catch(re) { console.error('[S109 Result]', re.message) }
+
     return res.status(200).json({
       message: 'Result calculated successfully',
       score: attempt.score,
@@ -63,8 +89,8 @@ router.get('/:attemptId', verifyToken, async (req, res) => {
   }
 });
 
-// GET /api/results/:attemptId/ormshet
-router.get('/:attemptId/ormsheet', verifyToken, async (req, res) => {
+// GET /api/results/:attemptId/omrsheet
+router.get('/:attemptId/omrsheet', verifyToken, async (req, res) => {
   try {
     const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
     const rows = await generateOMRData(attemptId);
@@ -89,8 +115,7 @@ router.get('/:attemptId/share-card', verifyToken, async (req, res) => {
 router.get('/:attemptId/receipt', verifyToken, async (req, res) => {
   try {
     const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
-    const attempt = await Attempt.findById(attemptId)
-      .populate('studentId', 'name email');
+    const attempt = await Attempt.findById(attemptId).populate('studentId', 'name email');
     if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
     const exam = await (require('../models/Exam')).findById(attempt.examId);
     const receiptData = {

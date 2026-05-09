@@ -51,6 +51,19 @@ router.post('/register', async (req, res) => {
         streak: 0, badges: [], loginHistory: [],
         createdAt: now, updatedAt: now
       })
+  // S109_WELCOME_HOOK — Welcome Email Auto-trigger
+  try {
+    const EmailTemplate = require('../models/EmailTemplate')
+    const { sendCustomEmail } = require('../utils/emailService')
+    const tmpl = await EmailTemplate.findOne({ type:'welcome', active:true })
+    if (tmpl) {
+      const emailBody = tmpl.htmlBody
+        .replace(/{student_name}/g, userData.name||'Student')
+        .replace(/{date}/g, new Date().toLocaleDateString('en-IN'))
+      sendCustomEmail([userData.email], tmpl.subject, emailBody)
+        .catch(e => console.error('[Welcome Email]', e.message))
+    }
+  } catch(we){ console.error('[Welcome Email Hook]', we.message) }
     }
 
     await sendVerificationEmail(email, name, null, otp, 'verify')
