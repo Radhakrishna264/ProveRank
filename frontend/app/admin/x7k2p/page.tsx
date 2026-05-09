@@ -533,15 +533,15 @@ export default function AdminPanel() {
     if(ft){
       if(Array.isArray(ft)&&ft.length)setFeatures(ft)
       else if(ft&&typeof ft==='object')setFeatures(DEF_FEATURES.map(f=>({...f,enabled:ft[f.key]!==undefined?Boolean(ft[f.key]):f.enabled})))
-      // Maintenance DB se fetch karo
-      try{
-        const _mr=await fetch(`${API}/api/admin/maintenance`,{headers:{Authorization:`Bearer ${token}`}})
-        const _md=await _mr.json()
-        if(_md.success&&_md.maintenance){
-          setFeatures(p=>p.map(f=>f.key==='maintenance'?{...f,enabled:_md.maintenance.enabled}:f))
-        }
-      }catch(_e){}
-    }
+      }
+    // Maintenance state HAMESHA DB se fetch karo (if block ke bahar)
+    try{
+      const _mr=await fetch(`${API}/api/admin/maintenance`,{headers:{Authorization:`Bearer ${token}`}})
+      const _md=await _mr.json()
+      if(_md.success&&_md.maintenance){
+        setFeatures(p=>p.map(f=>f.key==='maintenance'?{...f,enabled:_md.maintenance.enabled}:f))
+      }
+    }catch(_e){}
     setLoading(false)
     // Fallback: 4 sec baad bhi loading true ho to force false
     setTimeout(()=>setLoading(false), 4000)
