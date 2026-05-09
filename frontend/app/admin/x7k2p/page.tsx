@@ -500,7 +500,7 @@ export default function AdminPanel() {
     setLoading(true)
     const get=async(u:string)=>{try{const r=await fetch(u,{headers:{Authorization:`Bearer ${token}`}});return r.ok?r.json():null}catch{return null}}
     const getFirst=async(...urls:string[])=>{for(const u of urls){try{const r=await fetch(u,{headers:{Authorization:`Bearer ${token}`}});if(r.ok){const d=await r.json();if(d)return d}}catch{}}return null}
-    const [us,ex,qs,st,fl,al,tk,sn,ft,nf,bt,au,rs]=await Promise.all([
+    const [us,ex,qs,st,fl,al,tk,sn,ft,nf,bt,au,rs,mn]=await Promise.all([
       getFirst(`${API}/api/admin/users`,`${API}/api/admin/students`),
       get(`${API}/api/exams`),
       get(`${API}/api/questions`),
@@ -514,6 +514,7 @@ export default function AdminPanel() {
       getFirst(`${API}/api/admin/batches`,`${API}/api/admin/manage/batches`),
       get(`${API}/api/admin/manage/admins`),
       getFirst(`${API}/api/results`,`${API}/api/admin/results`),
+      get(`${API}/api/admin/maintenance`),
     ])
     if(Array.isArray(us))setStudents(us)
     else if(us&&Array.isArray(us.students))setStudents(us.students)
@@ -530,6 +531,7 @@ export default function AdminPanel() {
     if(Array.isArray(bt))setBatches(bt)
     if(Array.isArray(au))setAdminUsers(au)
     if(Array.isArray(rs))setResults(rs)
+    if(mn!=null) setMainOn(mn.enabled??mn.isEnabled??mn.maintenance??false)
     if(ft){
       if(Array.isArray(ft)&&ft.length)setFeatures(ft)
       else if(ft&&typeof ft==='object')setFeatures(DEF_FEATURES.map(f=>({...f,enabled:ft[f.key]!==undefined?Boolean(ft[f.key]):f.enabled})))
