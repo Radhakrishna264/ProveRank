@@ -121,10 +121,11 @@ router.post('/email/send', verifyToken, async (req, res) => {
       const students = await User.collection.find(
         {role:'student',banned:{$ne:true}},{projection:{email:1}}
       ).toArray()
-      recipients = students.map(s=>s.email).filter(Boolean)
+          const recipientObjs = students.filter(s=>s.email&&!s.email.includes('@proverank.com')).map(s=>({email:s.email,name:s.name||'Student'}))
+          recipients = recipientObjs.map(r=>r.email)
     }
-    if (!recipients.includes('admin@proverank.com')) recipients.unshift('admin@proverank.com')
-    if (recipients.length===0) recipients = ['admin@proverank.com']
+          // admin email removed
+          // admin fallback removed
     // Send individually with name personalization
         let sentCount = 0
         for(const r of recipientObjs){
