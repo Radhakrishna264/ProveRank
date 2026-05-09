@@ -768,27 +768,32 @@ export default function AdminPanel() {
 
   // ══ MAINTENANCE ══
   const toggleMaint=useCallback(async()=>{
-    const nm=!mainOn;setMainOn(nm)
+    const nm=!mainOn
+    setMainOn(nm)
+    const doPost=async()=>{
+      const r=await fetch(`${API}/api/admin/maintenance`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+        body:JSON.stringify({enabled:nm,message:mainMsgR.current})
+      })
+      return r.ok?r.json():null
+    }
     try{
-      const mr=await fetch(`${API}/api/admin/maintenance`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({enabled:nm,message:mainMsgR.current})})
-      const md=await mr.json()
-      if(md.success){
-        await new Promise(r=>setTimeout(r,800))
-        const vr=await fetch(`${API}/api/admin/maintenance`,{headers:{Authorization:`Bearer ${token}`}})
-        const vd=await vr.json()
-        const real=vd.enabled===true
-        setMainOn(real)
-        if(real===nm) T(nm?'🔴 Maintenance Mode ON':'🟢 Platform is Live','s')
-        else{T('Save failed — Render server waking up, try again in 30s','e');setMainOn(!nm)}
-      }else{setMainOn(!nm);T('Failed to save — try again','e')}
-    }catch(e){setMainOn(!nm);T('Network error — try again','e')}
-    setFeatures(p=>p.map(f=>f.key==='maintenance'?{...f,enabled:nm}:f))
-    try{
-      const mr=await fetch(`${API}/api/admin/maintenance`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({enabled:nm,message:mainMsgR.current})})
-      const md=await mr.json()
-      if(md.success) T(nm?'Maintenance ON — Students cannot access platform.':'Maintenance OFF — Platform is live!')
-    }catch(e){T('Failed to update maintenance mode','e')}
-    T(nm?'Maintenance ON — Students cannot access platform.':'Maintenance OFF — Platform is live.')
+      let md=await doPost()
+      if(!md||!md.success){
+        await new Promise(r=>setTimeout(r,3000))
+        md=await doPost()
+      }
+      if(md&&md.success){
+        T(nm?'🔴 Maintenance ON — Students blocked':'🟢 Platform Live — Students can access','s')
+      }else{
+        setMainOn(!nm)
+        T('Save failed — Render server busy, try again','e')
+      }
+    }catch(e){
+      setMainOn(!nm)
+      T('Network error — please try again','e')
+    }
   },[mainOn,token,T])
 
   // ══ EXPORT ══
