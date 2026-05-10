@@ -89,7 +89,7 @@ export default function LoginPage() {
   },[])
 
   const goAfterLogin=(token:string,role:string)=>{
-    try{localStorage.setItem('pr_token',token);localStorage.setItem('pr_role',role)}catch{}
+    try{localStorage.setItem('pr_token',token);localStorage.setItem('pr_role',role);localStorage.setItem('pr_email',data.user?.email||data.email||'')}catch{}
     if(role==='admin'||role==='superadmin') router.replace('/admin/x7k2p'); else router.replace('/dashboard')
   }
   const loginPassword=async()=>{
