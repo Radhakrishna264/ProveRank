@@ -86,30 +86,6 @@ router.put('/permissions/:id', verifyToken, isSuperAdmin, async (req, res) => {
 });
 
 // ── S72: FREEZE / UNFREEZE ADMIN ────────────────────────────
-router.put('/freeze/:id', verifyToken, isSuperAdmin, async (req, res) => {
-  try {
-    const { frozen } = req.body;
-    const admin = await User.findById(req.params.id);
-    if (!admin) return res.status(404).json({ message: 'Admin nahi mila' });
-    if (admin.role === 'superadmin')
-      return res.status(403).json({ message: 'SuperAdmin ko freeze nahi kar sakte' });
-
-    await User.findByIdAndUpdate(req.params.id, { frozen: frozen === true });
-
-    await logActivity({
-      userId: req.user.id,
-      userRole: req.user.role,
-      action: frozen ? 'FREEZE_ADMIN' : 'UNFREEZE_ADMIN',
-      details: `Admin ${frozen ? 'frozen' : 'unfrozen'}: ${admin.email}`,
-      module: 'admin_management',
-      isAudit: true
-    });
-
-    res.json({ success: true, message: `Admin ${frozen ? 'freeze' : 'unfreeze'} ho gaya` });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
 
 // ── S38: GET ACTIVITY LOGS ───────────────────────────────────
 router.get('/activity-logs', verifyToken, isSuperAdmin, async (req, res) => {

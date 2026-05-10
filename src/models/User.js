@@ -37,6 +37,8 @@ const userSchema = new mongoose.Schema({
   }],
   customFields: { type: Object },
   banned: { type: Boolean, default: false },
+  frozen: { type: Boolean, default: false },
+  archived: { type: Boolean, default: false },
   banReason: { type: String },
   banExpiry: { type: Date },
   parentEmail: { type: String }
