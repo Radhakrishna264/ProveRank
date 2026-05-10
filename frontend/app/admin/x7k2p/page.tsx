@@ -903,7 +903,7 @@ export default function AdminPanel() {
     setCreatingAdm(true)
     try{
       const res=await fetch(`${API}/api/admin/manage/create-admin`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({name:admNameR.current,email:admEmailR.current,password:admPassR.current,role:admRole})})
-      if(res.ok){T('Admin account created.');const r=await fetch(`${API}/api/admin/manage/admins`,{headers:{Authorization:`Bearer ${token}`}});if(r.ok)setAdminUsers(await r.json())}
+      if(res.ok){T('Admin account created.');try{const r=await fetch(`${API}/api/admin/manage/admins`,{headers:{Authorization:`Bearer ${token}`}});if(r.ok){const d=await r.json();setAdminUsers(Array.isArray(d)?d:d.admins||[])}}catch(_e){}}
       else{const e=await res.json().catch(()=>({}));T(e.message||'Failed to create admin.','e')}
     } catch{T('Network error.','e')}
     setCreatingAdm(false)
