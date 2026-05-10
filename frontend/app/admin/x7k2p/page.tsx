@@ -397,7 +397,7 @@ export default function AdminPanel() {
   const seoKR=useRef('NEET,online test,mock exam,ProveRank')
   const mainMsgR=useRef('Site under maintenance. We will be back shortly.')
   const [savingB,setSavingB]=useState(false)
-  const [mainOn,setMainOn]=useState(false)
+  const [mainOn,setMainOn]=useState(()=>{try{return localStorage.getItem('pr_maint')==='1'}catch{return false}})
 
   // Impersonate / time extension
   const [impId,setImpId]=useState('')
@@ -531,7 +531,7 @@ export default function AdminPanel() {
     if(Array.isArray(bt))setBatches(bt)
     if(Array.isArray(au))setAdminUsers(au)
     if(Array.isArray(rs))setResults(rs)
-    setMainOn(mn && mn.enabled===true ? true : false)
+    if(mn&&mn.maintenance!=null){const s=mn.maintenance.enabled===true;setMainOn(s);try{localStorage.setItem('pr_maint',s?'1':'0')}catch{}}
     if(ft){
       if(Array.isArray(ft)&&ft.length)setFeatures(ft)
       else if(ft&&typeof ft==='object')setFeatures(DEF_FEATURES.map(f=>({...f,enabled:ft[f.key]!==undefined?Boolean(ft[f.key]):f.enabled})))
@@ -770,6 +770,7 @@ export default function AdminPanel() {
   const toggleMaint=useCallback(async()=>{
     const nm=!mainOn
     setMainOn(nm)
+    try{localStorage.setItem('pr_maint',nm?'1':'0')}catch{}
     const doPost=async()=>{
       const r=await fetch(`${API}/api/admin/maintenance`,{
         method:'POST',
