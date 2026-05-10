@@ -17,7 +17,7 @@ interface Feature { key:string;label:string;description:string;enabled:boolean }
 interface Notif { id:string;icon:string;msg:string;t:string;read:boolean }
 interface Snapshot { _id:string;studentName:string;imageUrl?:string;flagged:boolean;capturedAt:string;examTitle?:string }
 interface Batch { _id:string;name:string;studentCount:number;examCount:number;createdAt:string }
-interface AdminUser { _id:string;name:string;email:string;role:string;createdAt:string;active:boolean }
+interface AdminUser { _id:string;name:string;email:string;role:string;createdAt:string;active:boolean;frozen?:boolean;archived?:boolean;archivedAt?:string;archivedBy?:string;permissions?:any }
 interface Result { _id:string;studentName:string;examTitle:string;score:number;totalMarks:number;rank:number;percentile:number;submittedAt:string }
 
 // ── Default Feature Flags ──
