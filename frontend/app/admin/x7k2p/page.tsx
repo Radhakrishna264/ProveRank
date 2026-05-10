@@ -396,6 +396,7 @@ export default function AdminPanel() {
   const seoDR=useRef('Best NEET mock test platform with AI analytics and anti-cheat proctoring.')
   const seoKR=useRef('NEET,online test,mock exam,ProveRank')
   const mainMsgR=useRef('Site under maintenance. We will be back shortly.')
+  const maintWhitelistR=useRef('')
   const [savingB,setSavingB]=useState(false)
   const [mainOn,setMainOn]=useState(()=>{try{return localStorage.getItem('pr_maint')==='1'}catch{return false}})
 
@@ -775,7 +776,7 @@ export default function AdminPanel() {
       const r=await fetch(`${API}/api/admin/maintenance`,{
         method:'POST',
         headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-        body:JSON.stringify({enabled:nm,message:mainMsgR.current})
+        body:JSON.stringify({enabled:nm,message:mainMsgR.current,allowedEmails:maintWhitelistR.current.split('\n').map(e=>e.trim()).filter(Boolean)})
       })
       return r.ok?r.json():null
     }
@@ -2692,6 +2693,11 @@ export default function AdminPanel() {
                   </button>
                 </div>
                 <div><label style={lbl}>Message Shown to Students</label><STextarea init='Site under maintenance. We will be back shortly.' onSet={v=>{mainMsgR.current=v}} rows={2} style={{...inp,resize:'vertical'}}/></div>
+              <div style={{marginTop:14}}>
+                <label style={lbl}>🔓 Whitelisted Students (Maintenance mein bhi access milega)</label>
+                <div style={{fontSize:11,color:DIM,marginBottom:6}}>Ek email per line likhein — ye students maintenance mode mein bhi dashboard use kar sakenge</div>
+                <STextarea init='' onSet={v=>{maintWhitelistR.current=v}} ph='student1@gmail.com&#10;student2@gmail.com' rows={3} style={{...inp,resize:'vertical',fontFamily:'monospace',fontSize:12}}/>
+              </div>
               </div>
               <div style={cs}>
                 <div style={{fontWeight:700,marginBottom:8,fontSize:12,color:WRN}}>⚠️ Important Notes</div>

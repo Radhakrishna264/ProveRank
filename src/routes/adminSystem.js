@@ -12,11 +12,11 @@ let featureFlags = {
 
 // ── S66: MAINTENANCE MODE ────────────────────────────────────
 router.post('/maintenance', verifyToken, isSuperAdmin, async (req, res) => {
-  const { enabled, message } = req.body;
+  const { enabled, message, allowedEmails } = req.body;
   const mongoose = require('mongoose')
   await mongoose.connection.db.collection('settings').updateOne(
     { key: 'maintenance' },
-    { $set: { enabled: enabled === true, message: message || 'Site under maintenance. We will be back shortly.', updatedAt: new Date() } },
+    { $set: { enabled: enabled === true, message: message || 'Site under maintenance. We will be back shortly.', allowedEmails: Array.isArray(allowedEmails) ? allowedEmails : [], updatedAt: new Date() } },
     { upsert: true }
   )
   const saved = await mongoose.connection.db.collection('settings').findOne({ key: 'maintenance' })

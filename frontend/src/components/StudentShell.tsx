@@ -54,7 +54,9 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
   const [toastSt,setToastSt]=useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
   const [maint,setMaint]=useState<{enabled:boolean;message?:string}|null>(null)
   const toast=useCallback((msg:string,tp:'s'|'e'|'w'='s')=>{setToastSt({msg,tp});setTimeout(()=>setToastSt(null),4000)},[])
-  useEffect(()=>{fetch(`${API}/api/admin/maintenance`).then(r=>r.ok?r.json():null).then(d=>{if(d&&d.maintenance)setMaint(d.maintenance)}).catch(()=>{})},[])
+  useEffect(()=>{fetch(`${API}/api/admin/maintenance`).then(r=>r.ok?r.json():null).then(d=>{if(d&&d.maintenance)setMaint(d.maintenance)
+      // Store user email for whitelist check
+      }).catch(()=>{})},[])
   useEffect(()=>{
     const tk=_gt();if(!tk){router.replace('/login');return}
     setToken(tk);setRole(_gr())
@@ -63,7 +65,9 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
     setMounted(true)
   },[router])
   if(!mounted)return null
-  if(maint?.enabled===true){
+  const userEmail = typeof window!=='undefined'?localStorage.getItem('pr_email')||'':''
+  const isWhitelisted = maint?.allowedEmails?.includes(userEmail)
+  if(maint?.enabled===true && !isWhitelisted){
     return(
       <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'linear-gradient(135deg,#0a0a1a,#0d1b2a)',color:'#fff',fontFamily:'Inter,sans-serif',textAlign:'center',padding:'24px'}}>
         <div style={{fontSize:64,marginBottom:20}}>🔧</div>
