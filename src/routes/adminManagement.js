@@ -221,4 +221,49 @@ router.post('/impersonate/:id', verifyToken, isSuperAdmin, async (req, res) => {
   }
 });
 
+
+// S37: FREEZE ADMIN
+router.put('/freeze/:id', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const { frozen } = req.body
+    const admin = await User.findById(req.params.id)
+    if (!admin) return res.status(404).json({ message: 'Admin not found' })
+    if (admin.role === 'superadmin') return res.status(403).json({ message: 'Cannot freeze SuperAdmin' })
+    await User.findByIdAndUpdate(req.params.id, { frozen: frozen === true })
+    await logActivity({ userId: req.user.id, userName: req.user.name, userRole: req.user.role, action: frozen ? 'FREEZE_ADMIN' : 'UNFREEZE_ADMIN', details: `Admin ${frozen ? 'frozen' : 'unfrozen'}: ${admin.email}`, module: 'admin_management', isAudit: true })
+    res.json({ success: true, message: `Admin ${frozen ? 'frozen' : 'unfrozen'} successfully` })
+  } catch(err) { res.status(500).json({ message: 'Server error', error: err.message }) }
+})
+
+// S37: ARCHIVE (SOFT REMOVE) ADMIN
+router.put('/archive/:id', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const admin = await User.findById(req.params.id)
+    if (!admin) return res.status(404).json({ message: 'Admin not found' })
+    if (admin.role === 'superadmin') return res.status(403).json({ message: 'Cannot remove SuperAdmin' })
+    await User.findByIdAndUpdate(req.params.id, { archived: true, frozen: true, archivedAt: new Date(), archivedBy: req.user.email })
+    await logActivity({ userId: req.user.id, userName: req.user.name, userRole: req.user.role, action: 'ARCHIVE_ADMIN', details: `Admin archived: ${admin.email}`, module: 'admin_management', isAudit: true })
+    res.json({ success: true, message: 'Admin archived successfully' })
+  } catch(err) { res.status(500).json({ message: 'Server error', error: err.message }) }
+})
+
+// S37: RESTORE ARCHIVED ADMIN
+router.put('/restore/:id', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const admin = await User.findById(req.params.id)
+    if (!admin) return res.status(404).json({ message: 'Admin not found' })
+    await User.findByIdAndUpdate(req.params.id, { archived: false, frozen: false, archivedAt: null, archivedBy: null })
+    await logActivity({ userId: req.user.id, userName: req.user.name, userRole: req.user.role, action: 'RESTORE_ADMIN', details: `Admin restored: ${admin.email}`, module: 'admin_management', isAudit: true })
+    res.json({ success: true, message: 'Admin restored successfully' })
+  } catch(err) { res.status(500).json({ message: 'Server error', error: err.message }) }
+})
+
+// S37: GET ARCHIVED ADMINS
+router.get('/archived', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const admins = await User.find({ role: { $in: ['admin','moderator'] }, archived: true }).select('-password -twoFactorSecret')
+    res.json({ success: true, admins })
+  } catch(err) { res.status(500).json({ message: 'Server error', error: err.message }) }
+})
+
 module.exports = router;
