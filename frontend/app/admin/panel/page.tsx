@@ -467,36 +467,33 @@ export default function AdminPanel() {
               <div style={{fontSize:13,color:DIM,marginTop:4}}>ProveRank Admin Panel · {adminUser?.email}</div>
             </div>
 
-            {/* Permission-based quick stats */}
+            {/* Dashboard Stats — Always visible for observation */}
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:20}}>
-              {hasPermission('ban_student')&&(
-                <div className="card-hover" style={{...cs,textAlign:'center' as const}}>
-                  <div style={{fontSize:28}}>👥</div>
-                  <div style={{fontSize:22,fontWeight:700,color:ACC,margin:'4px 0'}}>{loading?'…':students.length}</div>
-                  <div style={{fontSize:11,color:DIM}}>Students</div>
-                </div>
-              )}
-              {(hasPermission('create_exam')||hasPermission('edit_exam'))&&(
-                <div className="card-hover" style={{...cs,textAlign:'center' as const}}>
-                  <div style={{fontSize:28}}>📝</div>
-                  <div style={{fontSize:22,fontWeight:700,color:'#A78BFA',margin:'4px 0'}}>{loading?'…':exams.length}</div>
-                  <div style={{fontSize:11,color:DIM}}>Exams</div>
-                </div>
-              )}
-              {hasPermission('manage_questions')&&(
-                <div className="card-hover" style={{...cs,textAlign:'center' as const}}>
-                  <div style={{fontSize:28}}>❓</div>
-                  <div style={{fontSize:22,fontWeight:700,color:'#00E5A0',margin:'4px 0'}}>{loading?'…':questions.length}</div>
-                  <div style={{fontSize:11,color:DIM}}>Questions</div>
-                </div>
-              )}
-              {hasPermission('view_results')&&(
-                <div className="card-hover" style={{...cs,textAlign:'center' as const}}>
-                  <div style={{fontSize:28}}>✅</div>
-                  <div style={{fontSize:22,fontWeight:700,color:GOLD,margin:'4px 0'}}>{loading?'…':results.length}</div>
-                  <div style={{fontSize:11,color:DIM}}>Results</div>
-                </div>
-              )}
+              <div className="card-hover" style={{...cs,textAlign:'center' as const}}>
+                <div style={{fontSize:28}}>👥</div>
+                <div style={{fontSize:22,fontWeight:700,color:ACC,margin:'4px 0'}}>{dataLoading?'…':students.length||stats?.totalStudents||0}</div>
+                <div style={{fontSize:11,color:DIM}}>Total Students</div>
+              </div>
+              <div className="card-hover" style={{...cs,textAlign:'center' as const}}>
+                <div style={{fontSize:28}}>📝</div>
+                <div style={{fontSize:22,fontWeight:700,color:'#A78BFA',margin:'4px 0'}}>{dataLoading?'…':exams.length||stats?.totalExams||0}</div>
+                <div style={{fontSize:11,color:DIM}}>Total Exams</div>
+              </div>
+              <div className="card-hover" style={{...cs,textAlign:'center' as const}}>
+                <div style={{fontSize:28}}>❓</div>
+                <div style={{fontSize:22,fontWeight:700,color:'#00E5A0',margin:'4px 0'}}>{dataLoading?'…':questions.length||stats?.totalQuestions||0}</div>
+                <div style={{fontSize:11,color:DIM}}>Questions</div>
+              </div>
+              <div className="card-hover" style={{...cs,textAlign:'center' as const}}>
+                <div style={{fontSize:28}}>✅</div>
+                <div style={{fontSize:22,fontWeight:700,color:GOLD,margin:'4px 0'}}>{dataLoading?'…':results.length||stats?.totalAttempts||0}</div>
+                <div style={{fontSize:11,color:DIM}}>Attempts</div>
+              </div>
+              <div className="card-hover" style={{...cs,textAlign:'center' as const}}>
+                <div style={{fontSize:28}}>🟢</div>
+                <div style={{fontSize:22,fontWeight:700,color:SUC,margin:'4px 0'}}>{dataLoading?'…':stats?.activeStudents||'—'}</div>
+                <div style={{fontSize:11,color:DIM}}>Active Today</div>
+              </div>
             </div>
 
             {/* Role info card */}
