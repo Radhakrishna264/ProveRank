@@ -397,6 +397,7 @@ export default function AdminPanel() {
   const seoKR=useRef('NEET,online test,mock exam,ProveRank')
   const mainMsgR=useRef('Site under maintenance. We will be back shortly.')
   const maintWhitelistR=useRef('')
+  const [savingWL,setSavingWL]=useState(false)
   const [savingB,setSavingB]=useState(false)
   const [mainOn,setMainOn]=useState(()=>{try{return localStorage.getItem('pr_maint')==='1'}catch{return false}})
 
@@ -773,6 +774,23 @@ export default function AdminPanel() {
     } catch{T('Network error.','e')}
     setSavingB(false)
   },[token,T])
+
+  // ══ MAINTENANCE WHITELIST SAVE ══
+  const saveWhitelist=useCallback(async()=>{
+    setSavingWL(true)
+    try{
+      const emails=maintWhitelistR.current.split('\n').map(e=>e.trim()).filter(Boolean)
+      const r=await fetch(`${API}/api/admin/maintenance`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+        body:JSON.stringify({enabled:mainOn,message:mainMsgR.current,allowedEmails:emails})
+      })
+      const d=await r.json()
+      if(d.success) T('Whitelist saved successfully!')
+      else T('Failed to save whitelist','e')
+    }catch(e){T('Network error','e')}
+    setSavingWL(false)
+  },[mainOn,token,T])
 
   // ══ MAINTENANCE ══
   const toggleMaint=useCallback(async()=>{
@@ -2704,6 +2722,9 @@ export default function AdminPanel() {
                 <label style={lbl}>🔓 Whitelisted Students (Access Allowed During Maintenance)</label>
                 <div style={{fontSize:11,color:DIM,marginBottom:6}}>Enter one email per line — these students will be able to access the dashboard even during maintenance mode</div>
                 <STextarea init='' onSet={v=>{maintWhitelistR.current=v}} ph='student1@gmail.com&#10;student2@gmail.com' rows={3} style={{...inp,resize:'vertical',fontFamily:'monospace',fontSize:12}}/>
+              <button onClick={saveWhitelist} disabled={savingWL} style={{marginTop:10,background:'linear-gradient(135deg,#7B2FBE,#4a0080)',color:'#fff',border:'none',borderRadius:8,padding:'10px 20px',cursor:'pointer',fontWeight:700,fontSize:13,opacity:savingWL?0.7:1,width:'100%'}}>
+                {savingWL?'⟳ Saving...':'💾 Save Whitelist'}
+              </button>
               </div>
               </div>
               <div style={cs}>
