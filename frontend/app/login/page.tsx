@@ -28,7 +28,7 @@ export default function LoginPage() {
     try{
       const tk=localStorage.getItem('pr_token')
       const role=localStorage.getItem('pr_role')||'student'
-      if(tk){ if(role==='admin'||role==='superadmin') router.replace('/admin/x7k2p'); else router.replace('/dashboard') }
+      if(tk){ if(role==='superadmin') router.replace('/admin/x7k2p'); else if(role==='admin') router.replace('/admin/panel'); else router.replace('/dashboard') }
     }catch{}
   },[router])
 
@@ -90,7 +90,7 @@ export default function LoginPage() {
 
   const goAfterLogin=(token:string,role:string)=>{
     try{localStorage.setItem('pr_token',token);localStorage.setItem('pr_role',role);localStorage.setItem('pr_email',data.user?.email||data.email||'')}catch{}
-    if(role==='admin'||role==='superadmin') router.replace('/admin/x7k2p'); else router.replace('/dashboard')
+    if(role==='superadmin') router.replace('/admin/x7k2p'); else if(role==='admin') router.replace('/admin/panel'); else router.replace('/dashboard')
   }
   const loginPassword=async()=>{
     setError('');setLoading(true)
