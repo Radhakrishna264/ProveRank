@@ -54,7 +54,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
   const [toastSt,setToastSt]=useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
   const [maint,setMaint]=useState<{enabled:boolean;message?:string}|null>(null)
   const toast=useCallback((msg:string,tp:'s'|'e'|'w'='s')=>{setToastSt({msg,tp});setTimeout(()=>setToastSt(null),4000)},[])
-  useEffect(()=>{fetch(`${API}/api/admin/maintenance`).then(r=>r.ok?r.json():null).then(d=>{if(d)setMaint(d)}).catch(()=>{})},[])
+  useEffect(()=>{fetch(`${API}/api/admin/maintenance`).then(r=>r.ok?r.json():null).then(d=>{if(d&&d.maintenance)setMaint(d.maintenance)}).catch(()=>{})},[])
   useEffect(()=>{
     const tk=_gt();if(!tk){router.replace('/login');return}
     setToken(tk);setRole(_gr())
