@@ -50,7 +50,7 @@ router.post('/create-admin', verifyToken, isSuperAdmin, async (req, res) => {
 // ── S37: GET ALL ADMINS ──────────────────────────────────────
 router.get('/admins', verifyToken, isSuperAdmin, async (req, res) => {
   try {
-    const admins = await User.find({ role: { $in: ['admin', 'moderator'] } })
+    const admins = await User.find({ role: { $in: ['admin', 'moderator'] }, archived: { $ne: true } })
       .select('-password -twoFactorSecret');
     res.json({ success: true, count: admins.length, admins });
   } catch (err) {
