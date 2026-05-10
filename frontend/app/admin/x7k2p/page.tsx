@@ -532,7 +532,14 @@ export default function AdminPanel() {
     if(Array.isArray(bt))setBatches(bt)
     if(Array.isArray(au))setAdminUsers(au)
     if(Array.isArray(rs))setResults(rs)
-    if(mn&&mn.maintenance!=null){const s=mn.maintenance.enabled===true;setMainOn(s);try{localStorage.setItem('pr_maint',s?'1':'0')}catch{}}
+    if(mn&&mn.maintenance!=null){
+      const s=mn.maintenance.enabled===true
+      setMainOn(s)
+      try{localStorage.setItem('pr_maint',s?'1':'0')}catch{}
+      if(mn.maintenance.allowedEmails&&Array.isArray(mn.maintenance.allowedEmails)){
+        maintWhitelistR.current=mn.maintenance.allowedEmails.join('\n')
+      }
+    }
     if(ft){
       if(Array.isArray(ft)&&ft.length)setFeatures(ft)
       else if(ft&&typeof ft==='object')setFeatures(DEF_FEATURES.map(f=>({...f,enabled:ft[f.key]!==undefined?Boolean(ft[f.key]):f.enabled})))
@@ -2694,8 +2701,8 @@ export default function AdminPanel() {
                 </div>
                 <div><label style={lbl}>Message Shown to Students</label><STextarea init='Site under maintenance. We will be back shortly.' onSet={v=>{mainMsgR.current=v}} rows={2} style={{...inp,resize:'vertical'}}/></div>
               <div style={{marginTop:14}}>
-                <label style={lbl}>🔓 Whitelisted Students (Maintenance mein bhi access milega)</label>
-                <div style={{fontSize:11,color:DIM,marginBottom:6}}>Ek email per line likhein — ye students maintenance mode mein bhi dashboard use kar sakenge</div>
+                <label style={lbl}>🔓 Whitelisted Students (Access Allowed During Maintenance)</label>
+                <div style={{fontSize:11,color:DIM,marginBottom:6}}>Enter one email per line — these students will be able to access the dashboard even during maintenance mode</div>
                 <STextarea init='' onSet={v=>{maintWhitelistR.current=v}} ph='student1@gmail.com&#10;student2@gmail.com' rows={3} style={{...inp,resize:'vertical',fontFamily:'monospace',fontSize:12}}/>
               </div>
               </div>
