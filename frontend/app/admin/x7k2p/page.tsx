@@ -532,7 +532,7 @@ export default function AdminPanel() {
     if(Array.isArray(sn))setSnapshots(sn)
     if(Array.isArray(nf))setNotifs(nf)
     if(Array.isArray(bt))setBatches(bt)
-    if(Array.isArray(au))setAdminUsers(au)
+    if(Array.isArray(au))setAdminUsers(au);else if(au&&Array.isArray(au.admins))setAdminUsers(au.admins)
     if(Array.isArray(rs))setResults(rs)
     if(mn&&mn.maintenance!=null){
       const s=mn.maintenance.enabled===true
@@ -903,7 +903,7 @@ export default function AdminPanel() {
     setCreatingAdm(true)
     try{
       const res=await fetch(`${API}/api/admin/manage/create-admin`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({name:admNameR.current,email:admEmailR.current,password:admPassR.current,role:admRole})})
-      if(res.ok){T('Admin account created.');try{const r=await fetch(`${API}/api/admin/manage/admins`,{headers:{Authorization:`Bearer ${token}`}});if(r.ok){const d=await r.json();setAdminUsers(Array.isArray(d)?d:d.admins||[])}}catch(_e){}}
+      if(res.ok){T('Admin account created.');try{const r=await fetch(`${API}/api/admin/manage/admins`,{headers:{Authorization:`Bearer ${token}`}});if(r.ok){const d=await r.json();setAdminUsers(Array.isArray(d)?d:(Array.isArray(d.admins)?d.admins:[]))}}catch(_e){}}
       else{const e=await res.json().catch(()=>({}));T(e.message||'Failed to create admin.','e')}
     } catch{T('Network error.','e')}
     setCreatingAdm(false)
