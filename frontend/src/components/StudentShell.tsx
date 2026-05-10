@@ -65,8 +65,8 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
     setMounted(true)
   },[router])
   if(!mounted)return null
-  const userEmail = typeof window!=='undefined'?localStorage.getItem('pr_email')||'':''
-  const isWhitelisted = maint?.allowedEmails?.includes(userEmail)
+  const userEmail = user?.email || (typeof window!=='undefined'?localStorage.getItem('pr_email')||'':'')
+  const isWhitelisted = !!(userEmail && maint?.allowedEmails?.some((e:string)=>e.trim().toLowerCase()===userEmail.trim().toLowerCase()))
   if(maint?.enabled===true && !isWhitelisted){
     return(
       <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'linear-gradient(135deg,#0a0a1a,#0d1b2a)',color:'#fff',fontFamily:'Inter,sans-serif',textAlign:'center',padding:'24px'}}>
