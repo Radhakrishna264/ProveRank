@@ -2238,8 +2238,18 @@ export default function AdminPanel() {
                       <div style={{marginTop:4}}><Badge label={a.role} col={a.role==='superadmin'?GOLD:ACC}/></div>
                     </div>
                     <div style={{display:'flex',gap:6}}>
-                      <button onClick={()=>T('Admin frozen — cannot login now.')} style={{...bg_,fontSize:10}}>🔒 Freeze</button>
-                      <button onClick={async()=>{if(confirm('Remove this admin?')){T('Admin removed.','w')}}} style={{...bd,fontSize:10}}>🗑️ Remove</button>
+                      <button onClick={async()=>{
+    const r=await fetch(`${API}/api/admin/manage/freeze/${au._id}`,{method:'PUT',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({frozen:!au.frozen})})
+    const d=await r.json()
+    if(d.success){T(au.frozen?'Admin unfrozen.':'Admin frozen — cannot login now.');setAdminUsers(p=>p.map(a=>a._id===au._id?{...a,frozen:!au.frozen}:a))}
+    else T(d.message||'Failed','e')
+  }} style={{...bg_,fontSize:10}}>{au.frozen?'🔓 Unfreeze':'🔒 Freeze'}</button>
+                      <button onClick={async()=>{if(confirm('Archive this admin? They will not be able to login.')){
+        const r=await fetch(`${API}/api/admin/manage/archive/${au._id}`,{method:'PUT',headers:{Authorization:`Bearer ${token}`}})
+        const d=await r.json()
+        if(d.success){T('Admin archived successfully.');setAdminUsers(p=>p.filter(a=>a._id!==au._id))}
+        else T(d.message||'Failed','e')
+      }}} style={{...bd,fontSize:10}}>🗑️ Remove</button>
                     </div>
                   </div>
                 ))
