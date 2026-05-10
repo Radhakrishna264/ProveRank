@@ -902,7 +902,7 @@ export default function AdminPanel() {
     if(!admNameR.current||!admEmailR.current||!admPassR.current){T('Name, email and password all required.','e');return}
     setCreatingAdm(true)
     try{
-      const res=await fetch(`${API}/api/admin/manage/admins`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({name:admNameR.current,email:admEmailR.current,password:admPassR.current,role:admRole})})
+      const res=await fetch(`${API}/api/admin/manage/create-admin`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({name:admNameR.current,email:admEmailR.current,password:admPassR.current,role:admRole})})
       if(res.ok){T('Admin account created.');const r=await fetch(`${API}/api/admin/manage/admins`,{headers:{Authorization:`Bearer ${token}`}});if(r.ok)setAdminUsers(await r.json())}
       else{const e=await res.json().catch(()=>({}));T(e.message||'Failed to create admin.','e')}
     } catch{T('Network error.','e')}
