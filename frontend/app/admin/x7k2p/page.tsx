@@ -2230,12 +2230,12 @@ export default function AdminPanel() {
                   <div style={{fontSize:36,marginBottom:8}}>🛡️</div>
                   <div style={{fontSize:12}}>No additional admins yet</div>
                 </div>
-                :(adminUsers||[]).map(a=>(
-                  <div key={a._id} style={{...cs,display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:10,alignItems:'center'}}>
+                :(adminUsers||[]).map(au=>(
+                  <div key={au._id} style={{...cs,display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:10,alignItems:'center'}}>
                     <div>
-                      <div style={{fontWeight:600,fontSize:13,color:TS}}>{a.name}</div>
-                      <div style={{fontSize:11,color:DIM}}>{a.email}</div>
-                      <div style={{marginTop:4}}><Badge label={a.role} col={a.role==='superadmin'?GOLD:ACC}/></div>
+                      <div style={{fontWeight:600,fontSize:13,color:TS}}>{au.name}</div>
+                      <div style={{fontSize:11,color:DIM}}>{au.email}</div>
+                      <div style={{marginTop:4}}><Badge label={au.role} col={au.role==='superadmin'?GOLD:ACC}/></div>
                     </div>
                     <div style={{display:'flex',gap:6}}>
                       <button onClick={async()=>{
