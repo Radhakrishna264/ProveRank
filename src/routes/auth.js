@@ -165,7 +165,8 @@ router.post('/login', async (req, res) => {
         requireOTP: true, email
       })
     }
-    if (user.banned) {
+    if (user.frozen) { return res.status(403).json({ message: 'Account frozen. Contact SuperAdmin.', code: 'FROZEN' }); }
+  if (user.banned || user.isBanned) {
       return res.status(403).json({ message: `Account banned: ${user.banReason || 'Contact admin'}` })
     }
 

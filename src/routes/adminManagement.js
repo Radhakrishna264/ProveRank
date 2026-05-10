@@ -237,7 +237,7 @@ router.put('/restore/:id', verifyToken, isSuperAdmin, async (req, res) => {
 // S37: GET ARCHIVED ADMINS
 router.get('/archived', verifyToken, isSuperAdmin, async (req, res) => {
   try {
-    const admins = await User.find({ role: { $in: ['admin','moderator'] }, archived: true }).select('-password -twoFactorSecret')
+    const admins = await User.find({ role: { $in: ['admin','moderator'] }, archived: { $ne: true }, archived: true }).select('-password -twoFactorSecret')
     res.json({ success: true, admins })
   } catch(err) { res.status(500).json({ message: 'Server error', error: err.message }) }
 })
