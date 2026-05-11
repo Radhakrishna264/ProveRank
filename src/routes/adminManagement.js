@@ -237,9 +237,36 @@ router.put('/restore/:id', verifyToken, isSuperAdmin, async (req, res) => {
 // S37: GET ARCHIVED ADMINS
 router.get('/archived', verifyToken, isSuperAdmin, async (req, res) => {
   try {
-    const admins = await User.find({ role: { $in: ['admin','moderator'] }, archived: { $ne: true }, archived: true }).select('-password -twoFactorSecret')
+    const admins = await User.find({ role: { $in: ['admin','moderator'] }, archived: true, archived: true }).select('-password -twoFactorSecret')
     res.json({ success: true, admins })
   } catch(err) { res.status(500).json({ message: 'Server error', error: err.message }) }
 })
+
+// ===== Admin Full Profile + Activity Logs =====
+router.get('/profile/:id', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const admin = await User.findById(req.params.id)
+      .select('-password -twoFactorSecret -emailVerifyOTP -loginOTP -resetOTP');
+    if (!admin) return res.status(404).json({ success: false, message: 'Admin not found' });
+    let activityLogs = [];
+    try {
+      const mongoose = require('mongoose');
+      let AL = null;
+      try { AL = mongoose.model('ActivityLog'); } catch(e2) {}
+      if (AL) {
+        activityLogs = await AL.find({ userId: req.params.id })
+          .sort({ createdAt: -1 }).limit(30).lean();
+      }
+    } catch(e) {}
+    return res.json({
+      success: true,
+      admin: admin.toObject(),
+      activityLogs: activityLogs,
+      loginHistory: admin.loginHistory || []
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 module.exports = router;
