@@ -2379,7 +2379,7 @@ tab==='permissions'&&(
               <div style={pageTitle}>🔐 Admin Permissions (S72)</div>
               <div style={pageSub}>SuperAdmin can enable or disable individual admin permissions</div>
               
-title="Granular Permission Control" subtitle="Enable or disable specific actions for sub-admins. SuperAdmin always retains full control and can freeze any permission instantly."/>
+<PageHero icon="🔐" title="Granular Permission Control" subtitle="Enable or disable specific actions for sub-admins. SuperAdmin always retains full control and can freeze any permission instantly."/>
               <div style={cs}>
                 <div style={{display:'grid',gap:10}}>
                   {Object.entries(perms).map(([key,val])=>(
