@@ -150,7 +150,7 @@ router.post('/login', async (req, res) => {
 
     // ── Block login for soft-deleted / archived accounts ──
     if(user && user.deleted === true){
-      return res.status(403).json({ error: 'This account has been removed. Please contact support.' });
+      return res.status(403).json({ message: 'You have been removed by SuperAdmin.' });
     }
 
     const match = await bcrypt.compare(password, user.password)
