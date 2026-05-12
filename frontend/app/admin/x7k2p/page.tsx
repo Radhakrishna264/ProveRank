@@ -2267,7 +2267,7 @@ export default function AdminPanel() {
           )}
 
           {/* ══ PERMISSIONS ══ */}
-          
+          {
 {/* ===== ARCHIVED ADMINS SECTION (FIXED) ===== */}
 <div style={{marginTop:24,marginBottom:20,background:'rgba(28,5,5,0.9)',border:'2px solid rgba(255,80,80,0.45)',borderRadius:18,padding:22}}>
   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
@@ -2372,7 +2372,6 @@ export default function AdminPanel() {
     </div>
   </div>
 )}
-{
 
 tab==='permissions'&&(
             <div>
