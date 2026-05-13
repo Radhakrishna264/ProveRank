@@ -423,7 +423,6 @@ export default function AdminPanel() {
   manage_features:false,manage_branding:false,view_audit_logs:false,view_snapshots:false,manage_backup:false,manage_admins:false,
 });
 const [selectedPermAdmin,setSelectedPermAdmin]=useState(null);
-const [adminOwnPerms,setAdminOwnPerms]=useState({});
 
   // Admin creation refs
   const admNameR=useRef('');const admEmailR=useRef('');const admPassR=useRef('')
@@ -500,22 +499,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
   useEffect(()=>{
     const t=getToken(),r=getRole()
     if(!t||!['admin','superadmin'].includes(r)){router.replace('/login');return}
-    setToken(t);setRole(r);setMounted(true);
-    // If admin (not superadmin), fetch own permissions for nav filtering
-    if(r==='admin'){
-      fetch((process.env.NEXT_PUBLIC_API_URL||'https://proverank.onrender.com')+'/api/admin/manage/profile/me',{headers:{Authorization:'Bearer '+t}})
-        .then(res=>res.json())
-        .then(d=>{
-          if(d.success&&d.admin&&d.admin.permissions){
-            const p=d.admin.permissions;
-            const obj=typeof p.forEach==='function'?Object.fromEntries(p):p;
-            setAdminOwnPerms(obj||{});
-          }
-        })
-        .catch(()=>{
-          // fallback: try profile with own ID from token
-        });
-    }
+    setToken(t);setRole(r);setMounted(true)
   },[router])
 
   useEffect(()=>{if(token){fetchAll();fetchArchivedAdmins();}},[token])
@@ -1075,41 +1059,6 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
 
   const navGroups=[...new Set(NAV.map(n=>n.grp))]
 
-  // ── Admin role: filter NAV based on their permissions ──
-  const PERM_TO_NAV:{[k:string]:string[]}={
-    create_exam:['create_exam','templates','bulk_creator'],
-    edit_exam:['exams'],delete_exam:['exams'],clone_exam:['exams'],
-    bulk_exam:['bulk_creator'],
-    manage_questions:['questions'],
-    ai_questions:['smart_gen'],
-    pyq_access:['pyq_bank'],
-    view_students:['students'],ban_student:['students'],impersonate:['students'],
-    batch_transfer:['batches'],
-    view_results:['results'],
-    view_leaderboard:['leaderboard'],
-    view_analytics:['analytics'],
-    download_reports:['reports','qbank_stats'],
-    export_data:['reports'],
-    send_announcements:['announcements'],
-    manage_doubts:['tickets'],
-    manage_grievances:['tickets'],
-    answer_key_challenge:['ans_challenge'],
-    view_audit_logs:['audit'],
-    view_snapshots:['snapshots','cheating','integrity'],
-    manage_features:['features'],
-    manage_branding:['branding'],
-    manage_backup:['backup'],
-  }
-  const ADMIN_HIDDEN=['admins','permissions','maintenance','changelog','tasks','parent_portal','transparency','omr_view','proct_pdf','retention','institute_report','re_eval','whatsapp_sms','email_tmpl','custom_fields','global_search','live']
-  const filteredNAV=role==='superadmin'?NAV:(()=>{
-    const allowed=new Set(['dashboard'])
-    Object.entries(adminOwnPerms).forEach(([perm,val])=>{
-      if(val&&PERM_TO_NAV[perm]) PERM_TO_NAV[perm].forEach(t=>allowed.add(t))
-    })
-    return NAV.filter(n=>allowed.has(n.id)&&!ADMIN_HIDDEN.includes(n.id))
-  })()
-  const filteredNavGroups=[...new Set(filteredNAV.map(n=>n.grp))]
-
   // ══════════════════════════════════════════════════════════════
   // RENDER
   // ══════════════════════════════════════════════════════════════
@@ -1209,10 +1158,10 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
 
         {/* ══ SIDEBAR ══ */}
         <div style={{position:'fixed',top:58,left:0,width:224,height:'calc(100vh - 58px)',background:'rgba(0,10,24,0.97)',borderRight:`1px solid ${BOR}`,zIndex:50,overflow:'auto',padding:'10px 6px 24px',transform:sideOpen?'translateX(0)':'translateX(-100%)',transition:'transform 0.28s cubic-bezier(0.4,0,0.2,1)',backdropFilter:'blur(20px)',boxShadow:'4px 0 24px rgba(0,0,0,0.4)'}}>
-          {filteredNavGroups.map(grp=>(
+          {navGroups.map(grp=>(
             <div key={grp} style={{marginBottom:4}}>
               <div style={{fontSize:9,fontWeight:700,color:'rgba(107,143,175,0.5)',letterSpacing:1.5,textTransform:'uppercase',padding:'10px 14px 4px'}}>{grp}</div>
-              {filteredNAV.filter(n=>n.grp===grp).map(n=>(
+              {NAV.filter(n=>n.grp===grp).map(n=>(
                 <button key={n.id} className="nav-btn" onClick={()=>{_setTab(n.id);setSideOpen(false)}}
                   style={{display:'flex',alignItems:'center',gap:9,padding:'8px 12px',borderRadius:8,border:'none',background:tab===n.id?'rgba(77,159,255,0.15)':'transparent',color:tab===n.id?ACC:DIM,cursor:'pointer',fontFamily:'Inter,sans-serif',fontSize:12,fontWeight:tab===n.id?700:400,width:'100%',textAlign:'left',borderLeft:tab===n.id?`3px solid ${ACC}`:'3px solid transparent'}}>
                   <span style={{fontSize:14,width:18,textAlign:'center'}}>{n.ico}</span>
