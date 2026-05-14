@@ -28,7 +28,7 @@ export default function LoginPage() {
     try{
       const tk=localStorage.getItem('pr_token')
       const role=localStorage.getItem('pr_role')||'student'
-      if(tk){ if(role==='superadmin') window.location.href='/admin/x7k2p'; else if(role==='admin') window.location.href='/admin/panel'; else window.location.href='/dashboard' }
+      if(tk){ if(role==='superadmin') window.location.href='/admin/x7k2p'; else if(role==='admin') window.location.href='/admin/x7k2p'; else window.location.href='/dashboard' }
     }catch{}
   },[router])
 
