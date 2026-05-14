@@ -317,8 +317,8 @@ export default function AdminPanel() {
   const [role,setRole]=useState('')
   const [token,setToken]=useState('')
   const [mounted,setMounted]=useState(false)
-  const [tab,setTab]=useState(()=>{try{return localStorage.getItem('pr_admin_tab')||'dashboard'}catch{return'dashboard'}})
-  const _setTab=(t:string)=>{try{localStorage.setItem('pr_admin_tab',t)}catch{};setTab(t)}
+  const [tab,setTab]=useState('dashboard')
+  const _setTab=(t:string)=>{try{sessionStorage.setItem('pr_admin_tab',t)}catch{};setTab(t)}
   const [sideOpen,setSideOpen]=useState(false)
   const [toast,setToast]=useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
   const [notifOpen,setNotifOpen]=useState(false)
@@ -499,7 +499,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
   useEffect(()=>{
     const t=getToken(),r=getRole()
     if(!t||!['admin','superadmin'].includes(r)){router.replace('/login');return}
-    setToken(t);setRole(r);setMounted(true);
+    setToken(t);setRole(r);setMounted(true);if(typeof window!=='undefined'&&sessionStorage.getItem('pr_just_logged_in')){sessionStorage.removeItem('pr_just_logged_in');sessionStorage.removeItem('pr_admin_tab');setTab('dashboard');}else{const sv=typeof window!='undefined'&&sessionStorage.getItem('pr_admin_tab');if(sv)setTab(sv);};
     // If admin (not superadmin), fetch own permissions for nav filtering
     if(r==='admin'){
       fetch((process.env.NEXT_PUBLIC_API_URL||'https://proverank.onrender.com')+'/api/admin/manage/profile/me',{headers:{Authorization:'Bearer '+t}})
@@ -1177,7 +1177,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
           </button>
 
           <button onClick={fetchAll} title="Refresh" style={{background:'rgba(77,159,255,0.1)',color:ACC,border:`1px solid ${BOR2}`,borderRadius:8,width:32,height:32,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>↻</button>
-          <button onClick={()=>{clearAuth();router.replace('/login')}} style={{background:'rgba(255,77,77,0.12)',color:DNG,border:'1px solid rgba(255,77,77,0.25)',borderRadius:8,width:32,height:32,cursor:'pointer',fontWeight:700,fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:11,fontWeight:700}}>OUT</button>
+          <button onClick={()=>{sessionStorage.removeItem('pr_admin_tab');clearAuth();window.location.href='/login'}} style={{background:'rgba(255,77,77,0.12)',color:DNG,border:'1px solid rgba(255,77,77,0.25)',borderRadius:8,width:32,height:32,cursor:'pointer',fontWeight:700,fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:11,fontWeight:700}}>OUT</button>
         </div>
       </div>
 
@@ -3207,7 +3207,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
                 {[{s:'Physics',ico:'⚛️',col:'#00B4FF'},{s:'Chemistry',ico:'🧪',col:'#FF6B9D'},{s:'Biology',ico:'🧬',col:'#00E5A0'}].map(({s,ico,col})=>(
                   <button key={s} onClick={async()=>{try{const r=await fetch(`${API}/api/results/leaderboard?subject=${s}`,{headers:{Authorization:`Bearer ${token}`}});if(r.ok)T(`${s} leaderboard loaded.`);else T(`${s} leaderboard not available.`,'w')}catch{T('Network error.','e')}}} style={{flex:1,padding:'14px 10px',background:`${col}11`,border:`1px solid ${col}33`,borderRadius:12,cursor:'pointer',textAlign:'center'}}>
                     <div style={{fontSize:28,marginBottom:4}}>{ico}</div>
-                    <div style={{fontWeight:700,fontSize:13,color}}>Top {s}</div>
+                    <div style={{fontWeight:700,fontSize:13,color:col}}>Top {s}</div>
                   </button>
                 ))}
               </div>
