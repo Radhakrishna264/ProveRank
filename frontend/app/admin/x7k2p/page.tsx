@@ -500,7 +500,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
   useEffect(()=>{
     const t=getToken(),r=getRole()
     if(!t||!['admin','superadmin'].includes(r)){router.replace('/login');return}
-    setToken(t);setRole(r);setMounted(true);if(typeof window!=='undefined'&&sessionStorage.getItem('pr_just_logged_in')){sessionStorage.removeItem('pr_just_logged_in');sessionStorage.removeItem('pr_admin_tab');setTab('dashboard');};
+    setToken(t);setRole(r);setMounted(true);if(typeof window!=='undefined'&&sessionStorage.getItem('pr_just_logged_in')){sessionStorage.removeItem('pr_just_logged_in');sessionStorage.removeItem('pr_admin_tab');setTab('dashboard');}else{const sv=typeof window!='undefined'&&sessionStorage.getItem('pr_admin_tab');if(sv)setTab(sv);};
     // If admin (not superadmin), fetch own permissions for nav filtering
     if(r==='admin'){
       fetch((process.env.NEXT_PUBLIC_API_URL||'https://proverank.onrender.com')+'/api/admin/manage/profile/me',{headers:{Authorization:'Bearer '+t}})
