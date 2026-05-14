@@ -2194,12 +2194,12 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
           {tab==='batches'&&(
             <div>
               <div style={pageTitle}>📦 Batch Manager (S5/M3)</div>
-              <div style={pageSub}>Organize students into batches — NEET 2026, Dropper Batch, etc.</div>
+              <div style={pageSub}>Organize students into batches — Dropper Batch, Foundation Batch, etc..</div>
               <PageHero icon="📦" title="Organize Your Students" subtitle="Group students into batches for targeted exams, announcements, and analytics. Transfer students between batches easily."/>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
                 <div style={cs}>
                   <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>➕ Create New Batch</div>
-                  <div style={{marginBottom:10}}><label style={lbl}>Batch Name</label><SInput init='' onSet={v=>{batchNameR.current=v}} ph='e.g. NEET 2026 Dropper Batch' style={inp}/></div>
+                  <div style={{marginBottom:10}}><label style={lbl}>Batch Name</label><SInput init='' onSet={v=>{batchNameR.current=v}} ph='e.g. Dropper 2027 Batch' style={inp}/></div>
                   <button onClick={createBatch} disabled={creatingBatch} style={{...bp,width:'100%',opacity:creatingBatch?0.7:1}}>
                     {creatingBatch?'⟳ Creating…':'➕ Create Batch'}
                   </button>
@@ -2212,19 +2212,29 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
                 </div>
               </div>
               {(batches||[]).length===0
-                ?<div style={{textAlign:'center',padding:'30px',color:DIM}}>
-                  <div style={{fontSize:36,marginBottom:8}}>📭</div>
-                  <div style={{fontSize:12}}>No batches yet — create your first one</div>
+                ?<div style={{textAlign:'center',padding:'50px 20px',color:DIM}}>
+                  <div style={{fontSize:72,marginBottom:12,filter:'drop-shadow(0 0 20px rgba(99,179,237,0.35))'}}>🗂️</div>
+                  <div style={{fontSize:16,fontWeight:700,color:'#93C5FD',marginBottom:8}}>No Batches Created Yet</div>
+                  <div style={{fontSize:12,color:'rgba(148,163,184,0.7)',maxWidth:280,margin:'0 auto',lineHeight:1.7}}>Create your first batch to organize students for targeted exams, announcements, and analytics.</div>
+                  <div style={{marginTop:20,display:'flex',justifyContent:'center',gap:20,fontSize:11,color:'rgba(148,163,184,0.5)'}}>
+                    <span>📊 Track Progress</span>
+                    <span>📢 Broadcast</span>
+                    <span>🎯 Target Exams</span>
+                  </div>
                 </div>
                 :<div style={{marginTop:14}}>
                   <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>All Batches ({batches.length})</div>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
                     {(batches||[]).map(b=>(
-                      <div key={b._id} style={cs}>
-                        <div style={{fontWeight:700,fontSize:13,color:TS,marginBottom:4}}>{b.name}</div>
-                        <div style={{fontSize:11,color:DIM}}>👥 {b.studentCount||0} students</div>
-                        <div style={{fontSize:11,color:DIM}}>📝 {b.examCount||0} exams</div>
-                        <div style={{fontSize:10,color:DIM,marginTop:4}}>{b.createdAt?new Date(b.createdAt).toLocaleDateString():'-'}</div>
+                      <div key={b._id} style={{...cs,borderLeft:'3px solid #3B82F6',position:'relative',overflow:'hidden'}}>
+                        <div style={{position:'absolute',top:8,right:10,fontSize:28,opacity:0.07,pointerEvents:'none'}}>📦</div>
+                        <div style={{fontWeight:700,fontSize:14,color:'#93C5FD',marginBottom:10}}>{b.name}</div>
+                        <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
+                          <span style={{fontSize:11,color:'#7DD3FC',background:'rgba(59,130,246,0.12)',padding:'3px 10px',borderRadius:20}}>👥 {b.studentCount||0} Students</span>
+                          <span style={{fontSize:11,color:'#6EE7B7',background:'rgba(16,185,129,0.12)',padding:'3px 10px',borderRadius:20}}>📝 {b.examCount||0} Exams</span>
+                        </div>
+                        <div style={{fontSize:10,color:'rgba(148,163,184,0.5)',marginBottom:10}}>📅 {b.createdAt?new Date(b.createdAt).toLocaleDateString():'-'}</div>
+                        <button onClick={()=>{if(window.confirm('Delete batch "'+b.name+'"? Students will be unassigned.'))fetch(API+'/api/admin/batches/'+b._id,{method:'DELETE',headers:{Authorization:'Bearer '+token}}).then(r=>r.ok&&setBatches(prev=>prev.filter(x=>x._id!==b._id))).catch(()=>{})}} style={{width:'100%',background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.25)',color:'#F87171',borderRadius:6,padding:'5px 0',fontSize:11,cursor:'pointer'}}>🗑️ Delete Batch</button>
                       </div>
                     ))}
                   </div>

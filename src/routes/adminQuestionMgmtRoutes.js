@@ -420,4 +420,57 @@ router.post('/batches/transfer', verifyToken, isSuperAdmin, async (req, res) => 
   }
 });
 
+
+// BATCH_CRUD_FIX (S5/M3) - ProveRank
+router.get('/batches', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const Batch = require('../models/Batch');
+    const User = require('../models/User');
+    const batches = await Batch.find().sort({ createdAt: -1 }).lean();
+    const result = await Promise.all(batches.map(async b => {
+      const studentCount = await User.countDocuments({ batch: b._id, role: 'student' }).catch(()=>0);
+      return { ...b, studentCount, examCount: 0 };
+    }));
+    res.json(result);
+  } catch(err){ res.status(500).json({ success:false, message:err.message }); }
+});
+
+router.post('/batches', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const Batch = require('../models/Batch');
+    const { name } = req.body;
+    if (!name||!name.trim()) return res.status(400).json({ success:false, message:'Batch name required' });
+    const exists = await Batch.findOne({ name: name.trim() });
+    if (exists) return res.status(400).json({ success:false, message:'Batch name already exists' });
+    const batch = await Batch.create({ name: name.trim(), createdBy: req.user&&req.user.id });
+    res.json({ success:true, batch });
+  } catch(err){
+    if (err.code===11000) return res.status(400).json({ success:false, message:'Batch name already exists' });
+    res.status(500).json({ success:false, message:err.message });
+  }
+});
+
+router.delete('/batches/:id', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const Batch = require('../models/Batch');
+    const User = require('../models/User');
+    await Batch.findByIdAndDelete(req.params.id);
+    await User.updateMany({ batch: req.params.id }, { $unset: { batch: 1 } });
+    res.json({ success:true, message:'Batch deleted' });
+  } catch(err){ res.status(500).json({ success:false, message:err.message }); }
+});
+
+router.get('/manage/batches', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const Batch = require('../models/Batch');
+    const User = require('../models/User');
+    const batches = await Batch.find().sort({ createdAt: -1 }).lean();
+    const result = await Promise.all(batches.map(async b => {
+      const studentCount = await User.countDocuments({ batch: b._id, role: 'student' }).catch(()=>0);
+      return { ...b, studentCount, examCount: 0 };
+    }));
+    res.json(result);
+  } catch(err){ res.status(500).json({ success:false, message:err.message }); }
+});
+
 module.exports = router;
