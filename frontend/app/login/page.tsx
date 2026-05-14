@@ -89,7 +89,7 @@ export default function LoginPage() {
   },[])
 
   const goAfterLogin=(token:string,role:string)=>{
-    try{localStorage.setItem('pr_token',token);localStorage.setItem('pr_role',role);localStorage.setItem('pr_email',data.user?.email||data.email||'');localStorage.removeItem('pr_admin_tab')}catch{}
+    try{localStorage.setItem('pr_token',token);localStorage.setItem('pr_role',role);localStorage.setItem('pr_email',data.user?.email||data.email||'')}catch{}
     if(role==='superadmin') router.replace('/admin/x7k2p'); else if(role==='admin') router.replace('/admin/panel'); else router.replace('/dashboard')
   }
   const loginPassword=async()=>{

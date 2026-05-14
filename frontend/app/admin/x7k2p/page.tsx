@@ -318,8 +318,8 @@ export default function AdminPanel() {
   const [role,setRole]=useState('')
   const [token,setToken]=useState('')
   const [mounted,setMounted]=useState(false)
-  const [tab,setTab]=useState(()=>{try{return localStorage.getItem('pr_admin_tab')||'dashboard'}catch{return'dashboard'}})
-  const _setTab=(t:string)=>{try{localStorage.setItem('pr_admin_tab',t)}catch{};setTab(t)}
+  const [tab,setTab]=useState(()=>{try{return sessionStorage.getItem('pr_admin_tab')||'dashboard'}catch{return'dashboard'}})
+  const _setTab=(t:string)=>{try{sessionStorage.setItem('pr_admin_tab',t)}catch{};setTab(t)}
   const [sideOpen,setSideOpen]=useState(false)
   const [toast,setToast]=useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
   const [notifOpen,setNotifOpen]=useState(false)
