@@ -90,7 +90,7 @@ export default function LoginPage() {
 
   const goAfterLogin=(token:string,role:string)=>{
     try{localStorage.setItem('pr_token',token);localStorage.setItem('pr_role',role);localStorage.setItem('pr_email',data.user?.email||data.email||'');sessionStorage.removeItem('pr_admin_tab');sessionStorage.setItem('pr_just_logged_in','1')}catch{}
-    if(role==='superadmin') window.location.href='/admin/x7k2p'; else if(role==='admin') window.location.href='/admin/panel'; else window.location.href='/dashboard'
+    if(role==='superadmin') window.location.href='/admin/x7k2p'; else if(role==='admin') window.location.href='/admin/x7k2p'; else window.location.href='/dashboard'
   }
   const loginPassword=async()=>{
     setError('');setLoading(true)
