@@ -314,7 +314,7 @@ function Badge({label,col=ACC}:{label:string;col?:string}) {
 // ══════════════════════════════════════════════════════════════
 export default function AdminPanel() {
   const router=useRouter()
-  useEffect(()=>{const r=localStorage.getItem('pr_role');if(r&&r!=='superadmin'){window.location.href='/admin/x7k2p/admin-panel';}},[]);
+  useEffect(()=>{},[]);
   const [role,setRole]=useState('')
   const [token,setToken]=useState('')
   const [mounted,setMounted]=useState(false)
