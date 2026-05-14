@@ -3208,7 +3208,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
                 {[{s:'Physics',ico:'⚛️',col:'#00B4FF'},{s:'Chemistry',ico:'🧪',col:'#FF6B9D'},{s:'Biology',ico:'🧬',col:'#00E5A0'}].map(({s,ico,col})=>(
                   <button key={s} onClick={async()=>{try{const r=await fetch(`${API}/api/results/leaderboard?subject=${s}`,{headers:{Authorization:`Bearer ${token}`}});if(r.ok)T(`${s} leaderboard loaded.`);else T(`${s} leaderboard not available.`,'w')}catch{T('Network error.','e')}}} style={{flex:1,padding:'14px 10px',background:`${col}11`,border:`1px solid ${col}33`,borderRadius:12,cursor:'pointer',textAlign:'center'}}>
                     <div style={{fontSize:28,marginBottom:4}}>{ico}</div>
-                    <div style={{fontWeight:700,fontSize:13,color}}>Top {s}</div>
+                    <div style={{fontWeight:700,fontSize:13,color:col}}>Top {s}</div>
                   </button>
                 ))}
               </div>
