@@ -94,21 +94,21 @@ export default function BatchDetailPage(){
 
   useEffect(()=>{
     const t=getToken(),r=getRole()
-    if(!t){router.replace('/login');return}
+    if(!t){console.warn('No token found');router.replace('/login');return}
     setToken(t)
   },[router])
 
   const fetchAll=useCallback(async()=>{
     if(!token||!batchId)return
     setLoading(true)
-    const get=async(u:string)=>{try{const r=await fetch(u,{headers:H()});return r.ok?r.json():null}catch{return null}}
+    const get=async(u:string)=>{try{const r=await fetch(u,{headers:H()});if(!r.ok){console.error('Fetch failed:',u,r.status);return null}return r.json()}catch(e){console.error('Fetch error:',u,e);return null}}
     const [b,st,ex,ae]=await Promise.all([
       get(`${API}/api/admin/batches/${batchId}`),
       get(`${API}/api/admin/batches/${batchId}/students`),
       get(`${API}/api/admin/batches/${batchId}/exams`),
       get(`${API}/api/exams`)
     ])
-    if(b)setBatch(b)
+    if(b)setBatch(b);else console.warn('Batch not found for id:',batchId)
     if(Array.isArray(st))setStudents(st)
     if(Array.isArray(ex))setExams(ex)
     if(Array.isArray(ae))setAllExams(ae)

@@ -2228,7 +2228,8 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
                     {(batches||[]).map(b=>(
                       <div key={b._id} onClick={()=>{ window.location.href='/admin/x7k2p/batch/'+b._id }} style={{...cs,borderLeft:'3px solid #3B82F6',position:'relative',overflow:'hidden',cursor:'pointer',transition:'all 0.2s'}} title="Click to manage batch">{/* BATCH_CLICK_FIX */}
                         <div style={{position:'absolute',top:8,right:10,fontSize:28,opacity:0.07,pointerEvents:'none'}}>📦</div>
-                        <div style={{fontWeight:700,fontSize:14,color:'#93C5FD',marginBottom:10}}>{b.name}</div>
+                        <div style={{fontWeight:700,fontSize:14,color:'#93C5FD',marginBottom:4}}>{b.name}</div>
+                        <div style={{fontSize:9,color:'rgba(148,163,184,0.4)',marginBottom:8,fontFamily:'monospace',letterSpacing:0.5}}>ID: {b._id}</div>
                         <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
                           <span style={{fontSize:11,color:'#7DD3FC',background:'rgba(59,130,246,0.12)',padding:'3px 10px',borderRadius:20}}>👥 {b.studentCount||0} Students</span>
                           <span style={{fontSize:11,color:'#6EE7B7',background:'rgba(16,185,129,0.12)',padding:'3px 10px',borderRadius:20}}>📝 {b.examCount||0} Exams</span>
