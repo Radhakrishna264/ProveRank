@@ -307,6 +307,3 @@ return(
 </div>
 )
 }
-EOSX
-
-cd ~/workspace && git add . && git commit -m "feat: batch detail page v3 - direct heredoc write" && git push
