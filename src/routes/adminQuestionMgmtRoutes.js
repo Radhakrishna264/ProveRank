@@ -421,6 +421,89 @@ router.post('/batches/transfer', verifyToken, isSuperAdmin, async (req, res) => 
 });
 
 
+
+// BATCH_DETAIL_FIX — ProveRank S5/M3 Extended
+router.get('/batches/:id', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const Batch = require('../models/Batch'), User = require('../models/User');
+    const batch = await Batch.findById(req.params.id).lean();
+    if (!batch) return res.status(404).json({ success: false, message: 'Batch not found' });
+    const studentCount = await User.countDocuments({ batch: req.params.id, role: 'student' });
+    res.json({ ...batch, studentCount });
+  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.get('/batches/:id/students', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const students = await User.find({ batch: req.params.id, role: 'student' })
+      .select('-password -__v').sort({ name: 1 }).lean();
+    res.json(students);
+  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.post('/batches/:id/students/add', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const { studentId, studentEmail } = req.body;
+    let filter = {};
+    if (studentId && studentId.trim()) filter = { _id: studentId.trim() };
+    else if (studentEmail && studentEmail.trim()) filter = { email: studentEmail.toLowerCase().trim() };
+    else return res.status(400).json({ success: false, message: 'studentId or studentEmail required' });
+    const student = await User.findOneAndUpdate(
+      { ...filter, role: 'student' },
+      { $set: { batch: req.params.id } },
+      { new: true }
+    ).select('-password');
+    if (!student) return res.status(404).json({ success: false, message: 'Student not found or not a student account' });
+    res.json({ success: true, student });
+  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.delete('/batches/:id/students/:sid', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    await User.findByIdAndUpdate(req.params.sid, { $unset: { batch: 1 } });
+    res.json({ success: true, message: 'Student removed from batch' });
+  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.patch('/batches/:id', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const Batch = require('../models/Batch');
+    const { name } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ success: false, message: 'Name required' });
+    const batch = await Batch.findByIdAndUpdate(req.params.id, { name: name.trim() }, { new: true });
+    if (!batch) return res.status(404).json({ success: false, message: 'Not found' });
+    res.json({ success: true, batch });
+  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.get('/batches/:id/exams', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const Exam = require('../models/Exam');
+    const exams = await Exam.find({ batch: req.params.id }).sort({ scheduledAt: -1 }).lean();
+    res.json(exams);
+  } catch(e) { res.json([]); }
+});
+
+router.post('/batches/:id/exams/assign', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const Exam = require('../models/Exam');
+    const { examId } = req.body;
+    await Exam.findByIdAndUpdate(examId, { $set: { batch: req.params.id } });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.delete('/batches/:id/exams/:eid', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const Exam = require('../models/Exam');
+    await Exam.findByIdAndUpdate(req.params.eid, { $unset: { batch: 1 } });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
 // BATCH_CRUD_FIX (S5/M3) - ProveRank
 router.get('/batches', verifyToken, isSuperAdmin, async (req, res) => {
   try {
