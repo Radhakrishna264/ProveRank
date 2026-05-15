@@ -94,7 +94,7 @@ export default function BatchDetailPage(){
 
   useEffect(()=>{
     const t=getToken(),r=getRole()
-    if(!t||!['admin','superadmin'].includes(r)){router.replace('/login');return}
+    if(!t){router.replace('/login');return}
     setToken(t)
   },[router])
 

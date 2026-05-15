@@ -2226,7 +2226,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
                   <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>All Batches ({batches.length})</div>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
                     {(batches||[]).map(b=>(
-                      <div key={b._id} onClick={()=>router.push(`/admin/x7k2p/batch/${b._id}`)} style={{...cs,borderLeft:'3px solid #3B82F6',position:'relative',overflow:'hidden',cursor:'pointer',transition:'all 0.2s'}} title="Click to manage batch">{/* BATCH_CLICK_FIX */}
+                      <div key={b._id} onClick={()=>{ window.location.href='/admin/x7k2p/batch/'+b._id }} style={{...cs,borderLeft:'3px solid #3B82F6',position:'relative',overflow:'hidden',cursor:'pointer',transition:'all 0.2s'}} title="Click to manage batch">{/* BATCH_CLICK_FIX */}
                         <div style={{position:'absolute',top:8,right:10,fontSize:28,opacity:0.07,pointerEvents:'none'}}>📦</div>
                         <div style={{fontWeight:700,fontSize:14,color:'#93C5FD',marginBottom:10}}>{b.name}</div>
                         <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
