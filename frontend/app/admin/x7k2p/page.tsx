@@ -559,6 +559,19 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
     if(Array.isArray(sn))setSnapshots(sn)
     if(Array.isArray(nf))setNotifs(nf)
     if(Array.isArray(bt))setBatches(bt)
+    // Auto-open batch from URL (refresh fix)
+    if(typeof window!=='undefined'){
+      const _bid=new URLSearchParams(window.location.search).get('batch')
+      if(_bid){
+        setTimeout(()=>{
+          setSelectedBatch((prev:any)=>{
+            if(prev)return prev
+            const _found=(Array.isArray(bt)?bt:[]).find((b:any)=>b._id===_bid)
+            return _found||prev
+          })
+        },100)
+      }
+    }
     if(Array.isArray(au))setAdminUsers(au);else if(au&&Array.isArray(au.admins))setAdminUsers(au.admins)
     if(Array.isArray(rs))setResults(rs)
     if(mn&&mn.maintenance!=null){
