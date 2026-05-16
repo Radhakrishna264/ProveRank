@@ -1,3 +1,4 @@
+const generateStudentId=require('../utils/generateStudentId');
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
@@ -19,7 +20,8 @@ router.post('/create-admin', verifyToken, isSuperAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Yeh email already registered hai' });
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const admin = await User.create({
+    const admin = const _sid = await generateStudentId();
+  const newUser = await User.create({
       name, email,
       password: hashedPassword,
       role: 'admin',
@@ -280,6 +282,20 @@ router.get('/profile/:id', verifyToken, isSuperAdmin, async (req, res) => {
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
+});
+
+
+// Mark welcome banner as seen
+router.post('/welcome-seen', async(req,res)=>{
+  try{
+    const token=req.headers.authorization?.split(' ')[1];
+    if(!token)return res.status(401).json({success:false});
+    const jwt=require('jsonwebtoken');
+    const decoded=jwt.verify(token,process.env.JWT_SECRET||'proverank_secret');
+    const User=require('../models/User');
+    await User.findByIdAndUpdate(decoded.id||decoded._id,{welcomeSeen:true});
+    res.json({success:true});
+  }catch(e){res.status(500).json({success:false,message:e.message});}
 });
 
 module.exports = router;
