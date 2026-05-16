@@ -184,7 +184,7 @@ router.post('/login', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '7d' }
     )
-    res.json({ token, role: user.role || 'student', message: 'Login successful' })
+    res.json({ token, role: user.role || 'student', name:user.name||'',studentId:user.studentId||null,welcomeSeen:user.welcomeSeen||false,message:'Login successful' })
   } catch (err) {
     console.error('Login error:', err)
     res.status(500).json({ message: 'Server error during login' })
