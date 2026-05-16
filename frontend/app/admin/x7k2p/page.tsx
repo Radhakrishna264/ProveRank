@@ -1115,17 +1115,10 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
   // RENDER
   // ══════════════════════════════════════════════════════════════
   return (
-{/* BD_OVERLAY_INJECTED */}
-{selectedBatch != null && <BatchDetailOverlay
-  batch={selectedBatch}
-  token={token}
-  API={API}
-  onClose={()=>setSelectedBatch(null)}
-  onBatchDelete={(id:string)=>{setBatches((p:Batch[])=>p.filter((b:Batch)=>b._id!==id));setSelectedBatch(null)}}
-  onBatchRename={(id:string,name:string)=>{setBatches((p:Batch[])=>p.map((b:Batch)=>b._id===id?{...b,name}:b));setSelectedBatch((p:any)=>({...p,name}))}}
-  T={T}
-/>}
     <div style={{background:BG_GRAD,minHeight:'100vh',color:TS,fontFamily:'Inter,sans-serif',position:'relative'}}>
+{/* BD_OVERLAY_INJECTED */}
+{selectedBatch!=null&&<BatchDetailOverlay batch={selectedBatch} token={token} API={API} onClose={()=>setSelectedBatch(null)} onBatchDelete={(id:string)=>{setBatches((p:Batch[])=>p.filter((b:Batch)=>b._id!==id));setSelectedBatch(null)}} onBatchRename={(id:string,name:string)=>{setBatches((p:Batch[])=>p.map((b:Batch)=>b._id===id?{...b,name}:b));setSelectedBatch((p:any)=>({...p,name}))}} T={T}/>}
+
 
       {/* Particles Background */}
       <GalaxyBg />
