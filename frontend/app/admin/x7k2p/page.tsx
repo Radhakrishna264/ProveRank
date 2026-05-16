@@ -1117,7 +1117,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
   return (
     <div style={{background:BG_GRAD,minHeight:'100vh',color:TS,fontFamily:'Inter,sans-serif',position:'relative'}}>
 {/* BD_OVERLAY_INJECTED */}
-{selectedBatch!=null&&<BatchDetailOverlay batch={selectedBatch} token={token} API={API} onClose={()=>setSelectedBatch(null)} onBatchDelete={(id:string)=>{setBatches((p:Batch[])=>p.filter((b:Batch)=>b._id!==id));setSelectedBatch(null)}} onBatchRename={(id:string,name:string)=>{setBatches((p:Batch[])=>p.map((b:Batch)=>b._id===id?{...b,name}:b));setSelectedBatch((p:any)=>({...p,name}))}} T={T}/>}
+{selectedBatch!=null&&<BatchDetailOverlay batch={selectedBatch} token={token} API={API} onClose={()=>{setSelectedBatch(null);if(typeof window!=='undefined')window.history.pushState(null,'','/admin/x7k2p')}} onBatchDelete={(id:string)=>{setBatches((p:Batch[])=>p.filter((b:Batch)=>b._id!==id));setSelectedBatch(null)}} onBatchRename={(id:string,name:string)=>{setBatches((p:Batch[])=>p.map((b:Batch)=>b._id===id?{...b,name}:b));setSelectedBatch((p:any)=>({...p,name}))}} T={T}/>}
 
 
       {/* Particles Background */}
@@ -2230,7 +2230,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
                   <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>All Batches ({batches.length})</div>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
                     {(batches||[]).map(b=>(
-                      <div key={b._id} onClick={()=>setSelectedBatch(b)} style={{...cs,borderLeft:'3px solid #3B82F6',position:'relative',overflow:'hidden',cursor:'pointer',transition:'all 0.2s'}} title="Click to manage batch">{/* BATCH_CLICK_FIX */}
+                      <div key={b._id} onClick={()=>{setSelectedBatch(b);if(typeof window!=='undefined')window.history.pushState(null,'','/admin/x7k2p?batch='+b._id)}} style={{...cs,borderLeft:'3px solid #3B82F6',position:'relative',overflow:'hidden',cursor:'pointer',transition:'all 0.2s'}} title="Click to manage batch">{/* BATCH_CLICK_FIX */}
                         <div style={{position:'absolute',top:8,right:10,fontSize:28,opacity:0.07,pointerEvents:'none'}}>📦</div>
                         <div style={{fontWeight:700,fontSize:14,color:'#93C5FD',marginBottom:4}}>{b.name}</div>
                         <div style={{fontSize:9,color:'rgba(148,163,184,0.4)',marginBottom:8,fontFamily:'monospace',letterSpacing:0.5}}>ID: {b._id}</div>
@@ -3560,7 +3560,7 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
 
   return(
     <div style={{position:'fixed',inset:0,background:'radial-gradient(ellipse at 20% 50%,#001628 0%,#000A18 60%,#000510 100%)',zIndex:998,overflowY:'auto',fontFamily:'Inter,sans-serif'}}>
-      <style>{'.bdt2:hover{opacity:0.82;transform:translateY(-1px)} .bdr2:hover{background:rgba(77,159,255,0.05)!important} @keyframes bds{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}} @keyframes spin{to{transform:rotate(360deg)}}'}</style>
+      <style>{'.bdt2:hover{opacity:0.82;transform:translateY(-1px)} .bdr2:hover{background:rgba(77,159,255,0.05)!important} @keyframes bds{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}} @keyframes spin{to{transform:rotate(360deg)}} div::-webkit-scrollbar{display:none}'}</style>
 
       <div style={{position:'sticky',top:0,background:'rgba(0,10,24,0.95)',backdropFilter:'blur(16px)',borderBottom:'1px solid '+BOR,padding:'12px 16px',zIndex:10}}>
         <div style={{maxWidth:940,margin:'0 auto'}}>
@@ -3570,15 +3570,15 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
               <div style={{fontSize:17,fontWeight:800,fontFamily:'Playfair Display,serif',background:'linear-gradient(90deg,'+ACC+',#A8D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>📦 {batch.name}</div>
               <div style={{fontSize:10,color:DIM,marginTop:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>ID: {batch._id} · {batch.createdAt?new Date(batch.createdAt).toLocaleDateString():'-'}</div>
             </div>
-            <div style={{display:'flex',gap:6,flexShrink:0,flexWrap:'wrap'}}>
-              <span style={{fontSize:11,background:'rgba(77,159,255,0.1)',color:ACC,padding:'4px 10px',borderRadius:20,border:'1px solid '+BOR2}}>👥 {students.length}</span>
-              <span style={{fontSize:11,background:'rgba(0,196,140,0.1)',color:SUC,padding:'4px 10px',borderRadius:20,border:'1px solid rgba(0,196,140,0.25)'}}>📝 {exams.length}</span>
-              <span style={{fontSize:11,background:'rgba(167,139,250,0.1)',color:PRP,padding:'4px 10px',borderRadius:20,border:'1px solid rgba(167,139,250,0.25)'}}>📚 {notes.length}</span>
+            <div style={{display:'flex',gap:4,flexShrink:0}}>
+              <span style={{fontSize:10,background:'rgba(77,159,255,0.1)',color:ACC,padding:'3px 8px',borderRadius:16,border:'1px solid '+BOR2}}>👥{students.length}</span>
+              <span style={{fontSize:10,background:'rgba(0,196,140,0.1)',color:SUC,padding:'3px 8px',borderRadius:16,border:'1px solid rgba(0,196,140,0.25)'}}>📝{exams.length}</span>
+              <span style={{fontSize:10,background:'rgba(167,139,250,0.1)',color:PRP,padding:'3px 8px',borderRadius:16,border:'1px solid rgba(167,139,250,0.25)'}}>📚{notes.length}</span>
             </div>
           </div>
-          <div style={{display:'flex',gap:3,overflowX:'auto',paddingBottom:2}}>
+          <div style={{display:'flex',gap:3,overflowX:'auto',paddingBottom:4,WebkitOverflowScrolling:'touch',scrollbarWidth:'none',msOverflowStyle:'none'}}>
             {TABS.map(t=>(
-              <button key={t.id} onClick={()=>setTab(t.id)} className="bdt2" style={{background:tab===t.id?'rgba(77,159,255,0.18)':'transparent',border:'1px solid '+(tab===t.id?BOR2:'transparent'),color:tab===t.id?ACC:DIM,borderRadius:8,padding:'6px 10px',cursor:'pointer',fontSize:11,fontWeight:600,whiteSpace:'nowrap',transition:'all 0.2s',fontFamily:'Inter,sans-serif'}}>{t.l}</button>
+              <button key={t.id} onClick={()=>setTab(t.id)} className="bdt2" style={{background:tab===t.id?'rgba(77,159,255,0.18)':'transparent',border:'1px solid '+(tab===t.id?BOR2:'transparent'),color:tab===t.id?ACC:DIM,borderRadius:8,padding:'5px 9px',cursor:'pointer',fontSize:10,fontWeight:600,whiteSpace:'nowrap',transition:'all 0.2s',fontFamily:'Inter,sans-serif',flexShrink:0}}>{t.l}</button>
             ))}
           </div>
         </div>
@@ -3594,7 +3594,7 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
         {!loading&&tab==='overview'&&<div style={{animation:'bds 0.3s ease'}}>
           <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:14}}>
             {[{i:'👥',l:'Students',v:students.length,c:ACC},{i:'📝',l:'Exams',v:exams.length,c:WRN},{i:'📚',l:'Materials',v:notes.length,c:PRP},{i:'✅',l:'Active',v:students.filter(s=>!s.banned).length,c:SUC}].map(x=>(
-              <div key={x.l} style={{background:CRD,border:'1px solid '+BOR,borderRadius:14,padding:'16px 12px',flex:1,minWidth:90,textAlign:'center',backdropFilter:'blur(12px)'}}>
+              <div key={x.l} style={{background:CRD,border:'1px solid '+BOR,borderRadius:12,padding:'14px 10px',flex:'1 1 calc(50% - 5px)',minWidth:80,textAlign:'center',backdropFilter:'blur(12px)'}}>
                 <div style={{fontSize:22,marginBottom:4}}>{x.i}</div>
                 <div style={{fontSize:22,fontWeight:800,color:x.c,fontFamily:'Playfair Display,serif'}}>{x.v}</div>
                 <div style={{fontSize:10,color:DIM,marginTop:2,fontWeight:600}}>{x.l}</div>
