@@ -1,5 +1,5 @@
-import CopyBtn from '@/components/CopyBtn';
 'use client'
+import CopyBtn from '@/components/CopyBtn';
 import { useState, useEffect } from 'react'
 import StudentShell, { useShell, C } from '@/src/components/StudentShell'
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
