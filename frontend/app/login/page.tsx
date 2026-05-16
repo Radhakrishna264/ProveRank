@@ -1,4 +1,5 @@
 'use client'
+import WelcomeBanner from '@/components/WelcomeBanner';
 import PRLogo from '@/components/PRLogo'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -11,6 +12,8 @@ export default function LoginPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   type Tab = 'password'|'otp'|'forgot'
   const [tab, setTab] = useState<Tab>('password')
+  const [showWelcome,setShowWelcome]=useState(false);
+  const [welcomeData,setWelcomeData]=useState<{name:string,studentId:string}|null>(null);
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [otpEmail, setOtpEmail] = useState('')
@@ -120,6 +123,7 @@ export default function LoginPage() {
   const clearAll=()=>{setError('');setMsg('')}
 
   return (
+    {showWelcome&&welcomeData&&<WelcomeBanner studentName={welcomeData.name} studentId={welcomeData.studentId} onClose={()=>{setShowWelcome(false);const tk=localStorage.getItem('pr_token');if(tk)fetch((process.env.NEXT_PUBLIC_API_URL||'https://proverank.onrender.com')+'/api/welcome-seen',{method:'POST',headers:{Authorization:'Bearer '+tk}}).catch(()=>{});}}/>}
     <div style={{minHeight:'100vh',background:'radial-gradient(ellipse at 20% 50%,#000D1A,#000308 60%,#00010A)',fontFamily:'Inter,sans-serif',overflowX:'hidden'}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600;700&display=swap');*{box-sizing:border-box}@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}@keyframes rotateSlow{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes glowPulse{0%,100%{filter:drop-shadow(0 0 6px #4D9FFF66)}50%{filter:drop-shadow(0 0 20px #4D9FFFaa)}}@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes dnaPulse{0%,100%{opacity:0.45;transform:translateY(0) scaleX(1)}50%{opacity:0.7;transform:translateY(-10px) scaleX(1.05)}}`}</style>
 

@@ -44,12 +44,14 @@ router.post('/register', async (req, res) => {
         }
       })
     } else {
-      await User.collection.insertOne({
+      const _genStudentId2=async()=>{const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';const yr=new Date().getFullYear().toString().slice(-2);let sid,exists,tries=0;do{const rand=Array.from({length:4},()=>chars[Math.floor(Math.random()*chars.length)]).join('');sid='PR'+yr+rand;exists=await User.collection.findOne({studentId:sid});tries++;}while(exists&&tries<50);return sid;};const _newStudentId=await _genStudentId2();
+    await User.collection.insertOne({
         name, email, password: hash, phone: phone || '',
         role: 'student', verified: false, emailVerified: false,
         emailVerifyOTP: otp, emailVerifyOTPExpiry: otpExpiry,
         streak: 0, badges: [], loginHistory: [],
-        createdAt: now, updatedAt: now
+        studentId: _newStudentId, welcomeSeen: false,
+      createdAt: now, updatedAt: now
       })
   // S109_WELCOME_HOOK — Welcome Email Auto-trigger
   try {
@@ -111,7 +113,7 @@ router.post('/verify-otp', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '7d' }
     )
-    res.json({ token, role: user.role || 'student', name: user.name,
+    res.json({ token, role: user.role || 'student', name: user.name, studentId: user.studentId||null, welcomeSeen: user.welcomeSeen||false,
                message: 'Email verified! Welcome to ProveRank.' })
   } catch (err) {
     console.error('OTP verify error:', err)

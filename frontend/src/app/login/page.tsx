@@ -46,6 +46,8 @@ function PRLogo({ size = 48, showName = false, showTag = false, nameSize = 20 }:
 
 export default function LoginPage() {
   const router = useRouter();
+  const [showWelcome,setShowWelcome]=useState(false);
+  const [welcomeData,setWelcomeData]=useState<{name:string,studentId:string}|null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -85,6 +87,7 @@ export default function LoginPage() {
   if (!mounted) return null;
 
   return (
+    {showWelcome&&welcomeData&&<WelcomeBanner studentName={welcomeData.name} studentId={welcomeData.studentId} onClose={()=>{setShowWelcome(false);const tk=localStorage.getItem('pr_token');if(tk)fetch((process.env.NEXT_PUBLIC_API_URL||'https://proverank.onrender.com')+'/api/welcome-seen',{method:'POST',headers:{Authorization:'Bearer '+tk}}).catch(()=>{});}}/>}
     <div style={{ minHeight: '100vh', background: 'radial-gradient(ellipse at 20% 50%, #001628 0%, #000A18 60%, #000510 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif', padding: '24px 16px', position: 'relative', overflow: 'hidden' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600&display=swap');
