@@ -1,3 +1,4 @@
+import CopyBtn from '@/components/CopyBtn';
 'use client'
 import { useState, useEffect } from 'react'
 import StudentShell, { useShell, C } from '@/src/components/StudentShell'
@@ -104,6 +105,7 @@ function ProfileContent() {
             <span style={{fontSize:10,padding:'2px 9px',borderRadius:20,background:`${C.gold}15`,color:C.gold,fontWeight:600}}>⚡ {target||'NEET 2026'}</span>
           </div>
           <div style={{fontSize:10,color:C.sub}}>{t('Member since','सदस्य बने')}: {user?.createdAt?new Date(user.createdAt).toLocaleDateString('en-IN',{month:'long',year:'numeric'}):''}</div>
+{user?.studentId&&<div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,padding:'6px 10px',background:'rgba(77,159,255,0.08)',borderRadius:8,border:'1px solid rgba(77,159,255,0.2)',width:'fit-content'}}><span style={{fontSize:10,color:'#6B8FAF',fontWeight:600}}>STUDENT ID</span><span style={{fontSize:14,fontWeight:800,color:'#4D9FFF',fontFamily:'monospace',letterSpacing:2}}>{user.studentId}</span><CopyBtn text={user.studentId} size="md"/></div>}
         </div>
 
         {/* Edit / Saved state */}

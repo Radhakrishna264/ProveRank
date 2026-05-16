@@ -312,6 +312,13 @@ function Badge({label,col=ACC}:{label:string;col?:string}) {
 // ══════════════════════════════════════════════════════════════
 // MAIN ADMIN PANEL COMPONENT
 // ══════════════════════════════════════════════════════════════
+
+const CopyBtn=({text,label='',size='sm'}:{text:string,label?:string,size?:'sm'|'md'})=>{
+  const[cp,setCp]=useState(false)
+  const sz=size==='md'?{fontSize:12,padding:'4px 10px'}:{fontSize:10,padding:'2px 7px'}
+  return <button onClick={e=>{e.stopPropagation();try{navigator.clipboard.writeText(text).then(()=>{setCp(true);setTimeout(()=>setCp(false),2000)})}catch{const el=document.createElement('textarea');el.value=text;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);setCp(true);setTimeout(()=>setCp(false),2000)}}} title={'Copy: '+text} style={{background:cp?'rgba(0,196,140,0.15)':'rgba(77,159,255,0.08)',color:cp?'#00C48C':'#6B8FAF',border:'1px solid '+(cp?'rgba(0,196,140,0.3)':'rgba(77,159,255,0.2)'),borderRadius:6,cursor:'pointer',display:'inline-flex',alignItems:'center',gap:3,transition:'all 0.2s',flexShrink:0,fontFamily:'monospace',fontWeight:600,...sz}}>{cp?'✅':'📋'}{label?(' '+label):''}{cp?' Copied!':''}</button>
+}
+
 export default function AdminPanel() {
   const router=useRouter()
   useEffect(()=>{},[]);
@@ -2073,7 +2080,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
                             </div>
                             <div>
                               <div style={{fontWeight:700,fontSize:13,color:'#E8F4FD'}}>{s.name||'—'}</div>
-                              <div style={{fontSize:11,color:'#8899AA'}}>✉️ {s.email}</div>
+                              <div style={{fontSize:11,color:'#8899AA'}}>✉️ {s.studentId&&<span style={{fontSize:10,fontWeight:700,color:'#4D9FFF',fontFamily:'monospace',letterSpacing:1,display:'inline-flex',alignItems:'center',gap:3}}>{s.studentId} <CopyBtn text={s.studentId}/></span>} {s.email}</div>
                               {s.phone&&<div style={{fontSize:10,color:'#8899AA'}}>📱 {s.phone}</div>}
                               <div style={{display:'flex',gap:6,marginTop:5,flexWrap:'wrap' as const}}>
                                 {s.group&&<span style={{fontSize:9,background:'rgba(255,215,0,0.15)',color:'#FFD700',padding:'2px 7px',borderRadius:5,border:'1px solid rgba(255,215,0,0.3)'}}>{s.group}</span>}
