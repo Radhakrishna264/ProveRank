@@ -504,6 +504,71 @@ router.delete('/batches/:id/exams/:eid', verifyToken, isSuperAdmin, async (req, 
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
+
+// BATCH_NOTES_FIX — Notes/Study Material + Exam Assign routes
+// GET all notes for a batch
+router.get('/batches/:id/notes',verifyToken,isSuperAdmin,async(req,res)=>{
+  try{
+    const BatchNote=require('../models/BatchNote');
+    const notes=await BatchNote.find({batch:req.params.id}).sort({createdAt:-1}).lean();
+    res.json(notes);
+  }catch(e){res.status(500).json({success:false,message:e.message});}
+});
+
+// POST add note to batch
+router.post('/batches/:id/notes',verifyToken,isSuperAdmin,async(req,res)=>{
+  try{
+    const BatchNote=require('../models/BatchNote');
+    const{title,description,url,type,subject}=req.body;
+    if(!title||!title.trim())return res.status(400).json({success:false,message:'Title required'});
+    const note=await BatchNote.create({
+      batch:req.params.id,title:title.trim(),
+      description:description||'',url:url||'',
+      type:type||'link',subject:subject||'General',
+      createdBy:req.user&&req.user.id
+    });
+    res.json({success:true,note});
+  }catch(e){res.status(500).json({success:false,message:e.message});}
+});
+
+// DELETE note
+router.delete('/batches/:id/notes/:nid',verifyToken,isSuperAdmin,async(req,res)=>{
+  try{
+    const BatchNote=require('../models/BatchNote');
+    await BatchNote.findByIdAndDelete(req.params.nid);
+    res.json({success:true});
+  }catch(e){res.status(500).json({success:false,message:e.message});}
+});
+
+// GET all exams (for assign dropdown)
+router.get('/batches/all-exams',verifyToken,isSuperAdmin,async(req,res)=>{
+  try{
+    const Exam=require('../models/Exam');
+    const exams=await Exam.find({}).select('title status scheduledAt duration totalMarks').sort({createdAt:-1}).lean();
+    res.json(exams);
+  }catch(e){res.json([]);}
+});
+
+// POST assign exam to batch
+router.post('/batches/:id/exams/assign',verifyToken,isSuperAdmin,async(req,res)=>{
+  try{
+    const Exam=require('../models/Exam');
+    const{examId}=req.body;
+    if(!examId)return res.status(400).json({success:false,message:'examId required'});
+    await Exam.findByIdAndUpdate(examId,{$set:{batch:req.params.id}});
+    res.json({success:true,message:'Exam assigned'});
+  }catch(e){res.status(500).json({success:false,message:e.message});}
+});
+
+// DELETE unassign exam from batch
+router.delete('/batches/:id/exams/:eid',verifyToken,isSuperAdmin,async(req,res)=>{
+  try{
+    const Exam=require('../models/Exam');
+    await Exam.findByIdAndUpdate(req.params.eid,{$unset:{batch:1}});
+    res.json({success:true});
+  }catch(e){res.status(500).json({success:false,message:e.message});}
+});
+
 // BATCH_CRUD_FIX (S5/M3) - ProveRank
 router.get('/batches', verifyToken, isSuperAdmin, async (req, res) => {
   try {
