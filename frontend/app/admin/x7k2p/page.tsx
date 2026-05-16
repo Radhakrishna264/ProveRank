@@ -2246,7 +2246,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
                       <div key={b._id} onClick={()=>{setSelectedBatch(b);if(typeof window!=='undefined')window.history.pushState(null,'','/admin/x7k2p?batch='+b._id)}} style={{...cs,borderLeft:'3px solid #3B82F6',position:'relative',overflow:'hidden',cursor:'pointer',transition:'all 0.2s'}} title="Click to manage batch">{/* BATCH_CLICK_FIX */}
                         <div style={{position:'absolute',top:8,right:10,fontSize:28,opacity:0.07,pointerEvents:'none'}}>📦</div>
                         <div style={{fontWeight:700,fontSize:14,color:'#93C5FD',marginBottom:4}}>{b.name}</div>
-                        <div style={{fontSize:9,color:'rgba(148,163,184,0.4)',marginBottom:8,fontFamily:'monospace',letterSpacing:0.5}}>ID: {b._id}</div>
+                        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}><div style={{fontSize:9,color:'rgba(148,163,184,0.4)',fontFamily:'monospace',letterSpacing:0.5}}>ID: {b._id?.slice(-8)}</div><CopyBtn text={b._id} label="ID"/></div>
                         <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
                           <span style={{fontSize:11,color:'#7DD3FC',background:'rgba(59,130,246,0.12)',padding:'3px 10px',borderRadius:20}}>👥 {b.studentCount||0} Students</span>
                           <span style={{fontSize:11,color:'#6EE7B7',background:'rgba(16,185,129,0.12)',padding:'3px 10px',borderRadius:20}}>📝 {b.examCount||0} Exams</span>
@@ -3581,7 +3581,7 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
             <button onClick={onClose} style={{background:'rgba(77,159,255,0.1)',color:ACC,border:'1px solid '+BOR2,borderRadius:8,padding:'7px 12px',cursor:'pointer',fontSize:12,fontWeight:600,transition:'all 0.2s'}} className="bdt2">← Back</button>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:17,fontWeight:800,fontFamily:'Playfair Display,serif',background:'linear-gradient(90deg,'+ACC+',#A8D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>📦 {batch.name}</div>
-              <div style={{fontSize:10,color:DIM,marginTop:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>ID: {batch._id} · {batch.createdAt?new Date(batch.createdAt).toLocaleDateString():'-'}</div>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginTop:1,flexWrap:'wrap'}}><span style={{fontSize:10,color:DIM,fontFamily:'monospace'}}>ID: {batch._id?.slice(-12)}...</span><CopyBtn text={batch._id} label="Batch ID"/><span style={{fontSize:10,color:DIM}}>· {batch.createdAt?new Date(batch.createdAt).toLocaleDateString():'-'}</span></div>
             </div>
             <div style={{display:'flex',gap:4,flexShrink:0}}>
               <span style={{fontSize:10,background:'rgba(77,159,255,0.1)',color:ACC,padding:'3px 8px',borderRadius:16,border:'1px solid '+BOR2}}>👥{students.length}</span>
@@ -3631,7 +3631,8 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
                 <div style={{width:30,height:30,borderRadius:'50%',background:'rgba(77,159,255,0.12)',border:'1px solid '+BOR2,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:ACC,flexShrink:0}}>{(s.name||'?')[0].toUpperCase()}</div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:12,fontWeight:600,color:TS,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.name||'—'}</div>
-                  <div style={{fontSize:10,color:DIM}}>{s.email}</div>
+                  <div style={{display:'flex',alignItems:'center',gap:4}}><span style={{fontSize:10,color:DIM}}>{s.email}</span></div>
+                  {s.studentId&&<div style={{display:'flex',alignItems:'center',gap:3}}><span style={{fontSize:9,color:'#4D9FFF',fontFamily:'monospace'}}>{s.studentId}</span><CopyBtn text={s.studentId}/></div>}
                 </div>
                 <div style={{fontSize:10,color:DIM,flexShrink:0}}>{s.createdAt?new Date(s.createdAt).toLocaleDateString():'-'}</div>
               </div>
@@ -3659,11 +3660,12 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
               <div style={{overflowX:'auto'}}>
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
                   <thead><tr style={{borderBottom:'1px solid '+BOR}}>
-                    {['#','Name','Email','Joined','Status','Action'].map(h=><th key={h} style={{padding:'8px',textAlign:'left',color:DIM,fontWeight:600,fontSize:10,letterSpacing:0.4}}>{h}</th>)}
+                    {['#','Student ID','Name','Email','Joined','Status','Action'].map(h=><th key={h} style={{padding:'8px',textAlign:'left',color:DIM,fontWeight:600,fontSize:10,letterSpacing:0.4}}>{h}</th>)}
                   </tr></thead>
                   <tbody>{filtered.map((s,i)=>(
                     <tr key={s._id} className="bdr2" style={{borderBottom:'1px solid '+BOR,transition:'all 0.15s'}}>
                       <td style={{padding:'9px 8px',color:DIM}}>{i+1}</td>
+                      <td style={{padding:'9px 8px'}}><div style={{display:'flex',alignItems:'center',gap:4}}><span style={{fontSize:11,color:'#4D9FFF',fontFamily:'monospace',fontWeight:700}}>{s.studentId||'—'}</span>{s.studentId&&<CopyBtn text={s.studentId}/>}</div></td>
                       <td style={{padding:'9px 8px'}}>
                         <div style={{display:'flex',alignItems:'center',gap:7}}>
                           <div style={{width:26,height:26,borderRadius:'50%',background:'rgba(77,159,255,0.12)',border:'1px solid '+BOR2,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,color:ACC,flexShrink:0}}>{(s.name||'?')[0].toUpperCase()}</div>
