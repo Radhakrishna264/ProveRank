@@ -1,3 +1,23 @@
+#!/bin/bash
+# ================================================================
+# ProveRank — Fix Script
+# Fixes:
+#   1. Student Profile Page — studentId display + copy button
+#   2. Admin Profile View — setProfileLoading bug fix
+#   3. Auth /me route — studentId return confirm/fix
+# ================================================================
+
+echo ""
+echo "🚀 ProveRank Fix Script Starting..."
+echo "================================================"
+
+# ============================================================
+# FIX 1: Student Profile Page — studentId add + user data populate
+# ============================================================
+echo ""
+echo "📝 Fix 1: Student Profile Page rewrite..."
+
+cat > ~/workspace/frontend/app/dashboard/profile/page.tsx << 'PROFILEEOF'
 'use client'
 import { useState, useEffect } from 'react'
 import DashLayout from '@/components/DashLayout'
@@ -319,3 +339,137 @@ export default function Profile() {
     </DashLayout>
   )
 }
+PROFILEEOF
+
+echo "✅ Fix 1 done — Profile page rewritten"
+
+# ============================================================
+# FIX 2: Admin Profile View — setProfileLoading(false) bug
+# ============================================================
+echo ""
+echo "🔧 Fix 2: Admin profile view loading bug..."
+
+node << 'NODEOF'
+const fs = require('fs');
+const f = process.env.HOME + '/workspace/frontend/app/admin/x7k2p/page.tsx';
+let c = fs.readFileSync(f, 'utf8');
+
+// Try multiple pattern variants to handle whitespace differences
+const fixes = [
+  [
+    'setProfileLogs(d.activityLogs||[]);}catch(e){setProfileLoading(false);}',
+    'setProfileLogs(d.activityLogs||[]);setProfileLoading(false);}catch(e){setProfileLoading(false);}'
+  ],
+  [
+    'setProfileLogs(d.activityLogs||[]); }catch(e){setProfileLoading(false);}',
+    'setProfileLogs(d.activityLogs||[]);setProfileLoading(false);}catch(e){setProfileLoading(false);}'
+  ],
+  [
+    "setProfileLogs(d.activityLogs||[]);\n    }catch(e){setProfileLoading(false);}",
+    "setProfileLogs(d.activityLogs||[]);\n    setProfileLoading(false);\n    }catch(e){setProfileLoading(false);}"
+  ],
+];
+
+let fixed = false;
+for(const [old, repl] of fixes){
+  if(c.includes(old)){
+    c = c.replace(old, repl);
+    fixed = true;
+    break;
+  }
+}
+
+if(fixed){
+  fs.writeFileSync(f, c);
+  console.log('✅ setProfileLoading bug fixed');
+} else {
+  // Fallback: use regex
+  const rx = /(setProfileLogs\(d\.activityLogs\|\|\[\]\);?\s*\})\s*catch\s*\(e\)\s*\{\s*setProfileLoading\(false\)/;
+  if(rx.test(c)){
+    c = c.replace(rx, 'setProfileLogs(d.activityLogs||[]);setProfileLoading(false);}catch(e){setProfileLoading(false)');
+    fs.writeFileSync(f, c);
+    console.log('✅ Fixed via regex');
+  } else {
+    console.log('⚠️  Pattern not matched. Checking viewAdminProfile context:');
+    const idx = c.indexOf('viewAdminProfile');
+    if(idx > -1) console.log(c.substring(idx, idx + 400));
+    else console.log('viewAdminProfile function not found');
+  }
+}
+NODEOF
+
+# ============================================================
+# FIX 3: Auth /me route — ensure studentId is returned
+# ============================================================
+echo ""
+echo "🔧 Fix 3: Auth /me route — studentId check..."
+
+node << 'AUTHEOF'
+const fs = require('fs');
+const f = process.env.HOME + '/workspace/src/routes/auth.js';
+let c = fs.readFileSync(f, 'utf8');
+
+// Find the GET /me route
+const meIdx = c.indexOf("router.get('/me'");
+if(meIdx === -1){
+  console.log('❌ GET /me route not found in auth.js');
+  process.exit(0);
+}
+
+// Check next 600 chars after /me route declaration
+const meSection = c.substring(meIdx, meIdx + 700);
+
+if(meSection.includes('studentId')){
+  console.log('✅ /me route already returns studentId — no fix needed');
+} else {
+  console.log('⚠️  studentId missing from /me route — applying fix...');
+
+  // Common response patterns in /me route
+  const patterns = [
+    ['loginHistory: user.loginHistory', 'studentId: user.studentId||null, loginHistory: user.loginHistory'],
+    ['loginHistory:user.loginHistory',  'studentId:user.studentId||null,loginHistory:user.loginHistory'],
+    ['email: user.email,',              'studentId: user.studentId||null, email: user.email,'],
+    ['name: user.name,',               'studentId: user.studentId||null, name: user.name,'],
+  ];
+
+  let fixed = false;
+  for(const [old, repl] of patterns){
+    // Only replace WITHIN the /me section (not elsewhere in file)
+    const searchFrom = meIdx;
+    const searchEnd  = meIdx + 700;
+    const pos = c.indexOf(old, searchFrom);
+    if(pos > -1 && pos < searchEnd){
+      c = c.substring(0, pos) + repl + c.substring(pos + old.length);
+      fixed = true;
+      break;
+    }
+  }
+
+  if(fixed){
+    fs.writeFileSync(f, c);
+    console.log('✅ /me route updated — studentId added to response');
+  } else {
+    console.log('⚠️  Auto-fix not possible. /me route section:');
+    console.log(meSection.substring(0, 350));
+    console.log('\n→ Manually ensure the res.json() in /me includes: studentId: user.studentId||null');
+  }
+}
+AUTHEOF
+
+# ============================================================
+# GIT PUSH
+# ============================================================
+echo ""
+echo "📦 Git push..."
+cd ~/workspace
+git add -A
+git commit -m "fix: student profile studentId display + admin profile loading bug + auth /me studentId"
+git push origin main
+
+echo ""
+echo "================================================"
+echo "✅ DONE — Vercel auto-deploy shuru ho gaya"
+echo "⏳ 2-3 minute baad test karo:"
+echo "   Student:  https://prove-rank.vercel.app/dashboard"
+echo "   Admin:    https://prove-rank.vercel.app/admin/x7k2p"
+echo "================================================"
