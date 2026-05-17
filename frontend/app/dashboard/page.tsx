@@ -1,5 +1,5 @@
-import WelcomeBanner from '../../components/WelcomeBanner'
 'use client'
+import WelcomeBanner from '../../components/WelcomeBanner'
 import { useState, useEffect } from 'react'
 import StudentShell, { useShell, C } from '@/src/components/StudentShell'
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
