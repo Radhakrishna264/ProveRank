@@ -71,7 +71,6 @@ router.post('/register', async (req, res) => {
         .catch(e => console.error('[Welcome Email]', e.message))
     }
   } catch(we){ console.error('[Welcome Email Hook]', we.message) }
-    }
 
     await sendVerificationEmail(email, name, null, otp, 'verify')
     res.status(201).json({
