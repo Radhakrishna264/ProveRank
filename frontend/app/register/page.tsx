@@ -81,7 +81,7 @@ export default function RegisterPage() {
   const verifyOtp=async()=>{
     if(otp.length!==6){setError('Enter 6-digit OTP');return}
     setError('');setLoading(true)
-    try{ const r=await fetch(`${API}/api/auth/verify-otp`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,otp})}); const d=await r.json(); if(r.ok){try{localStorage.setItem('pr_token',d.token);localStorage.setItem('pr_role',d.role||'student')}catch{};router.replace('/dashboard')}else setError(d.message||'Invalid OTP') }catch{setError('Network error. Please try again.')}
+    try{ const r=await fetch(`${API}/api/auth/verify-otp`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,otp})}); const d=await r.json(); if(r.ok){try{localStorage.setItem('pr_token',d.token);localStorage.setItem('pr_role',d.role||'student')}catch{};try{localStorage.setItem('pr_new_student','true')}catch(e){};router.replace('/dashboard')}else setError(d.message||'Invalid OTP') }catch{setError('Network error. Please try again.')}
     setLoading(false)
   }
   const resendOtp=async()=>{

@@ -1,3 +1,4 @@
+import WelcomeBanner from '../../components/WelcomeBanner'
 'use client'
 import { useState, useEffect } from 'react'
 import StudentShell, { useShell, C } from '@/src/components/StudentShell'
@@ -65,9 +66,30 @@ function DashboardContent() {
   const [exams,   setExams]   = useState<any[]>([])
   const [results, setResults] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [showWelcome, setShowWelcome] = useState(false)
+  const [welcomeData, setWelcomeData] = useState<{name:string,studentId:string,email:string}|null>(null)
   const t=(en:string,hi:string)=>lang==='en'?en:hi
 
   useEffect(()=>{
+  const _cw=async()=>{
+    try{
+      const isNew=localStorage.getItem('pr_new_student')
+      if(isNew!=='true')return
+      const tok=localStorage.getItem('pr_token')
+      if(!tok)return
+      const API=process.env.NEXT_PUBLIC_API_URL||'https://proverank.onrender.com'
+      const rr=await fetch(API+'/api/auth/me',{headers:{Authorization:'Bearer '+tok}})
+      const dd=await rr.json()
+      if(dd&&(dd.name||dd.email)){
+        setWelcomeData({name:dd.name||'Student',studentId:dd.studentId||'',email:dd.email||''})
+        setShowWelcome(true)
+        localStorage.removeItem('pr_new_student')
+      }
+    }catch(e){}
+  }
+  _cw()
+},[])
+useEffect(()=>{
     if(!token) return
     const h={Authorization:`Bearer ${token}`}
     Promise.all([
@@ -89,6 +111,7 @@ function DashboardContent() {
 
   return (
     <div>
+      {showWelcome&&welcomeData&&<WelcomeBanner student={welcomeData} onClose={()=>setShowWelcome(false)}/> }
       {/* Hero Banner */}
       <div style={{background:'linear-gradient(135deg,rgba(0,85,204,.2),rgba(77,159,255,.08),rgba(0,0,0,0))',border:'1px solid rgba(77,159,255,.25)',borderRadius:22,padding:'24px 20px',marginBottom:24,position:'relative',overflow:'hidden',boxShadow:'0 4px 32px rgba(0,0,0,.25)'}}>
         {/* Animated BG hexagons */}

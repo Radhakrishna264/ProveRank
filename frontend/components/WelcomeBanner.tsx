@@ -1,127 +1,169 @@
 'use client'
-import{useState,useEffect}from 'react'
+import { useState } from 'react'
 
-interface WelcomeBannerProps{
-  studentName:string
-  studentId:string
-  onClose:()=>void
+interface Props {
+  student: { name: string; studentId: string; email: string }
+  onClose: () => void
 }
 
-export default function WelcomeBanner({studentName,studentId,onClose}:WelcomeBannerProps){
-  const[visible,setVisible]=useState(false)
-  const[copied,setCopied]=useState(false)
-  
-  useEffect(()=>{setTimeout(()=>setVisible(true),100)},[])
+const FEATURES = [
+  { icon: '⚡', title: 'Real-Time All India Rankings', desc: 'Live rank updates across every exam' },
+  { icon: '🧠', title: 'AI Performance Intelligence', desc: 'Smart analytics powered by machine learning' },
+  { icon: '🔬', title: 'NEET Pattern Mock Tests', desc: '180-question full-length exam simulations' },
+  { icon: '📊', title: 'Deep Subject Analytics', desc: 'Physics · Chemistry · Biology breakdown' },
+  { icon: '🏆', title: 'Achievement Certificates', desc: 'Earn & download verified digital certificates' },
+  { icon: '📚', title: 'PYQ Bank 2015–2024', desc: 'Decade of previous year questions filtered by year' },
+  { icon: '🎯', title: 'Smart Revision Engine', desc: 'AI-identified weak areas with revision plans' },
+  { icon: '🛡️', title: 'Advanced Proctored Exams', desc: 'Secure, fair, tamper-proof examination system' },
+  { icon: '📄', title: 'Performance Report PDF', desc: 'Comprehensive downloadable progress report' },
+  { icon: '🪪', title: 'Digital Admit Cards', desc: 'Auto-generated with QR code verification' },
+  { icon: '👨‍👩‍👧', title: 'Parent Progress Portal', desc: 'Share your journey with your family' },
+  { icon: '🔥', title: 'Streak & Milestone Tracker', desc: 'Stay consistent, earn badges, climb ranks' },
+]
 
-  const copyId=()=>{
-    navigator.clipboard.writeText(studentId).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000)})
+export default function WelcomeBanner({ student, onClose }: Props) {
+  const [copied, setCopied] = useState(false)
+
+  const copyId = () => {
+    try { navigator.clipboard.writeText(student.studentId) } catch(e) {}
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleClose=async()=>{
-    setVisible(false)
-    setTimeout(onClose,400)
-    try{
-      const token=localStorage.getItem('pr_token')
-      if(token)await fetch((process.env.NEXT_PUBLIC_API_URL||'https://proverank.onrender.com')+'/api/welcome-seen',{
-        method:'POST',headers:{Authorization:'Bearer '+token}
-      })
-    }catch(e){}
-  }
-
-  return(
+  return (
     <div style={{
       position:'fixed',inset:0,zIndex:9999,
-      background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',
-      display:'flex',alignItems:'center',justifyContent:'center',padding:16,
-      opacity:visible?1:0,transition:'opacity 0.4s ease'
+      background:'rgba(0,0,0,0.88)',
+      backdropFilter:'blur(14px)',
+      display:'flex',alignItems:'center',justifyContent:'center',
+      padding:'16px',overflowY:'auto'
     }}>
       <div style={{
-        background:'linear-gradient(135deg,#001628 0%,#000D20 50%,#001028 100%)',
-        border:'1px solid rgba(77,159,255,0.4)',borderRadius:24,
-        padding:'40px 28px',maxWidth:420,width:'100%',
-        boxShadow:'0 0 80px rgba(77,159,255,0.15),0 0 200px rgba(77,159,255,0.05)',
-        transform:visible?'scale(1) translateY(0)':'scale(0.9) translateY(20px)',
-        transition:'all 0.4s cubic-bezier(0.34,1.56,0.64,1)',
-        fontFamily:'Inter,sans-serif',textAlign:'center',position:'relative',overflow:'hidden'
+        width:'100%',maxWidth:'660px',
+        background:'linear-gradient(145deg,rgba(10,14,28,0.99),rgba(6,10,22,0.99))',
+        border:'1px solid rgba(212,175,55,0.35)',
+        borderRadius:'24px',padding:'36px 28px',
+        boxShadow:'0 0 80px rgba(212,175,55,0.12),0 0 140px rgba(77,159,255,0.07)',
+        position:'relative',maxHeight:'92vh',overflowY:'auto'
       }}>
-        {/* Glow effects */}
-        <div style={{position:'absolute',top:-60,left:'50%',transform:'translateX(-50%)',width:200,height:200,background:'radial-gradient(circle,rgba(77,159,255,0.15),transparent 70%)',pointerEvents:'none'}}/>
-        <div style={{position:'absolute',bottom:-40,right:-40,width:150,height:150,background:'radial-gradient(circle,rgba(99,102,241,0.1),transparent 70%)',pointerEvents:'none'}}/>
-        
-        {/* Stars animation */}
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Playfair+Display:wght@700;800&display=swap');
-          @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-          @keyframes pulse{0%,100%{opacity:0.6}50%{opacity:1}}
-          @keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
-          .welcome-badge:hover{transform:scale(1.02)}
-        `}</style>
-        
-        {/* Rocket / Welcome Icon */}
-        <div style={{fontSize:56,marginBottom:16,animation:'float 3s ease-in-out infinite',display:'block'}}>🎉</div>
-        
-        {/* Welcome text */}
-        <div style={{fontSize:13,fontWeight:600,color:'#4D9FFF',letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>Welcome to ProveRank</div>
-        <div style={{fontSize:24,fontWeight:800,fontFamily:'Playfair Display,serif',color:'#E8F4FF',marginBottom:6,lineHeight:1.2}}>
-          Namaste, {studentName?.split(' ')[0] || 'Student'}! 🙏
-        </div>
-        <div style={{fontSize:13,color:'#6B8FAF',marginBottom:28,lineHeight:1.6}}>
-          Your journey to NEET success starts here.<br/>Your unique Student ID is ready!
-        </div>
-        
-        {/* Student ID Card */}
-        <div className="welcome-badge" style={{
-          background:'linear-gradient(135deg,rgba(77,159,255,0.12),rgba(99,102,241,0.08))',
-          border:'1.5px solid rgba(77,159,255,0.35)',
-          borderRadius:16,padding:'20px 24px',marginBottom:24,
-          cursor:'pointer',transition:'all 0.2s',position:'relative',overflow:'hidden'
-        }} onClick={copyId}>
-          <div style={{position:'absolute',inset:0,background:'linear-gradient(135deg,transparent 30%,rgba(77,159,255,0.05) 100%)',pointerEvents:'none'}}/>
-          <div style={{fontSize:10,fontWeight:700,color:'#6B8FAF',letterSpacing:2,textTransform:'uppercase',marginBottom:10}}>Your Student ID</div>
-          <div style={{
-            fontSize:28,fontWeight:800,
-            background:'linear-gradient(90deg,#4D9FFF,#818CF8,#A78BFA)',
+
+        {/* Gold top line */}
+        <div style={{
+          position:'absolute',top:0,left:'15%',right:'15%',height:'2px',
+          background:'linear-gradient(90deg,transparent,#D4AF37,#FFD700,#D4AF37,transparent)',
+          borderRadius:'2px'
+        }}/>
+
+        {/* Header */}
+        <div style={{textAlign:'center',marginBottom:'24px'}}>
+          <div style={{fontSize:'46px',marginBottom:'8px'}}>🎉</div>
+          <h1 style={{
+            fontSize:'25px',fontWeight:900,fontFamily:'Inter,sans-serif',
+            background:'linear-gradient(135deg,#FFD700,#FFF8DC,#D4AF37)',
             WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',
-            backgroundSize:'200% auto',animation:'shimmer 3s linear infinite',
-            letterSpacing:4,fontFamily:'monospace',marginBottom:10
-          }}>{studentId}</div>
-          <div style={{fontSize:11,color:copied?'#00C48C':'#6B8FAF',transition:'color 0.2s',display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
-            {copied?'✅ Copied to clipboard!':'📋 Tap to copy ID'}
+            marginBottom:'6px',letterSpacing:'-0.5px'
+          }}>Welcome to ProveRank!</h1>
+          <p style={{color:'#7A8FAA',fontSize:'13px',fontFamily:'Inter,sans-serif'}}>
+            Your journey to{' '}
+            <span style={{color:'#4D9FFF',fontWeight:700}}>All India Rank #1</span>{' '}
+            begins today
+          </p>
+        </div>
+
+        {/* Student Name */}
+        <div style={{textAlign:'center',marginBottom:'18px'}}>
+          <p style={{color:'#4B6080',fontSize:'11px',letterSpacing:'2px',textTransform:'uppercase',marginBottom:'4px',fontFamily:'Inter,sans-serif'}}>
+            Registered As
+          </p>
+          <p style={{
+            fontSize:'21px',fontWeight:800,fontFamily:'Inter,sans-serif',
+            background:'linear-gradient(135deg,#E8F4FF,#4D9FFF)',
+            WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'
+          }}>{student.name}</p>
+          <p style={{color:'#4B6080',fontSize:'12px',marginTop:'3px',fontFamily:'Inter,sans-serif'}}>{student.email}</p>
+        </div>
+
+        {/* Student ID Card */}
+        <div style={{
+          background:'linear-gradient(135deg,rgba(212,175,55,0.07),rgba(192,192,192,0.04))',
+          border:'1px solid rgba(212,175,55,0.3)',
+          borderRadius:'14px',padding:'16px 20px',
+          marginBottom:'24px',textAlign:'center',
+          boxShadow:'0 0 24px rgba(212,175,55,0.07)'
+        }}>
+          <p style={{color:'#7A8FAA',fontSize:'10px',letterSpacing:'2.5px',textTransform:'uppercase',marginBottom:'10px',fontFamily:'Inter,sans-serif'}}>
+            Your Unique Student ID
+          </p>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'12px',flexWrap:'wrap'}}>
+            <span style={{
+              fontSize:'26px',fontWeight:900,letterSpacing:'5px',
+              fontFamily:'monospace',
+              background:'linear-gradient(135deg,#B8B8B8,#FFFFFF,#C8C8C8,#A0A0A0)',
+              WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'
+            }}>{student.studentId || 'Generating...'}</span>
+            {student.studentId && (
+              <button onClick={copyId} style={{
+                background:copied?'rgba(0,196,140,0.15)':'rgba(77,159,255,0.12)',
+                border:`1px solid ${copied?'rgba(0,196,140,0.45)':'rgba(77,159,255,0.35)'}`,
+                borderRadius:'8px',padding:'6px 14px',cursor:'pointer',
+                color:copied?'#00C48C':'#4D9FFF',fontSize:'12px',fontWeight:700,
+                fontFamily:'Inter,sans-serif',transition:'all 0.2s'
+              }}>{copied?'✓ Copied!':'⎘ Copy'}</button>
+            )}
+          </div>
+          <p style={{color:'#3A5070',fontSize:'11px',marginTop:'10px',fontFamily:'Inter,sans-serif'}}>
+            Save this ID — required for admit cards &amp; support
+          </p>
+        </div>
+
+        {/* Features Grid */}
+        <div style={{marginBottom:'26px'}}>
+          <p style={{
+            textAlign:'center',color:'#7A8FAA',fontSize:'10px',
+            letterSpacing:'2px',textTransform:'uppercase',marginBottom:'14px',
+            fontFamily:'Inter,sans-serif'
+          }}>Everything You Unlock with ProveRank</p>
+          <div style={{
+            display:'grid',
+            gridTemplateColumns:'repeat(auto-fill,minmax(185px,1fr))',
+            gap:'9px'
+          }}>
+            {FEATURES.map((f,i) => (
+              <div key={i} style={{
+                background:'rgba(77,159,255,0.03)',
+                border:'1px solid rgba(192,192,192,0.09)',
+                borderRadius:'10px',padding:'11px 12px',
+                display:'flex',gap:'9px',alignItems:'flex-start'
+              }}>
+                <span style={{fontSize:'18px',lineHeight:1,flexShrink:0}}>{f.icon}</span>
+                <div>
+                  <p style={{
+                    fontSize:'11.5px',fontWeight:700,
+                    background:'linear-gradient(135deg,#CCCCCC,#F0F0F0)',
+                    WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',
+                    fontFamily:'Inter,sans-serif',marginBottom:'2px',lineHeight:1.3
+                  }}>{f.title}</p>
+                  <p style={{fontSize:'10.5px',color:'#3A5070',fontFamily:'Inter,sans-serif',lineHeight:1.4}}>{f.desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-        
-        {/* Info points */}
-        <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:28,textAlign:'left'}}>
-          {[
-            {i:'🔐',t:'Save your Student ID',d:'Use it to login and for admin reference'},
-            {i:'📊',t:'Track your Progress',d:'View ranks, scores & analytics'},
-            {i:'📚',t:'Access Study Material',d:'Batches, exams & notes await you'},
-          ].map(x=>(
-            <div key={x.i} style={{display:'flex',gap:10,alignItems:'flex-start',padding:'8px 10px',borderRadius:10,background:'rgba(77,159,255,0.04)',border:'1px solid rgba(77,159,255,0.08)'}}>
-              <span style={{fontSize:16,flexShrink:0}}>{x.i}</span>
-              <div>
-                <div style={{fontSize:12,fontWeight:700,color:'#E8F4FF'}}>{x.t}</div>
-                <div style={{fontSize:11,color:'#6B8FAF'}}>{x.d}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-        
-        {/* CTA Button */}
-        <button onClick={handleClose} style={{
+
+        {/* CTA */}
+        <button onClick={onClose} style={{
           width:'100%',padding:'14px',
-          background:'linear-gradient(135deg,#4D9FFF,#6366F1)',
-          color:'#fff',border:'none',borderRadius:12,
-          fontSize:14,fontWeight:700,cursor:'pointer',
-          boxShadow:'0 8px 32px rgba(77,159,255,0.35)',
-          transition:'all 0.2s',letterSpacing:0.5
-        }}>
-          🚀 Start My NEET Journey!
-        </button>
-        
-        <div style={{fontSize:10,color:'rgba(107,143,175,0.5)',marginTop:12}}>
-          ProveRank · India's Most Advanced NEET Platform
-        </div>
+          background:'linear-gradient(135deg,#1448b8,#4D9FFF,#1a5fd4)',
+          border:'none',borderRadius:'12px',
+          color:'#fff',fontSize:'15px',fontWeight:700,
+          fontFamily:'Inter,sans-serif',cursor:'pointer',
+          letterSpacing:'0.5px',
+          boxShadow:'0 4px 28px rgba(77,159,255,0.3)'
+        }}>Begin Your Journey →</button>
+
+        <p style={{textAlign:'center',color:'#2A3A50',fontSize:'11px',marginTop:'12px',fontFamily:'Inter,sans-serif'}}>
+          ProveRank · Advanced NEET Preparation Platform
+        </p>
       </div>
     </div>
   )
