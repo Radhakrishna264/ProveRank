@@ -275,7 +275,7 @@ router.get('/profile/:id', verifyToken, isSuperAdmin, async (req, res) => {
     } catch(e) {}
     return res.json({
       success: true,
-      admin: { ...admin.toObject(), permissions: Object.fromEntries(admin.permissions||new Map()) },
+      admin: { ...admin.toObject(), permissions: admin.permissions instanceof Map ? Object.fromEntries(admin.permissions) : (admin.permissions||{}) },
       activityLogs: activityLogs,
       loginHistory: admin.loginHistory || []
     });
