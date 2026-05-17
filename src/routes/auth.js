@@ -24,7 +24,11 @@ router.post('/register', async (req, res) => {
     }
 
     // Use collection directly — bypass ALL mongoose hooks
-    const existing = await User.collection.findOne({ email })
+    let existing = await User.collection.findOne({ email })
+    if (existing && existing.deleted === true) {
+      await User.collection.deleteOne({ _id: existing._id });
+      existing = null;
+    }
     if (existing && (existing.emailVerified || existing.verified) && !existing.frozen && !existing.archived) {
       return res.status(409).json({ message: 'Email already registered. Please login.' })
     }
