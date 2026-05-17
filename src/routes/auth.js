@@ -47,7 +47,7 @@ router.post('/register', async (req, res) => {
       })
     } else {
       const _genStudentId2=async()=>{const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';const yr=new Date().getFullYear().toString().slice(-2);let sid,exists,tries=0;do{const rand=Array.from({length:4},()=>chars[Math.floor(Math.random()*chars.length)]).join('');sid='PR'+yr+rand;exists=await User.collection.findOne({studentId:sid});tries++;}while(exists&&tries<50);return sid;};const _newStudentId=await _genStudentId2();
-    const _sid = await generateUniqueStudentId(User, new Date().getFullYear());
+    const _sid = await _genStudentId2();
     if (wasDeleted) {
       await User.collection.replaceOne({ _id: existing._id }, {
       studentId: _sid,
