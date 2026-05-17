@@ -2015,6 +2015,8 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
 
               
               {/* ── ADMIN PROFILE MODAL ── */}
+}
+              {/* ── DELETE CONFIRMATION MODAL (SuperAdmin only) ── */}
               {showProfileModal&&(
                 <div onClick={()=>setShowProfileModal(false)} style={{position:'fixed' as const,top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.82)',backdropFilter:'blur(6px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:16}}>
                   <div onClick={e=>e.stopPropagation()} style={{background:'linear-gradient(135deg,rgba(5,10,24,0.99),rgba(8,16,36,0.98))',border:'1.5px solid rgba(0,180,255,0.25)',borderRadius:20,padding:'28px 24px',maxWidth:520,width:'100%',maxHeight:'88vh',overflowY:'auto' as const,boxShadow:'0 24px 80px rgba(0,180,255,0.12)'}}>
@@ -2074,9 +2076,8 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
                     )}
                   </div>
                 </div>
-              )}
-              {/* ── DELETE CONFIRMATION MODAL (SuperAdmin only) ── */}
-              {delConfirmId&&(
+              )
+{delConfirmId&&(
                 <div style={{position:'fixed' as const,top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.75)',backdropFilter:'blur(4px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:16}}>
                   <div style={{
                     background:'linear-gradient(135deg,rgba(5,10,20,0.99),rgba(10,18,35,0.98))',
