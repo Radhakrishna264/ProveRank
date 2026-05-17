@@ -25,11 +25,8 @@ router.post('/register', async (req, res) => {
 
     // Use collection directly — bypass ALL mongoose hooks
     let existing = await User.collection.findOne({ email })
-    if (existing && existing.deleted === true) {
-      await User.collection.deleteOne({ _id: existing._id });
-      existing = null;
-    }
-    if (existing && (existing.emailVerified || existing.verified) && !existing.frozen && !existing.archived) {
+    const wasDeleted = !!(existing && existing.deleted === true);
+    if (existing && !wasDeleted && (existing.emailVerified || existing.verified) && !existing.frozen && !existing.archived) {
       return res.status(409).json({ message: 'Email already registered. Please login.' })
     }
 
@@ -51,7 +48,8 @@ router.post('/register', async (req, res) => {
     } else {
       const _genStudentId2=async()=>{const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';const yr=new Date().getFullYear().toString().slice(-2);let sid,exists,tries=0;do{const rand=Array.from({length:4},()=>chars[Math.floor(Math.random()*chars.length)]).join('');sid='PR'+yr+rand;exists=await User.collection.findOne({studentId:sid});tries++;}while(exists&&tries<50);return sid;};const _newStudentId=await _genStudentId2();
     const _sid = await generateUniqueStudentId(User, new Date().getFullYear());
-    await User.collection.insertOne({
+    if (wasDeleted) {
+      await User.collection.replaceOne({ _id: existing._id }, {
       studentId: _sid,
         name, email, password: hash, phone: phone || '',
         role: 'student', verified: false, emailVerified: false,
