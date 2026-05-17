@@ -2014,8 +2014,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
               )}
 
               
-              {/* ── ADMIN PROFILE MODAL ── */}
-}
+
               {/* ── DELETE CONFIRMATION MODAL (SuperAdmin only) ── */}
               {showProfileModal&&(
                 <div onClick={()=>setShowProfileModal(false)} style={{position:'fixed' as const,top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.82)',backdropFilter:'blur(6px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:16}}>
@@ -2076,7 +2075,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
                     )}
                   </div>
                 </div>
-              )
+              )}
 {delConfirmId&&(
                 <div style={{position:'fixed' as const,top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.75)',backdropFilter:'blur(4px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:16}}>
                   <div style={{
