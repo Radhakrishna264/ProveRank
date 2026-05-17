@@ -22,48 +22,65 @@ router.post('/register', async (req, res) => {
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Name, email and password required' })
     }
-
-    // Use collection directly — bypass ALL mongoose hooks
     let existing = await User.collection.findOne({ email })
-    const wasDeleted = !!(existing && existing.deleted === true);
+    const wasDeleted = !!(existing && existing.deleted === true)
     if (existing && !wasDeleted && (existing.emailVerified || existing.verified) && !existing.frozen && !existing.archived) {
       return res.status(409).json({ message: 'Email already registered. Please login.' })
     }
-
     const hash = await bcrypt.hash(password, 12)
-    const otp  = genOTP()
+    const otp = genOTP()
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000)
     const now = new Date()
-
-    if (existing) {
-      await User.collection.updateOne({ _id: existing._id }, {
-        $set: {
-          name, password: hash, phone: phone || '',
-          emailVerifyOTP: otp, emailVerifyOTPExpiry: otpExpiry,
-          emailVerifyToken: null, emailVerifyExpiry: null,
-          archived: false, archivedBy: null, archivedAt: null, frozen: false,
-          updatedAt: now
-        }
-      })
-    } else {
-      const _genStudentId2=async()=>{const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';const yr=new Date().getFullYear().toString().slice(-2);let sid,exists,tries=0;do{const rand=Array.from({length:4},()=>chars[Math.floor(Math.random()*chars.length)]).join('');sid='PR'+yr+rand;exists=await User.collection.findOne({studentId:sid});tries++;}while(exists&&tries<50);return sid;};const _newStudentId=await _genStudentId2();
-    const _sid = await _genStudentId2();
-    if (wasDeleted) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    const yr = new Date().getFullYear().toString().slice(-2)
+    let sid, ex2, tr = 0
+    do {
+      const rand = Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('')
+      sid = 'PR' + yr + rand
+      ex2 = await User.collection.findOne({ studentId: sid })
+      tr++
+    } while (ex2 && tr < 50)
+    if (wasDeleted || existing) {
       await User.collection.replaceOne({ _id: existing._id }, {
-      studentId: _sid,
-        name, email, password: hash, phone: phone || '',
+        studentId: sid, name, email, password: hash, phone: phone || '',
         role: 'student', verified: false, emailVerified: false,
         emailVerifyOTP: otp, emailVerifyOTPExpiry: otpExpiry,
-        streak: 0, badges: [], loginHistory: [],
-        studentId: _newStudentId, welcomeSeen: false,
-      createdAt: now, updatedAt: now
+        emailVerifyToken: null, emailVerifyExpiry: null,
+        streak: 0, badges: [], loginHistory: [], welcomeSeen: false,
+        deleted: false, archived: false, frozen: false,
+        archivedBy: null, archivedAt: null, createdAt: now, updatedAt: now
       })
-  // S109_WELCOME_HOOK — Welcome Email Auto-trigger
-  try {
-    const EmailTemplate = require('../models/EmailTemplate')
-    const { sendCustomEmail } = require('../utils/emailService')
-    const tmpl = await EmailTemplate.findOne({ type:'welcome', active:true })
-    if (tmpl) {
+    } else {
+      await User.collection.insertOne({
+        studentId: sid, name, email, password: hash, phone: phone || '',
+        role: 'student', verified: false, emailVerified: false,
+        emailVerifyOTP: otp, emailVerifyOTPExpiry: otpExpiry,
+        emailVerifyToken: null, emailVerifyExpiry: null,
+        streak: 0, badges: [], loginHistory: [], welcomeSeen: false,
+        deleted: false, archived: false, frozen: false,
+        createdAt: now, updatedAt: now
+      })
+    }
+    try {
+      const EmailTemplate = require('../models/EmailTemplate')
+      const { sendCustomEmail } = require('../utils/emailService')
+      const tmpl = await EmailTemplate.findOne({ type:'welcome', active:true })
+      if (tmpl) {
+        const emailBody = tmpl.htmlBody
+          .replace(/\{student_name\}/g, name)
+          .replace(/\{date\}/g, new Date().toLocaleDateString('en-IN'))
+        sendCustomEmail(email, tmpl.subject, emailBody)
+          .catch(e => console.error('[Welcome Email]', e.message))
+      }
+    } catch(we){ console.error('[Welcome Email Hook]', we.message) }
+    await sendVerificationEmail(email, name, null, otp, 'verify')
+    res.status(201).json({ message: 'OTP sent to your email. Valid for 10 minutes.', requireOTP: true })
+  } catch (err) {
+    console.error('Register error:', err)
+    res.status(500).json({ message: 'Server error during registration' })
+  }
+})
+
       const emailBody = tmpl.htmlBody
         .replace(/{student_name}/g, userData.name||'Student')
         .replace(/{date}/g, new Date().toLocaleDateString('en-IN'))
