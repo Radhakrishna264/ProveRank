@@ -1,3 +1,18 @@
+#!/bin/bash
+# ================================================================
+# ProveRank — Fix V2
+# 1. Student Profile page — FULL RESTORE + studentId add
+# 2. Admin Profile View — setProfileLoading bug fix
+# ================================================================
+echo "🚀 ProveRank Fix V2 Starting..."
+echo "================================================"
+
+# ============================================================
+# FIX 1: STUDENT PROFILE PAGE — Full restore + studentId
+# ============================================================
+echo "📝 Fix 1: Profile page full restore + studentId..."
+
+cat > ~/workspace/frontend/app/dashboard/profile/page.tsx << 'PROFILEEOF'
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import DashLayout from '@/components/DashLayout'
@@ -323,3 +338,67 @@ export default function Profile() {
     </DashLayout>
   )
 }
+PROFILEEOF
+
+echo "✅ Fix 1 done — Profile page restored with studentId"
+
+# ============================================================
+# FIX 2: Admin Profile View — setProfileLoading bug (exact match)
+# ============================================================
+echo ""
+echo "🔧 Fix 2: Admin profile loading fix..."
+
+node << 'NODEOF'
+const fs = require('fs');
+const f = process.env.HOME + '/workspace/frontend/app/admin/x7k2p/page.tsx';
+let c = fs.readFileSync(f, 'utf8');
+
+// Exact string from terminal diagnosis output
+const OLD = 'if(d.success){setProfileAdmin(d.admin);setProfileLogs(d.activityLogs||[]);}catch(e){setProfileLoading(false);}';
+const NEW = 'if(d.success){setProfileAdmin(d.admin);setProfileLogs(d.activityLogs||[]);setProfileLoading(false);}catch(e){setProfileLoading(false);}';
+
+if(c.includes(OLD)){
+  fs.writeFileSync(f, c.replace(OLD, NEW));
+  console.log('✅ setProfileLoading bug fixed');
+} else {
+  // Try regex — handles any whitespace variation
+  const rx = /if\(d\.success\)\{setProfileAdmin\(d\.admin\);setProfileLogs\(d\.activityLogs\|\|\[\]\);\}catch\(e\)\{setProfileLoading\(false\);\}/;
+  if(rx.test(c)){
+    c = c.replace(rx, NEW);
+    fs.writeFileSync(f, c);
+    console.log('✅ Fixed via regex');
+  } else {
+    // Try alternate — with spaces
+    const rx2 = /if\s*\(\s*d\.success\s*\)\s*\{[^}]*setProfileAdmin\s*\(\s*d\.admin\s*\)\s*;[^}]*setProfileLogs\s*\([^)]*\)\s*;\s*\}\s*catch/;
+    const m = c.match(rx2);
+    if(m){
+      const fixed = m[0].replace(/(\}\s*)catch/, ';setProfileLoading(false);}catch');
+      c = c.replace(rx2, fixed);
+      fs.writeFileSync(f, c);
+      console.log('✅ Fixed via broad regex');
+    } else {
+      console.log('⚠️  Could not auto-fix. Manual fix needed:');
+      console.log('In viewAdminProfile function, inside if(d.success){...} block,');
+      console.log('add: setProfileLoading(false); before the closing }');
+    }
+  }
+}
+NODEOF
+
+# ============================================================
+# GIT PUSH
+# ============================================================
+echo ""
+echo "📦 Git push..."
+cd ~/workspace
+git add -A
+git commit -m "fix v2: restore full profile page with studentId + admin profile loading fix"
+git push origin main 2>&1 | tail -4
+
+echo ""
+echo "================================================"
+echo "✅ ALL DONE — Vercel deploy shuru ho gaya"
+echo "⏳ 2-3 min baad check karo:"
+echo "   Student Profile:  /dashboard/profile"
+echo "   Admin Panel:      /admin/x7k2p"
+echo "================================================"
