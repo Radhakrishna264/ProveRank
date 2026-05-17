@@ -530,7 +530,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
 
   // ══ FETCH ALL DATA ══
     const fetchArchivedAdmins=async()=>{try{const r=await fetch(API+'/api/admin/manage/archived',{headers:{Authorization:'Bearer '+token}});const d=await r.json();if(d.success)setArchivedAdmins(d.admins||d.data||[]);else setArchivedAdmins([]);}catch(e){}};
-  const viewAdminProfile=async(adminId:string)=>{setProfileLoading(true);setShowProfileModal(true);setProfileAdmin(null);setProfileLogs([]);try{const r=await fetch(API+'/api/admin/manage/profile/'+adminId,{headers:{Authorization:'Bearer '+token}});const d=await r.json();if(d.success){setProfileAdmin(d.admin);setProfileLogs(d.activityLogs||[]);}}catch(e){}setProfileLoading(false);};
+  const viewAdminProfile=async(adminId:string)=>{setProfileLoading(true);setShowProfileModal(true);setProfileAdmin(null);setProfileLogs([]);try{const r=await fetch(API+'/api/admin/manage/profile/'+adminId,{headers:{Authorization:'Bearer '+token}});const d=await r.json();setProfileLoading(false);if(d.success){setProfileAdmin(d.admin);setProfileLogs(d.activityLogs||[]);}else{setShowProfileModal(false);}}catch(e){}setProfileLoading(false);};
   const restoreAdmin=async(adminId:string)=>{if(!confirm('Restore admin?'))return;try{const r=await fetch(API+'/api/admin/manage/restore/'+adminId,{method:'PUT',headers:{Authorization:'Bearer '+token}});const d=await r.json();if(d.success){T('Restored! ✅','s');fetchArchivedAdmins();fetchAdmins();}else T(d.message||'Failed','e');}catch(e){}};
   const fetchAll=useCallback(async()=>{
     if(!token)return

@@ -254,7 +254,7 @@ router.get('/profile/me',verifyToken,async(req,res)=>{
   try{
     const admin=await User.findById(req.user.id);
     if(!admin)return res.status(404).json({success:false,message:'Not found'});
-    const perms=Object.fromEntries(admin.permissions||new Map());
+    const perms=admin.permissions instanceof Map ? Object.fromEntries(admin.permissions) : (admin.permissions||{});
     res.json({success:true,admin:{...admin.toObject(),permissions:perms}});
   }catch(e){res.status(500).json({success:false,message:e.message});}
 });
