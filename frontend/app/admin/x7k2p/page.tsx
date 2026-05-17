@@ -2013,6 +2013,68 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
                 </div>
               )}
 
+              
+              {/* ── ADMIN PROFILE MODAL ── */}
+              {showProfileModal&&(
+                <div onClick={()=>setShowProfileModal(false)} style={{position:'fixed' as const,top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.82)',backdropFilter:'blur(6px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:16}}>
+                  <div onClick={e=>e.stopPropagation()} style={{background:'linear-gradient(135deg,rgba(5,10,24,0.99),rgba(8,16,36,0.98))',border:'1.5px solid rgba(0,180,255,0.25)',borderRadius:20,padding:'28px 24px',maxWidth:520,width:'100%',maxHeight:'88vh',overflowY:'auto' as const,boxShadow:'0 24px 80px rgba(0,180,255,0.12)'}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+                      <div style={{fontWeight:800,fontSize:18,color:'#00B4FF',fontFamily:'Playfair Display,serif'}}>👤 Admin Profile</div>
+                      <button onClick={()=>setShowProfileModal(false)} style={{background:'rgba(255,71,87,0.12)',border:'1px solid rgba(255,71,87,0.3)',color:'#FF4757',borderRadius:8,padding:'4px 12px',cursor:'pointer',fontSize:13}}>✕ Close</button>
+                    </div>
+                    {profileLoading?(
+                      <div style={{textAlign:'center' as const,padding:'40px 0',color:'#4D9FFF',fontSize:14}}>⏳ Loading profile...</div>
+                    ):profileAdmin?(
+                      <div>
+                        <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:20,padding:16,background:'rgba(0,180,255,0.06)',borderRadius:14,border:'1px solid rgba(0,180,255,0.15)'}}>
+                          <div style={{width:60,height:60,background:'linear-gradient(135deg,rgba(0,180,255,0.2),rgba(77,159,255,0.3))',border:'2px solid rgba(0,180,255,0.4)',borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,fontWeight:900,color:'#00B4FF',flexShrink:0}}>{(profileAdmin.name||'A')[0].toUpperCase()}</div>
+                          <div>
+                            <div style={{fontWeight:700,fontSize:16,color:'#E8F4FF'}}>{profileAdmin.name||'—'}</div>
+                            <div style={{fontSize:12,color:'#6B8FAF',marginTop:3}}>{profileAdmin.email||'—'}</div>
+                            <div style={{marginTop:6,display:'flex',gap:6}}>
+                              <span style={{fontSize:10,background:'rgba(0,180,255,0.12)',color:'#00B4FF',borderRadius:20,padding:'2px 10px',fontWeight:600}}>{(profileAdmin.role||'admin').toUpperCase()}</span>
+                              <span style={{fontSize:10,background:profileAdmin.frozen?'rgba(255,165,0,0.12)':'rgba(0,220,130,0.12)',color:profileAdmin.frozen?'#FFA500':'#00DC82',borderRadius:20,padding:'2px 10px',fontWeight:600}}>{profileAdmin.frozen?'FROZEN':'ACTIVE'}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+                          {[['📧 Email',profileAdmin.email],['📱 Phone',profileAdmin.phone||'—'],['🗓️ Joined',profileAdmin.createdAt?new Date(profileAdmin.createdAt).toLocaleDateString('en-IN'):'—'],['🔐 2FA',profileAdmin.twoFactorEnabled?'Enabled':'Disabled']].map(([label,val])=>(
+                            <div key={label as string} style={{background:'rgba(0,10,28,0.6)',border:'1px solid rgba(0,180,255,0.1)',borderRadius:10,padding:'10px 12px'}}>
+                              <div style={{fontSize:10,color:'#6B8FAF',marginBottom:3}}>{label as string}</div>
+                              <div style={{fontSize:12,color:'#C8D8E8',fontWeight:600,wordBreak:'break-all' as const}}>{val as string}</div>
+                            </div>
+                          ))}
+                        </div>
+                        {profileAdmin.permissions&&Object.keys(profileAdmin.permissions).length>0&&(
+                          <div style={{marginBottom:16}}>
+                            <div style={{fontSize:12,color:'#6B8FAF',fontWeight:600,marginBottom:8}}>🔑 PERMISSIONS</div>
+                            <div style={{display:'flex',flexWrap:'wrap' as const,gap:6}}>
+                              {Object.entries(profileAdmin.permissions).filter(([,v])=>v).map(([k])=>(
+                                <span key={k} style={{fontSize:10,background:'rgba(0,180,255,0.1)',color:'#00B4FF',borderRadius:20,padding:'3px 10px',fontWeight:600}}>{k.replace(/_/g,' ')}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {profileLogs&&profileLogs.length>0&&(
+                          <div>
+                            <div style={{fontSize:12,color:'#6B8FAF',fontWeight:600,marginBottom:8}}>📋 RECENT ACTIVITY</div>
+                            <div style={{maxHeight:160,overflowY:'auto' as const,display:'flex',flexDirection:'column' as const,gap:6}}>
+                              {profileLogs.slice(0,10).map((log:any,i:number)=>(
+                                <div key={i} style={{background:'rgba(0,10,28,0.5)',border:'1px solid rgba(0,180,255,0.08)',borderRadius:8,padding:'8px 10px',fontSize:11}}>
+                                  <span style={{color:'#00B4FF',fontWeight:600}}>{log.action||log.type||'Action'}</span>
+                                  <span style={{color:'#4D6080',marginLeft:8}}>{log.createdAt?new Date(log.createdAt).toLocaleString('en-IN'):''}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ):(
+                      <div style={{textAlign:'center' as const,padding:'40px 0',color:'#FF4757',fontSize:13}}>❌ Failed to load profile. Please try again.</div>
+                    )}
+                  </div>
+                </div>
+              )}
               {/* ── DELETE CONFIRMATION MODAL (SuperAdmin only) ── */}
               {delConfirmId&&(
                 <div style={{position:'fixed' as const,top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.75)',backdropFilter:'blur(4px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:16}}>
