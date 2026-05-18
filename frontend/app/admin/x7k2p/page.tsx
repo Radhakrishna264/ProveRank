@@ -1050,7 +1050,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
 
   // ══ NAV ITEMS ══
   const NAV=[
-    {id:'myprofile',ico:'👤',lbl:'My Profile',grp:'Overview'},
+    {id:'myprofile',ico:'👤',lbl:'My Profile',grp:'Overview',alwaysShow:true},
     {id:'dashboard',ico:'📊',lbl:'Dashboard',grp:'Overview'},
     {id:'global_search',ico:'🔎',lbl:'Global Search',grp:'Overview'},
     {id:'live',ico:'🔴',lbl:'Live Monitor',grp:'Overview'},
@@ -1125,11 +1125,11 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
   }
   const ADMIN_HIDDEN=['admins','permissions','maintenance','changelog','tasks','parent_portal','transparency','omr_view','proct_pdf','retention','institute_report','re_eval','whatsapp_sms','email_tmpl','custom_fields','global_search','live']
   const filteredNAV=role==='superadmin'?NAV:(()=>{
-    const allowed=new Set(['dashboard'])
+    const allowed=new Set(['dashboard','myprofile'])
     Object.entries(adminOwnPerms).forEach(([perm,val])=>{
       if(val&&PERM_TO_NAV[perm]) PERM_TO_NAV[perm].forEach(t=>allowed.add(t))
     })
-    return NAV.filter(n=>allowed.has(n.id)&&!ADMIN_HIDDEN.includes(n.id))
+    return NAV.filter(n=>(n.alwaysShow||allowed.has(n.id))&&!ADMIN_HIDDEN.includes(n.id))
   })()
   const filteredNavGroups=[...new Set(filteredNAV.map(n=>n.grp))]
 
