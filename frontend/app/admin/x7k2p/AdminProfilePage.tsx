@@ -4,6 +4,13 @@ import { useState, useEffect, useRef } from 'react';
 interface Props { token: string; role: string; API: string; }
 
 export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
+
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(()=>{
+    const check=()=>setIsMobile(window.innerWidth<700);
+    check(); window.addEventListener('resize',check);
+    return()=>window.removeEventListener('resize',check);
+  },[]);
   const [token] = useState(()=> tk || (typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''));
   const [role] = useState(()=> rl || (typeof window!=='undefined'?localStorage.getItem('pr_role')||'':''));
   const [pd, setPd] = useState<any>(null);
@@ -94,7 +101,7 @@ export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
   );
 
   return (
-    <div style={{paddingBottom:40}}>
+    <div style={{paddingBottom:40,overflowX:'hidden',maxWidth:'100%'}}>
       <style>{`
         @keyframes ringPulse{0%,100%{box-shadow:0 0 15px ${ac}44}50%{box-shadow:0 0 35px ${ac}88,0 0 55px ${ac}33}}
         @keyframes idGlow{0%,100%{box-shadow:0 0 6px ${ac}44}50%{box-shadow:0 0 20px ${ac}99}}
@@ -135,7 +142,7 @@ export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
         </div>
       </div>
 
-      <div className="prof-grid">
+      <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'280px 1fr',gap:20}}>
 
         {/* ═══ LEFT PANEL ═══ */}
         <div style={{display:'flex',flexDirection:'column' as const,gap:16}}>
@@ -252,7 +259,7 @@ export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
                       {edit?'✕ Cancel':'✏️ Edit Profile'}
                     </button>
                   </div>
-                  <div className="info-grid" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:16}}>
+                  <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14,marginBottom:16}}>
                     {[{label:'Full Name',key:'name',icon:'👤'},{label:'Phone',key:'phone',icon:'📞'},{label:'City',key:'city',icon:'🏙️'},{label:'Bio',key:'bio',icon:'📝',full:true}].map(f=>(
                       <div key={f.key} style={{gridColumn:(f as any).full?'1/-1':'auto'}}>
                         <div style={{color:'rgba(255,255,255,0.38)',fontSize:10,marginBottom:6,letterSpacing:1.2,textTransform:'uppercase' as const}}>{f.icon} {f.label}</div>
@@ -267,7 +274,7 @@ export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
                       </div>
                     ))}
                   </div>
-                  <div className="info-grid" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+                  <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:12,marginBottom:20}}>
                     {[{l:'Email',v:pd?.email||'—',i:'📧'},{l:'Admin ID',v:adminId,i:'🪪'},{l:'Role',v:(pd?.role||'').toUpperCase(),i:'🎭'},{l:'Joined',v:pd?.createdAt?new Date(pd.createdAt).toLocaleDateString('en-IN'):'—',i:'📅'},{l:'2FA Status',v:pd?.twoFactorEnabled?'✅ Enabled':'❌ Disabled',i:'🛡️'},{l:'Sessions',v:`${lh.length} total`,i:'🔥'}].map(f=>(
                       <div key={f.l}>
                         <div style={{color:'rgba(255,255,255,0.32)',fontSize:10,marginBottom:5,letterSpacing:1.2,textTransform:'uppercase' as const}}>{f.i} {f.l}</div>
@@ -301,7 +308,7 @@ export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
                     <button onClick={changePw} style={{background:`rgba(${isSA?'0,180,255':'255,184,0'},0.1)`,border:`1px solid ${ac}44`,borderRadius:10,padding:'10px 22px',color:ac,cursor:'pointer',fontWeight:700,fontSize:13}}>🔑 Update Password</button>
                     {pwMsg&&<div style={{marginTop:10,fontSize:13,fontWeight:600,color:pwMsg.includes('✅')?'#00C48C':'#FF6B6B'}}>{pwMsg}</div>}
                   </div>
-                  <div className="sec-grid" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                  <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:12}}>
                     {[
                       {title:'2FA Status',val:pd?.twoFactorEnabled?'✅ Enabled':'❌ Disabled',icon:'🛡️',c:pd?.twoFactorEnabled?'#00C48C':'#FF6B35'},
                       {title:'Active Sessions',val:`${lh.length} recorded`,icon:'💻',c:'#4D9FFF'},
@@ -324,7 +331,7 @@ export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
               {tab==='activity'&&(
                 <div>
                   <div style={{color:'#ECF4FF',fontSize:15,fontWeight:700,marginBottom:18}}>📊 Activity Overview</div>
-                  <div className="act-grid" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:18}}>
+                  <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'repeat(3,1fr)',gap:12,marginBottom:18}}>
                     {[{l:'Total Logins',v:stats?.totalLogins??lh.length,i:'🔑',c:ac},{l:'Days Active',v:stats?.daysActive??'—',i:'📅',c:'#FFB800'},{l:'Exams Created',v:stats?.examsCreated??'—',i:'📝',c:'#00C48C'}].map(s=>(
                       <div key={s.l} style={{background:'rgba(255,255,255,0.04)',borderRadius:16,padding:'16px 10px',textAlign:'center' as const,border:'1px solid rgba(255,255,255,0.06)'}}>
                         <div style={{fontSize:24,marginBottom:7}}>{s.i}</div>
@@ -372,7 +379,7 @@ export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
                     <div>
                       <div style={{marginBottom:14,color:'rgba(255,255,255,0.4)',fontSize:13}}>Assigned by SuperAdmin:</div>
                       {pd?.permissions&&Object.keys(pd.permissions).length>0
-                        ? <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                        ? <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:10}}>
                             {Object.entries(pd.permissions).map(([k,v])=>(
                               <div key={k} style={{background:v?'rgba(0,196,140,0.07)':'rgba(255,77,77,0.05)',border:`1px solid ${v?'rgba(0,196,140,0.2)':'rgba(255,77,77,0.15)'}`,borderRadius:10,padding:'10px 12px',display:'flex',alignItems:'center',gap:8}}>
                                 <span>{v?'✅':'❌'}</span>
@@ -390,7 +397,7 @@ export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
           </div>
 
           {/* Science Facts Row */}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+          <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14}}>
             {[
               {title:'Atomic Structure',fact:'An atom is 99.99% empty space',svg:<svg viewBox="0 0 80 80" width="60" height="60"><circle cx="40" cy="40" r="8" fill={ac} opacity="0.9"/><ellipse cx="40" cy="40" rx="30" ry="12" stroke={ac} strokeWidth="1.5" fill="none" opacity="0.6"/><ellipse cx="40" cy="40" rx="30" ry="12" stroke={ac2} strokeWidth="1.5" fill="none" opacity="0.6" transform="rotate(60 40 40)"/><ellipse cx="40" cy="40" rx="30" ry="12" stroke={ac} strokeWidth="1.5" fill="none" opacity="0.6" transform="rotate(120 40 40)"/></svg>},
               {title:'Cell Nucleus',fact:'Human body has 37 trillion cells',svg:<svg viewBox="0 0 80 80" width="60" height="60"><ellipse cx="40" cy="40" rx="32" ry="24" stroke={ac} strokeWidth="2" fill="none" opacity="0.7"/><ellipse cx="40" cy="40" rx="16" ry="12" stroke={ac2} strokeWidth="1.5" fill={`${ac2}22`} opacity="0.8"/><circle cx="30" cy="30" r="3" fill={ac} opacity="0.6"/><circle cx="52" cy="48" r="2.5" fill={ac2} opacity="0.6"/><circle cx="48" cy="28" r="2" fill={ac} opacity="0.5"/></svg>},
@@ -406,7 +413,7 @@ export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
           {/* Platform Stats Banner */}
           <div style={{...gc,padding:'18px 20px',background:`linear-gradient(135deg,rgba(${isSA?'0,180,255':'255,184,0'},0.05),rgba(${isSA?'123,47,255':'255,107,53'},0.05))`}}>
             <div style={{color:'rgba(255,255,255,0.38)',fontSize:10,letterSpacing:2.5,fontWeight:700,marginBottom:14,textTransform:'uppercase' as const}}>🚀 Platform Contribution</div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,textAlign:'center' as const}}>
+            <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(3,1fr)':'repeat(3,1fr)',gap:isMobile?8:12,textAlign:'center' as const}}>
               {[{l:'Exams',v:stats?.examsCreated??'0',c:ac},{l:'Students Served',v:stats?.studentsCount??'0',c:'#00C48C'},{l:'Login Streak',v:`${lh.length}`,c:'#FFB800'}].map(s=>(
                 <div key={s.l}>
                   <div style={{color:s.c,fontSize:22,fontWeight:800}}>{s.v}</div>
