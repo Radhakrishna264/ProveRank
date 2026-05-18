@@ -1,0 +1,386 @@
+#!/bin/bash
+# Fix#5 — Profile Page Ultra Premium Redesign
+# Upload this file to Replit Shell and run: bash fix5_profile_redesign.sh
+
+TARGET="/home/runner/workspace/frontend/app/profile/page.tsx"
+
+cat > "$TARGET" << 'PROFILE_EOF'
+'use client'
+import CopyBtn from '@/components/CopyBtn'
+import { useState, useEffect } from 'react'
+import StudentShell, { useShell, C } from '@/src/components/StudentShell'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
+
+const inp:any={width:'100%',padding:'12px 15px',background:'rgba(0,22,40,.88)',border:'1.5px solid rgba(77,159,255,.25)',borderRadius:11,color:'#E8F4FF',fontSize:13,fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box',transition:'border-color .2s'}
+
+const DNAsvg=()=>(
+  <svg width="80" height="120" viewBox="0 0 80 120" fill="none" style={{animation:'float 5s ease-in-out infinite',opacity:.1}}>
+    <path d="M10 10 Q40 25 70 10" stroke="#4D9FFF" strokeWidth="2" fill="none"/>
+    <path d="M10 30 Q40 45 70 30" stroke="#FFD700" strokeWidth="2" fill="none"/>
+    <path d="M10 50 Q40 65 70 50" stroke="#4D9FFF" strokeWidth="2" fill="none"/>
+    <path d="M10 70 Q40 85 70 70" stroke="#FFD700" strokeWidth="2" fill="none"/>
+    <path d="M10 90 Q40 105 70 90" stroke="#4D9FFF" strokeWidth="2" fill="none"/>
+    <path d="M10 110 Q40 125 70 110" stroke="#FFD700" strokeWidth="2" fill="none"/>
+    <line x1="10" y1="10" x2="10" y2="110" stroke="#4D9FFF" strokeWidth="1.5" strokeOpacity=".4"/>
+    <line x1="70" y1="10" x2="70" y2="110" stroke="#4D9FFF" strokeWidth="1.5" strokeOpacity=".4"/>
+    <circle cx="10" cy="10" r="4" fill="#4D9FFF" opacity=".8"/><circle cx="70" cy="10" r="4" fill="#FFD700" opacity=".8"/>
+    <circle cx="10" cy="30" r="4" fill="#FFD700" opacity=".8"/><circle cx="70" cy="30" r="4" fill="#4D9FFF" opacity=".8"/>
+    <circle cx="10" cy="50" r="4" fill="#4D9FFF" opacity=".8"/><circle cx="70" cy="50" r="4" fill="#FFD700" opacity=".8"/>
+    <circle cx="10" cy="70" r="4" fill="#FFD700" opacity=".8"/><circle cx="70" cy="70" r="4" fill="#4D9FFF" opacity=".8"/>
+    <circle cx="10" cy="90" r="4" fill="#4D9FFF" opacity=".8"/><circle cx="70" cy="90" r="4" fill="#FFD700" opacity=".8"/>
+  </svg>
+)
+
+const AtomSVG=()=>(
+  <svg width="44" height="44" viewBox="0 0 60 60" fill="none" style={{animation:'spin 14s linear infinite',opacity:.7}}>
+    <ellipse cx="30" cy="30" rx="28" ry="11" stroke="#A78BFA" strokeWidth="1.5"/>
+    <ellipse cx="30" cy="30" rx="28" ry="11" stroke="#4D9FFF" strokeWidth="1.5" transform="rotate(60 30 30)"/>
+    <ellipse cx="30" cy="30" rx="28" ry="11" stroke="#00C48C" strokeWidth="1.5" transform="rotate(120 30 30)"/>
+    <circle cx="30" cy="30" r="4" fill="#FFD700"/>
+  </svg>
+)
+
+function ProfileContent(){
+  const{lang,darkMode:dm,user,toast,token}=useShell()
+  const[tab,setTab]=useState<'personal'|'security'|'prefs'>('personal')
+  const[saved,setSaved]=useState(false)
+  const[editing,setEditing]=useState(true)
+  const[saving,setSaving]=useState(false)
+  const[name,setName]=useState('')
+  const[phone,setPhone]=useState('')
+  const[dob,setDob]=useState('')
+  const[city,setCity]=useState('')
+  const[target,setTarget]=useState('NEET 2027')
+  const[board,setBoard]=useState('')
+  const[school,setSchool]=useState('')
+  const[bio,setBio]=useState('')
+  const[avatar,setAvatar]=useState('')
+  const[cp,setCp]=useState('');const[np,setNp]=useState('');const[cnp,setCnp]=useState('')
+  const t=(en:string,hi:string)=>lang==='en'?en:hi
+
+  useEffect(()=>{
+    if(user){
+      setName(user.name||'');setPhone(user.phone||'')
+      setDob(user.dob||'');setCity(user.city||'')
+      setTarget(user.targetExam||'NEET 2027')
+      setBoard(user.board||'');setSchool(user.school||'')
+      setBio(user.bio||'');setAvatar(user.avatar||'')
+    }
+  },[user])
+
+  const save=async()=>{
+    if(!token)return;setSaving(true)
+    try{
+      const r=await fetch(`${API}/api/auth/me`,{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({name,phone,dob,city,targetExam:target,board,school,bio})})
+      if(r.ok){toast(t('✅ Profile saved!','✅ प्रोफ़ाइल सहेजी!'),'s');setSaved(true);setEditing(false)}
+      else toast(t('Failed to save','सहेजने में विफल'),'e')
+    }catch{toast('Network error','e')}
+    setSaving(false)
+  }
+
+  const changePass=async()=>{
+    if(np!==cnp){toast(t('Passwords do not match','पासवर्ड मेल नहीं खाते'),'e');return}
+    if(!np.trim()){toast(t('Enter new password','नया पासवर्ड दर्ज करें'),'e');return}
+    try{
+      const r=await fetch(`${API}/api/auth/change-password`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({currentPassword:cp,newPassword:np})})
+      if(r.ok){toast(t('Password changed!','पासवर्ड बदल गया!'),'s');setCp('');setNp('');setCnp('')}
+      else{const d=await r.json();toast(d.message||'Failed','e')}
+    }catch{toast('Network error','e')}
+  }
+
+  const uploadAvatar=(e:React.ChangeEvent<HTMLInputElement>)=>{
+    const file=e.target.files?.[0];if(!file)return
+    const reader=new FileReader()
+    reader.onload=(ev)=>{setAvatar(ev.target?.result as string);setEditing(true);setSaved(false)}
+    reader.readAsDataURL(file)
+  }
+
+  const TABS=[
+    {key:'personal' as const,icon:'👤',label:t('Personal','व्यक्तिगत')},
+    {key:'security' as const,icon:'🔒',label:t('Security','सुरक्षा')},
+    {key:'prefs' as const,icon:'⚙️',label:t('Preferences','प्राथमिकताएं')},
+  ]
+
+  return(
+    <div style={{animation:'fadeIn .4s ease'}}>
+
+      {/* ── Page Header ── */}
+      <div style={{marginBottom:22}}>
+        <h1 style={{fontFamily:'Playfair Display,serif',fontSize:27,fontWeight:700,background:`linear-gradient(90deg,${C.primary},#fff,${C.gold})`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',margin:'0 0 5px'}}>
+          👤 {t('My Profile','मेरी प्रोफ़ाइल')}
+        </h1>
+        <div style={{fontSize:13,color:C.sub}}>{t('Manage your identity, security & study preferences','अपनी पहचान, सुरक्षा और अध्ययन प्राथमिकताएं प्रबंधित करें')}</div>
+      </div>
+
+      {/* ── Hero Card ── */}
+      <div style={{background:'linear-gradient(145deg,rgba(13,17,30,0.97),rgba(6,22,44,0.96))',border:'1px solid rgba(212,175,55,0.28)',borderRadius:22,padding:'24px 22px',marginBottom:20,position:'relative',overflow:'hidden',boxShadow:'0 8px 40px rgba(0,0,0,.3),0 0 0 1px rgba(77,159,255,.07)'}}>
+        {/* Gold top line */}
+        <div style={{position:'absolute',top:0,left:'10%',right:'10%',height:'2px',background:'linear-gradient(90deg,transparent,#D4AF37,#FFD700,#D4AF37,transparent)'}}/>
+        {/* DNA BG decoration */}
+        <div style={{position:'absolute',right:-4,top:'50%',transform:'translateY(-50%)'}}>
+          <DNAsvg/>
+        </div>
+
+        <div style={{display:'flex',gap:20,alignItems:'flex-start',flexWrap:'wrap'}}>
+          {/* Avatar */}
+          <div style={{position:'relative',flexShrink:0}}>
+            <div style={{width:86,height:86,borderRadius:'50%',overflow:'hidden',border:'3px solid rgba(212,175,55,.45)',boxShadow:'0 0 28px rgba(212,175,55,.18),0 0 14px rgba(77,159,255,.12)',background:`linear-gradient(135deg,${C.primary},#0055CC)`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+              {avatar
+                ?<img src={avatar} alt="avatar" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                :<span style={{fontSize:34,fontWeight:900,color:'#fff'}}>{(user?.name||'S').charAt(0).toUpperCase()}</span>
+              }
+            </div>
+            <label style={{position:'absolute',bottom:-2,right:-2,width:28,height:28,borderRadius:'50%',background:`linear-gradient(135deg,${C.primary},#0055CC)`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',border:'2px solid #050C1A',boxShadow:'0 2px 8px rgba(77,159,255,.35)'}}>
+              <span style={{fontSize:13}}>📷</span>
+              <input type="file" accept="image/*" onChange={uploadAvatar} style={{display:'none'}}/>
+            </label>
+          </div>
+
+          {/* Info */}
+          <div style={{flex:1,minWidth:180}}>
+            <div style={{fontSize:21,fontWeight:800,fontFamily:'Playfair Display,serif',background:`linear-gradient(90deg,#E8F4FF,${C.primary})`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',marginBottom:3}}>
+              {user?.name||t('Student','छात्र')}
+            </div>
+            <div style={{fontSize:12,color:C.sub,marginBottom:8}}>{user?.email||''}</div>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:7}}>
+              <span style={{fontSize:10,padding:'3px 10px',borderRadius:20,background:'rgba(77,159,255,.14)',color:C.primary,fontWeight:700,border:'1px solid rgba(77,159,255,.2)'}}>🎓 {t('Student','छात्र')}</span>
+              {(user?.emailVerified||user?.verified)&&<span style={{fontSize:10,padding:'3px 10px',borderRadius:20,background:'rgba(0,196,140,.12)',color:C.success,fontWeight:700,border:'1px solid rgba(0,196,140,.2)'}}>✓ {t('Verified','सत्यापित')}</span>}
+              <span style={{fontSize:10,padding:'3px 10px',borderRadius:20,background:'rgba(255,215,0,.09)',color:C.gold,fontWeight:700,border:'1px solid rgba(255,215,0,.2)'}}>⚡ {target||'NEET 2027'}</span>
+            </div>
+            <div style={{fontSize:10,color:C.sub}}>{t('Member since','सदस्य बने')}: {user?.createdAt?new Date(user.createdAt).toLocaleDateString('en-IN',{month:'long',year:'numeric'}):''}</div>
+          </div>
+
+          {/* Edit btn */}
+          <div style={{flexShrink:0}}>
+            {saved&&!editing?(
+              <button onClick={()=>{setEditing(true);setSaved(false)}} className="btn-g">✏️ {t('Edit Profile','प्रोफ़ाइल संपादित करें')}</button>
+            ):(
+              <div style={{fontSize:11,color:C.sub,textAlign:'center'}}>
+                <div style={{fontSize:20,marginBottom:4}}>✏️</div>
+                <div>{t('Edit below','नीचे संपादित करें')}</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Student ID — Premium Silver Card ── */}
+        {user?.studentId&&(
+          <div style={{marginTop:18,background:'linear-gradient(135deg,rgba(192,192,192,.06),rgba(255,255,255,.02))',border:'1px solid rgba(192,192,192,.2)',borderRadius:13,padding:'13px 16px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',boxShadow:'0 0 24px rgba(192,192,192,.04)'}}>
+            <div style={{flexShrink:0}}>
+              <div style={{fontSize:10,color:'#6B8FAF',letterSpacing:'2px',textTransform:'uppercase',marginBottom:5,fontWeight:700}}>🪪 Student ID</div>
+              <div style={{fontSize:23,fontWeight:900,fontFamily:'monospace',letterSpacing:'4px',background:'linear-gradient(135deg,#AAAAAA,#FFFFFF,#CCCCCC)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
+                {user.studentId}
+              </div>
+            </div>
+            <div style={{marginLeft:'auto'}}>
+              <CopyBtn text={user.studentId} size="md" label="Copy ID"/>
+            </div>
+            <div style={{width:'100%',fontSize:10,color:'#3A5070'}}>
+              {t('This ID is unique to your account. Save it for admit cards & support.','यह ID आपके अकाउंट के लिए अद्वितीय है। एडमिट कार्ड और सपोर्ट के लिए सहेजें।')}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Quote Card ── */}
+      <div style={{background:'linear-gradient(135deg,rgba(77,159,255,.06),rgba(167,139,250,.04))',border:'1px solid rgba(77,159,255,.14)',borderRadius:14,padding:'13px 18px',marginBottom:20,display:'flex',gap:12,alignItems:'center'}}>
+        <span style={{fontSize:22,flexShrink:0}}>💎</span>
+        <div style={{fontSize:12.5,color:C.primary,fontStyle:'italic',fontWeight:600}}>
+          {t('"Know yourself, improve yourself — your profile is your foundation."','"खुद को जानो, खुद को बेहतर बनाओ — आपकी प्रोफ़ाइल आपकी नींव है।"')}
+        </div>
+      </div>
+
+      {/* ── Tab Bar ── */}
+      <div style={{display:'flex',gap:8,marginBottom:20}}>
+        {TABS.map(tb=>(
+          <button key={tb.key} onClick={()=>setTab(tb.key)} style={{
+            flex:1,padding:'11px 6px',textAlign:'center',fontSize:12,
+            fontWeight:tab===tb.key?700:500,
+            background:tab===tb.key?`linear-gradient(135deg,${C.primary},#0044BB)`:'rgba(0,22,40,.75)',
+            color:tab===tb.key?'#fff':C.sub,
+            border:tab===tb.key?'1px solid rgba(77,159,255,.5)':'1px solid rgba(77,159,255,.12)',
+            borderRadius:12,cursor:'pointer',fontFamily:'Inter,sans-serif',transition:'all .25s',
+            boxShadow:tab===tb.key?'0 4px 16px rgba(77,159,255,.22)':'none'
+          }}>
+            {tb.icon} {tb.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Personal Tab ── */}
+      {tab==='personal'&&(
+        <div style={{background:dm?C.card:C.cardL,border:`1px solid ${C.border}`,borderRadius:18,padding:22,backdropFilter:'blur(14px)',boxShadow:'0 4px 24px rgba(0,0,0,.14)'}}>
+          <div style={{fontSize:13,fontWeight:700,color:C.primary,marginBottom:16,display:'flex',alignItems:'center',gap:8}}>
+            <span>👤</span> {t('Personal Information','व्यक्तिगत जानकारी')}
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+            <div style={{gridColumn:'1/-1'}}>
+              <label style={{fontSize:11,color:C.primary,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.5}}>{t('Full Name *','पूरा नाम *')}</label>
+              <input value={name} onChange={e=>{setName(e.target.value);setSaved(false);setEditing(true)}} style={inp} placeholder={t('Your full name','आपका पूरा नाम')}/>
+            </div>
+            <div>
+              <label style={{fontSize:11,color:C.primary,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.5}}>{t('Email','ईमेल')}</label>
+              <input value={user?.email||''} disabled style={{...inp,opacity:.5,cursor:'not-allowed'}}/>
+            </div>
+            <div>
+              <label style={{fontSize:11,color:C.primary,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.5}}>{t('Mobile Number','मोबाइल नंबर')}</label>
+              <input value={phone} onChange={e=>{setPhone(e.target.value);setSaved(false);setEditing(true)}} style={inp} placeholder="+91 XXXXX XXXXX"/>
+            </div>
+            <div>
+              <label style={{fontSize:11,color:C.primary,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.5}}>{t('Date of Birth','जन्म तारीख')}</label>
+              <input type="date" value={dob} onChange={e=>{setDob(e.target.value);setSaved(false);setEditing(true)}} style={inp}/>
+            </div>
+            <div>
+              <label style={{fontSize:11,color:C.primary,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.5}}>{t('City / State','शहर / राज्य')}</label>
+              <input value={city} onChange={e=>{setCity(e.target.value);setSaved(false);setEditing(true)}} style={inp} placeholder={t('e.g. Delhi, UP','जैसे दिल्ली, UP')}/>
+            </div>
+            <div style={{gridColumn:'1/-1',paddingTop:10,borderTop:`1px solid ${C.border}`,marginTop:4}}>
+              <div style={{fontSize:12,fontWeight:700,marginBottom:12,background:`linear-gradient(90deg,${C.gold},#FFF0AA)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
+                📚 {t('Study Information','अध्ययन जानकारी')}
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                <div>
+                  <label style={{fontSize:11,color:C.primary,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.5}}>{t('Target Exam','लक्ष्य परीक्षा')}</label>
+                  <select value={target} onChange={e=>{setTarget(e.target.value);setSaved(false);setEditing(true)}} style={{...inp}}>
+                    <option value="NEET 2027">NEET 2027</option>
+                    <option value="NEET PG">NEET PG</option>
+                    <option value="JEE 2027">JEE 2027</option>
+                    <option value="CUET">CUET</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{fontSize:11,color:C.primary,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.5}}>{t('Board','बोर्ड')}</label>
+                  <select value={board} onChange={e=>{setBoard(e.target.value);setSaved(false);setEditing(true)}} style={{...inp}}>
+                    <option value="">Select Board</option>
+                    <option value="CBSE">CBSE</option>
+                    <option value="ICSE">ICSE</option>
+                    <option value="UP Board">UP Board</option>
+                    <option value="MP Board">MP Board</option>
+                    <option value="Rajasthan Board">Rajasthan Board</option>
+                    <option value="Other">Other State Board</option>
+                  </select>
+                </div>
+                <div style={{gridColumn:'1/-1'}}>
+                  <label style={{fontSize:11,color:C.primary,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.5}}>{t('School / College','स्कूल / कॉलेज')}</label>
+                  <input value={school} onChange={e=>{setSchool(e.target.value);setSaved(false);setEditing(true)}} style={inp} placeholder={t('Your school or coaching name','आपके स्कूल या कोचिंग का नाम')}/>
+                </div>
+                <div style={{gridColumn:'1/-1'}}>
+                  <label style={{fontSize:11,color:C.primary,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.5}}>{t('Short Bio','संक्षिप्त परिचय')}</label>
+                  <textarea value={bio} onChange={e=>{setBio(e.target.value);setSaved(false);setEditing(true)}} rows={2} placeholder={t('Tell us a little about yourself...','अपने बारे में थोड़ा बताएं...')} style={{...inp,resize:'vertical'}}/>
+                </div>
+              </div>
+            </div>
+          </div>
+          {!saved?(
+            <button onClick={save} disabled={saving} className="btn-p" style={{marginTop:18,width:'100%',opacity:saving?.7:1}}>
+              {saving?'⟳ Saving...':t('💾 Save Changes','💾 बदलाव सहेजें')}
+            </button>
+          ):(
+            <div style={{marginTop:18,padding:'12px',background:'rgba(0,196,140,.08)',border:'1px solid rgba(0,196,140,.25)',borderRadius:10,textAlign:'center',color:C.success,fontWeight:600,fontSize:13}}>
+              ✅ {t('Profile saved! Click "Edit Profile" to make changes.','प्रोफ़ाइल सहेजी! बदलाव के लिए "प्रोफ़ाइल संपादित करें" पर क्लिक करें।')}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Security Tab ── */}
+      {tab==='security'&&(
+        <div style={{background:dm?C.card:C.cardL,border:`1px solid ${C.border}`,borderRadius:18,padding:22,backdropFilter:'blur(14px)'}}>
+          <div style={{fontSize:13,fontWeight:700,color:C.primary,marginBottom:16}}>🔒 {t('Change Password','पासवर्ड बदलें')}</div>
+          {([[t('Current Password','वर्तमान पासवर्ड'),cp,setCp],[t('New Password','नया पासवर्ड'),np,setNp],[t('Confirm New Password','नया पासवर्ड दोबारा'),cnp,setCnp]]as any[]).map(([l,v,s]:any,i:number)=>(
+            <div key={i} style={{marginBottom:14}}>
+              <label style={{fontSize:11,color:C.primary,fontWeight:600,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.5}}>{l}</label>
+              <input type="password" value={v} onChange={e=>s(e.target.value)} style={inp} placeholder="••••••••"/>
+            </div>
+          ))}
+          <button onClick={changePass} className="btn-p" style={{width:'100%'}}>{t('🔒 Change Password','🔒 पासवर्ड बदलें')}</button>
+          <div style={{marginTop:16,padding:'14px 16px',background:'rgba(77,159,255,.05)',borderRadius:12,border:`1px solid ${C.border}`}}>
+            <div style={{fontWeight:700,fontSize:12,color:dm?C.text:C.textL,marginBottom:8}}>🔐 {t('Security Tips','सुरक्षा सुझाव')}</div>
+            {(lang==='en'
+              ?['Use at least 8 characters with numbers & symbols','Never share your password with anyone','Change password every 3 months']
+              :['कम से कम 8 अक्षर, संख्याएं और प्रतीकों का उपयोग करें','अपना पासवर्ड कभी भी किसी के साथ साझा न करें','हर 3 महीने में पासवर्ड बदलें']
+            ).map((tip,i)=>(
+              <div key={i} style={{fontSize:11,color:C.sub,marginBottom:4,display:'flex',gap:6}}>
+                <span style={{color:C.success}}>✓</span>{tip}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Preferences Tab ── */}
+      {tab==='prefs'&&(
+        <div style={{background:dm?C.card:C.cardL,border:`1px solid ${C.border}`,borderRadius:18,padding:22,backdropFilter:'blur(14px)'}}>
+          <div style={{fontSize:13,fontWeight:700,color:C.primary,marginBottom:16}}>⚙️ {t('Notification Preferences','सूचना प्राथमिकताएं')}</div>
+          {([
+            {l:t('Email Notifications','ईमेल सूचनाएं'),d:t('Exam reminders and result alerts via email','ईमेल पर परीक्षा अनुस्मारक और परिणाम अलर्ट'),on:true},
+            {l:t('SMS Notifications','SMS सूचनाएं'),d:t('Get results and updates via SMS','SMS पर परिणाम और अपडेट पाएं'),on:false},
+            {l:t('Study Reminders','अध्ययन अनुस्मारक'),d:t('Daily study reminder notifications','दैनिक अध्ययन अनुस्मारक'),on:true}
+          ]).map((p,i)=>(
+            <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 0',borderBottom:`1px solid ${C.border}`}}>
+              <div>
+                <div style={{fontSize:13,fontWeight:600,color:dm?C.text:C.textL}}>{p.l}</div>
+                <div style={{fontSize:11,color:C.sub,marginTop:2}}>{p.d}</div>
+              </div>
+              <div style={{width:46,height:26,borderRadius:13,background:p.on?`linear-gradient(90deg,${C.success},#00a87a)`:'rgba(255,255,255,.1)',cursor:'pointer',position:'relative',flexShrink:0,transition:'background .3s'}}>
+                <span style={{position:'absolute',top:3,left:p.on?22:3,width:20,height:20,borderRadius:'50%',background:'#fff',display:'block',boxShadow:'0 1px 4px rgba(0,0,0,.3)',transition:'left .3s'}}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Login History ── */}
+      {user?.loginHistory?.length>0&&(
+        <div style={{background:dm?C.card:C.cardL,border:`1px solid ${C.border}`,borderRadius:16,padding:18,backdropFilter:'blur(14px)',marginTop:16}}>
+          <div style={{fontWeight:700,fontSize:13,color:dm?C.text:C.textL,marginBottom:12}}>🕐 {t('Recent Login Activity','हालिया लॉगिन गतिविधि')}</div>
+          {user.loginHistory.slice(-5).reverse().map((l:any,i:number)=>(
+            <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:`1px solid ${C.border}`,fontSize:11}}>
+              <span style={{color:C.sub}}>📍 {l.city||'Unknown'} · {l.device||'Web'}</span>
+              <span style={{color:C.sub}}>{l.at?new Date(l.at).toLocaleString('en-IN',{dateStyle:'short',timeStyle:'short'}):''}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Science Fact + Motivational ── */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:16}}>
+        <div style={{background:'linear-gradient(135deg,rgba(77,159,255,.07),rgba(0,22,40,.88))',border:'1px solid rgba(77,159,255,.14)',borderRadius:14,padding:16}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+            <AtomSVG/>
+            <div style={{fontSize:10,color:C.primary,fontWeight:700,textTransform:'uppercase',letterSpacing:.8}}>⚗️ Science Fact</div>
+          </div>
+          <div style={{fontSize:11.5,color:C.sub,lineHeight:1.55}}>
+            {t('Human DNA stretched out would reach from Earth to the Sun and back ~600 times!','मानव DNA को खोलें तो पृथ्वी से सूर्य तक ~600 बार जा सकता है!')}
+          </div>
+        </div>
+        <div style={{background:'linear-gradient(135deg,rgba(167,139,250,.08),rgba(0,22,40,.88))',border:'1px solid rgba(167,139,250,.18)',borderRadius:14,padding:16}}>
+          <svg width="36" height="36" viewBox="0 0 60 60" fill="none" style={{animation:'float 4s ease-in-out infinite',marginBottom:8}}>
+            <circle cx="30" cy="30" r="28" stroke="#A78BFA" strokeWidth="1.5" strokeDasharray="5 4"/>
+            <path d="M30 10 L34 22H47L37 30L41 42L30 34L19 42L23 30L13 22H26Z" fill="none" stroke="#A78BFA" strokeWidth="1.5"/>
+            <path d="M30 16 L33 24H40L35 28L37 36L30 32L23 36L25 28L20 24H27Z" fill="rgba(167,139,250,0.25)"/>
+          </svg>
+          <div style={{fontSize:11.5,color:C.purple,fontStyle:'italic',fontWeight:700,lineHeight:1.55}}>
+            {t('"Your profile reflects your dedication — keep it complete!"','"आपकी प्रोफ़ाइल आपकी लगन को दर्शाती है!"')}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  )
+}
+
+export default function ProfilePage(){
+  return <StudentShell pageKey="profile"><ProfileContent/></StudentShell>
+}
+PROFILE_EOF
+
+echo "✅ Profile page written successfully!"
+echo "Now running git push..."
+
+cd /home/runner/workspace
+git add frontend/app/profile/page.tsx
+git commit -m "Fix#5: Ultra Premium Profile Page Redesign - NEET 2027, Student ID silver card, DNA/Atom SVG"
+git push origin main
+
+echo "✅ Done! Vercel will auto-deploy in ~2 minutes."

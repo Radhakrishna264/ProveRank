@@ -20,12 +20,13 @@ router.post('/create-admin', verifyToken, isSuperAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Yeh email already registered hai' });
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const _sid = await generateStudentId();
+    const adminId = await generateAdminId();
   const newUser = await User.create({
       name, email,
       password: hashedPassword,
       role: 'admin',
       verified: true,
+      adminId,
       permissions: permissions || {},
     });
 
