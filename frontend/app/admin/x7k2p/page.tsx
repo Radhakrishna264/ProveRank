@@ -2151,7 +2151,8 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
                                 {s.banned&&<span style={{fontSize:9,background:'rgba(255,71,87,0.15)',color:'#FF4757',padding:'1px 6px',borderRadius:5,border:'1px solid rgba(255,71,87,0.3)'}}>BANNED</span>}
                                 {s.group&&<span style={{fontSize:9,background:'rgba(255,215,0,0.12)',color:'#FFD700',padding:'1px 6px',borderRadius:5,border:'1px solid rgba(255,215,0,0.25)'}}>{s.group}</span>}
                               </div>
-                              <div style={{fontSize:11,color:'#8899AA'}}>{s.email}</div>
+                              {(s as any).studentId&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginBottom:3,padding:'2px 8px',background:'rgba(77,159,255,0.08)',borderRadius:5,border:'1px solid rgba(77,159,255,0.18)',width:'fit-content'}}><span style={{fontSize:9,fontWeight:800,color:'#4D9FFF',fontFamily:'monospace',letterSpacing:1.5}}>{(s as any).studentId}</span><CopyBtn text={(s as any).studentId} size="sm"/></div>}
+                <div style={{fontSize:11,color:'#8899AA'}}>{s.email}</div>
                               <div style={{display:'flex',gap:10,marginTop:2,fontSize:10,color:'#8899AA',flexWrap:'wrap' as const}}>
                                 {s.phone&&<span>📱 {s.phone}</span>}
                                 <span>📅 {s.createdAt?new Date(s.createdAt).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'-'}</span>
