@@ -169,10 +169,7 @@ export default function AdminProfilePage({ token, role, API }: Props) {
 
   return (
     <div style={{paddingBottom:40}}>
-      {/* ── SIGNATURE WATERMARK ── */}
-      <div style={{position:'relative' as const,height:170,marginBottom:28,display:'flex',alignItems:'center',justifyContent:'center',background:'none',border:'none'}}>
-        {isSA ? <PraveenSVG/> : <AdminSVG name={nm.split(' ')[0]||'Admin'}/>}
-      </div>
+
 
       {/* ── SPLIT LAYOUT ── */}
       <div style={{display:'grid',gridTemplateColumns:'clamp(240px,28%,300px) 1fr',gap:20}}>
