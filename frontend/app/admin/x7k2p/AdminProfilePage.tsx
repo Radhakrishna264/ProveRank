@@ -101,7 +101,7 @@ export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
   );
 
   return (
-    <div style={{paddingBottom:40,overflowX:'hidden',maxWidth:'100%'}}>
+    <div style={{paddingBottom:40,overflowX:'hidden',maxWidth:'100%',width:'100%'}}>
       <style>{`
         @keyframes ringPulse{0%,100%{box-shadow:0 0 15px ${ac}44}50%{box-shadow:0 0 35px ${ac}88,0 0 55px ${ac}33}}
         @keyframes idGlow{0%,100%{box-shadow:0 0 6px ${ac}44}50%{box-shadow:0 0 20px ${ac}99}}
@@ -123,7 +123,7 @@ export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
       {/* ── HERO COVER BANNER ── */}
       <div style={{...gc,padding:'28px 24px',marginBottom:20,position:'relative' as const,overflow:'hidden',minHeight:90}}>
         {/* Animated BG elements */}
-        <svg style={{position:'absolute' as const,right:0,top:0,opacity:0.07,width:220,height:120}} viewBox="0 0 220 120">
+        <svg style={{position:'absolute' as const,right:0,top:0,opacity:0.07,width:isMobile?120:220,height:120}} viewBox="0 0 220 120">
           <circle cx="180" cy="30" r="70" fill={ac}/>
           <circle cx="60" cy="100" r="40" fill={ac2}/>
         </svg>
@@ -142,10 +142,10 @@ export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
         </div>
       </div>
 
-      <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'280px 1fr',gap:20}}>
+      <div style={{display:isMobile?'flex':'grid',flexDirection:'column' as const,gridTemplateColumns:'280px 1fr',gap:20}}>
 
         {/* ═══ LEFT PANEL ═══ */}
-        <div style={{display:'flex',flexDirection:'column' as const,gap:16}}>
+        <div style={{display:'flex',flexDirection:'column' as const,gap:16,order:isMobile?2:1,width:isMobile?'100%':'280px'}}>
 
           {/* Avatar Card */}
           <div style={{...gc,padding:'28px 20px 22px',textAlign:'center' as const}}>
@@ -230,7 +230,7 @@ export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
           {/* Motivational Quote */}
           <div style={{...gc,padding:'18px 16px',background:`linear-gradient(135deg,rgba(${isSA?'0,180,255':'255,184,0'},0.06),rgba(${isSA?'123,47,255':'255,107,53'},0.06))`}}>
             <div style={{color:ac,fontSize:24,marginBottom:10,textAlign:'center' as const}}>💡</div>
-            <div style={{color:'rgba(255,255,255,0.7)',fontSize:13,fontStyle:'italic',textAlign:'center' as const,lineHeight:1.7,marginBottom:8}}>
+            <div style={{color:'rgba(255,255,255,0.7)',fontSize:13,fontStyle:'italic',textAlign:'center' as const,lineHeight:1.7,marginBottom:8,wordBreak:'break-word' as const,overflow:'hidden'}}>
               "The secret of getting ahead is getting started."
             </div>
             <div style={{color:'rgba(255,255,255,0.3)',fontSize:11,textAlign:'center' as const}}>— Mark Twain</div>
@@ -238,10 +238,10 @@ export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
         </div>
 
         {/* ═══ RIGHT PANEL ═══ */}
-        <div style={{display:'flex',flexDirection:'column' as const,gap:16}}>
+        <div style={{display:'flex',flexDirection:'column' as const,gap:16,order:isMobile?1:2,width:'100%',minWidth:0}}>
 
           {/* Tabs */}
-          <div style={{...gc,overflow:'hidden',padding:0}}>
+          <div style={{...gc,overflow:'hidden',padding:0,minWidth:0,maxWidth:'100%'}}>
             <div className="tab-scroll" style={{borderBottom:'1px solid rgba(255,255,255,0.07)',background:'rgba(0,0,0,0.25)'}}>
               {[{k:'personal',l:'👤 Personal'},{k:'security',l:'🔐 Security'},{k:'activity',l:'📊 Activity'},{k:'permissions',l:'🔑 Permissions'}].map(t=>(
                 <button key={t.k} onClick={()=>setTab(t.k)} style={{background:'none',border:'none',cursor:'pointer',whiteSpace:'nowrap' as const,padding:'14px 18px',fontSize:13,fontWeight:600,color:tab===t.k?ac:'rgba(255,255,255,0.35)',borderBottom:tab===t.k?`2px solid ${ac}`:'2px solid transparent',transition:'all 0.2s',flexShrink:0}}>{t.l}</button>
@@ -397,7 +397,7 @@ export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
           </div>
 
           {/* Science Facts Row */}
-          <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14}}>
+          <div style={{display:isMobile?'none':'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
             {[
               {title:'Atomic Structure',fact:'An atom is 99.99% empty space',svg:<svg viewBox="0 0 80 80" width="60" height="60"><circle cx="40" cy="40" r="8" fill={ac} opacity="0.9"/><ellipse cx="40" cy="40" rx="30" ry="12" stroke={ac} strokeWidth="1.5" fill="none" opacity="0.6"/><ellipse cx="40" cy="40" rx="30" ry="12" stroke={ac2} strokeWidth="1.5" fill="none" opacity="0.6" transform="rotate(60 40 40)"/><ellipse cx="40" cy="40" rx="30" ry="12" stroke={ac} strokeWidth="1.5" fill="none" opacity="0.6" transform="rotate(120 40 40)"/></svg>},
               {title:'Cell Nucleus',fact:'Human body has 37 trillion cells',svg:<svg viewBox="0 0 80 80" width="60" height="60"><ellipse cx="40" cy="40" rx="32" ry="24" stroke={ac} strokeWidth="2" fill="none" opacity="0.7"/><ellipse cx="40" cy="40" rx="16" ry="12" stroke={ac2} strokeWidth="1.5" fill={`${ac2}22`} opacity="0.8"/><circle cx="30" cy="30" r="3" fill={ac} opacity="0.6"/><circle cx="52" cy="48" r="2.5" fill={ac2} opacity="0.6"/><circle cx="48" cy="28" r="2" fill={ac} opacity="0.5"/></svg>},
@@ -411,7 +411,7 @@ export default function AdminProfilePage({ token: tk, role: rl, API }: Props) {
           </div>
 
           {/* Platform Stats Banner */}
-          <div style={{...gc,padding:'18px 20px',background:`linear-gradient(135deg,rgba(${isSA?'0,180,255':'255,184,0'},0.05),rgba(${isSA?'123,47,255':'255,107,53'},0.05))`}}>
+          <div style={{...gc,padding:isMobile?'14px':'18px 20px',background:`linear-gradient(135deg,rgba(${isSA?'0,180,255':'255,184,0'},0.05),rgba(${isSA?'123,47,255':'255,107,53'},0.05))`}}>
             <div style={{color:'rgba(255,255,255,0.38)',fontSize:10,letterSpacing:2.5,fontWeight:700,marginBottom:14,textTransform:'uppercase' as const}}>🚀 Platform Contribution</div>
             <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(3,1fr)':'repeat(3,1fr)',gap:isMobile?8:12,textAlign:'center' as const}}>
               {[{l:'Exams',v:stats?.examsCreated??'0',c:ac},{l:'Students Served',v:stats?.studentsCount??'0',c:'#00C48C'},{l:'Login Streak',v:`${lh.length}`,c:'#FFB800'}].map(s=>(
