@@ -49,7 +49,7 @@ router.post('/create-admin', verifyToken, isSuperAdmin, async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Admin account created successfully',
-      admin: { id: admin._id, name: admin.name, email: admin.email, role: admin.role }
+      admin: { id: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role, adminId: newUser.adminId }
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
