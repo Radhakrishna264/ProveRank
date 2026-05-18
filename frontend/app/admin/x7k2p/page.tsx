@@ -2324,6 +2324,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
                           <div style={{width:60,height:60,background:'linear-gradient(135deg,rgba(0,180,255,0.2),rgba(77,159,255,0.3))',border:'2px solid rgba(0,180,255,0.4)',borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,fontWeight:900,color:'#00B4FF',flexShrink:0}}>{(profileAdmin.name||'A')[0].toUpperCase()}</div>
                           <div>
                             <div style={{fontWeight:700,fontSize:16,color:'#E8F4FF'}}>{profileAdmin.name||'—'}</div>
+                  {profileAdmin.adminId&&<div style={{fontSize:11,color:'#00B4FF',background:'rgba(0,180,255,0.1)',border:'1px solid rgba(0,180,255,0.3)',borderRadius:12,padding:'3px 12px',marginTop:6,fontWeight:700,letterSpacing:1,display:'inline-block'}}>&#x1FA96; {profileAdmin.adminId}</div>}
                             <div style={{fontSize:12,color:'#6B8FAF',marginTop:3}}>{profileAdmin.email||'—'}</div>
                             <div style={{marginTop:6,display:'flex',gap:6}}>
                               <span style={{fontSize:10,background:'rgba(0,180,255,0.12)',color:'#00B4FF',borderRadius:20,padding:'2px 10px',fontWeight:600}}>{(profileAdmin.role||'admin').toUpperCase()}</span>
