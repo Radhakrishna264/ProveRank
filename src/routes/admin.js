@@ -1,4 +1,11 @@
 const express = require('express');
+
+function generateAdminId(year) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  let xyz = ''
+  for(let i = 0; i < 3; i++) xyz += chars[Math.floor(Math.random() * chars.length)]
+  return 'PRA' + String(year).slice(-2) + xyz
+}
 const router = express.Router();
 const User = require('../models/User');
 const { verifyToken, isSuperAdmin, isAdmin } = require('../middleware/auth');
