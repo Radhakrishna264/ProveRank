@@ -27,11 +27,11 @@ router.post('/create-admin', verifyToken, isSuperAdmin, async (req, res) => {
   try {
     const { name, email, password, permissions } = req.body;
     if (!name || !email || !password)
-      return res.status(400).json({ message: 'name, email, password required hain' });
+      return res.status(400).json({ message: 'Name, email and password are required' });
 
     const existing = await User.findOne({ email });
     if (existing)
-      return res.status(400).json({ message: 'Yeh email already registered hai' });
+      return res.status(400).json({ message: 'This email is already registered' });
 
     const hashedPassword = await bcrypt.hash(password, 12);
     const adminId = await generateAdminId();
@@ -44,19 +44,11 @@ router.post('/create-admin', verifyToken, isSuperAdmin, async (req, res) => {
       permissions: permissions || {},
     });
 
-    await logActivity({
-      userId: req.user.id,
-      userName: req.user.name,
-      userRole: req.user.role,
-      action: 'CREATE_ADMIN',
-      details: `New admin created: ${email}`,
-      module: 'admin_management',
-      isAudit: true
-    });
+    try{await logActivity({userId:req.user.id,userName:req.user.name,userRole:req.user.role,action:'CREATE_ADMIN',details:`New admin created: ${email}`,module:'admin_management',isAudit:true});}catch(logErr){console.error('logActivity error:',logErr.message);}
 
     res.status(201).json({
       success: true,
-      message: 'Admin create ho gaya',
+      message: 'Admin account created successfully',
       admin: { id: admin._id, name: admin.name, email: admin.email, role: admin.role }
     });
   } catch (err) {
