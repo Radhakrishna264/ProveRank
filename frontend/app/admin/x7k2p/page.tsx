@@ -1050,6 +1050,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
 
   // ══ NAV ITEMS ══
   const NAV=[
+    {id:'myprofile',ico:'👤',lbl:'My Profile',grp:'Overview'},
     {id:'dashboard',ico:'📊',lbl:'Dashboard',grp:'Overview'},
     {id:'global_search',ico:'🔎',lbl:'Global Search',grp:'Overview'},
     {id:'live',ico:'🔴',lbl:'Live Monitor',grp:'Overview'},
@@ -3382,7 +3383,14 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
           )}
 
           {/* ══ AUDIT LOGS ══ */}
-          {tab==='audit'&&(
+          {tab==='myprofile'&&(
+  <AdminProfilePage
+    token={token||''}
+    role={role||''}
+    API={process.env.NEXT_PUBLIC_API_URL||'https://proverank.onrender.com'}
+  />
+)}
+{tab==='audit'&&(
             <div>
               <div style={pageTitle}>📋 Audit Logs (S93/S38)</div>
               <div style={pageSub}>Complete tamper-proof activity trail — every admin and student action recorded</div>
