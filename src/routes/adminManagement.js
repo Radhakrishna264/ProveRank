@@ -294,6 +294,20 @@ router.post('/welcome-seen', async(req,res)=>{
     const jwt=require('jsonwebtoken');
     const decoded=jwt.verify(token,process.env.JWT_SECRET||'proverank_secret');
     const User=require('../models/User');
+
+async function generateAdminId(){
+  const yr=new Date().getFullYear().toString().slice(-2);
+  const ch='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let id,ex;
+  do{
+    let r='';
+    for(let i=0;i<3;i++)r+=ch[Math.floor(Math.random()*ch.length)];
+    id='PRA'+yr+r;
+    ex=await User.findOne({adminId:id});
+  }while(ex);
+  return id;
+}
+
     await User.findByIdAndUpdate(decoded.id||decoded._id,{welcomeSeen:true});
     res.json({success:true});
   }catch(e){res.status(500).json({success:false,message:e.message});}
