@@ -306,4 +306,54 @@ router.post('/welcome-seen', async(req,res)=>{
   }catch(e){res.status(500).json({success:false,message:e.message});}
 });
 
+
+
+// ===== Fix8: Profile Update Route =====
+router.put('/profile/me', verifyToken, async(req,res)=>{
+  try{
+    const mongoose = require('mongoose');
+    const {name,phone,city,bio} = req.body;
+    const upd = {};
+    if(name!==undefined) upd.name=name;
+    if(phone!==undefined) upd.phone=phone;
+    if(city!==undefined) upd.city=city;
+    if(bio!==undefined) upd.bio=bio;
+    await User.collection.updateOne(
+      {_id:new mongoose.Types.ObjectId(req.user.id)},
+      {$set:upd}
+    );
+    res.json({success:true,message:'Profile updated successfully'});
+  }catch(e){res.status(500).json({success:false,message:e.message});}
+});
+
+// ===== Fix8: Profile Stats Route =====
+router.get('/profile/stats', verifyToken, async(req,res)=>{
+  try{
+    const mongoose = require('mongoose');
+    let Exam; try{Exam=mongoose.model('Exam');}catch(e){Exam=null;}
+    const admin = await User.findById(req.user.id).lean();
+    const examsCreated = Exam ? await Exam.countDocuments({createdBy:new mongoose.Types.ObjectId(req.user.id)}).catch(()=>0) : 0;
+    const studentsCount = await User.countDocuments({role:'student'}).catch(()=>0);
+    const joinDate = admin.createdAt || new Date();
+    const daysActive = Math.floor((Date.now()-new Date(joinDate).getTime())/(86400000));
+    const loginHistory = admin.loginHistory || [];
+    const lastLogin = loginHistory[loginHistory.length-1] || {};
+    res.json({success:true,stats:{examsCreated,studentsCount,daysActive,lastLogin,totalLogins:loginHistory.length}});
+  }catch(e){res.status(500).json({success:false,message:e.message});}
+});
+
+// ===== Fix8: Profile Photo Upload =====
+router.post('/profile/photo', verifyToken, async(req,res)=>{
+  try{
+    const mongoose = require('mongoose');
+    const {photoBase64} = req.body;
+    if(!photoBase64) return res.status(400).json({success:false,message:'No photo provided'});
+    await User.collection.updateOne(
+      {_id:new mongoose.Types.ObjectId(req.user.id)},
+      {$set:{profilePhoto:photoBase64}}
+    );
+    res.json({success:true,message:'Photo updated'});
+  }catch(e){res.status(500).json({success:false,message:e.message});}
+});
+
 module.exports = router;
