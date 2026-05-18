@@ -94,48 +94,68 @@ export default function AdminProfilePage({ token, role, API }: Props) {
 
   const inp = { width:'100%', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:10, padding:'10px 14px', color:'#E8F4FF', fontSize:13, outline:'none', boxSizing:'border-box' as const, transition:'border 0.2s' };
 
-  // ── Praveen Signature SVG ──
+  // ── Praveen Rajput Signature SVG ──
   const PraveenSVG = () => (
-    <svg viewBox="0 0 320 175" style={{width:'100%',height:'100%',filter:`drop-shadow(0 0 10px ${ac}99)`}} xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 480 170" style={{width:'85%',maxWidth:440,height:155,display:'block',margin:'0 auto',filter:'drop-shadow(0 0 16px #00B4FF88)',opacity:0.88}} xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="psg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id="psg2" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#00B4FF"/><stop offset="100%" stopColor="#7B2FFF"/>
         </linearGradient>
+        <style>{"@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap')"}</style>
       </defs>
-      {/* P — tall vertical stroke */}
-      <path d="M108,18 L108,158 Q107,168 103,174" stroke="url(#psg)" strokeWidth="2.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-      {/* P — left decorative oval loop */}
-      <path d="M108,82 Q60,58 62,98 Q63,135 108,118" stroke="url(#psg)" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
-      {/* Outer encircling ellipse around 'raveen' */}
-      <ellipse cx="205" cy="97" rx="80" ry="31" stroke="url(#psg)" strokeWidth="1.8" fill="none" transform="rotate(-4 205 97)" opacity="0.85"/>
-      {/* raveen in cursive */}
-      <text x="138" y="106" fontFamily="'Dancing Script','Brush Script MT',cursive" fontSize="36" fill="url(#psg)" transform="rotate(-3 138 106)" letterSpacing="1.5">raveen</text>
-      {/* Double diagonal strokes after ellipse */}
-      <line x1="282" y1="87" x2="298" y2="81" stroke="url(#psg)" strokeWidth="2.2" strokeLinecap="round"/>
-      <line x1="283" y1="94" x2="296" y2="89" stroke="url(#psg)" strokeWidth="1.8" strokeLinecap="round"/>
+      {/* P - tall vertical stroke */}
+      <line x1="85" y1="18" x2="83" y2="152" stroke="url(#psg2)" strokeWidth="3.2" strokeLinecap="round"/>
+      {/* P - top serif */}
+      <path d="M80,18 Q88,14 92,18" stroke="url(#psg2)" strokeWidth="2" fill="none" strokeLinecap="round"/>
+      {/* P - right bowl */}
+      <path d="M83,20 Q130,8 132,52 Q133,85 83,83" stroke="url(#psg2)" strokeWidth="2.6" fill="none" strokeLinecap="round"/>
+      {/* P - left outer sweeping oval */}
+      <path d="M83,85 Q32,65 30,98 Q29,128 85,118" stroke="url(#psg2)" strokeWidth="2" fill="none" strokeLinecap="round"/>
+      {/* raveen - cursive text */}
+      <text x="138" y="108" fontFamily="'Dancing Script',cursive" fontSize="48" fontWeight="700" fill="url(#psg2)" transform="rotate(-4,138,108)" letterSpacing="1">raveen</text>
+      {/* Encircling ellipse around raveen */}
+      <ellipse cx="240" cy="94" rx="105" ry="34" stroke="url(#psg2)" strokeWidth="1.8" fill="none" transform="rotate(-4,240,94)" opacity="0.75"/>
+      {/* Two diagonal lines after ellipse */}
+      <line x1="342" y1="80" x2="365" y2="72" stroke="url(#psg2)" strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="343" y1="90" x2="363" y2="84" stroke="url(#psg2)" strokeWidth="2" strokeLinecap="round"/>
       {/* Two dots */}
-      <circle cx="302" cy="80" r="2.8" fill="#00B4FF"/>
-      <circle cx="300" cy="90" r="2.8" fill="#7B2FFF"/>
+      <circle cx="370" cy="71" r="3.5" fill="#00B4FF"/>
+      <circle cx="368" cy="83" r="3" fill="#7B2FFF"/>
       {/* Bottom tail curl from P */}
-      <path d="M105,145 Q110,158 125,163 Q138,167 133,175" stroke="url(#psg)" strokeWidth="2" fill="none" strokeLinecap="round"/>
+      <path d="M81,135 Q90,152 110,158 Q128,163 120,170" stroke="url(#psg2)" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+      {/* Rajput - space then R */}
+      <line x1="385" y1="52" x2="383" y2="138" stroke="url(#psg2)" strokeWidth="2.8" strokeLinecap="round"/>
+      <path d="M383,52 Q415,45 417,75 Q418,95 383,98" stroke="url(#psg2)" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+      <path d="M396,98 Q418,115 430,138" stroke="url(#psg2)" strokeWidth="2" fill="none" strokeLinecap="round"/>
+      {/* ajput cursive */}
+      <text x="432" y="108" fontFamily="'Dancing Script',cursive" fontSize="36" fontWeight="700" fill="url(#psg2)" transform="rotate(-3,432,108)" letterSpacing="0.5">ajput</text>
+      {/* Underline flourish */}
+      <path d="M75,155 Q260,168 445,150" stroke="url(#psg2)" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.55"/>
+      <path d="M90,163 Q270,174 438,158" stroke="url(#psg2)" strokeWidth="0.8" fill="none" strokeLinecap="round" opacity="0.28"/>
     </svg>
   );
 
   // ── Dynamic Admin Signature ──
   const AdminSVG = ({ name }: { name: string }) => (
-    <svg viewBox="0 0 320 120" style={{width:'100%',height:'100%',filter:`drop-shadow(0 0 8px ${ac}88)`}} xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 420 160" style={{width:'80%',maxWidth:400,height:145,display:'block',margin:'0 auto',filter:'drop-shadow(0 0 14px #FFB80088)',opacity:0.88}} xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="asg" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#FFB800"/><stop offset="100%" stopColor="#FF6B35"/>
+        <linearGradient id="asg2" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#FFB800"/><stop offset="50%" stopColor="#FF9500"/><stop offset="100%" stopColor="#FF6B35"/>
         </linearGradient>
+        <style>{"@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap')"}</style>
       </defs>
-      <ellipse cx="160" cy="62" rx="120" ry="36" stroke="url(#asg)" strokeWidth="1.6" fill="none" opacity="0.7"/>
-      <text x="160" y="72" fontFamily="'Dancing Script','Brush Script MT',cursive" fontSize="42" fill="url(#asg)" textAnchor="middle" letterSpacing="2">{name}</text>
-      <line x1="55" y1="86" x2="265" y2="86" stroke="url(#asg)" strokeWidth="1.5" opacity="0.5"/>
-      <line x1="75" y1="92" x2="245" y2="92" stroke="url(#asg)" strokeWidth="1" opacity="0.3"/>
-      {/* Decorative dots */}
-      <circle cx="270" cy="86" r="2.5" fill="#FFB800" opacity="0.8"/>
-      <circle cx="278" cy="89" r="2" fill="#FF6B35" opacity="0.7"/>
+      {/* First letter large decorative */}
+      <text x="42" y="115" fontFamily="'Dancing Script',cursive" fontSize="88" fontWeight="700" fill="url(#asg2)" opacity="0.9">{name[0]||'A'}</text>
+      {/* Decorative left loop around first letter */}
+      <ellipse cx="62" cy="88" rx="52" ry="58" stroke="url(#asg2)" strokeWidth="1.6" fill="none" opacity="0.5" transform="rotate(-5,62,88)"/>
+      {/* Rest of name in flowing cursive */}
+      <text x="118" y="108" fontFamily="'Dancing Script',cursive" fontSize="52" fontWeight="700" fill="url(#asg2)" transform="rotate(-3,118,108)" letterSpacing="1">{name.slice(1)}</text>
+      {/* Underline with flourish */}
+      <path d="M35,128 Q210,148 385,130" stroke="url(#asg2)" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.7"/>
+      <path d="M45,138 Q215,155 378,140" stroke="url(#asg2)" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.35"/>
+      {/* End decorative dots */}
+      <circle cx="388" cy="130" r="3.5" fill="#FFB800" opacity="0.85"/>
+      <circle cx="397" cy="136" r="2.5" fill="#FF6B35" opacity="0.7"/>
     </svg>
   );
 
@@ -149,14 +169,9 @@ export default function AdminProfilePage({ token, role, API }: Props) {
 
   return (
     <div style={{paddingBottom:40}}>
-      {/* ── SIGNATURE BANNER ── */}
-      <div style={{...glassCard({padding:'20px 24px 18px',marginBottom:28,textAlign:'center' as const})}}>
-        <div style={{color:`${ac}66`,fontSize:10,letterSpacing:3,textTransform:'uppercase' as const,marginBottom:10,fontWeight:700}}>
-          {isSA ? '— SuperAdmin Signature —' : '— Admin Signature —'}
-        </div>
-        <div style={{height:130,maxWidth:340,margin:'0 auto'}}>
-          {isSA ? <PraveenSVG/> : <AdminSVG name={nm.split(' ')[0]||'Admin'}/>}
-        </div>
+      {/* ── SIGNATURE WATERMARK ── */}
+      <div style={{position:'relative' as const,height:170,marginBottom:28,display:'flex',alignItems:'center',justifyContent:'center',background:'none',border:'none'}}>
+        {isSA ? <PraveenSVG/> : <AdminSVG name={nm.split(' ')[0]||'Admin'}/>}
       </div>
 
       {/* ── SPLIT LAYOUT ── */}
