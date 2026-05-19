@@ -234,7 +234,7 @@ router.get('/global-search', verifyToken, isSuperAdmin, async (req, res) => {
 })
 
 // Global search for admin role too
-router.get('/global-search-admin', verifyToken, isAdmin, async (req, res) => {
+router.get('/global-search-admin', verifyToken, isSuperAdmin, async (req, res) => {
   try {
     const { q = '' } = req.query
     if (!q || q.length < 2) return res.json({ success: true, results: { students: [], admins: [], exams: [], questions: [], batches: [] } })
