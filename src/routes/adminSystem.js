@@ -213,3 +213,22 @@ router.post('/email/send', verifyToken, isSuperAdmin, async (req, res) => {
 })
 
 module.exports = router
+
+// GLOBAL SEARCH API (M12)
+router.get('/global-search', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const { q = '' } = req.query
+    if (!q || q.length < 2) return res.json({ success: true, results: { students: [], admins: [], exams: [], questions: [], batches: [] } })
+    const rx = new RegExp(q, 'i')
+    const db = req.app.locals.db || router.db
+    const col = (name) => require('mongoose').connection.db.collection(name)
+    const [students, admins, exams, questions, batches] = await Promise.all([
+      col('students').find({ role: 'student', $or: [{ name: rx }, { email: rx }, { studentId: rx }] }).limit(8).project({ name: 1, email: 1, studentId: 1 }).toArray(),
+      col('students').find({ role: { $in: ['admin', 'superadmin'] }, $or: [{ name: rx }, { email: rx }, { adminId: rx }] }).limit(6).project({ name: 1, email: 1, adminId: 1, role: 1 }).toArray(),
+      col('exams').find({ $or: [{ title: rx }, { status: rx }] }).limit(8).project({ title: 1, status: 1, createdAt: 1 }).toArray(),
+      col('questions').find({ $or: [{ text: rx }, { subject: rx }, { chapter: rx }] }).limit(8).project({ text: 1, subject: 1, chapter: 1, difficulty: 1 }).toArray(),
+      col('batches').find({ name: rx }).limit(6).project({ name: 1, description: 1 }).toArray()
+    ])
+    res.json({ success: true, results: { students, admins, exams, questions, batches } })
+  } catch (err) { res.status(500).json({ success: false, message: err.message }) }
+})
