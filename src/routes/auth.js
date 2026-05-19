@@ -182,7 +182,7 @@ router.post('/login', async (req, res) => {
     history.push({ at: new Date(), ip: req.ip,
       device: (req.headers['user-agent'] || 'Web').substring(0, 60) })
     await User.collection.updateOne({ _id: user._id },
-      { $set: { loginHistory: history.slice(-50) } })
+      { $set: { loginHistory: history.slice(-50) }, $inc: { loginCount: 1 } })
 
     const token = jwt.sign(
       { id: user._id.toString(), role: user.role || 'student' },
