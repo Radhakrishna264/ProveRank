@@ -51,46 +51,52 @@ export default function AdminWelcomeBanner() {
       const payload = JSON.parse(atob(b64));
       const uid: string = payload.id || 'u';
 
-      const justLogged = sessionStorage.getItem('pr_just_logged_in');
       const countKey = 'pr_admin_wc_' + uid;
+      const sessionKey = 'pr_adm_sess_' + uid;
+
+      const alreadyShownThisSession = sessionStorage.getItem(sessionKey);
+      if (alreadyShownThisSession) return;
+
       let count = parseInt(localStorage.getItem(countKey) || '0', 10);
+      count = count + 1;
+      localStorage.setItem(countKey, String(count));
+      sessionStorage.setItem(sessionKey, '1');
 
-      if (justLogged) {
-        count = count + 1;
-        localStorage.setItem(countKey, String(count));
-        sessionStorage.removeItem('pr_just_logged_in');
-      }
-
-      if (count < 1 || count > 2) return;
+      if (count > 2) return;
 
       setLoginNum(count);
+      setVisible(true);
 
-      const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com');
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com';
+      const ctrl = new AbortController();
+      const timer = setTimeout(function() { ctrl.abort(); }, 8000);
+
       fetch(apiBase + '/api/admin/manage/profile/me', {
         headers: { Authorization: 'Bearer ' + token },
+        signal: ctrl.signal,
       })
         .then(function(r) { return r.json(); })
         .then(function(d) {
+          clearTimeout(timer);
           if (d && d.success && d.admin) {
             setAdminName(d.admin.name || 'Admin');
             setAdminId(d.admin.adminId || '');
             const p = d.admin.permissions;
             if (p && typeof p === 'object') {
-              const granted = Object.entries(p as Record<string,boolean>)
-                .filter(function(entry) { return entry[1] === true; })
-                .map(function(entry) { return PERM_LABELS[entry[0]] || entry[0]; });
+              const granted = Object.entries(p as Record<string, boolean>)
+                .filter(function(e) { return e[1] === true; })
+                .map(function(e) { return PERM_LABELS[e[0]] || e[0]; });
               setPerms(granted);
             }
           }
           setLoading(false);
-          setVisible(true);
         })
         .catch(function() {
+          clearTimeout(timer);
           setLoading(false);
-          setVisible(true);
         });
     } catch (err) {
-      console.error('AdminWelcomeBanner error:', err);
+      console.error('Banner err:', err);
     }
   }, []);
 
@@ -141,7 +147,6 @@ export default function AdminWelcomeBanner() {
         background: 'linear-gradient(145deg,rgba(18,10,2,0.98) 0%,rgba(28,18,4,0.98) 50%,rgba(22,12,2,0.98) 100%)',
         border: '1.5px solid rgba(255,200,50,0.32)',
         animation: 'bannerIn 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards, goldenGlow 3s ease-in-out infinite',
-        position: 'relative',
       }}>
 
         <div style={{
@@ -175,7 +180,7 @@ export default function AdminWelcomeBanner() {
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
-              fontFamily: "'Georgia', 'Times New Roman', serif",
+              fontFamily: "'Georgia','Times New Roman',serif",
               lineHeight: 1.2,
               marginBottom: '6px',
             }}>
@@ -184,7 +189,7 @@ export default function AdminWelcomeBanner() {
             <div style={{ fontSize: '12px', color: '#78716c', lineHeight: 1.6, maxWidth: '340px', margin: '0 auto' }}>
               {loginNum === 1
                 ? 'Your Admin account is active. Review your assigned permissions and Admin ID below.'
-                : 'This is your last welcome banner. You are fully set up — let\'s build something great!'}
+                : "This is your last welcome banner. You're fully set up — let's build something great!"}
             </div>
           </div>
 
@@ -213,7 +218,7 @@ export default function AdminWelcomeBanner() {
                 fontWeight: 800,
                 color: '#fbbf24',
                 letterSpacing: '2px',
-                fontFamily: "'Courier New', monospace",
+                fontFamily: "'Courier New',monospace",
               }}>
                 {loading ? '· · ·' : (adminId || '—')}
               </div>
@@ -230,7 +235,6 @@ export default function AdminWelcomeBanner() {
                 fontSize: '11px',
                 fontWeight: 700,
                 whiteSpace: 'nowrap',
-                transition: 'all 0.2s',
               }}
             >
               {copied ? '✓ Copied!' : '📋 Copy ID'}
@@ -283,12 +287,8 @@ export default function AdminWelcomeBanner() {
           </div>
 
           <div style={{
-            background: loginNum === 1
-              ? 'rgba(217,119,6,0.1)'
-              : 'rgba(139,92,246,0.1)',
-            border: loginNum === 1
-              ? '1px solid rgba(217,119,6,0.3)'
-              : '1px solid rgba(139,92,246,0.3)',
+            background: loginNum === 1 ? 'rgba(217,119,6,0.1)' : 'rgba(139,92,246,0.1)',
+            border: loginNum === 1 ? '1px solid rgba(217,119,6,0.3)' : '1px solid rgba(139,92,246,0.3)',
             borderRadius: '9px',
             padding: '9px 14px',
             textAlign: 'center',
@@ -297,7 +297,9 @@ export default function AdminWelcomeBanner() {
             fontWeight: 600,
             marginBottom: '18px',
           }}>
-            {loginNum === 1 ? '🌟 First Login — Welcome to the ProveRank Team!' : '✨ Second Login — Last welcome message. You\'re all set!'}
+            {loginNum === 1
+              ? '🌟 First Login — Welcome to the ProveRank Team!'
+              : "✨ Second Login — Last welcome message. You're all set!"}
           </div>
 
           <button
