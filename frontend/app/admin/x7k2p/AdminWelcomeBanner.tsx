@@ -51,7 +51,7 @@ export default function AdminWelcomeBanner() {
       const payload = JSON.parse(atob(b64));
       const uid: string = payload.id || 'u';
 
-      const countKey = 'pr_admin_wc_' + uid;
+      const countKey = 'pr_adwc2_' + uid;
       const sessionKey = 'pr_adm_sess_' + uid;
 
       const alreadyShownThisSession = sessionStorage.getItem(sessionKey);
