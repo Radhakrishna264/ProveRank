@@ -1,4 +1,5 @@
 'use client'
+import AdminWelcomeBanner from './AdminWelcomeBanner';
 import AdminProfilePage from './AdminProfilePage';
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { useRouter } from 'next/navigation'
@@ -4123,6 +4124,7 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
           </div>
         </div>}
       </div>
-    </div>
+    
+      <AdminWelcomeBanner /></div>
   )
 }
