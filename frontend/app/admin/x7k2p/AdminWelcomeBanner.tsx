@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 
 const PERM_LABELS: Record<string, string> = {
-  manageExams: '📝 Exam Management',
+  manageExams: '📋 Exam Management',
   createExam: '📝 Create Exams',
   editExam: '✏️ Edit Exams',
   deleteExam: '🗑️ Delete Exams',
@@ -11,7 +11,7 @@ const PERM_LABELS: Record<string, string> = {
   manageStudents: '👥 Student Mgmt',
   banStudents: '🚫 Ban Students',
   viewResults: '📊 View Results',
-  exportReports: '📄 Export Reports',
+  exportReports: '📁 Export Reports',
   sendAnnouncements: '📢 Announcements',
   sendEmails: '📧 Email Templates',
   manageSettings: '⚙️ Settings',
@@ -23,11 +23,11 @@ const PERM_LABELS: Record<string, string> = {
   manageBackup: '💾 Backup',
   manageBranding: '🎨 Branding',
   manageFeatureFlags: '🚩 Feature Flags',
-  manageBatches: '📦 Batch Mgmt',
-  viewLiveMonitor: '👁️ Live Monitor',
-  managePermissions: '🔐 Permissions',
-  manageTemplates: '📋 Templates',
-  viewProctoringReports: '🎥 Proctoring',
+  manageBatches: '🎓 Batch Mgmt',
+  viewLiveMonitor: '🔴 Live Monitor',
+  managePermissions: '🔒 Permissions',
+  manageTemplates: '📄 Templates',
+  viewProctoringReports: '🛡️ Proctoring',
 };
 
 export default function AdminWelcomeBanner() {
@@ -39,7 +39,7 @@ export default function AdminWelcomeBanner() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  useEffect(function () {
+  useEffect(() => {
     try {
       const token = localStorage.getItem('pr_token');
       const role = localStorage.getItem('pr_role');
@@ -62,163 +62,158 @@ export default function AdminWelcomeBanner() {
       }
 
       if (count < 1 || count > 2) return;
+
       setLoginNum(count);
 
-      const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com';
-      fetch(API + '/api/admin/manage/profile/me', {
+      const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com');
+      fetch(apiBase + '/api/admin/manage/profile/me', {
         headers: { Authorization: 'Bearer ' + token },
       })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          const a = data.admin || data.user || data;
-          setAdminName(a.name || 'Admin');
-          setAdminId(a.adminId || '');
-          const p: Record<string, boolean> = a.permissions || {};
-          const granted = Object.entries(p)
-            .filter(function (e) { return e[1] === true; })
-            .map(function (e) {
-              return PERM_LABELS[e[0]] || e[0].replace(/([A-Z])/g, ' $1').trim();
-            });
-          setPerms(granted);
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d && d.success && d.admin) {
+            setAdminName(d.admin.name || 'Admin');
+            setAdminId(d.admin.adminId || '');
+            const p = d.admin.permissions;
+            if (p && typeof p === 'object') {
+              const granted = Object.entries(p as Record<string,boolean>)
+                .filter(function(entry) { return entry[1] === true; })
+                .map(function(entry) { return PERM_LABELS[entry[0]] || entry[0]; });
+              setPerms(granted);
+            }
+          }
           setLoading(false);
           setVisible(true);
         })
-        .catch(function () {
+        .catch(function() {
           setLoading(false);
           setVisible(true);
         });
-    } catch (_e) {
-      // Silent fail — admin panel must not break
+    } catch (err) {
+      console.error('AdminWelcomeBanner error:', err);
     }
   }, []);
 
-  const handleCopy = function () {
-    if (typeof navigator !== 'undefined' && navigator.clipboard && adminId) {
-      navigator.clipboard.writeText(adminId).then(function () {
+  const handleCopy = function() {
+    if (adminId) {
+      navigator.clipboard.writeText(adminId).then(function() {
         setCopied(true);
-        setTimeout(function () { setCopied(false); }, 2000);
-      });
+        setTimeout(function() { setCopied(false); }, 2000);
+      }).catch(function() {});
     }
   };
 
   if (!visible) return null;
 
-  const hasPerms = perms.length > 0;
-  const isFirst = loginNum === 1;
-
   return (
-    <>
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      zIndex: 99999,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'rgba(0,0,0,0.78)',
+      backdropFilter: 'blur(10px)',
+      padding: '16px',
+    }}>
       <style>{`
-        @keyframes prwb_fi {
-          from { opacity: 0; transform: scale(0.88) translateY(24px); }
-          to   { opacity: 1; transform: scale(1)    translateY(0);    }
+        @keyframes bannerIn {
+          from { opacity:0; transform:scale(0.82) translateY(32px); }
+          to { opacity:1; transform:scale(1) translateY(0); }
         }
-        @keyframes prwb_sh {
-          0%,100% { background-position: 0%   50%; }
-          50%      { background-position: 100% 50%; }
+        @keyframes goldShimmer {
+          0% { background-position:-200% center; }
+          100% { background-position:200% center; }
         }
-        @keyframes prwb_fl {
-          0%,100% { transform: translateY(0px);   }
-          50%      { transform: translateY(-10px); }
-        }
-        @keyframes prwb_gl {
-          0%,100% { box-shadow: 0 0 25px #d9770688, 0 0 50px #f59e0b33; }
-          50%      { box-shadow: 0 0 50px #f59e0baa, 0 0 100px #fbbf2444; }
+        @keyframes goldenGlow {
+          0%,100% { box-shadow:0 0 60px rgba(255,180,0,0.22),0 0 120px rgba(255,140,0,0.1); }
+          50% { box-shadow:0 0 80px rgba(255,200,0,0.35),0 0 160px rgba(255,160,0,0.16); }
         }
       `}</style>
 
       <div style={{
-        position: 'fixed', inset: 0, zIndex: 99999,
-        background: 'rgba(0,0,0,0.88)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        backdropFilter: 'blur(10px)',
-        animation: 'prwb_fi 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards',
+        maxWidth: '520px',
+        width: '100%',
+        maxHeight: '92vh',
+        overflowY: 'auto',
+        borderRadius: '22px',
+        background: 'linear-gradient(145deg,rgba(18,10,2,0.98) 0%,rgba(28,18,4,0.98) 50%,rgba(22,12,2,0.98) 100%)',
+        border: '1.5px solid rgba(255,200,50,0.32)',
+        animation: 'bannerIn 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards, goldenGlow 3s ease-in-out infinite',
+        position: 'relative',
       }}>
+
         <div style={{
-          width: '92%', maxWidth: '490px',
-          maxHeight: '90vh', overflowY: 'auto',
-          background: 'linear-gradient(145deg,#0f0800 0%,#1c1100 45%,#0a0500 100%)',
-          border: '1.5px solid #d97706',
-          borderRadius: '22px',
-          padding: '30px 24px 24px',
-          position: 'relative',
-          animation: 'prwb_gl 2.5s ease-in-out infinite',
-        }}>
+          background: 'linear-gradient(90deg,#7c5200,#ffd700,#daa520,#ffc200,#b8860b,#ffd700,#7c5200)',
+          backgroundSize: '300% auto',
+          animation: 'goldShimmer 4s linear infinite',
+          borderRadius: '22px 22px 0 0',
+          height: '4px',
+        }} />
 
-          {/* Shimmer top bar */}
-          <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0, height: '3px',
-            background: 'linear-gradient(90deg,#92400e,#f59e0b,#fbbf24,#f59e0b,#92400e)',
-            backgroundSize: '300% 100%',
-            animation: 'prwb_sh 2s linear infinite',
-            borderRadius: '22px 22px 0 0',
-          }} />
+        <div style={{ padding: '26px 22px 22px' }}>
 
-          {/* Close */}
-          <button
-            onClick={function () { setVisible(false); }}
-            style={{
-              position: 'absolute', top: '14px', right: '16px',
-              background: 'rgba(245,158,11,0.1)',
-              border: '1px solid rgba(245,158,11,0.35)',
-              color: '#f59e0b', borderRadius: '8px',
-              padding: '4px 12px', cursor: 'pointer',
-              fontSize: '12px', fontWeight: 700,
-            }}
-          >✕ Close</button>
-
-          {/* Crown */}
-          <div style={{
-            textAlign: 'center', fontSize: '46px', marginBottom: '8px',
-            animation: 'prwb_fl 3s ease-in-out infinite',
-          }}>👑</div>
-
-          {/* Login badge */}
-          <div style={{ textAlign: 'center', marginBottom: '6px' }}>
-            <span style={{
-              background: 'linear-gradient(90deg,#92400e,#d97706,#92400e)',
-              backgroundSize: '200% auto',
-              animation: 'prwb_sh 2s linear infinite',
-              color: '#fef3c7', fontSize: '10px', fontWeight: 800,
-              letterSpacing: '3px', textTransform: 'uppercase',
-              padding: '3px 16px', borderRadius: '20px', display: 'inline-block',
+          <div style={{ textAlign: 'center', marginBottom: '22px' }}>
+            <div style={{ fontSize: '40px', marginBottom: '6px' }}>
+              {loginNum === 1 ? '🎊' : '👋'}
+            </div>
+            <div style={{
+              fontSize: '10px',
+              fontWeight: 700,
+              letterSpacing: '3.5px',
+              color: '#b8860b',
+              textTransform: 'uppercase',
+              marginBottom: '8px',
             }}>
-              {isFirst ? '✦ First Login ✦' : '✦ Second Login ✦'}
-            </span>
+              {loginNum === 1 ? '✦ Welcome to ProveRank Admin ✦' : '✦ Welcome Back, Admin ✦'}
+            </div>
+            <div style={{
+              fontSize: '24px',
+              fontWeight: 800,
+              background: 'linear-gradient(135deg,#ffd700 0%,#ffb300 40%,#ffe066 70%,#ffd700 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              fontFamily: "'Georgia', 'Times New Roman', serif",
+              lineHeight: 1.2,
+              marginBottom: '6px',
+            }}>
+              {loginNum === 1 ? 'Hello, ' + adminName + '!' : 'Great to see you, ' + adminName + '!'}
+            </div>
+            <div style={{ fontSize: '12px', color: '#78716c', lineHeight: 1.6, maxWidth: '340px', margin: '0 auto' }}>
+              {loginNum === 1
+                ? 'Your Admin account is active. Review your assigned permissions and Admin ID below.'
+                : 'This is your last welcome banner. You are fully set up — let\'s build something great!'}
+            </div>
           </div>
 
-          {/* Welcome name */}
           <div style={{
-            textAlign: 'center', fontSize: '20px', fontWeight: 800,
-            color: '#fbbf24',
-            textShadow: '0 0 24px rgba(251,191,36,0.55)',
-            margin: '8px 0 3px',
-          }}>
-            {loading ? 'Loading...' : ('Welcome, ' + adminName + '!')}
-          </div>
-          <p style={{
-            textAlign: 'center', color: '#78716c',
-            fontSize: '12px', margin: '0 0 22px',
-          }}>
-            ProveRank Admin Center — You are now in command
-          </p>
-
-          {/* Admin ID card */}
-          <div style={{
-            background: 'rgba(217,119,6,0.1)',
+            background: 'linear-gradient(135deg,rgba(217,119,6,0.12) 0%,rgba(180,90,0,0.08) 100%)',
             border: '1px solid rgba(217,119,6,0.3)',
-            borderRadius: '12px', padding: '12px 16px',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            marginBottom: '20px',
+            borderRadius: '14px',
+            padding: '16px 18px',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
           }}>
             <div>
               <div style={{
-                color: '#78716c', fontSize: '9px', fontWeight: 700,
-                letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '4px',
-              }}>Admin ID</div>
+                fontSize: '9px',
+                fontWeight: 700,
+                color: '#78716c',
+                letterSpacing: '2.5px',
+                textTransform: 'uppercase',
+                marginBottom: '4px',
+              }}>Your Admin ID</div>
               <div style={{
-                color: '#fbbf24', fontSize: '18px', fontWeight: 800,
-                fontFamily: 'monospace', letterSpacing: '2px',
+                fontSize: '20px',
+                fontWeight: 800,
+                color: '#fbbf24',
+                letterSpacing: '2px',
+                fontFamily: "'Courier New', monospace",
               }}>
                 {loading ? '· · ·' : (adminId || '—')}
               </div>
@@ -226,41 +221,49 @@ export default function AdminWelcomeBanner() {
             <button
               onClick={handleCopy}
               style={{
-                background: copied ? 'rgba(34,197,94,0.18)' : 'rgba(217,119,6,0.15)',
-                border: copied ? '1px solid #22c55e' : '1px solid rgba(217,119,6,0.45)',
+                background: copied ? 'rgba(34,197,94,0.18)' : 'rgba(217,119,6,0.16)',
+                border: copied ? '1px solid #22c55e' : '1px solid rgba(217,119,6,0.5)',
                 color: copied ? '#22c55e' : '#f59e0b',
-                borderRadius: '8px', padding: '6px 14px', cursor: 'pointer',
-                fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap',
+                borderRadius: '9px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s',
               }}
             >
-              {copied ? '✓ Copied' : '📋 Copy'}
+              {copied ? '✓ Copied!' : '📋 Copy ID'}
             </button>
           </div>
 
-          {/* Permissions */}
-          <div>
+          <div style={{ marginBottom: '18px' }}>
             <div style={{
-              color: '#d97706', fontSize: '10px', fontWeight: 700,
-              letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px',
-            }}>
-              ⚡ Your Granted Permissions
-            </div>
+              fontSize: '9px',
+              fontWeight: 700,
+              color: '#d97706',
+              letterSpacing: '2.5px',
+              textTransform: 'uppercase',
+              marginBottom: '10px',
+            }}>⚡ Your Granted Permissions</div>
 
             {loading ? (
-              <div style={{
-                textAlign: 'center', color: '#57534e',
-                padding: '18px', fontSize: '13px',
-              }}>Loading permissions...</div>
-            ) : hasPerms ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                {perms.map(function (p, i) {
+              <div style={{ textAlign: 'center', color: '#57534e', padding: '20px', fontSize: '13px' }}>
+                Loading permissions...
+              </div>
+            ) : perms.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
+                {perms.map(function(p, i) {
                   return (
                     <div key={i} style={{
-                      background: 'rgba(217,119,6,0.07)',
-                      border: '1px solid rgba(217,119,6,0.18)',
-                      borderRadius: '8px', padding: '8px 10px',
-                      color: '#d4a017', fontSize: '10px', fontWeight: 600,
-                      lineHeight: '1.4',
+                      background: 'rgba(217,119,6,0.08)',
+                      border: '1px solid rgba(217,119,6,0.2)',
+                      borderRadius: '8px',
+                      padding: '7px 10px',
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      color: '#d4a017',
+                      lineHeight: 1.4,
                     }}>{p}</div>
                   );
                 })}
@@ -269,26 +272,76 @@ export default function AdminWelcomeBanner() {
               <div style={{
                 background: 'rgba(217,119,6,0.07)',
                 border: '1px solid rgba(217,119,6,0.2)',
-                borderRadius: '10px', padding: '14px', textAlign: 'center',
-                color: '#f59e0b', fontSize: '12px', fontWeight: 600,
-              }}>
-                🔑 Permissions configured by SuperAdmin
-              </div>
+                borderRadius: '10px',
+                padding: '14px',
+                textAlign: 'center',
+                color: '#f59e0b',
+                fontSize: '12px',
+                fontWeight: 600,
+              }}>🔑 Permissions assigned by SuperAdmin</div>
             )}
           </div>
 
-          {/* Footer */}
           <div style={{
-            marginTop: '22px',
+            background: loginNum === 1
+              ? 'rgba(217,119,6,0.1)'
+              : 'rgba(139,92,246,0.1)',
+            border: loginNum === 1
+              ? '1px solid rgba(217,119,6,0.3)'
+              : '1px solid rgba(139,92,246,0.3)',
+            borderRadius: '9px',
+            padding: '9px 14px',
+            textAlign: 'center',
+            fontSize: '11px',
+            color: loginNum === 1 ? '#f59e0b' : '#a78bfa',
+            fontWeight: 600,
+            marginBottom: '18px',
+          }}>
+            {loginNum === 1 ? '🌟 First Login — Welcome to the ProveRank Team!' : '✨ Second Login — Last welcome message. You\'re all set!'}
+          </div>
+
+          <button
+            onClick={function() { setVisible(false); }}
+            style={{
+              width: '100%',
+              background: 'linear-gradient(90deg,#7c5200,#ffd700,#daa520,#ffc200,#ffd700,#7c5200)',
+              backgroundSize: '200% auto',
+              animation: 'goldShimmer 4s linear infinite',
+              border: 'none',
+              borderRadius: '13px',
+              padding: '15px',
+              color: '#1a0a00',
+              fontSize: '13px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              letterSpacing: '1.5px',
+              textTransform: 'uppercase',
+            }}
+          >
+            🚀 Enter Admin Panel
+          </button>
+
+          <div style={{
+            marginTop: '16px',
             borderTop: '1px solid rgba(217,119,6,0.12)',
-            paddingTop: '14px', textAlign: 'center',
-            color: '#44403c', fontSize: '10px', letterSpacing: '1.5px',
+            paddingTop: '12px',
+            textAlign: 'center',
+            color: '#44403c',
+            fontSize: '9px',
+            letterSpacing: '2px',
           }}>
             PROVERANK · PROVE YOURSELF · RISE TO THE TOP
           </div>
-
         </div>
+
+        <div style={{
+          background: 'linear-gradient(90deg,#7c5200,#ffd700,#daa520,#ffc200,#b8860b,#ffd700,#7c5200)',
+          backgroundSize: '300% auto',
+          animation: 'goldShimmer 4s linear infinite',
+          borderRadius: '0 0 22px 22px',
+          height: '4px',
+        }} />
       </div>
-    </>
+    </div>
   );
 }
