@@ -4125,6 +4125,7 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
         </div>}
       </div>
     
-      <AdminWelcomeBanner /></div>
+      </div>
+      <AdminWelcomeBanner />
   )
 }
