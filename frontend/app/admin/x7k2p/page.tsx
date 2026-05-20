@@ -370,7 +370,7 @@ const GlobalSearch=memo(function GlobalSearch({setTab,token}:{setTab:(t:string)=
                   onMouseEnter={e=>(e.currentTarget.style.background='rgba(77,159,255,0.1)')}
                   onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
                   <span style={{fontSize:18}}>🔑</span>
-                  <div style={{flex:1}}><div style={S.label}>{a.name||'—'}</div><div style={S.sub}>{a.email}{a.adminId?' · '+a.adminId:''}</div></div>
+                  <div style={{flex:1}}><div style={S.label}>{a.name||'—'}</div><div style={S.sub}>{a.email}{a.adminId?<span style={{display:'inline-flex',alignItems:'center',gap:4,marginLeft:4}}>· {a.adminId} <CopyBtn text={a.adminId||''} label="ID" size="sm"/></span>:''}</div></div>
                   <span style={S.chip('rgba(255,165,0,0.15)','#FFA500')}>{a.role==='superadmin'?'SuperAdmin':'Admin'}</span>
                 </div>
               ))}
@@ -488,8 +488,8 @@ function Badge({label,col=ACC}:{label:string;col?:string}) {
 
 const CopyBtn=({text,label='',size='sm'}:{text:string,label?:string,size?:'sm'|'md'})=>{
   const[cp,setCp]=useState(false)
-  const sz=size==='md'?{fontSize:12,padding:'4px 10px'}:{fontSize:10,padding:'2px 7px'}
-  return <button onClick={e=>{e.stopPropagation();try{navigator.clipboard.writeText(text).then(()=>{setCp(true);setTimeout(()=>setCp(false),2000)})}catch{const el=document.createElement('textarea');el.value=text;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);setCp(true);setTimeout(()=>setCp(false),2000)}}} title={'Copy: '+text} style={{background:cp?'rgba(0,196,140,0.15)':'rgba(77,159,255,0.08)',color:cp?'#00C48C':'#6B8FAF',border:'1px solid '+(cp?'rgba(0,196,140,0.3)':'rgba(77,159,255,0.2)'),borderRadius:6,cursor:'pointer',display:'inline-flex',alignItems:'center',gap:3,transition:'all 0.2s',flexShrink:0,fontFamily:'monospace',fontWeight:600,...sz}}>{cp?'✅':'📋'}{label?(' '+label):''}{cp?' Copied!':''}</button>
+  const sz=size==='md'?{fontSize:11,padding:'5px 12px',borderRadius:8}:{fontSize:10,padding:'3px 9px',borderRadius:6}
+  return <button onClick={(e=>{e.stopPropagation();try{navigator.clipboard.writeText(text).then((()=>{setCp(true);setTimeout((()=>setCp(false),2000))})}catch{const el=document.createElement('textarea');el.value=text;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);setCp(true);setTimeout((()=>setCp(false),2000))}}} title={'Copy: '+text} style={{background:cp?'linear-gradient(135deg,rgba(0,210,120,0.18),rgba(0,180,100,0.1))':'linear-gradient(135deg,rgba(99,179,255,0.13),rgba(59,130,246,0.08))',color:cp?'#00e896':'#60a5fa',border:'1px solid '+(cp?'rgba(0,232,150,0.4)':'rgba(99,179,255,0.3)'),cursor:'pointer',display:'inline-flex',alignItems:'center',gap:4,transition:'all 0.2s',flexShrink:0,fontFamily:'monospace',fontWeight:700,letterSpacing:0.3,boxShadow:cp?'0 0 8px rgba(0,232,150,0.25)':'0 0 6px rgba(99,179,255,0.1)',...sz}}>{cp?'✓':'⎘'}{label?(' '+label):''}{cp?' Copied!':' Copy'}</button>
 }
 
 export default function AdminPanel() {
@@ -2498,7 +2498,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
                           <div style={{width:60,height:60,background:'linear-gradient(135deg,rgba(0,180,255,0.2),rgba(77,159,255,0.3))',border:'2px solid rgba(0,180,255,0.4)',borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,fontWeight:900,color:'#00B4FF',flexShrink:0}}>{(profileAdmin.name||'A')[0].toUpperCase()}</div>
                           <div>
                             <div style={{fontWeight:700,fontSize:16,color:'#E8F4FF'}}>{profileAdmin.name||'—'}</div>
-                  {profileAdmin.adminId&&<div style={{fontSize:11,color:'#00B4FF',background:'rgba(0,180,255,0.1)',border:'1px solid rgba(0,180,255,0.3)',borderRadius:12,padding:'3px 12px',marginTop:6,fontWeight:700,letterSpacing:1,display:'inline-block'}}>&#x1FA96; {profileAdmin.adminId}</div>}
+                  {profileAdmin.adminId&&<div style={{fontSize:11,color:'#00B4FF',background:'rgba(0,180,255,0.1)',border:'1px solid rgba(0,180,255,0.3)',borderRadius:12,padding:'3px 12px',marginTop:6,fontWeight:700,letterSpacing:1,display:'inline-block'}}>&#x1FA96; {profileAdmin.adminId} <CopyBtn text={profileAdmin.adminId||''} label="ID" size="sm"/></div>}
                             <div style={{fontSize:12,color:'#6B8FAF',marginTop:3}}>{profileAdmin.email||'—'}</div>
                             <div style={{marginTop:6,display:'flex',gap:6}}>
                               <span style={{fontSize:10,background:'rgba(0,180,255,0.12)',color:'#00B4FF',borderRadius:20,padding:'2px 10px',fontWeight:600}}>{(profileAdmin.role||'admin').toUpperCase()}</span>
