@@ -489,7 +489,15 @@ function Badge({label,col=ACC}:{label:string;col?:string}) {
 const CopyBtn=({text,label='',size='sm'}:{text:string,label?:string,size?:'sm'|'md'})=>{
   const[cp,setCp]=useState(false)
   const sz=size==='md'?{fontSize:11,padding:'5px 12px',borderRadius:8}:{fontSize:10,padding:'3px 9px',borderRadius:6}
-  return <button onClick={(e=>{e.stopPropagation();try{navigator.clipboard.writeText(text).then((()=>{setCp(true);setTimeout((()=>setCp(false),2000))})}catch{const el=document.createElement('textarea');el.value=text;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);setCp(true);setTimeout((()=>setCp(false),2000))}}} title={'Copy: '+text} style={{background:cp?'linear-gradient(135deg,rgba(0,210,120,0.18),rgba(0,180,100,0.1))':'linear-gradient(135deg,rgba(99,179,255,0.13),rgba(59,130,246,0.08))',color:cp?'#00e896':'#60a5fa',border:'1px solid '+(cp?'rgba(0,232,150,0.4)':'rgba(99,179,255,0.3)'),cursor:'pointer',display:'inline-flex',alignItems:'center',gap:4,transition:'all 0.2s',flexShrink:0,fontFamily:'monospace',fontWeight:700,letterSpacing:0.3,boxShadow:cp?'0 0 8px rgba(0,232,150,0.25)':'0 0 6px rgba(99,179,255,0.1)',...sz}}>{cp?'✓':'⎘'}{label?(' '+label):''}{cp?' Copied!':' Copy'}</button>
+  const handleCopy=(e:React.MouseEvent)=>{
+    e.stopPropagation()
+    try{navigator.clipboard.writeText(text).then(()=>{setCp(true);setTimeout(()=>setCp(false),2000)})}catch(e2){try{const el=document.createElement('textarea');el.value=text;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);setCp(true);setTimeout(()=>setCp(false),2000)}catch(e3){}}
+  }
+  return(
+    <button onClick={handleCopy} title={'Copy: '+text} style={{background:cp?'linear-gradient(135deg,rgba(0,210,120,0.18),rgba(0,180,100,0.1))':'linear-gradient(135deg,rgba(99,179,255,0.13),rgba(59,130,246,0.08))',color:cp?'#00e896':'#60a5fa',border:'1px solid '+(cp?'rgba(0,232,150,0.4)':'rgba(99,179,255,0.3)'),cursor:'pointer',display:'inline-flex',alignItems:'center',gap:4,transition:'all 0.2s',flexShrink:0,fontFamily:'monospace',fontWeight:700,letterSpacing:0.3,boxShadow:cp?'0 0 8px rgba(0,232,150,0.25)':'0 0 6px rgba(99,179,255,0.1)',...sz}}>
+      {cp?'✓':'⎘'}{label?(' '+label):''}{cp?' Copied!':' Copy'}
+    </button>
+  )
 }
 
 export default function AdminPanel() {
