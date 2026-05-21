@@ -85,7 +85,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
   const logout=()=>{_ca();router.replace('/login')}
   return(
     <ShellCtx.Provider value={{lang,darkMode:dm,user,toast,token,role}}>
-      <div style={{minHeight:'100vh',background:bg,color:txt,fontFamily:'Inter,sans-serif',position:'relative',overflowX:'hidden'}}>
+      <div style={{minHeight:'100vh',background:'#020816',color:txt,fontFamily:'Inter,sans-serif',position:'relative',overflowX:'hidden'}}>
         <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap');@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes gradMove{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}*{box-sizing:border-box}::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(77,159,255,.4);border-radius:4px}.nav-lnk:hover{background:rgba(77,159,255,.16)!important;color:#4D9FFF!important}.btn-p{background:linear-gradient(135deg,#4D9FFF,#0055CC);color:#fff;border:none;border-radius:10px;padding:11px 22px;cursor:pointer;font-weight:700;font-size:13px;font-family:Inter,sans-serif}.tbtn{padding:6px 14px;border-radius:20px;border:1.5px solid rgba(77,159,255,.4);background:rgba(0,22,40,.55);color:#E8F4FF;font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;backdrop-filter:blur(8px);transition:all .2s}.tbtn:hover{border-color:#4D9FFF;background:rgba(77,159,255,.18)}input,select,textarea{color-scheme:dark}`}</style>
         <GalaxyBg/>
         <div aria-hidden style={{position:'fixed',top:-70,left:-70,fontSize:320,color:'rgba(77,159,255,.022)',pointerEvents:'none',zIndex:0,lineHeight:1,userSelect:'none'}}>⬡</div>
@@ -119,7 +119,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
             <a href="/announcements" style={{background:'none',border:`1px solid ${bdr}`,borderRadius:8,width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none',fontSize:15,color:txt}}>🔔</a>
           </div>
         </div>
-        <div style={{position:'relative',zIndex:1,padding:'24px 16px 56px',maxWidth:1100,margin:'0 auto',animation:'fadeIn .4s ease'}}>{children}</div>
+        <div style={{position:'relative',zIndex:2,padding:'0 0 56px',maxWidth:1100,margin:'0 auto',animation:'fadeIn .4s ease',background:'transparent'}}>{children}</div>
       </div>
     </ShellCtx.Provider>
   )
