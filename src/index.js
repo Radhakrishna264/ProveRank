@@ -148,6 +148,8 @@ app.use('/api/webcam', webcamRoutes);
 app.use('/api/anticheat', antiCheatRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/admin', require('./routes/adminDashboardRoutes'));
+const studentBatchRoutes=require('./routes/studentBatches');
 const brandingRoutes = require('./routes/brandingRoutes')
 app.use('/api/admin', brandingRoutes)
+app.use('/api/student/batches',studentBatchRoutes);
 app.use('/api/admin/email', require('./routes/emailSend'))
