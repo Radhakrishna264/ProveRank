@@ -1,5 +1,19 @@
+
+// ━━ PR LOGO ━━
+function PRLogo({size=36}:{size?:number}){
+  const b=Math.round(size*0.94),p=Math.round(b*0.63),f=Math.round(p*0.52),radius=Math.round(p*0.28)
+  return(
+    <div style={{position:'relative',width:b,height:b,flexShrink:0,display:'inline-flex'}}>
+      <div style={{position:'absolute',top:0,left:0,width:p,height:p,borderRadius:radius,background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:f,fontWeight:900,fontFamily:'Inter,sans-serif',color:'#030810',boxShadow:'0 4px 16px rgba(77,159,255,0.4)'}}><span>P</span></div>
+      <div style={{position:'absolute',bottom:0,right:0,width:p,height:p,borderRadius:radius,background:'rgba(0,212,255,0.15)',border:'1.5px solid rgba(0,212,255,0.45)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:f,fontWeight:900,fontFamily:'Inter,sans-serif',color:'#00D4FF',backdropFilter:'blur(8px)'}}><span>R</span></div>
+        </div>
+    </div>
+  )
+}
+
 'use client'
 import{useState,useEffect,useRef,useCallback}from'react'
+import{useRouter}from'next/navigation'
 const API=process.env.NEXT_PUBLIC_API_URL||'https://proverank.onrender.com'
 type Batch={_id:string;name:string;description:string;examType:string;category:string;price:number;discountPrice:number;isFree:boolean;thumbnail:string;totalTests:number;enrolledCount:number;language:string;difficulty:string;batchType:string;isSpotlight:boolean;flashSaleEndTime?:string;flashSalePrice?:number;allowFreeTrial:boolean;trialDays:number;isBundle:boolean;validity:number;tags:string[];rating:number;ratingCount:number;isEnrolled?:boolean;isWishlisted?:boolean;createdAt:string;subject:string;}
 const ECOLS:Record<string,string>={NEET:'#4D9FFF',JEE:'#9B59B6',CUET:'#27AE60','Class 11':'#E67E22','Class 12':'#E74C3C',Foundation:'#00D4FF','Crash Course':'#FF6B6B',Other:'#7F8C8D'}
@@ -319,6 +333,7 @@ function EmptyState(){
 
 // ━━ MAIN PAGE ━━
 export default function TestSeriesPage(){
+  const router=useRouter()
   const[batches,setBatches]=useState<Batch[]>([])
   const[loading,setLoading]=useState(true)
   const[search,setSearch]=useState('')
@@ -368,7 +383,23 @@ export default function TestSeriesPage(){
         input::placeholder{color:rgba(100,150,200,0.5)}
       `}</style>
 
-      <div style={{position:'relative',zIndex:2,padding:'16px 14px 80px',maxWidth:1200,margin:'0 auto'}}>
+      <div style={{position:'relative',zIndex:2,padding:'0 0 80px',maxWidth:1200,margin:'0 auto'}}>
+
+        {/* ━━ TOP NAV BAR ━━ */}
+        <div style={{position:'sticky',top:0,zIndex:50,background:'rgba(2,8,22,0.92)',backdropFilter:'blur(20px)',borderBottom:'1px solid rgba(77,159,255,0.12)',padding:'10px 14px',display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
+          <button onClick={()=>router.back()} style={{background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:10,width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#4D9FFF',fontSize:18,flexShrink:0,transition:'all 0.2s'}}
+            onMouseEnter={e=>(e.currentTarget.style.background='rgba(77,159,255,0.2)')}
+            onMouseLeave={e=>(e.currentTarget.style.background='rgba(77,159,255,0.1)')}>
+            ←
+          </button>
+          <PRLogo size={32}/>
+          <div>
+            <div style={{fontFamily:'Playfair Display,serif',fontSize:14,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF,#00D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>Test Series & Batches</div>
+            <div style={{fontSize:10,color:'rgba(160,200,240,0.5)'}}>ProveRank · NEET / JEE / CUET</div>
+          </div>
+        </div>
+
+        <div style={{padding:'0 14px'}}>
 
         {/* ━━ HERO BANNER ━━ */}
         <div style={{background:'linear-gradient(135deg,rgba(4,12,30,0.97),rgba(2,8,22,0.97))',border:'1px solid rgba(77,159,255,0.2)',borderRadius:24,padding:'26px 20px 22px',marginBottom:20,backdropFilter:'blur(30px)',boxShadow:'0 20px 80px rgba(0,10,40,0.5)',position:'relative',overflow:'hidden',animation:'slideUp 0.5s ease'}}>
@@ -377,15 +408,15 @@ export default function TestSeriesPage(){
           {/* Grid pattern overlay */}
           <div style={{position:'absolute',inset:0,backgroundImage:'linear-gradient(rgba(77,159,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(77,159,255,0.03) 1px,transparent 1px)',backgroundSize:'30px 30px',borderRadius:24,pointerEvents:'none'}}/>
           <div style={{position:'relative',zIndex:1}}>
-            <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:8,flexWrap:'wrap'}}>
+            <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:8,flexWrap:'wrap',justifyContent:'center',textAlign:'center'}}>
               <span style={{fontSize:38,filter:'drop-shadow(0 0 16px rgba(77,159,255,0.6))'}}>🎓</span>
               <div>
                 <div style={{fontFamily:'Playfair Display,serif',fontSize:28,fontWeight:700,background:'linear-gradient(135deg,#4D9FFF 0%,#00D4FF 40%,#9B59B6 100%)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundSize:'200%',animation:'gradShift 6s ease infinite',lineHeight:1.2}}>Test Series & Batches</div>
-                <div style={{fontSize:12,color:'rgba(160,200,240,0.7)',marginTop:3}}>ProveRank · NEET / JEE / CUET · Premium Prep Platform</div>
+                <div style={{fontSize:12,color:'rgba(160,200,240,0.7)',marginTop:3}}>NEET / JEE / CUET · Free Platform</div>
               </div>
             </div>
             <div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:14}}>
-              {[{i:'📚',v:'120+',l:'Test Series'},{i:'👥',v:'50K+',l:'Students'},{i:'🏆',v:'5K+',l:'Top Rankers'},{i:'🆓',v:'Free',l:'Available'}].map((s,i)=>(
+              {[{i:'📚',v:batches.length>0?batches.length+'+':'--',l:'Test Series'},{i:'🆓',v:'Free',l:'Available'}].map((s,i)=>(
                 <div key={i} style={{background:'rgba(77,159,255,0.08)',border:'1px solid rgba(77,159,255,0.15)',borderRadius:14,padding:'10px 14px',textAlign:'center',minWidth:70,animation:`slideUp ${0.6+i*0.1}s ease`,backdropFilter:'blur(8px)'}}>
                   <div style={{fontSize:20,marginBottom:2}}>{s.i}</div>
                   <div style={{fontSize:16,fontWeight:800,color:'#4D9FFF'}}>{s.v}</div>
@@ -396,20 +427,7 @@ export default function TestSeriesPage(){
           </div>
         </div>
 
-        {/* ━━ NEBULA VIDEO + MOTIVATIONAL QUOTE ━━ */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(250px,1fr))',gap:16,marginBottom:20}}>
-          <NebulaAnim/>
-          <div key={qIdx} style={{background:'linear-gradient(135deg,rgba(4,12,30,0.97),rgba(8,18,45,0.97))',border:'1px solid rgba(77,159,255,0.18)',borderRadius:20,padding:'22px 20px',backdropFilter:'blur(20px)',display:'flex',flexDirection:'column',justifyContent:'center',animation:'fadeSlide 0.5s ease',boxShadow:'0 8px 40px rgba(0,10,40,0.4)'}}>
-            <div style={{fontSize:36,marginBottom:14,filter:'drop-shadow(0 0 12px rgba(255,200,50,0.5))'}}>💫</div>
-            <div style={{fontSize:14,color:'rgba(200,220,240,0.9)',fontStyle:'italic',lineHeight:1.75,marginBottom:16,fontFamily:'Playfair Display,serif'}}>"{QUOTES[qIdx].q}"</div>
-            <div style={{fontSize:12,color:'#4D9FFF',fontWeight:700}}>— {QUOTES[qIdx].a}</div>
-            <div style={{display:'flex',gap:6,marginTop:18,justifyContent:'center'}}>
-              {QUOTES.map((_,i)=><div key={i} style={{width:i===qIdx?22:6,height:6,borderRadius:4,background:i===qIdx?'linear-gradient(90deg,#4D9FFF,#00D4FF)':'rgba(77,159,255,0.25)',transition:'all 0.4s'}}/>)}
-            </div>
-          </div>
-        </div>
-
-        {/* ━━ CATEGORY STRIP ━━ */}
+        {        {/* ━━ CATEGORY STRIP ━━ */}
         <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:8,marginBottom:16,scrollbarWidth:'none'}}>
           {CATS.map(c=>{
             const active=cat===c
@@ -484,23 +502,19 @@ export default function TestSeriesPage(){
           </div>
         )}
 
-        {/* ━━ NCERT SCIENCE FACTS ━━ */}
+        {/* ━━ NCERT SCIENCE FACTS (2 max, transparent) ━━ */}
         <div style={{marginTop:50}}>
-          <div style={{textAlign:'center',marginBottom:22}}>
-            <div style={{fontFamily:'Playfair Display,serif',fontSize:24,fontWeight:700,background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',marginBottom:6}}>🔬 NCERT Science Facts</div>
-            <div style={{fontSize:12,color:'rgba(160,200,240,0.6)'}}>Essential concepts for NEET 2026 — 100% NCERT Based</div>
+          <div style={{textAlign:'center',marginBottom:28}}>
+            <div style={{fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:700,background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',marginBottom:5}}>🔬 NCERT Facts</div>
+            <div style={{fontSize:11,color:'rgba(160,200,240,0.5)'}}>NEET 2026 — 100% NCERT Based</div>
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:14}}>
-            {FACTS.map((f,i)=>(
-              <div key={i} style={{background:'rgba(4,12,30,0.95)',border:`1px solid ${f.c}22`,borderRadius:18,padding:18,backdropFilter:'blur(20px)',transition:'all 0.3s',animation:`slideUp ${1.0+i*0.08}s ease`,boxShadow:'0 4px 20px rgba(0,10,40,0.3)'}}
-                onMouseEnter={e=>{(e.currentTarget as HTMLDivElement).style.transform='translateY(-3px)';(e.currentTarget as HTMLDivElement).style.borderColor=f.c+'44'}}
-                onMouseLeave={e=>{(e.currentTarget as HTMLDivElement).style.transform='';(e.currentTarget as HTMLDivElement).style.borderColor=f.c+'22'}}>
-                <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
-                  <div style={{fontSize:28,filter:`drop-shadow(0 0 10px ${f.c})`,flexShrink:0}}>{f.icon}</div>
-                  <div>
-                    <div style={{fontWeight:700,color:f.c,fontSize:13,marginBottom:5,fontFamily:'Playfair Display,serif'}}>{f.t}</div>
-                    <div style={{fontSize:11,color:'rgba(180,210,240,0.75)',lineHeight:1.65}}>{f.f}</div>
-                  </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:24,maxWidth:700,margin:'0 auto'}}>
+            {FACTS.slice(0,2).map((f,i)=>(
+              <div key={i} style={{display:'flex',gap:14,alignItems:'flex-start',padding:'4px 0',animation:`slideUp ${1.0+i*0.1}s ease`}}>
+                <div style={{fontSize:34,filter:`drop-shadow(0 0 14px ${f.c}88)`,flexShrink:0}}>{f.icon}</div>
+                <div>
+                  <div style={{fontWeight:700,color:f.c,fontSize:13,marginBottom:5,fontFamily:'Playfair Display,serif'}}>{f.t}</div>
+                  <div style={{fontSize:11,color:'rgba(180,210,240,0.65)',lineHeight:1.7}}>{f.f}</div>
                 </div>
               </div>
             ))}
