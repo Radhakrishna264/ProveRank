@@ -1,3 +1,7 @@
+#!/bin/bash
+echo "=== Writing fresh test-series page ==="
+mkdir -p ~/workspace/frontend/app/dashboard/test-series
+cat > ~/workspace/frontend/app/dashboard/test-series/page.tsx << 'ENDOFFILE'
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -460,3 +464,8 @@ export default function TestSeriesPage() {
     </div>
   )
 }
+ENDOFFILE
+echo "page.tsx written successfully"
+echo "=== Git Push ==="
+cd ~/workspace && git add -A && git commit -m "fix: Test Series complete rewrite — back btn PRLogo dark galaxy 2 transparent facts" && git push origin main
+echo "=== DONE ==="
