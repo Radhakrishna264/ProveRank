@@ -443,6 +443,15 @@ export default function TestSeriesPage() {
           </div>
         </div>
 
+        {/* ── MOTIVATIONAL QUOTE ── */}
+        <div style={{ padding: '20px 4px 8px', display: 'flex', alignItems: 'center', gap: 13 }}>
+          <span style={{ fontSize: 26, flexShrink: 0 }}>💫</span>
+          <div>
+            <div style={{ fontSize: 13, color: 'rgba(200,220,240,0.72)', fontStyle: 'italic', lineHeight: 1.65, fontFamily: 'Playfair Display,serif' }}>"{QUOTES[qIdx].q}"</div>
+            <div style={{ fontSize: 11, color: '#4D9FFF', fontWeight: 700, marginTop: 5 }}>— {QUOTES[qIdx].a}</div>
+          </div>
+        </div>
+
       </div>
     </div>
   )
