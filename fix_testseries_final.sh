@@ -1,3 +1,7 @@
+#!/bin/bash
+echo "=== Full Fresh Rewrite ==="
+mkdir -p ~/workspace/frontend/app/dashboard/test-series
+cat > ~/workspace/frontend/app/dashboard/test-series/page.tsx << 'EOF'
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -476,3 +480,7 @@ export default function TestSeriesPage() {
     </div>
   )
 }
+EOF
+echo "✅ page.tsx written"
+cd ~/workspace && git add -A && git commit -m "fix: test-series final rewrite — all batch fixes + no qIdx scope error" && git push origin main
+echo "=== DONE ==="
