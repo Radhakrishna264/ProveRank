@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
@@ -18,6 +18,13 @@ type Banner = {
   createdAt?: string
 }
 
+export default function BannerGeneratorPage() {
+  return (
+    <Suspense fallback={<div style={{minHeight:'100vh',background:'#0a0e1a',display:'flex',alignItems:'center',justifyContent:'center',color:'#4D9FFF',fontSize:14}}>Loading...</div>}>
+      <BannerGeneratorInner />
+    </Suspense>
+  )
+}
 const EMPTY: Banner = {
   batchId: '', batchName: '', title: '', tagline: '', examType: 'NEET',
   price: '', totalTests: '', duration: '', validity: '',
@@ -169,7 +176,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 const INP = { width: '100%', padding: '9px 12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: '#F0F8FF', fontSize: 13, fontFamily: 'Inter,sans-serif', outline: 'none' } as React.CSSProperties
 
 // ── Main Page ──
-export default function BannerGeneratorPage() {
+function BannerGeneratorInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [darkMode, setDarkMode] = useState(true)
