@@ -141,6 +141,15 @@ function SolarSystem() {
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%) rotateX(70deg)', width: 88, height: 88, borderRadius: '50%', border: '2px solid rgba(240,210,140,0.18)', pointerEvents: 'none' }} />
           </div>
         </div>
+        {/* ── MOTIVATIONAL QUOTE (very bottom) ── */}
+        <div key={qIdx} style={{ background: 'transparent', border: 'none', padding: '20px 4px 8px', animation: 'fadeSlide 0.5s ease', display: 'flex', alignItems: 'center', gap: 13 }}>
+          <span style={{ fontSize: 28, flexShrink: 0 }}>💫</span>
+          <div>
+            <div style={{ fontSize: 13, color: 'rgba(200,220,240,0.75)', fontStyle: 'italic', lineHeight: 1.65, fontFamily: 'Playfair Display,serif' }}>"{QUOTES[qIdx].q}"</div>
+            <div style={{ fontSize: 11, color: '#4D9FFF', fontWeight: 700, marginTop: 5 }}>— {QUOTES[qIdx].a}</div>
+          </div>
+        </div>
+
       </div>
     </div>
   )
@@ -410,15 +419,6 @@ export default function TestSeriesPage() {
           </div>
         </div>
 
-        {/* ── MOTIVATIONAL QUOTE (bottom) ── */}
-        <div key={qIdx} style={{ background: 'linear-gradient(135deg,rgba(4,12,30,0.95),rgba(8,18,45,0.95))', border: '1px solid rgba(77,159,255,0.13)', borderRadius: 16, padding: '16px 18px', marginBottom: 16, backdropFilter: 'blur(18px)', animation: 'fadeSlide 0.5s ease', display: 'flex', alignItems: 'center', gap: 13 }}>
-          <span style={{ fontSize: 28, flexShrink: 0 }}>💫</span>
-          <div>
-            <div style={{ fontSize: 13, color: 'rgba(200,220,240,0.86)', fontStyle: 'italic', lineHeight: 1.65, fontFamily: 'Playfair Display,serif' }}>"{QUOTES[qIdx].q}"</div>
-            <div style={{ fontSize: 11, color: '#4D9FFF', fontWeight: 700, marginTop: 5 }}>— {QUOTES[qIdx].a}</div>
-          </div>
-        </div>
-
         <div style={{ marginTop: 42, background: 'rgba(4,12,30,0.97)', border: '1px solid rgba(77,159,255,0.12)', borderRadius: 20, padding: '24px 16px', backdropFilter: 'blur(22px)', boxShadow: '0 10px 40px rgba(0,10,40,0.42)' }}>
           <div style={{ textAlign: 'center', marginBottom: 20 }}>
             <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 19, fontWeight: 700, color: '#F0F8FF', marginBottom: 3 }}>✨ Why Choose ProveRank?</div>
@@ -426,7 +426,6 @@ export default function TestSeriesPage() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 10 }}>
             {[
-              { i: '🎯', t: 'NEET Pattern', d: '180 Qs · 720 Marks\n+4/−1 · 200 min', c: '#4D9FFF' },
               { i: '🤖', t: 'AI Analytics', d: 'Weak area detection\nSmart revision', c: '#9B59B6' },
               { i: '🔒', t: 'Anti-Cheat', d: 'Webcam · Face AI\nIP Lock', c: '#E74C3C' },
               { i: '📊', t: 'Live Ranks', d: 'Real-time AIR\nPercentile', c: '#27AE60' },
