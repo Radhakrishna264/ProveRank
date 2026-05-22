@@ -223,13 +223,13 @@ function EmptyState() {
       <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 22, fontWeight: 700, background: 'linear-gradient(135deg,#4D9FFF,#00D4FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 10 }}>Batches Launching Soon!</div>
       <div style={{ fontSize: 12, color: 'rgba(160,200,240,0.6)', maxWidth: 360, margin: '0 auto 24px', lineHeight: 1.8 }}>Premium Test Series will appear here once created by the Admin.</div>
       <div style={{ display: 'flex', gap: 7, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 26 }}>
-        {['🩺 NEET 2026', '⚙️ JEE Advanced', '📖 CUET', '🚀 Crash Course', '🏛️ Foundation'].map((t, i) => (
+        {['🩺 NEET', '⚙️ JEE Advanced', '📖 CUET', '🚀 Crash Course', '🏛️ Foundation'].map((t, i) => (
           <div key={i} style={{ background: 'rgba(77,159,255,0.07)', border: '1px solid rgba(77,159,255,0.16)', borderRadius: 20, padding: '7px 14px', fontSize: 11, color: '#4D9FFF', fontWeight: 600 }}>{t}</div>
         ))}
       </div>
       <div style={{ background: 'rgba(4,12,30,0.9)', border: '1px solid rgba(77,159,255,0.14)', borderRadius: 16, padding: 20, maxWidth: 400, margin: '0 auto', textAlign: 'left', backdropFilter: 'blur(14px)' }}>
         <div style={{ fontWeight: 700, color: '#4D9FFF', fontSize: 11, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>📋 What is Coming</div>
-        {['Full Syllabus Series (180 Qs · NEET Pattern · +4/-1)', 'Chapter-wise Mini Tests (15-20 min each)', 'Crash Courses with PDF Notes', 'PYQ Bank: NEET 2015-2024', 'Free & Paid — both available'].map((t, i) => (
+        {['Full Syllabus Test Series', 'Chapter-wise Mini Tests', 'Crash Courses with PDF Notes', 'PYQ Bank (Previous Year Questions)', 'Free & Paid — both available'].map((t, i) => (
           <div key={i} style={{ fontSize: 11, color: 'rgba(160,200,240,0.6)', marginBottom: 6, display: 'flex', gap: 7 }}><span style={{ color: '#27AE60', flexShrink: 0 }}>✓</span>{t}</div>
         ))}
       </div>
@@ -310,36 +310,18 @@ export default function TestSeriesPage() {
 
       <div style={{ position: 'relative', zIndex: 2, padding: '14px 14px 80px', maxWidth: 1200, margin: '0 auto' }}>
 
-        <div style={{ background: 'linear-gradient(135deg,rgba(4,12,30,0.97),rgba(2,8,22,0.97))', border: '1px solid rgba(77,159,255,0.17)', borderRadius: 22, padding: '22px 18px 20px', marginBottom: 16, backdropFilter: 'blur(28px)', boxShadow: '0 14px 60px rgba(0,10,40,0.5)', position: 'relative', overflow: 'hidden', animation: 'slideUp 0.5s ease' }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(270deg,rgba(77,159,255,0.05),rgba(0,212,255,0.033),rgba(155,89,182,0.04),rgba(77,159,255,0.05))', backgroundSize: '300%', animation: 'gradShift 12s ease infinite', borderRadius: 22, pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(77,159,255,0.022) 1px,transparent 1px),linear-gradient(90deg,rgba(77,159,255,0.022) 1px,transparent 1px)', backgroundSize: '32px 32px', borderRadius: 22, pointerEvents: 'none' }} />
+        <div style={{ background: 'transparent', border: 'none', borderRadius: 22, padding: '22px 18px 20px', marginBottom: 16, position: 'relative', overflow: 'hidden', animation: 'slideUp 0.5s ease' }}>
+          
           <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, justifyContent: 'center' }}>
               <span style={{ fontSize: 34, filter: 'drop-shadow(0 0 13px rgba(77,159,255,0.5))' }}>🎓</span>
               <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 25, fontWeight: 700, background: 'linear-gradient(135deg,#4D9FFF 0%,#00D4FF 45%,#9B59B6 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundSize: '200%', animation: 'gradShift 6s ease infinite' }}>Test Series & Batches</div>
             </div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {[
-                { i: '📚', v: loading ? '--' : (batches.length > 0 ? batches.length + '+' : '0'), l: 'Test Series' },
-                { i: '🆓', v: 'Free', l: 'Available' }
-              ].map((s, i) => (
-                <div key={i} style={{ background: 'rgba(77,159,255,0.07)', border: '1px solid rgba(77,159,255,0.13)', borderRadius: 14, padding: '10px 18px', textAlign: 'center', animation: `slideUp ${0.6 + i * 0.1}s ease`, backdropFilter: 'blur(8px)' }}>
-                  <div style={{ fontSize: 19, marginBottom: 2 }}>{s.i}</div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: '#4D9FFF' }}>{s.v}</div>
-                  <div style={{ fontSize: 10, color: 'rgba(160,200,240,0.5)' }}>{s.l}</div>
-                </div>
-              ))}
-            </div>
+            
           </div>
         </div>
 
-        <div key={qIdx} style={{ background: 'linear-gradient(135deg,rgba(4,12,30,0.95),rgba(8,18,45,0.95))', border: '1px solid rgba(77,159,255,0.13)', borderRadius: 16, padding: '16px 18px', marginBottom: 16, backdropFilter: 'blur(18px)', animation: 'fadeSlide 0.5s ease', display: 'flex', alignItems: 'center', gap: 13 }}>
-          <span style={{ fontSize: 28, flexShrink: 0 }}>💫</span>
-          <div>
-            <div style={{ fontSize: 13, color: 'rgba(200,220,240,0.86)', fontStyle: 'italic', lineHeight: 1.65, fontFamily: 'Playfair Display,serif' }}>"{QUOTES[qIdx].q}"</div>
-            <div style={{ fontSize: 11, color: '#4D9FFF', fontWeight: 700, marginTop: 5 }}>— {QUOTES[qIdx].a}</div>
-          </div>
-        </div>
+        {/* QUOTE MOVED TO BOTTOM */}
 
         <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 7, marginBottom: 14, scrollbarWidth: 'none' }}>
           {CATS.map(c => {
@@ -414,10 +396,7 @@ export default function TestSeriesPage() {
         )}
 
         <div style={{ marginTop: 50, padding: '0 4px' }}>
-          <div style={{ textAlign: 'center', marginBottom: 26 }}>
-            <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 19, fontWeight: 700, background: 'linear-gradient(135deg,#4D9FFF,#00D4FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 4 }}>🔬 NCERT Facts</div>
-            <div style={{ fontSize: 11, color: 'rgba(160,200,240,0.42)' }}>NEET 2026 — 100% NCERT Based</div>
-          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 26, maxWidth: 640, margin: '0 auto' }}>
             {FACTS.map((f, i) => (
               <div key={i} style={{ display: 'flex', gap: 13, alignItems: 'flex-start', animation: `slideUp ${1.1 + i * 0.12}s ease` }}>
@@ -428,6 +407,15 @@ export default function TestSeriesPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* ── MOTIVATIONAL QUOTE (bottom) ── */}
+        <div key={qIdx} style={{ background: 'linear-gradient(135deg,rgba(4,12,30,0.95),rgba(8,18,45,0.95))', border: '1px solid rgba(77,159,255,0.13)', borderRadius: 16, padding: '16px 18px', marginBottom: 16, backdropFilter: 'blur(18px)', animation: 'fadeSlide 0.5s ease', display: 'flex', alignItems: 'center', gap: 13 }}>
+          <span style={{ fontSize: 28, flexShrink: 0 }}>💫</span>
+          <div>
+            <div style={{ fontSize: 13, color: 'rgba(200,220,240,0.86)', fontStyle: 'italic', lineHeight: 1.65, fontFamily: 'Playfair Display,serif' }}>"{QUOTES[qIdx].q}"</div>
+            <div style={{ fontSize: 11, color: '#4D9FFF', fontWeight: 700, marginTop: 5 }}>— {QUOTES[qIdx].a}</div>
           </div>
         </div>
 
