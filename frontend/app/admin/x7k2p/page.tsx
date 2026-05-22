@@ -634,6 +634,7 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
     {id:'notes',l:'📚 Materials ('+notes.length+')'},
     {id:'analytics',l:'📈 Analytics'},
     {id:'announce',l:'📢 Announce'},
+    {id:'banner-generator',label:'🎨 Banner Generator',href:'/admin/x7k2p/banner-generator'},
     {id:'settings',l:'⚙️ Settings'},
   ]
 
