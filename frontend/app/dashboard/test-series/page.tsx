@@ -169,7 +169,7 @@ function Stars({ r }: { r: number }) {
   )
 }
 
-function BatchCard({ b, tok, onUpdate }: { b: Batch; tok: string | null; onUpdate: () => void }) {
+function BatchCard({ b, tok, onUpdate, compareList = [], toggleCompare }: { b: Batch; tok: string | null; onUpdate: () => void; compareList?: Batch[]; toggleCompare?: (b: Batch) => void }) {
   const [loading, setLoading] = useState(false)
   const [hov, setHov] = useState(false)
   const isFlash = !!(b.flashSaleEndTime && new Date(b.flashSaleEndTime) > new Date())
@@ -200,6 +200,7 @@ function BatchCard({ b, tok, onUpdate }: { b: Batch; tok: string | null; onUpdat
         {b.isBundle && <span style={{ background: 'linear-gradient(135deg,#9B59B6,#7D3C98)', color: '#fff', fontSize: 9, fontWeight: 800, padding: '3px 9px', borderRadius: 20 }}>📦 BUNDLE</span>}
       </div>
       <button onClick={toggleWish} style={{ position: 'absolute', top: 10, right: 10, zIndex: 5, background: 'rgba(0,0,20,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%', width: 36, height: 36, cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{b.isWishlisted ? '❤️' : '🤍'}</button>
+      {compareList && <button onClick={e=>{e.stopPropagation();toggleCompare(b)}} style={{ position: 'absolute', top: 10, right: 50, zIndex: 5, background: compareList.find(x=>x._id===b._id) ? 'rgba(155,89,182,0.9)' : 'rgba(0,0,20,0.6)', border: '1px solid rgba(155,89,182,0.4)', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, transition: 'all 0.2s' }}>{compareList.find(x=>x._id===b._id)?'✓':'⚖'}</button>}
       <div style={{ height: 140, background: b.thumbnail ? `url(${b.thumbnail}) center/cover` : `linear-gradient(135deg,${ec}12,${ec}05,rgba(2,8,22,0.9))`, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,transparent 30%,rgba(4,12,30,0.95))', zIndex: 1 }} />
         {!b.thumbnail && <span style={{ fontSize: 46, filter: `drop-shadow(0 0 16px ${ec})`, zIndex: 2, opacity: 0.88 }}>{b.examType === 'NEET' ? '🩺' : b.examType === 'JEE' ? '⚙️' : b.examType === 'CUET' ? '📖' : b.examType === 'Crash Course' ? '🚀' : '📚'}</span>}
@@ -269,6 +270,8 @@ export default function TestSeriesPage() {
   const [tab, setTab] = useState<'all' | 'enrolled' | 'wishlist'>('all')
   const [tok, setTok] = useState<string | null>(null)
   const [qIdx, setQIdx] = useState(0)
+  const [compareList, setCompareList] = useState<Batch[]>([])
+  const toggleCompare = (b: Batch) => setCompareList(prev => prev.find(x => x._id === b._id) ? prev.filter(x => x._id !== b._id) : prev.length >= 3 ? prev : [...prev, b])
   const [spotlights, setSpotlights] = useState<Batch[]>([])
 
   useEffect(() => {
@@ -417,7 +420,7 @@ export default function TestSeriesPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(230px,1fr))', gap: 16 }}>
             {batches.map((b, i) => (
               <div key={b._id} style={{ animation: `slideUp ${0.28 + i * 0.04}s ease both` }}>
-                <BatchCard b={b} tok={tok} onUpdate={fetchBatches} />
+                <BatchCard b={b} tok={tok} onUpdate={fetchBatches} compareList={compareList} toggleCompare={toggleCompare} />
               </div>
             ))}
           </div>
@@ -472,6 +475,19 @@ export default function TestSeriesPage() {
           </div>
         </div>
 
+        {/* ── COMPARE FLOATING TRAY ── */}
+        {compareList.length >= 1 && (
+          <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200, background: 'rgba(4,12,30,0.98)', borderTop: `1px solid ${compareList.length === 3 ? 'rgba(155,89,182,0.5)' : 'rgba(77,159,255,0.2)'}`, backdropFilter: 'blur(24px)', padding: '12px 16px', boxShadow: compareList.length === 3 ? '0 -8px 40px rgba(155,89,182,0.2)' : '0 -4px 20px rgba(0,0,0,0.4)' }}>
+            <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, color: 'rgba(160,200,240,0.6)', flexShrink: 0 }}>⚖️ <strong style={{ color: '#9B59B6' }}>{compareList.length}</strong>/3</span>
+              <div style={{ display: 'flex', gap: 6, flex: 1, overflow: 'hidden' }}>
+                {compareList.map(b => <span key={b._id} style={{ fontSize: 11, background: 'rgba(155,89,182,0.15)', border: '1px solid rgba(155,89,182,0.3)', borderRadius: 20, padding: '4px 10px', color: '#9B59B6', maxWidth: 110, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flexShrink: 0 }}>{b.name}</span>)}
+              </div>
+              <button onClick={() => setCompareList([])} style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.2)', borderRadius: 8, padding: '7px 10px', color: '#E74C3C', cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>Clear</button>
+              {compareList.length >= 2 ? <button onClick={() => router.push('/dashboard/compare?ids=' + compareList.map(b => b._id).join(','))} style={{ background: 'linear-gradient(135deg,#9B59B6,#7D3C98)', border: 'none', borderRadius: 10, padding: '9px 16px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 12, flexShrink: 0 }}>Compare Now →</button> : <span style={{ fontSize: 11, color: 'rgba(160,200,240,0.4)', flexShrink: 0 }}>+{2 - compareList.length} more needed</span>}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
