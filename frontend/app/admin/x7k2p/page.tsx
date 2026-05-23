@@ -951,7 +951,8 @@ export default function AdminPanel() {
   const [token,setToken]=useState('')
   const [mounted,setMounted]=useState(false)
   const [tab,setTab]=useState('dashboard')
-  const _setTab=(t:string)=>{try{sessionStorage.setItem('pr_admin_tab',t)}catch{};setTab(t)}
+  const _setTab=(id:string)=>{if(id==='creative_studio'){window.location.href='/admin/x7k2p/banner-generator';return;}_setTab_orig(id);}
+  const _setTab_orig=(t:string)=>{try{sessionStorage.setItem('pr_admin_tab',t)}catch{};setTab(t)}
   const [sideOpen,setSideOpen]=useState(false)
   const [toast,setToast]=useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
   const [notifOpen,setNotifOpen]=useState(false)
@@ -1718,6 +1719,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
     {id:'tasks',ico:'✅',lbl:'Task Manager',grp:'Tools'},
     {id:'changelog',ico:'📝',lbl:'Changelog',grp:'Tools'},
     {id:'parent_portal',ico:'👨‍👩‍👧',lbl:'Parent Portal',grp:'Tools'},
+    {id:'creative_studio',ico:'🎨',lbl:'Creative Studio',grp:'Creative',alwaysShow:true},
   ]
 
   const navGroups=[...new Set(NAV.map(n=>n.grp))]
