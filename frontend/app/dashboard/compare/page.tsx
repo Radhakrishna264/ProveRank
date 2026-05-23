@@ -26,7 +26,7 @@ export default function ComparePerformancePage(){
   }
 
   return(
-    <div style={{minHeight:'100vh',color:'#F0F8FF',fontFamily:'Inter,sans-serif',background:'transparent',position:'relative'}}>
+    <div style={{minHeight:'100vh',color:'#F0F8FF',fontFamily:'Inter,sans-serif',background:'#020816',position:'relative'}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap');
         @keyframes slideUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
@@ -50,7 +50,7 @@ export default function ComparePerformancePage(){
       <div style={{maxWidth:900,margin:'0 auto',padding:'16px 14px 80px',position:'relative',zIndex:2}}>
 
         {/* Motivation quote */}
-        <div style={{background:'rgba(4,12,30,0.9)',border:'1px solid rgba(77,159,255,0.15)',borderRadius:16,padding:'14px 18px',marginBottom:18,display:'flex',gap:12,alignItems:'center',animation:'slideUp 0.4s ease',backdropFilter:'blur(16px)'}}>
+        <div style={{background:'rgba(4,12,30,0.95)',border:'1px solid rgba(77,159,255,0.18)',borderRadius:16,padding:'14px 18px',marginBottom:18,display:'flex',gap:12,alignItems:'center',animation:'slideUp 0.4s ease',backdropFilter:'blur(20px)'}}>
           <span style={{fontSize:28,flexShrink:0}}>📊</span>
           <div>
             <div style={{fontSize:13,fontStyle:'italic',color:'rgba(200,220,240,0.85)',fontFamily:'Playfair Display,serif',marginBottom:4}}>"Know your competition — aim higher every day."</div>

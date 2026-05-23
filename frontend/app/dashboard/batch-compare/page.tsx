@@ -129,7 +129,7 @@ function CompareInner() {
   const C = { text: '#F0F8FF', sub: 'rgba(160,200,240,0.6)', border: 'rgba(77,159,255,0.18)', card: 'rgba(4,12,30,0.95)', blue: '#4D9FFF' }
 
   return (
-    <div style={{ minHeight: '100vh', color: C.text, fontFamily: 'Inter,sans-serif', background: '#020816' }}>
+    <div style={{ minHeight: '100vh', color: C.text, fontFamily: 'Inter,sans-serif', background:'#020816' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700;800&display=swap');
         @keyframes slideUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
