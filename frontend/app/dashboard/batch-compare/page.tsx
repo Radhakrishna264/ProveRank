@@ -35,6 +35,22 @@ const ROWS = [
   { key: 'hasCertificate', label: 'Certificate', fmt: (b: Batch) => b.hasCertificate !== false ? '✅ Yes' : '❌ No', better: 'true' },
 ]
 
+
+const getBetterByPct = (batches, row, bi) => {
+  if (row.better === "none" || row.better === "true" || batches.length < 2) return ""
+  const vals = batches.map(b => {
+    const v = b[row.key]
+    return typeof v === "number" ? v : 0
+  })
+  const myVal = vals[bi]
+  const others = vals.filter((_, i) => i !== bi)
+  const bestOther = row.better === "lower" ? Math.min(...others) : Math.max(...others)
+  if (bestOther === 0 || myVal === bestOther) return ""
+  const pct = Math.abs(Math.round(((myVal - bestOther) / bestOther) * 100))
+  if (pct === 0) return ""
+  const isBetter = row.better === "lower" ? myVal < bestOther : myVal > bestOther
+  return isBetter ? ("+" + pct + "% better") : ("-" + pct + "% lower")
+}
 const getBestIdx = (batches: Batch[], row: typeof ROWS[0]) => {
   if (row.better === 'none' || batches.length < 2) return -1
   const vals = batches.map(b => {
@@ -136,6 +152,7 @@ function CompareInner() {
         @keyframes slideUpM{from{transform:translateY(100%)}to{transform:translateY(0)}}
         @keyframes glow{0%,100%{box-shadow:0 0 20px rgba(155,89,182,0.3)}50%{box-shadow:0 0 40px rgba(155,89,182,0.6)}}
         @keyframes shimmer{0%,100%{opacity:0.3}50%{opacity:0.7}}
+        @media print{.no-print{display:none!important} body{background:#020816!important} @page{margin:8mm;size:A4 landscape}}
         *{box-sizing:border-box}
         ::-webkit-scrollbar{width:3px;height:3px}
         ::-webkit-scrollbar-thumb{background:rgba(77,159,255,0.28);border-radius:4px}
@@ -278,6 +295,9 @@ function CompareInner() {
                 <button onClick={shareLink} style={{ background: 'rgba(77,159,255,0.1)', border: '1px solid rgba(77,159,255,0.22)', borderRadius: 10, padding: '7px 13px', color: C.blue, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
                   {copied ? '✅ Copied!' : '🔗 Share Link'}
                 </button>
+                <button onClick={() => window.print()} style={{ background: 'rgba(39,174,96,0.1)', border: '1px solid rgba(39,174,96,0.25)', borderRadius: 10, padding: '7px 13px', color: '#27AE60', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                  📄 Export PDF
+                </button>
                 <button onClick={() => setShowModal(false)} style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.25)', borderRadius: 10, padding: '7px 13px', color: '#E74C3C', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>✕ Close</button>
               </div>
             </div>
@@ -306,16 +326,17 @@ function CompareInner() {
               {ROWS.map((row, ri) => {
                 const bestIdx = getBestIdx(selected, row)
                 return (
-                  <div key={row.key} style={{ display: 'grid', gridTemplateColumns: `130px ${selected.map(() => '1fr').join(' ')}`, borderBottom: '1px solid rgba(77,159,255,0.07)', background: ri % 2 === 0 ? 'rgba(77,159,255,0.015)' : 'transparent' }}>
+                  <div key={row.key} style={{ display: 'grid', gridTemplateColumns: `130px ${selected.map(() => '1fr').join(' ')}`, borderBottom: '1px solid rgba(77,159,255,0.07)', background: ri % 2 === 0 ? 'rgba(77,159,255,0.015)' : 'transparent', animation: 'slideUp ' + (0.1 + ri * 0.05) + 's ease both' }}>
                     <div style={{ padding: '10px 8px', fontSize: 11, fontWeight: 700, color: 'rgba(160,200,240,0.5)', display: 'flex', alignItems: 'center' }}>{row.label}</div>
                     {selected.map((b, bi) => {
                       const isBest = bestIdx === bi
                       const isWorst = bestIdx >= 0 && !isBest && row.better !== 'none' && selected.length > 1
                       return (
-                        <div key={b._id} style={{ padding: '10px 8px', textAlign: 'center', background: isBest ? 'rgba(39,174,96,0.1)' : isWorst ? 'rgba(231,76,60,0.04)' : 'transparent', borderLeft: '1px solid rgba(77,159,255,0.07)' }}>
+                        <div key={b._id} style={{ padding: '10px 8px', textAlign: 'center', background: isBest ? 'rgba(39,174,96,0.1)' : isWorst ? 'rgba(231,76,60,0.04)' : 'transparent', borderLeft: '1px solid rgba(77,159,255,0.07)', transition: 'background 0.6s ease', boxShadow: isBest ? 'inset 0 0 14px rgba(39,174,96,0.1)' : 'none' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
                             <span style={{ fontSize: 12, fontWeight: isBest ? 700 : 400, color: isBest ? '#27AE60' : isWorst ? 'rgba(180,180,180,0.5)' : C.text }}>{row.fmt(b)}</span>
                             {isBest && <span style={{ fontSize: 8, background: 'rgba(39,174,96,0.18)', color: '#27AE60', padding: '1px 7px', borderRadius: 20, fontWeight: 700 }}>BEST</span>}
+                            {isBest && (() => { const pct = getBetterByPct(selected, row, bi); return pct ? <span style={{ fontSize: 8, color: 'rgba(39,174,96,0.7)', marginTop: 2, display: 'block' }}>{pct}</span> : null })()}
                           </div>
                         </div>
                       )
