@@ -49,7 +49,7 @@ function StreakBadge({n}:{n:number}){
 }
 
 // ── Empty State ──
-function EmptyState({tab,router}:{tab:string;router:ReturnType<typeof useRouter>}){
+function EmptyState({tab,router,dark=true}:{tab:string;router:ReturnType<typeof useRouter>;dark?:boolean}){
   return(
     <div style={{textAlign:'center',padding:'55px 20px',animation:'slideUp 0.6s ease'}}>
       <div style={{fontSize:80,marginBottom:18,display:'inline-block',animation:'floatBob 3s ease infinite'}}>
@@ -58,7 +58,7 @@ function EmptyState({tab,router}:{tab:string;router:ReturnType<typeof useRouter>
       <div style={{fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:700,background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',marginBottom:10}}>
         {tab==='active'?'No Active Batches Yet':tab==='completed'?'No Completed Batches':'Wishlist is Empty'}
       </div>
-      <div style={{fontSize:13,color:'rgba(160,200,240,0.65)',maxWidth:360,margin:'0 auto 28px',lineHeight:1.8}}>
+      <div style={{fontSize:13,color:dark?'rgba(160,200,240,0.65)':'rgba(30,50,100,0.6)',maxWidth:360,margin:'0 auto 28px',lineHeight:1.8}}>
         {tab==='active'?'Your learning journey starts here! Enroll in a batch to begin your preparation.':
          tab==='completed'?'Complete a batch to earn certificates and see them here.':
          'Save batches you like to your wishlist from the Test Series page.'}
@@ -74,7 +74,7 @@ function EmptyState({tab,router}:{tab:string;router:ReturnType<typeof useRouter>
 }
 
 // ── Batch Card ──
-function BatchCard({b,onAccess}:{b:BatchMeta;onAccess:(id:string)=>void}){
+function BatchCard({b,onAccess,dark=true}:{b:BatchMeta;onAccess:(id:string)=>void;dark?:boolean}){
   const router=useRouter()
   const ec=ECOLS[b.examType]||'#4D9FFF'
   const [hov,setHov]=useState(false)
@@ -82,7 +82,7 @@ function BatchCard({b,onAccess}:{b:BatchMeta;onAccess:(id:string)=>void}){
 
   return(
     <div onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
-      style={{background:'rgba(4,12,30,0.95)',border:`1px solid ${hov?ec+'55':ec+'18'}`,borderRadius:20,overflow:'hidden',backdropFilter:'blur(22px)',transition:'all 0.3s',transform:hov?'translateY(-4px)':'none',boxShadow:hov?`0 20px 50px ${ec}18`:'0 4px 18px rgba(0,10,40,0.4)',position:'relative'}}>
+      style={{background:dark?'rgba(4,12,30,0.95)':'rgba(255,255,255,0.97)',border:`1px solid ${hov?ec+'55':ec+'22'}`,borderRadius:20,overflow:'hidden',backdropFilter:'blur(22px)',transition:'all 0.3s',transform:hov?'translateY(-4px)':'none',boxShadow:hov?`0 20px 50px ${ec}18`:dark?'0 4px 18px rgba(0,10,40,0.4)':'0 4px 16px rgba(0,0,80,0.1)',position:'relative'}}>
 
       {/* Expiry Warning */}
       {b.isExpiring&&!b.isExpired&&(
@@ -126,7 +126,7 @@ function BatchCard({b,onAccess}:{b:BatchMeta;onAccess:(id:string)=>void}){
         </div>
 
         {/* Name */}
-        <div style={{fontSize:14,fontWeight:700,color:'#F0F8FF',marginBottom:5,fontFamily:'Playfair Display,serif',lineHeight:1.4,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{b.name}</div>
+        <div style={{fontSize:14,fontWeight:700,color:dark?'#F0F8FF':'#1a1a2e',marginBottom:5,fontFamily:'Playfair Display,serif',lineHeight:1.4,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{b.name}</div>
 
         {/* Progress bar */}
         <div style={{marginBottom:10}}>
@@ -187,6 +187,7 @@ export default function MyBatchesPage(){
   const[stats,setStats]=useState<Stats>({total:0,testsCompleted:0,activeBatches:0,certificates:0})
   const[loading,setLoading]=useState(true)
   const[tok,setTok]=useState('')
+  const[dark,setDark]=useState(true)
 
   useEffect(()=>{
     const t=localStorage.getItem('pr_token')||''
@@ -216,10 +217,19 @@ export default function MyBatchesPage(){
   const lastAccessed=activeBatches[0]||null
   const displayList=tab==='active'?activeBatches:tab==='completed'?completedBatches:wishlist as unknown as BatchMeta[]
 
-  const C={blue:'#4D9FFF',cyan:'#00D4FF',text:'#F0F8FF',sub:'rgba(160,200,240,0.6)',border:'rgba(77,159,255,0.18)'}
+  const C={
+    blue:'#4D9FFF',cyan:'#00D4FF',
+    text:dark?'#F0F8FF':'#1a1a2e',
+    sub:dark?'rgba(160,200,240,0.6)':'rgba(30,50,100,0.55)',
+    border:dark?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.25)',
+    card:dark?'rgba(4,12,30,0.95)':'rgba(255,255,255,0.95)',
+    cardBorder:dark?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.22)',
+    inputBg:dark?'rgba(255,255,255,0.05)':'rgba(0,0,80,0.04)',
+    topBar:dark?'rgba(2,8,22,0.94)':'rgba(240,244,248,0.96)',
+  }
 
   return(
-    <div style={{minHeight:'100vh',color:C.text,fontFamily:'Inter,sans-serif',position:'relative',background:'transparent'}}>
+    <div style={{minHeight:'100vh',color:dark?'#F0F8FF':'#1a1a2e',fontFamily:'Inter,sans-serif',position:'relative',background:dark?'#020816':'#f0f4f8',transition:'all 0.3s'}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700;800&display=swap');
         @keyframes floatBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
@@ -233,7 +243,7 @@ export default function MyBatchesPage(){
       `}</style>
 
       {/* STICKY TOP BAR */}
-      <div style={{position:'sticky',top:0,zIndex:50,background:'rgba(2,8,22,0.94)',backdropFilter:'blur(22px)',borderBottom:`1px solid ${C.border}`,padding:'10px 14px',display:'flex',alignItems:'center',gap:10}}>
+      <div style={{position:'sticky',top:0,zIndex:50,background:C.topBar,backdropFilter:'blur(22px)',borderBottom:`1px solid ${C.border}`,padding:'10px 14px',display:'flex',alignItems:'center',gap:10}}>
         <button onClick={()=>router.back()} style={{background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:10,width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:C.blue,fontSize:20,flexShrink:0}}
           onMouseEnter={e=>(e.currentTarget.style.background='rgba(77,159,255,0.2)')}
           onMouseLeave={e=>(e.currentTarget.style.background='rgba(77,159,255,0.1)')}>←</button>
@@ -246,6 +256,7 @@ export default function MyBatchesPage(){
           style={{background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',border:'none',borderRadius:10,padding:'8px 14px',color:'#fff',fontSize:11,fontWeight:700,cursor:'pointer'}}>
           + Explore
         </button>
+        <button onClick={()=>setDark(d=>!d)} style={{background:'transparent',border:`1px solid ${C.border}`,borderRadius:10,padding:'8px 10px',cursor:'pointer',color:C.text,fontSize:14,flexShrink:0}}>{dark?'☀️':'🌙'}</button>
       </div>
 
       <div style={{position:'relative',zIndex:2,padding:'14px 14px 80px',maxWidth:1100,margin:'0 auto'}}>
@@ -258,7 +269,7 @@ export default function MyBatchesPage(){
             {i:'🟢',v:stats.activeBatches,l:'Active',c:'#00D4FF'},
             {i:'🏆',v:stats.certificates,l:'Certificates',c:'#FFD700'},
           ].map((s,i)=>(
-            <div key={i} style={{background:'rgba(4,12,30,0.92)',border:`1px solid ${s.c}22`,borderRadius:16,padding:'14px 12px',textAlign:'center',backdropFilter:'blur(16px)',animation:`slideUp ${0.4+i*0.08}s ease`}}>
+            <div key={i} style={{background:C.card,border:`1px solid ${s.c}28`,borderRadius:16,padding:'14px 12px',textAlign:'center',backdropFilter:'blur(16px)',animation:`slideUp ${0.4+i*0.08}s ease`,boxShadow:dark?'none':'0 2px 12px rgba(0,0,80,0.08)'}}>
               <div style={{fontSize:22,marginBottom:4}}>{s.i}</div>
               <div style={{fontSize:22,fontWeight:800,color:s.c,fontFamily:'Playfair Display,serif'}}>{loading?'—':s.v}</div>
               <div style={{fontSize:10,color:C.sub}}>{s.l}</div>
@@ -268,7 +279,7 @@ export default function MyBatchesPage(){
 
         {/* CONTINUE WHERE YOU LEFT OFF */}
         {lastAccessed&&!loading&&(
-          <div style={{background:'linear-gradient(135deg,rgba(4,12,30,0.97),rgba(8,18,45,0.97))',border:'1px solid rgba(77,159,255,0.25)',borderRadius:20,padding:'18px 18px',marginBottom:18,backdropFilter:'blur(22px)',boxShadow:'0 8px 40px rgba(77,159,255,0.08)',position:'relative',overflow:'hidden',animation:'slideUp 0.5s ease'}}>
+          <div style={{background:dark?'linear-gradient(135deg,rgba(4,12,30,0.97),rgba(8,18,45,0.97))':'rgba(255,255,255,0.97)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:20,padding:'18px 18px',marginBottom:18,backdropFilter:'blur(22px)',boxShadow:dark?'0 8px 40px rgba(77,159,255,0.08)':'0 4px 20px rgba(0,0,80,0.1)',position:'relative',overflow:'hidden',animation:'slideUp 0.5s ease'}}>
             <div style={{position:'absolute',top:-20,right:-20,width:120,height:120,borderRadius:'50%',background:'radial-gradient(circle,rgba(77,159,255,0.08),transparent)',pointerEvents:'none'}}/>
             <div style={{fontSize:11,fontWeight:700,color:'rgba(160,200,240,0.5)',textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>▶ Continue Where You Left Off</div>
             <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
@@ -309,11 +320,11 @@ export default function MyBatchesPage(){
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:16}}>
             {[1,2,3].map(i=><div key={i} style={{height:380,background:'rgba(4,12,30,0.8)',borderRadius:20,animation:'shimmer 1.5s ease infinite',animationDelay:`${i*0.15}s`}}/>)}
           </div>
-        ):displayList.length===0?<EmptyState tab={tab} router={router}/>:(
+        ):displayList.length===0?<EmptyState tab={tab} router={router} dark={dark}/>:(
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:16}}>
             {displayList.map((b,i)=>(
               <div key={b._id} style={{animation:`slideUp ${0.3+i*0.05}s ease both`}}>
-                <BatchCard b={b} onAccess={handleAccess}/>
+                <BatchCard b={b} onAccess={handleAccess} dark={dark}/>
               </div>
             ))}
           </div>
@@ -321,7 +332,7 @@ export default function MyBatchesPage(){
 
         {/* ACTIVITY FEED (What's New) */}
         {!loading&&activeBatches.length>0&&(
-          <div style={{marginTop:44,background:'rgba(4,12,30,0.95)',border:'1px solid rgba(77,159,255,0.14)',borderRadius:20,padding:'22px 18px',backdropFilter:'blur(20px)'}}>
+          <div style={{marginTop:44,background:dark?'rgba(4,12,30,0.95)':'rgba(255,255,255,0.97)',border:`1px solid ${C.border}`,borderRadius:20,padding:'22px 18px',backdropFilter:'blur(20px)',boxShadow:dark?'none':'0 4px 16px rgba(0,0,80,0.08)'}}>
             <div style={{fontFamily:'Playfair Display,serif',fontSize:18,fontWeight:700,color:C.text,marginBottom:16}}>📡 Batch Activity Feed</div>
             {activeBatches.map(b=>(
               <div key={b._id} style={{display:'flex',gap:12,alignItems:'flex-start',padding:'12px 0',borderBottom:'1px solid rgba(77,159,255,0.07)'}}>
