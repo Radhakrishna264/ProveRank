@@ -149,9 +149,11 @@ app.use('/api/anticheat', antiCheatRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/admin', require('./routes/adminDashboardRoutes'));
 const studentBatchRoutes=require('./routes/studentBatches');
+const myBatchesRoutes=require('./routes/myBatches');
 const bannerGeneratorRoutes = require('./routes/bannerGenerator');
 const brandingRoutes = require('./routes/brandingRoutes')
 app.use('/api/admin', brandingRoutes)
+app.use('/api/my-batches',myBatchesRoutes);
 app.use('/api/admin/banners', bannerGeneratorRoutes);
 app.use('/api/student/batches',studentBatchRoutes);
 app.use('/api/admin/email', require('./routes/emailSend'))
