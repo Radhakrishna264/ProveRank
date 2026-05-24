@@ -138,6 +138,27 @@ app.use('/api/student/batch-extras',  studentBatchExtrasRoutes);
 
 const studentNotificationRoutes = require('./routes/studentNotificationRoutes');
 app.use('/api/student/notifications', studentNotificationRoutes);
+
+// ── Scheduled Banner Auto-Publish Cron (runs every minute) ──
+const cron = require('node-cron');
+cron.schedule('* * * * *', async () => {
+  try {
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) return;
+    let BannerModel;
+    try { BannerModel = mongoose.model('Banner'); } catch(e) { return; }
+    const now = new Date();
+    const toPublish = await BannerModel.find({
+      published: false,
+      scheduledAt: { $lte: now, $exists: true, $ne: null }
+    });
+    for (const b of toPublish) {
+      b.published = true;
+      await b.save();
+      console.log('Auto-published banner:', b.title, 'at', now.toISOString());
+    }
+  } catch(e) { /* silent — cron errors should not crash server */ }
+});
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`ProveRank server running at http://0.0.0.0:${PORT}`);
 });

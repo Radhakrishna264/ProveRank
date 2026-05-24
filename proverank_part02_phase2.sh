@@ -1,3 +1,136 @@
+#!/bin/bash
+# ProveRank — Part-02 Phase-02
+# Adds: Scheduled Publish Auto-Cron, Download Banner as Image,
+#       Subject Illustration Library, Generate Banner button (Batch Mgmt),
+#       WhatsApp/Social Share Export
+# No existing feature removed. No python.
+
+set -e
+echo "🚀 ProveRank Part-02 Phase-02 — Starting..."
+
+# ─────────────────────────────────────────────
+# STEP 1 — Install node-cron (backend)
+# ─────────────────────────────────────────────
+echo "📦 Step 1: Installing node-cron..."
+cd ~/workspace
+npm list node-cron 2>/dev/null | grep -q node-cron \
+  && echo "node-cron already installed" \
+  || npm install node-cron --save 2>&1 | tail -3
+echo "✅ node-cron done"
+
+# ─────────────────────────────────────────────
+# STEP 2 — Install html2canvas (frontend)
+# ─────────────────────────────────────────────
+echo "📦 Step 2: Installing html2canvas in frontend..."
+cd ~/workspace/frontend
+npm list html2canvas 2>/dev/null | grep -q html2canvas \
+  && echo "html2canvas already installed" \
+  || npm install html2canvas --save 2>&1 | tail -3
+echo "✅ html2canvas done"
+
+# ─────────────────────────────────────────────
+# STEP 3 — index.js — Add Scheduled Publish Cron Job
+# ─────────────────────────────────────────────
+echo "📝 Step 3: Adding scheduled publish cron to index.js..."
+cd ~/workspace
+node -e "
+const fs = require('fs');
+let c = fs.readFileSync('src/index.js', 'utf8');
+if (c.includes('node-cron') || c.includes('scheduledAt')) {
+  console.log('Cron already added — skipping');
+  process.exit(0);
+}
+const cronCode = \`
+// ── Scheduled Banner Auto-Publish Cron (runs every minute) ──
+const cron = require('node-cron');
+cron.schedule('* * * * *', async () => {
+  try {
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) return;
+    let BannerModel;
+    try { BannerModel = mongoose.model('Banner'); } catch(e) { return; }
+    const now = new Date();
+    const toPublish = await BannerModel.find({
+      published: false,
+      scheduledAt: { \\\$lte: now, \\\$exists: true, \\\$ne: null }
+    });
+    for (const b of toPublish) {
+      b.published = true;
+      await b.save();
+      console.log('Auto-published banner:', b.title, 'at', now.toISOString());
+    }
+  } catch(e) { /* silent — cron errors should not crash server */ }
+});
+\`;
+c = c.replace('server.listen(', cronCode + 'server.listen(');
+fs.writeFileSync('src/index.js', c);
+console.log('Cron job added to index.js');
+"
+echo "✅ Cron job added"
+
+# ─────────────────────────────────────────────
+# STEP 4 — Admin page.tsx — Add Generate Banner button in batch cards
+# ─────────────────────────────────────────────
+echo "📝 Step 4: Adding Generate Banner button in admin batch management..."
+cd ~/workspace
+node -e "
+const fs = require('fs');
+let c = fs.readFileSync('frontend/app/admin/x7k2p/page.tsx', 'utf8');
+if (c.includes('Generate Banner')) {
+  console.log('Generate Banner button already exists — skipping');
+  process.exit(0);
+}
+// Find the CSV export button click and add Generate Banner button after Export CSV button
+// Look for the Export CSV download anchor click pattern
+const oldExport = \`T('Exported ✅','s')\`;
+const newExport = \`T('Exported ✅','s')\`;
+
+// Find the Export CSV button in JSX and add Generate Banner button after it
+// The export button is identified by 'Exported' text — find it and insert after its button closing tag
+const exportBtnPattern = \"T('Exported ✅','s')}\";
+if (!c.includes(exportBtnPattern)) {
+  console.log('Export pattern not found, trying alternate...');
+}
+
+// Look for the download CSV button JSX block (contains 'Exported')
+// and add Generate Banner button right after it
+const csvBtnStr = \"T('Exported ✅','s'))}\";
+const genBannerBtn = \` <button onClick={()=>{const url='/admin/x7k2p/banner-generator?batchId='+batch._id+'&batchName='+encodeURIComponent(batch.name);window.location.href=url;}} style={{padding:'6px 12px',background:'linear-gradient(135deg,rgba(77,159,255,0.15),rgba(0,212,255,0.1))',border:'1px solid rgba(77,159,255,0.3)',borderRadius:8,color:'#4D9FFF',cursor:'pointer',fontSize:10,fontWeight:700,whiteSpace:'nowrap'}}>🎨 Generate Banner</button>\`;
+
+// Find position of T('Exported ✅','s') — then find the next button closing pattern
+const idx = c.indexOf(\"T('Exported ✅','s')\");
+if (idx === -1) {
+  console.log('Could not find Export CSV button — trying CSV export search');
+  // Alternative: find the CSV export inline anchor and add after its parent button
+  const altIdx = c.indexOf(\"a.download='batch_\");
+  if (altIdx !== -1) {
+    // Find the next </button> after this
+    const after = c.substring(altIdx);
+    const btnEnd = after.indexOf('</button>') + '</button>'.length;
+    const insertAt = altIdx + btnEnd;
+    c = c.substring(0, insertAt) + genBannerBtn + c.substring(insertAt);
+    fs.writeFileSync('frontend/app/admin/x7k2p/page.tsx', c);
+    console.log('Generate Banner button added (alt method)');
+  } else {
+    console.log('ERROR: Could not find insertion point');
+  }
+} else {
+  // Find the next </button> after the export text
+  const after = c.substring(idx);
+  const btnEnd = after.indexOf('</button>') + '</button>'.length;
+  const insertAt = idx + btnEnd;
+  c = c.substring(0, insertAt) + genBannerBtn + c.substring(insertAt);
+  fs.writeFileSync('frontend/app/admin/x7k2p/page.tsx', c);
+  console.log('Generate Banner button added successfully');
+}
+"
+echo "✅ Generate Banner button added"
+
+# ─────────────────────────────────────────────
+# STEP 5 — Banner Generator Page — Full update
+# ─────────────────────────────────────────────
+echo "📝 Step 5: Updating banner-generator page with new features..."
+cat > ~/workspace/frontend/app/admin/x7k2p/banner-generator/page.tsx << 'PAGEEOF'
 'use client'
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -742,3 +875,21 @@ function BannerGeneratorInner() {
     </div>
   )
 }
+PAGEEOF
+echo "✅ Banner Generator page updated"
+
+# ─────────────────────────────────────────────
+# VERIFY
+# ─────────────────────────────────────────────
+echo ""
+echo "=== VERIFICATION ==="
+echo "node-cron in package.json:" && grep -c "node-cron" ~/workspace/package.json
+echo "html2canvas in frontend:" && grep -c "html2canvas" ~/workspace/frontend/package.json
+echo "Cron in index.js:" && grep -c "node-cron\|scheduledAt" ~/workspace/src/index.js
+echo "Generate Banner in admin page:" && grep -c "Generate Banner" ~/workspace/frontend/app/admin/x7k2p/page.tsx
+echo "Download PNG in banner page:" && grep -c "downloadBannerImage\|Download PNG" ~/workspace/frontend/app/admin/x7k2p/banner-generator/page.tsx
+echo "Share in banner page:" && grep -c "shareBanner\|WhatsApp" ~/workspace/frontend/app/admin/x7k2p/banner-generator/page.tsx
+echo "Illustration Library:" && grep -c "IllustrationLibrary\|ILLUSTRATIONS" ~/workspace/frontend/app/admin/x7k2p/banner-generator/page.tsx
+echo "Scheduled badge in library:" && grep -c "Scheduled:" ~/workspace/frontend/app/admin/x7k2p/banner-generator/page.tsx
+echo ""
+echo "✅✅✅ Part-02 Phase-02 COMPLETE!"
