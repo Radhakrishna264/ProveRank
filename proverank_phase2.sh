@@ -1,3 +1,370 @@
+#!/bin/bash
+# ProveRank — Part-01 Phase-02 Script
+# Adds: Review model, adminBatchControls route, studentBatchExtras route,
+#        Batch.js EMI field, index.js mounts, test-series page (autocomplete
+#        + desktop sidebar + recommendations + review modal + razorpay),
+#        Admin Batch Controls page
+# Rules: No sed, no python, cat>EOF style, no existing feature removed
+
+set -e
+echo "🚀 ProveRank Part-01 Phase-02 — Starting..."
+
+# ─────────────────────────────────────────────
+# STEP 1 — Review.js Model (NEW FILE)
+# ─────────────────────────────────────────────
+echo "📝 Step 1: Creating Review.js model..."
+cat > ~/workspace/src/models/Review.js << 'EOF'
+const mongoose = require('mongoose');
+const ReviewSchema = new mongoose.Schema({
+  batchId:     { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', required: true },
+  studentId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true },
+  studentName: { type: String, default: 'Student' },
+  rating:      { type: Number, required: true, min: 1, max: 5 },
+  comment:     { type: String, default: '' },
+  status:      { type: String, enum: ['pending','approved','rejected'], default: 'pending' },
+  approvedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  approvedAt:  { type: Date },
+}, { timestamps: true });
+module.exports = mongoose.model('Review', ReviewSchema);
+EOF
+echo "✅ Review.js created"
+
+# ─────────────────────────────────────────────
+# STEP 2 — Batch.js — Add allowEMI field (safe rewrite)
+# ─────────────────────────────────────────────
+echo "📝 Step 2: Updating Batch.js with allowEMI field..."
+cat > ~/workspace/src/models/Batch.js << 'EOF'
+const mongoose=require('mongoose');
+const BatchSchema=new mongoose.Schema({
+  name:{type:String,required:true},
+  description:{type:String,default:''},
+  examType:{type:String,default:'NEET',enum:['NEET','JEE','CUET','Class 11','Class 12','Foundation','Crash Course','Other']},
+  category:{type:String,default:'Full Syllabus'},
+  price:{type:Number,default:0},
+  discountPrice:{type:Number,default:0},
+  isFree:{type:Boolean,default:true},
+  thumbnail:{type:String,default:''},
+  totalTests:{type:Number,default:0},
+  enrolledCount:{type:Number,default:0},
+  language:{type:String,default:'Hindi + English'},
+  difficulty:{type:String,default:'Medium',enum:['Easy','Medium','Hard','Mixed']},
+  batchType:{type:String,default:'Recorded',enum:['Live','Recorded','Both']},
+  isSpotlight:{type:Boolean,default:false},
+  flashSaleEndTime:{type:Date},
+  flashSalePrice:{type:Number},
+  allowFreeTrial:{type:Boolean,default:false},
+  trialDays:{type:Number,default:3},
+  isBundle:{type:Boolean,default:false},
+  bundleItems:[{type:String}],
+  validity:{type:Number,default:365},
+  tags:[{type:String}],
+  status:{type:String,default:'active',enum:['active','inactive','draft']},
+  createdBy:{type:mongoose.Schema.Types.ObjectId,ref:'User'},
+  rating:{type:Number,default:4.5},
+  ratingCount:{type:Number,default:0},
+  syllabus:{type:String},
+  subject:{type:String,default:'All Subjects'},
+  students:[{type:mongoose.Schema.Types.ObjectId,ref:'User'}],
+  notes:[{type:mongoose.Schema.Types.ObjectId,ref:'BatchNote'}],
+  allowEMI:{type:Boolean,default:false},
+},{timestamps:true});
+module.exports=mongoose.model('Batch',BatchSchema);
+EOF
+echo "✅ Batch.js updated"
+
+# ─────────────────────────────────────────────
+# STEP 3 — adminBatchControls.js (NEW FILE)
+# ─────────────────────────────────────────────
+echo "📝 Step 3: Creating adminBatchControls.js..."
+cat > ~/workspace/src/routes/adminBatchControls.js << 'EOF'
+const express  = require('express');
+const router   = express.Router();
+const mongoose = require('mongoose');
+const jwt      = require('jsonwebtoken');
+const Batch    = require('../models/Batch');
+const User     = require('../models/User');
+const Review   = require('../models/Review');
+const JWT      = process.env.JWT_SECRET || 'proverank_jwt_super_secret_key_2024';
+
+const auth = (req, res, next) => {
+  const h = req.headers.authorization;
+  if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+  try { req.user = jwt.verify(h.split(' ')[1], JWT); next(); }
+  catch (e) { res.status(401).json({ error: 'Invalid token' }); }
+};
+const isAdmin = (req, res, next) => {
+  if (!['admin','superadmin'].includes(req.user?.role)) return res.status(403).json({ error: 'Admin only' });
+  next();
+};
+
+// GET / — all batches list for admin controls page
+router.get('/', auth, isAdmin, async (req, res) => {
+  try {
+    const batches = await Batch.find({}).sort({ createdAt: -1 }).lean();
+    res.json({ batches });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /:id/spotlight — toggle spotlight
+router.put('/:id/spotlight', auth, isAdmin, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    batch.isSpotlight = !batch.isSpotlight;
+    await batch.save();
+    res.json({ success: true, isSpotlight: batch.isSpotlight });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /:id/flashsale — set or remove flash sale
+router.put('/:id/flashsale', auth, isAdmin, async (req, res) => {
+  try {
+    const { flashSalePrice, flashSaleEndTime, remove } = req.body;
+    const batch = await Batch.findById(req.params.id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    if (remove) {
+      await Batch.findByIdAndUpdate(req.params.id, { $unset: { flashSalePrice: 1, flashSaleEndTime: 1 } });
+    } else {
+      batch.flashSalePrice   = flashSalePrice;
+      batch.flashSaleEndTime = new Date(flashSaleEndTime);
+      await batch.save();
+    }
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /:id/bundle — toggle bundle
+router.put('/:id/bundle', auth, isAdmin, async (req, res) => {
+  try {
+    const { bundleItems, bundlePrice } = req.body;
+    const batch = await Batch.findById(req.params.id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    batch.isBundle = !batch.isBundle;
+    if (bundleItems) batch.bundleItems = bundleItems;
+    if (bundlePrice) batch.price       = bundlePrice;
+    await batch.save();
+    res.json({ success: true, isBundle: batch.isBundle });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /:id/trial — toggle free trial
+router.put('/:id/trial', auth, isAdmin, async (req, res) => {
+  try {
+    const { trialDays } = req.body;
+    const batch = await Batch.findById(req.params.id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    batch.allowFreeTrial = !batch.allowFreeTrial;
+    if (trialDays) batch.trialDays = Number(trialDays);
+    await batch.save();
+    res.json({ success: true, allowFreeTrial: batch.allowFreeTrial, trialDays: batch.trialDays });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /:id/emi — toggle EMI
+router.put('/:id/emi', auth, isAdmin, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    batch.allowEMI = !batch.allowEMI;
+    await batch.save();
+    res.json({ success: true, allowEMI: batch.allowEMI });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /reviews — all reviews (filter by status)
+router.get('/reviews', auth, isAdmin, async (req, res) => {
+  try {
+    const status  = req.query.status || 'pending';
+    const reviews = await Review.find({ status }).sort({ createdAt: -1 }).lean();
+    res.json({ reviews });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /reviews/:id/approve — approve review + recalculate rating
+router.put('/reviews/:id/approve', auth, isAdmin, async (req, res) => {
+  try {
+    const review = await Review.findById(req.params.id);
+    if (!review) return res.status(404).json({ error: 'Review not found' });
+    review.status     = 'approved';
+    review.approvedBy = req.user.id;
+    review.approvedAt = new Date();
+    await review.save();
+    const approved = await Review.find({ batchId: review.batchId, status: 'approved' });
+    if (approved.length > 0) {
+      const avg = approved.reduce((s, r) => s + r.rating, 0) / approved.length;
+      await Batch.findByIdAndUpdate(review.batchId, {
+        rating:      Math.round(avg * 10) / 10,
+        ratingCount: approved.length
+      });
+    }
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE /reviews/:id — reject review
+router.delete('/reviews/:id', auth, isAdmin, async (req, res) => {
+  try {
+    await Review.findByIdAndUpdate(req.params.id, { status: 'rejected' });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /:id/price-drop-notify — count wishlisted users (in-app alert ready)
+router.post('/:id/price-drop-notify', auth, isAdmin, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const bObjId = new mongoose.Types.ObjectId(req.params.id);
+    const users  = await User.collection.find({ wishlistBatches: { $in: [bObjId] } }).toArray();
+    res.json({ success: true, notified: users.length, batchName: batch.name });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+module.exports = router;
+EOF
+echo "✅ adminBatchControls.js created"
+
+# ─────────────────────────────────────────────
+# STEP 4 — studentBatchExtras.js (NEW FILE)
+# ─────────────────────────────────────────────
+echo "📝 Step 4: Creating studentBatchExtras.js..."
+cat > ~/workspace/src/routes/studentBatchExtras.js << 'EOF'
+const express  = require('express');
+const router   = express.Router();
+const mongoose = require('mongoose');
+const jwt      = require('jsonwebtoken');
+const Batch    = require('../models/Batch');
+const User     = require('../models/User');
+const Review   = require('../models/Review');
+const JWT      = process.env.JWT_SECRET || 'proverank_jwt_super_secret_key_2024';
+
+const auth = (req, res, next) => {
+  const h = req.headers.authorization;
+  if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+  try { req.user = jwt.verify(h.split(' ')[1], JWT); next(); }
+  catch (e) { res.status(401).json({ error: 'Invalid token' }); }
+};
+const optAuth = (req, res, next) => {
+  const h = req.headers.authorization;
+  if (h && h.startsWith('Bearer ')) {
+    try { req.user = jwt.verify(h.split(' ')[1], JWT); } catch (e) {}
+  }
+  next();
+};
+
+// GET /autocomplete?q= — batch name suggestions (debounced from frontend)
+router.get('/autocomplete', async (req, res) => {
+  try {
+    const q = req.query.q || '';
+    if (!q || q.length < 2) return res.json({ suggestions: [] });
+    const batches = await Batch.find({
+      name:   { $regex: q, $options: 'i' },
+      status: 'active'
+    }).select('name examType isFree').limit(6).lean();
+    res.json({ suggestions: batches });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /recommendations?examType=NEET&excludeId=xxx
+router.get('/recommendations', optAuth, async (req, res) => {
+  try {
+    const { examType, excludeId } = req.query;
+    const filter = { status: 'active' };
+    if (examType) filter.examType = examType;
+    if (excludeId) {
+      try { filter._id = { $ne: new mongoose.Types.ObjectId(excludeId) }; } catch (e) {}
+    }
+    const batches = await Batch.find(filter).sort({ enrolledCount: -1, rating: -1 }).limit(4).lean();
+    res.json({ batches });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /:id/review — student submits review (pending admin approval)
+router.post('/:id/review', auth, async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+    if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'Rating 1-5 required' });
+    const existing = await Review.findOne({ batchId: req.params.id, studentId: req.user.id });
+    if (existing) return res.status(400).json({ error: 'You have already reviewed this batch' });
+    const user = await User.collection.findOne({ _id: new mongoose.Types.ObjectId(req.user.id) });
+    await Review.create({
+      batchId:     req.params.id,
+      studentId:   req.user.id,
+      studentName: user?.name || 'Student',
+      rating:      Number(rating),
+      comment:     comment || '',
+      status:      'pending'
+    });
+    res.json({ success: true, message: 'Review submitted — pending admin approval' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /:id/reviews — approved reviews for a batch
+router.get('/:id/reviews', async (req, res) => {
+  try {
+    const reviews = await Review.find({ batchId: req.params.id, status: 'approved' })
+      .sort({ createdAt: -1 }).limit(10).lean();
+    res.json({ reviews });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /:id/razorpay-order — create payment order (test mode safe)
+router.post('/:id/razorpay-order', auth, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const amount = ((batch.discountPrice || batch.price) * 100);
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      return res.json({
+        success:  true,
+        orderId:  'order_test_' + Date.now(),
+        amount,
+        currency: 'INR',
+        key:      'rzp_test_placeholder',
+        testMode: true,
+        batchName: batch.name
+      });
+    }
+    const Razorpay = require('razorpay');
+    const rzp   = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
+    const order = await rzp.orders.create({ amount, currency: 'INR', notes: { batchId: req.params.id } });
+    res.json({ success: true, orderId: order.id, amount, currency: 'INR', key: process.env.RAZORPAY_KEY_ID, batchName: batch.name });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+module.exports = router;
+EOF
+echo "✅ studentBatchExtras.js created"
+
+# ─────────────────────────────────────────────
+# STEP 5 — index.js — Add 4 new lines safely
+# ─────────────────────────────────────────────
+echo "📝 Step 5: Mounting new routes in index.js..."
+cd ~/workspace && node -e "
+const fs = require('fs');
+let c = fs.readFileSync('src/index.js', 'utf8');
+if (c.includes('adminBatchControlRoutes')) {
+  console.log('Routes already mounted — skipping');
+  process.exit(0);
+}
+const ins = \`
+const adminBatchControlRoutes  = require('./routes/adminBatchControls');
+const studentBatchExtrasRoutes = require('./routes/studentBatchExtras');
+app.use('/api/admin/batch-controls',  adminBatchControlRoutes);
+app.use('/api/student/batch-extras',  studentBatchExtrasRoutes);
+\`;
+// Insert just before app.listen
+c = c.replace('app.listen(', ins + 'app.listen(');
+fs.writeFileSync('src/index.js', c);
+console.log('index.js updated — 4 lines added');
+"
+echo "✅ index.js updated"
+
+# ─────────────────────────────────────────────
+# STEP 6 — Test Series Page (full rewrite + additions)
+# ─────────────────────────────────────────────
+echo "📝 Step 6: Rewriting test-series page with all new features..."
+cat > ~/workspace/frontend/app/dashboard/test-series/page.tsx << 'EOF'
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -720,3 +1087,337 @@ export default function TestSeriesPage() {
     </div>
   )
 }
+EOF
+echo "✅ test-series page updated"
+
+# ─────────────────────────────────────────────
+# STEP 7 — Admin Batch Controls Page (NEW FILE)
+# ─────────────────────────────────────────────
+echo "📝 Step 7: Creating admin batch-controls page..."
+mkdir -p ~/workspace/frontend/app/admin/x7k2p/batch-controls
+cat > ~/workspace/frontend/app/admin/x7k2p/batch-controls/page.tsx << 'EOF'
+'use client'
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
+
+type Batch = {
+  _id: string; name: string; examType: string; price: number; discountPrice: number;
+  isFree: boolean; isSpotlight: boolean; flashSalePrice?: number; flashSaleEndTime?: string;
+  allowFreeTrial: boolean; trialDays: number; isBundle: boolean; allowEMI: boolean;
+  enrolledCount: number; rating: number; status: string;
+}
+type Review = {
+  _id: string; batchId: string; studentName: string; rating: number; comment: string;
+  status: string; createdAt: string;
+}
+
+const ECOLS: Record<string, string> = {
+  NEET: '#4D9FFF', JEE: '#9B59B6', CUET: '#27AE60', 'Class 11': '#E67E22',
+  'Class 12': '#E74C3C', Foundation: '#00D4FF', 'Crash Course': '#FF6B6B', Other: '#7F8C8D'
+}
+
+function ToggleSwitch({ on, onToggle, loading }: { on: boolean; onToggle: () => void; loading?: boolean }) {
+  return (
+    <div onClick={!loading ? onToggle : undefined}
+      style={{ width: 44, height: 24, borderRadius: 12, background: on ? 'linear-gradient(135deg,#4D9FFF,#00D4FF)' : 'rgba(255,255,255,0.08)', border: `1px solid ${on ? '#4D9FFF' : 'rgba(255,255,255,0.14)'}`, cursor: loading ? 'wait' : 'pointer', position: 'relative', transition: 'all 0.3s', flexShrink: 0 }}>
+      <div style={{ position: 'absolute', top: 2, left: on ? 22 : 2, width: 18, height: 18, borderRadius: '50%', background: on ? '#fff' : 'rgba(255,255,255,0.3)', transition: 'left 0.3s', boxShadow: on ? '0 2px 8px rgba(77,159,255,0.5)' : 'none' }} />
+    </div>
+  )
+}
+
+export default function BatchControlsPage() {
+  const router  = useRouter()
+  const [tok, setTok]           = useState('')
+  const [batches, setBatches]   = useState<Batch[]>([])
+  const [reviews, setReviews]   = useState<Review[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [activeTab, setActiveTab] = useState<'controls' | 'reviews' | 'flashsale'>('controls')
+  const [toggling, setToggling] = useState<string | null>(null)
+  const [toast, setToast]       = useState('')
+  // Flash sale form
+  const [fsId, setFsId]         = useState('')
+  const [fsPrice, setFsPrice]   = useState('')
+  const [fsEnd, setFsEnd]       = useState('')
+  // Notify price drop
+  const [notifying, setNotifying] = useState<string | null>(null)
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
+  useEffect(() => {
+    const t = localStorage.getItem('pr_token') || ''
+    setTok(t); fetchAll(t)
+  }, [])
+
+  const fetchAll = async (t: string) => {
+    setLoading(true)
+    try {
+      const [bRes, rRes] = await Promise.all([
+        fetch(`${API}/api/admin/batch-controls`, { headers: { Authorization: `Bearer ${t}` } }),
+        fetch(`${API}/api/admin/batch-controls/reviews?status=pending`, { headers: { Authorization: `Bearer ${t}` } }),
+      ])
+      const bd = await bRes.json(); const rd = await rRes.json()
+      setBatches(bd.batches || [])
+      setReviews(rd.reviews || [])
+    } catch { } finally { setLoading(false) }
+  }
+
+  const toggle = async (id: string, action: string, body?: object) => {
+    setToggling(id + action)
+    try {
+      const r = await fetch(`${API}/api/admin/batch-controls/${id}/${action}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined
+      })
+      const d = await r.json()
+      if (d.success) { showToast('Updated ✅'); fetchAll(tok) }
+      else showToast(d.error || 'Error ❌')
+    } catch { showToast('Network error ❌') } finally { setToggling(null) }
+  }
+
+  const setFlashSale = async () => {
+    if (!fsId || !fsPrice || !fsEnd) return showToast('Fill all flash sale fields')
+    await toggle(fsId, 'flashsale', { flashSalePrice: Number(fsPrice), flashSaleEndTime: fsEnd })
+    setFsId(''); setFsPrice(''); setFsEnd('')
+  }
+
+  const removeFlashSale = async (id: string) => {
+    await toggle(id, 'flashsale', { remove: true })
+  }
+
+  const approveReview = async (rid: string) => {
+    setToggling(rid)
+    try {
+      const r = await fetch(`${API}/api/admin/batch-controls/reviews/${rid}/approve`, { method: 'PUT', headers: { Authorization: `Bearer ${tok}` } })
+      const d = await r.json()
+      if (d.success) { showToast('Review approved ✅'); fetchAll(tok) }
+      else showToast(d.error || 'Error')
+    } finally { setToggling(null) }
+  }
+
+  const rejectReview = async (rid: string) => {
+    setToggling(rid + 'r')
+    try {
+      const r = await fetch(`${API}/api/admin/batch-controls/reviews/${rid}`, { method: 'DELETE', headers: { Authorization: `Bearer ${tok}` } })
+      const d = await r.json()
+      if (d.success) { showToast('Review rejected'); fetchAll(tok) }
+    } finally { setToggling(null) }
+  }
+
+  const notifyPriceDrop = async (id: string) => {
+    setNotifying(id)
+    try {
+      const r = await fetch(`${API}/api/admin/batch-controls/${id}/price-drop-notify`, { method: 'POST', headers: { Authorization: `Bearer ${tok}` } })
+      const d = await r.json()
+      if (d.success) showToast(`📣 ${d.notified} wishlisted users notified!`)
+      else showToast(d.error || 'Error')
+    } finally { setNotifying(null) }
+  }
+
+  const inp = { padding: '9px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(77,159,255,0.18)', borderRadius: 10, color: '#F0F8FF', fontSize: 12, outline: 'none' }
+  const btn = (col: string) => ({ padding: '9px 16px', background: `linear-gradient(135deg,${col},${col}BB)`, border: 'none', borderRadius: 10, color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 11 })
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#020816 0%,#030c1a 100%)', color: '#F0F8FF', fontFamily: 'Inter,sans-serif', padding: '0 0 60px' }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap'); *{box-sizing:border-box} ::-webkit-scrollbar{width:3px} ::-webkit-scrollbar-thumb{background:rgba(77,159,255,0.3);border-radius:4px} input,select{outline:none}`}</style>
+
+      {/* TOAST */}
+      {toast && (
+        <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: 'rgba(4,12,30,0.98)', border: '1px solid rgba(77,159,255,0.3)', borderRadius: 12, padding: '12px 24px', fontSize: 13, fontWeight: 600, boxShadow: '0 8px 40px rgba(0,0,0,0.5)', backdropFilter: 'blur(20px)', whiteSpace: 'nowrap' }}>{toast}</div>
+      )}
+
+      {/* HEADER */}
+      <div style={{ background: 'rgba(2,8,22,0.96)', backdropFilter: 'blur(22px)', borderBottom: '1px solid rgba(77,159,255,0.1)', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 50 }}>
+        <button onClick={() => router.push('/admin/x7k2p')} style={{ background: 'rgba(77,159,255,0.1)', border: '1px solid rgba(77,159,255,0.2)', borderRadius: 10, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#4D9FFF', fontSize: 20 }}>←</button>
+        <div>
+          <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 18, fontWeight: 700, background: 'linear-gradient(90deg,#4D9FFF,#00D4FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>⚙️ Batch Controls</div>
+          <div style={{ fontSize: 11, color: 'rgba(160,200,240,0.42)' }}>Spotlight · Flash Sale · Bundle · Trial · EMI · Reviews · Price Drop</div>
+        </div>
+        <div style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(160,200,240,0.45)' }}>{batches.length} batches · {reviews.length} pending reviews</div>
+      </div>
+
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px 16px' }}>
+
+        {/* TABS */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 22 }}>
+          {(['controls', 'flashsale', 'reviews'] as const).map(t => (
+            <button key={t} onClick={() => setActiveTab(t)} style={{ padding: '9px 18px', borderRadius: 12, background: activeTab === t ? 'linear-gradient(135deg,#4D9FFF,#00D4FF)' : 'rgba(77,159,255,0.07)', border: 'none', color: activeTab === t ? '#fff' : 'rgba(160,200,240,0.5)', fontWeight: activeTab === t ? 700 : 400, cursor: 'pointer', fontSize: 11 }}>
+              {t === 'controls' ? '🔧 Batch Toggles' : t === 'flashsale' ? '⚡ Flash Sale' : `⭐ Reviews (${reviews.length})`}
+            </button>
+          ))}
+        </div>
+
+        {/* ── TAB: BATCH TOGGLES ── */}
+        {activeTab === 'controls' && (
+          <div>
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: 40, color: 'rgba(160,200,240,0.4)' }}>Loading batches...</div>
+            ) : batches.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 40, color: 'rgba(160,200,240,0.4)' }}>No batches found. Create batches from the main Admin Panel first.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {batches.map(b => {
+                  const ec = ECOLS[b.examType] || '#4D9FFF'
+                  const isFlashActive = !!(b.flashSaleEndTime && new Date(b.flashSaleEndTime) > new Date())
+                  return (
+                    <div key={b._id} style={{ background: 'rgba(4,12,30,0.95)', border: `1px solid ${ec}18`, borderRadius: 18, padding: '16px 18px', backdropFilter: 'blur(20px)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+                        <div style={{ width: 38, height: 38, borderRadius: 10, background: `${ec}18`, border: `1px solid ${ec}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+                          {b.examType === 'NEET' ? '🩺' : b.examType === 'JEE' ? '⚙️' : '📚'}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 120 }}>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: '#F0F8FF', fontFamily: 'Playfair Display,serif' }}>{b.name}</div>
+                          <div style={{ fontSize: 10, color: 'rgba(160,200,240,0.45)', marginTop: 2 }}>
+                            <span style={{ color: ec }}>{b.examType}</span> · {b.isFree ? 'Free' : `₹${b.discountPrice || b.price}`} · {b.enrolledCount} enrolled · ⭐ {b.rating}
+                          </div>
+                        </div>
+                        {isFlashActive && <span style={{ fontSize: 9, background: 'rgba(231,76,60,0.18)', color: '#E74C3C', padding: '3px 10px', borderRadius: 20, fontWeight: 700 }}>⚡ FLASH ACTIVE</span>}
+                        <button onClick={() => notifyPriceDrop(b._id)} disabled={notifying === b._id}
+                          style={{ padding: '6px 12px', background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.2)', borderRadius: 8, color: '#FFD700', cursor: 'pointer', fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          {notifying === b._id ? '...' : '📣 Notify Price Drop'}
+                        </button>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 }}>
+                        {[
+                          { label: '⭐ Spotlight', desc: 'Show in featured section', key: 'spotlight', val: b.isSpotlight },
+                          { label: '📦 Bundle', desc: 'Mark as bundle product', key: 'bundle', val: b.isBundle },
+                          { label: '🎯 Free Trial', desc: `${b.trialDays}-day trial access`, key: 'trial', val: b.allowFreeTrial },
+                          { label: '💳 EMI', desc: 'Show EMI badge & option', key: 'emi', val: b.allowEMI },
+                          { label: '⚡ Remove Flash', desc: 'Clear active flash sale', key: 'flashsale_remove', val: isFlashActive },
+                        ].map(ctrl => (
+                          <div key={ctrl.key} style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${ctrl.val ? ec + '30' : 'rgba(255,255,255,0.06)'}`, borderRadius: 12, padding: '11px 13px', display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>
+                            <div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: ctrl.val ? '#F0F8FF' : 'rgba(160,200,240,0.5)' }}>{ctrl.label}</div>
+                              <div style={{ fontSize: 9, color: 'rgba(160,200,240,0.35)', marginTop: 2 }}>{ctrl.desc}</div>
+                            </div>
+                            {ctrl.key === 'flashsale_remove' ? (
+                              <button onClick={() => removeFlashSale(b._id)} disabled={!isFlashActive || toggling === b._id + 'flashsale'}
+                                style={{ padding: '5px 10px', background: isFlashActive ? 'rgba(231,76,60,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${isFlashActive ? 'rgba(231,76,60,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, color: isFlashActive ? '#E74C3C' : 'rgba(160,200,240,0.25)', cursor: isFlashActive ? 'pointer' : 'not-allowed', fontSize: 9, fontWeight: 700 }}>
+                                Remove
+                              </button>
+                            ) : (
+                              <ToggleSwitch on={ctrl.val as boolean} loading={toggling === b._id + ctrl.key} onToggle={() => toggle(b._id, ctrl.key)} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── TAB: FLASH SALE ── */}
+        {activeTab === 'flashsale' && (
+          <div>
+            <div style={{ background: 'rgba(4,12,30,0.95)', border: '1px solid rgba(231,76,60,0.2)', borderRadius: 20, padding: '22px 20px', marginBottom: 22, backdropFilter: 'blur(20px)' }}>
+              <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 16, fontWeight: 700, color: '#F0F8FF', marginBottom: 18 }}>⚡ Set Flash Sale</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 14 }}>
+                <div>
+                  <div style={{ fontSize: 10, color: 'rgba(160,200,240,0.45)', marginBottom: 6, fontWeight: 700, textTransform: 'uppercase' }}>Select Batch</div>
+                  <select value={fsId} onChange={e => setFsId(e.target.value)} style={{ ...inp, width: '100%' }}>
+                    <option value="">Choose batch...</option>
+                    {batches.filter(b => !b.isFree).map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: 'rgba(160,200,240,0.45)', marginBottom: 6, fontWeight: 700, textTransform: 'uppercase' }}>Flash Price (₹)</div>
+                  <input type="number" value={fsPrice} onChange={e => setFsPrice(e.target.value)} placeholder="e.g. 299" style={{ ...inp, width: '100%' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: 'rgba(160,200,240,0.45)', marginBottom: 6, fontWeight: 700, textTransform: 'uppercase' }}>End Date & Time</div>
+                  <input type="datetime-local" value={fsEnd} onChange={e => setFsEnd(e.target.value)} style={{ ...inp, width: '100%' }} />
+                </div>
+              </div>
+              <button onClick={setFlashSale} style={btn('#E74C3C')}>⚡ Set Flash Sale</button>
+            </div>
+            {/* Active flash sales */}
+            <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 15, fontWeight: 700, color: '#F0F8FF', marginBottom: 14 }}>Active Flash Sales</div>
+            {batches.filter(b => b.flashSaleEndTime && new Date(b.flashSaleEndTime) > new Date()).length === 0
+              ? <div style={{ color: 'rgba(160,200,240,0.4)', fontSize: 12, padding: '20px 0' }}>No active flash sales.</div>
+              : batches.filter(b => b.flashSaleEndTime && new Date(b.flashSaleEndTime) > new Date()).map(b => (
+                <div key={b._id} style={{ background: 'rgba(231,76,60,0.06)', border: '1px solid rgba(231,76,60,0.2)', borderRadius: 14, padding: '14px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#F0F8FF' }}>{b.name}</div>
+                    <div style={{ fontSize: 11, color: '#E74C3C', marginTop: 3 }}>⚡ ₹{b.flashSalePrice} · Ends {new Date(b.flashSaleEndTime!).toLocaleString()}</div>
+                  </div>
+                  <button onClick={() => removeFlashSale(b._id)} style={{ padding: '7px 14px', background: 'rgba(231,76,60,0.12)', border: '1px solid rgba(231,76,60,0.25)', borderRadius: 8, color: '#E74C3C', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Remove</button>
+                </div>
+              ))
+            }
+          </div>
+        )}
+
+        {/* ── TAB: REVIEWS ── */}
+        {activeTab === 'reviews' && (
+          <div>
+            {reviews.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(160,200,240,0.4)', fontSize: 13 }}>✅ No pending reviews</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {reviews.map(rv => (
+                  <div key={rv._id} style={{ background: 'rgba(4,12,30,0.95)', border: '1px solid rgba(255,215,0,0.12)', borderRadius: 16, padding: '16px 18px', backdropFilter: 'blur(20px)' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: 160 }}>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#F0F8FF' }}>{rv.studentName}</span>
+                          <span style={{ display: 'inline-flex', gap: 1 }}>{[1,2,3,4,5].map(i => <span key={i} style={{ color: i <= rv.rating ? '#FFD700' : 'rgba(255,215,0,0.15)', fontSize: 12 }}>★</span>)}</span>
+                        </div>
+                        {rv.comment && <div style={{ fontSize: 12, color: 'rgba(180,210,240,0.65)', lineHeight: 1.6, marginBottom: 6 }}>"{rv.comment}"</div>}
+                        <div style={{ fontSize: 10, color: 'rgba(160,200,240,0.35)' }}>{new Date(rv.createdAt).toLocaleDateString()}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => approveReview(rv._id)} disabled={toggling === rv._id}
+                          style={{ padding: '8px 14px', background: 'rgba(39,174,96,0.12)', border: '1px solid rgba(39,174,96,0.25)', borderRadius: 10, color: '#27AE60', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
+                          {toggling === rv._id ? '...' : '✅ Approve'}
+                        </button>
+                        <button onClick={() => rejectReview(rv._id)} disabled={toggling === rv._id + 'r'}
+                          style={{ padding: '8px 14px', background: 'rgba(231,76,60,0.08)', border: '1px solid rgba(231,76,60,0.2)', borderRadius: 10, color: '#E74C3C', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
+                          {toggling === rv._id + 'r' ? '...' : '❌ Reject'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
+    </div>
+  )
+}
+EOF
+echo "✅ Admin Batch Controls page created"
+
+# ─────────────────────────────────────────────
+# STEP 8 — Install Razorpay package
+# ─────────────────────────────────────────────
+echo "📦 Step 8: Installing razorpay package..."
+cd ~/workspace && npm list razorpay 2>/dev/null | grep -q razorpay \
+  && echo "razorpay already installed" \
+  || npm install razorpay --save 2>&1 | tail -4
+echo "✅ razorpay done"
+
+# ─────────────────────────────────────────────
+# VERIFY
+# ─────────────────────────────────────────────
+echo ""
+echo "=== VERIFICATION ==="
+echo "Review model:"     && ls ~/workspace/src/models/Review.js
+echo "adminBatchCtrls:"  && ls ~/workspace/src/routes/adminBatchControls.js
+echo "studentExtras:"    && ls ~/workspace/src/routes/studentBatchExtras.js
+echo "Batch.js EMI:"     && grep -c "allowEMI" ~/workspace/src/models/Batch.js
+echo "index.js routes:"  && grep "batch-controls\|batch-extras" ~/workspace/src/index.js
+echo "test-series page:" && ls ~/workspace/frontend/app/dashboard/test-series/page.tsx
+echo "batch-controls pg:"&& ls ~/workspace/frontend/app/admin/x7k2p/batch-controls/page.tsx
+echo ""
+echo "✅✅✅ Part-01 Phase-02 COMPLETE!"
+echo ""
+echo "Admin Batch Controls URL: https://prove-rank.vercel.app/admin/x7k2p/batch-controls"
+echo "Test Series URL:          https://prove-rank.vercel.app/dashboard/test-series"

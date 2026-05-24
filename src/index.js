@@ -130,6 +130,11 @@ if (permissionTestRoutes) app.use('/api/permission', permissionTestRoutes);
 
 // ── Start Server ──────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
+
+const adminBatchControlRoutes  = require('./routes/adminBatchControls');
+const studentBatchExtrasRoutes = require('./routes/studentBatchExtras');
+app.use('/api/admin/batch-controls',  adminBatchControlRoutes);
+app.use('/api/student/batch-extras',  studentBatchExtrasRoutes);
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`ProveRank server running at http://0.0.0.0:${PORT}`);
 });

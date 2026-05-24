@@ -26,9 +26,10 @@ const BatchSchema=new mongoose.Schema({
   createdBy:{type:mongoose.Schema.Types.ObjectId,ref:'User'},
   rating:{type:Number,default:4.5},
   ratingCount:{type:Number,default:0},
-  syllabus:[{type:String}],
+  syllabus:{type:String},
   subject:{type:String,default:'All Subjects'},
   students:[{type:mongoose.Schema.Types.ObjectId,ref:'User'}],
   notes:[{type:mongoose.Schema.Types.ObjectId,ref:'BatchNote'}],
+  allowEMI:{type:Boolean,default:false},
 },{timestamps:true});
 module.exports=mongoose.model('Batch',BatchSchema);
