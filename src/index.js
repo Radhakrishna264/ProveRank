@@ -135,6 +135,9 @@ const adminBatchControlRoutes  = require('./routes/adminBatchControls');
 const studentBatchExtrasRoutes = require('./routes/studentBatchExtras');
 app.use('/api/admin/batch-controls',  adminBatchControlRoutes);
 app.use('/api/student/batch-extras',  studentBatchExtrasRoutes);
+
+const studentNotificationRoutes = require('./routes/studentNotificationRoutes');
+app.use('/api/student/notifications', studentNotificationRoutes);
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`ProveRank server running at http://0.0.0.0:${PORT}`);
 });

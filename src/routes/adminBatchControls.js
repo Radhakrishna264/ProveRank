@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const jwt      = require('jsonwebtoken');
 const Batch    = require('../models/Batch');
 const User     = require('../models/User');
+const StudentNotification = require('../models/StudentNotification');
 const Review   = require('../models/Review');
 const JWT      = process.env.JWT_SECRET || 'proverank_jwt_super_secret_key_2024';
 
@@ -130,13 +131,24 @@ router.delete('/reviews/:id', auth, isAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// POST /:id/price-drop-notify — count wishlisted users (in-app alert ready)
+// POST /:id/price-drop-notify — create real in-app notifications for wishlisted users
 router.post('/:id/price-drop-notify', auth, isAdmin, async (req, res) => {
   try {
     const batch = await Batch.findById(req.params.id);
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
     const bObjId = new mongoose.Types.ObjectId(req.params.id);
     const users  = await User.collection.find({ wishlistBatches: { $in: [bObjId] } }).toArray();
+    const finalPrice = batch.discountPrice || batch.price;
+    const notifs = users.map(u => ({
+      userId:  u._id,
+      type:    'price_drop',
+      title:   '💰 Price Drop Alert!',
+      message: `${batch.name} price dropped to ₹${finalPrice}! Enroll now.`,
+      batchId: batch._id,
+      isRead:  false,
+      link:    '/dashboard/test-series'
+    }));
+    if (notifs.length > 0) await StudentNotification.insertMany(notifs);
     res.json({ success: true, notified: users.length, batchName: batch.name });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

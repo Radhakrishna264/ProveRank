@@ -1,3 +1,162 @@
+#!/bin/bash
+# ProveRank — Part-01 Phase-02B
+# Adds: Price Range Slider, Difficulty/Subject/Language filters,
+#       "Go to Batch" button fix, EMI Checkout Modal,
+#       Notification Bell (frontend + backend model + route)
+# No existing feature removed. No python. Pure node/cat.
+
+set -e
+echo "🚀 ProveRank Phase-02B — Starting..."
+
+# ─────────────────────────────────────────────
+# STEP 1 — StudentNotification.js Model (NEW)
+# ─────────────────────────────────────────────
+echo "📝 Step 1: StudentNotification model..."
+cat > ~/workspace/src/models/StudentNotification.js << 'EOF'
+const mongoose = require('mongoose');
+const StudentNotificationSchema = new mongoose.Schema({
+  userId:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  type:    { type: String, enum: ['price_drop','batch_update','trial_expiry','general'], default: 'general' },
+  title:   { type: String, required: true },
+  message: { type: String, required: true },
+  batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
+  isRead:  { type: Boolean, default: false },
+  link:    { type: String, default: '/dashboard/test-series' },
+}, { timestamps: true });
+module.exports = mongoose.model('StudentNotification', StudentNotificationSchema);
+EOF
+echo "✅ StudentNotification.js created"
+
+# ─────────────────────────────────────────────
+# STEP 2 — studentNotificationRoutes.js (NEW)
+# ─────────────────────────────────────────────
+echo "📝 Step 2: studentNotificationRoutes.js..."
+cat > ~/workspace/src/routes/studentNotificationRoutes.js << 'EOF'
+const express  = require('express');
+const router   = express.Router();
+const mongoose = require('mongoose');
+const jwt      = require('jsonwebtoken');
+const StudentNotification = require('../models/StudentNotification');
+const JWT = process.env.JWT_SECRET || 'proverank_jwt_super_secret_key_2024';
+
+const auth = (req, res, next) => {
+  const h = req.headers.authorization;
+  if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+  try { req.user = jwt.verify(h.split(' ')[1], JWT); next(); }
+  catch (e) { res.status(401).json({ error: 'Invalid token' }); }
+};
+
+// GET /api/student/notifications — get all + unread count
+router.get('/', auth, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const notifs = await StudentNotification.find({ userId }).sort({ createdAt: -1 }).limit(20).lean();
+    const unread = notifs.filter(n => !n.isRead).length;
+    res.json({ notifications: notifs, unread });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/student/notifications/:id/read — mark one as read
+router.put('/:id/read', auth, async (req, res) => {
+  try {
+    await StudentNotification.findByIdAndUpdate(req.params.id, { isRead: true });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/student/notifications/read-all — mark all as read
+router.put('/read-all', auth, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    await StudentNotification.updateMany({ userId, isRead: false }, { isRead: true });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+module.exports = router;
+EOF
+echo "✅ studentNotificationRoutes.js created"
+
+# ─────────────────────────────────────────────
+# STEP 3 — adminBatchControls.js — update price-drop-notify to create notifs
+# ─────────────────────────────────────────────
+echo "📝 Step 3: Updating price-drop-notify to create real notifications..."
+node -e "
+const fs = require('fs');
+let c = fs.readFileSync('src/routes/adminBatchControls.js', 'utf8');
+if (c.includes('StudentNotification')) {
+  console.log('Already updated'); process.exit(0);
+}
+// Add require at top
+c = c.replace(
+  'const Review   = require',
+  'const StudentNotification = require(\'../models/StudentNotification\');\nconst Review   = require'
+);
+// Replace the notify route
+const oldNotify = \`// POST /:id/price-drop-notify — count wishlisted users (in-app alert ready)
+router.post('/:id/price-drop-notify', auth, isAdmin, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const bObjId = new mongoose.Types.ObjectId(req.params.id);
+    const users  = await User.collection.find({ wishlistBatches: { \$in: [bObjId] } }).toArray();
+    res.json({ success: true, notified: users.length, batchName: batch.name });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});\`;
+const newNotify = \`// POST /:id/price-drop-notify — create real in-app notifications for wishlisted users
+router.post('/:id/price-drop-notify', auth, isAdmin, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const bObjId = new mongoose.Types.ObjectId(req.params.id);
+    const users  = await User.collection.find({ wishlistBatches: { \$in: [bObjId] } }).toArray();
+    const finalPrice = batch.discountPrice || batch.price;
+    const notifs = users.map(u => ({
+      userId:  u._id,
+      type:    'price_drop',
+      title:   '💰 Price Drop Alert!',
+      message: \\\`\\\${batch.name} price dropped to ₹\\\${finalPrice}! Enroll now.\\\`,
+      batchId: batch._id,
+      isRead:  false,
+      link:    '/dashboard/test-series'
+    }));
+    if (notifs.length > 0) await StudentNotification.insertMany(notifs);
+    res.json({ success: true, notified: users.length, batchName: batch.name });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});\`;
+if (c.includes('price-drop-notify')) {
+  c = c.replace(oldNotify, newNotify);
+}
+fs.writeFileSync('src/routes/adminBatchControls.js', c);
+console.log('adminBatchControls.js updated with real notifications');
+"
+echo "✅ adminBatchControls.js updated"
+
+# ─────────────────────────────────────────────
+# STEP 4 — index.js — mount notifications route
+# ─────────────────────────────────────────────
+echo "📝 Step 4: Mounting notification route in index.js..."
+node -e "
+const fs = require('fs');
+let c = fs.readFileSync('src/index.js', 'utf8');
+if (c.includes('studentNotificationRoutes')) {
+  console.log('Already mounted'); process.exit(0);
+}
+const ins = \`
+const studentNotificationRoutes = require('./routes/studentNotificationRoutes');
+app.use('/api/student/notifications', studentNotificationRoutes);
+\`;
+c = c.replace('server.listen(', ins + 'server.listen(');
+fs.writeFileSync('src/index.js', c);
+console.log('Notification route mounted');
+"
+echo "✅ index.js updated"
+
+# ─────────────────────────────────────────────
+# STEP 5 — test-series page — full update
+# ─────────────────────────────────────────────
+echo "📝 Step 5: Updating test-series page..."
+cat > ~/workspace/frontend/app/dashboard/test-series/page.tsx << 'TSEOF'
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -817,3 +976,22 @@ export default function TestSeriesPage() {
     </div>
   )
 }
+TSEOF
+echo "✅ test-series page fully updated"
+
+# ─────────────────────────────────────────────
+# VERIFY
+# ─────────────────────────────────────────────
+echo ""
+echo "=== VERIFICATION ==="
+echo "StudentNotification model:" && ls ~/workspace/src/models/StudentNotification.js
+echo "notificationRoutes:" && ls ~/workspace/src/routes/studentNotificationRoutes.js
+echo "index.js notifications:" && grep -c "notifications" ~/workspace/src/index.js
+echo "Price Range Slider:" && grep -c "priceRange\|price.*range\|range.*price" ~/workspace/frontend/app/dashboard/test-series/page.tsx
+echo "Difficulty filter:" && grep -c "Difficulty\|difficulty" ~/workspace/frontend/app/dashboard/test-series/page.tsx
+echo "Language filter:" && grep -c "Language\|language" ~/workspace/frontend/app/dashboard/test-series/page.tsx
+echo "Go to Batch:" && grep -c "Go to Batch" ~/workspace/frontend/app/dashboard/test-series/page.tsx
+echo "EMI Modal:" && grep -c "EMIModal" ~/workspace/frontend/app/dashboard/test-series/page.tsx
+echo "Notification Bell:" && grep -c "NotificationBell" ~/workspace/frontend/app/dashboard/test-series/page.tsx
+echo ""
+echo "✅✅✅ Phase-02B COMPLETE!"
