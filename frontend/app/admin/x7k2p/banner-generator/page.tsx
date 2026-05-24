@@ -187,7 +187,7 @@ function BannerPreview({ b, size = 'card', previewRef }: { b: Banner; size?: 'ca
   const isLight = b.template === 'minimal'
   const tc = isLight ? '#1a1a2e' : b.textColor
   const dims: Record<string, { w: number | string; h: number }> = {
-    card: { w: '100%', h: 220 }, wide: { w: '100%', h: 160 }, square: { w: 300, h: 300 }
+    card: { w: '100%', h: 220 }, wide: { w: '100%', h: 160 }, square: { w: 300, h: 300 }, mobile: { w: 320, h: 180 }
   }
   const { w, h } = dims[size]
   return (
@@ -287,13 +287,35 @@ function BannerGeneratorInner() {
   const [saving, setSaving] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [toast, setToast] = useState('')
-  const [previewSize, setPreviewSize] = useState<'card' | 'wide' | 'square'>('card')
+  const [previewSize, setPreviewSize] = useState<'card' | 'wide' | 'square' | 'mobile'>('card')
   const [darkMode, setDarkMode] = useState(true)
   const [showVersions, setShowVersions] = useState(false)
   const [showIllustrations, setShowIllustrations] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [sharing, setSharing] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
+  const cardRef   = useRef<HTMLDivElement>(null)
+  const wideRef   = useRef<HTMLDivElement>(null)
+  const squareRef = useRef<HTMLDivElement>(null)
+  const mobileRef = useRef<HTMLDivElement>(null)
+  const [showAllVariants, setShowAllVariants] = useState(false)
+  const [downloadingVariant, setDownloadingVariant] = useState<string|null>(null)
+
+  const downloadVariant = async (ref: React.RefObject<HTMLDivElement>, label: string) => {
+    setDownloadingVariant(label)
+    try {
+      const html2canvas = (await import('html2canvas')).default
+      const canvas = await html2canvas(ref.current, { backgroundColor: null, scale: 2, useCORS: true, allowTaint: true, logging: false })
+      const link = document.createElement('a')
+      link.download = 'proverank-banner-' + (form.title || 'banner') + '-' + label + '.png'
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+      showToast(label + ' downloaded ✅')
+    } catch { showToast('Download failed — try again') }
+    finally { setDownloadingVariant(null) }
+  }
+
+  const generateAllVariants = () => { setShowAllVariants(true); showToast('All variants ready — download each below ✅') }
 
   const BG = darkMode ? '#0a0e1a' : '#f0f4f8'
   const CARD = darkMode ? 'rgba(15,20,40,0.95)' : 'rgba(255,255,255,0.95)'
@@ -655,10 +677,10 @@ function BannerGeneratorInner() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 <div style={{ fontWeight: 700, fontSize: 13, color: '#4D9FFF' }}>👁️ Live Preview</div>
                 <div style={{ display: 'flex', gap: 4 }}>
-                  {(['card', 'wide', 'square'] as const).map(s => (
+                  {(['card', 'wide', 'square', 'mobile'] as const).map(s => (
                     <button key={s} onClick={() => setPreviewSize(s)}
                       style={{ padding: '4px 8px', borderRadius: 8, border: `1px solid ${previewSize === s ? '#4D9FFF' : BORDER}`, background: previewSize === s ? 'rgba(77,159,255,0.15)' : 'transparent', color: previewSize === s ? '#4D9FFF' : SUB, cursor: 'pointer', fontSize: 9, fontWeight: previewSize === s ? 700 : 400 }}>
-                      {s === 'card' ? '🃏' : s === 'wide' ? '📰' : '⬜'} {s}
+                      {s === 'card' ? '🃏' : s === 'wide' ? '📰' : s === 'square' ? '⬜' : '📱'} {s}
                     </button>
                   ))}
                 </div>
@@ -676,7 +698,97 @@ function BannerGeneratorInner() {
                   {sharing ? '⏳...' : '📤 Share / WhatsApp'}
                 </button>
               </div>
+
+              {/* Generate All Variants button */}
+              <button onClick={generateAllVariants}
+                style={{ width:'100%', marginTop:10, padding:'11px', background:'linear-gradient(135deg,#9B59B6,#7D3C98)', border:'none', borderRadius:12, color:'#fff', fontWeight:700, cursor:'pointer', fontSize:12, boxShadow:'0 6px 20px rgba(155,89,182,0.35)', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+                🖼️ Generate All Size Variants (Card + Wide + Square + Mobile)
+              </button>
             </div>
+
+            {/* ALL VARIANTS SECTION */}
+            {showAllVariants && (
+              <div style={{ background:CARD, border:`1px solid ${BORDER}`, borderRadius:16, padding:18, backdropFilter:'blur(16px)' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+                  <div style={{ fontWeight:700, fontSize:13, color:'#9B59B6', textTransform:'uppercase', letterSpacing:0.8 }}>🖼️ All Size Variants</div>
+                  <button onClick={()=>setShowAllVariants(false)} style={{ background:'transparent', border:`1px solid ${BORDER}`, borderRadius:8, padding:'4px 10px', cursor:'pointer', color:SUB, fontSize:11 }}>Hide</button>
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+
+                  {/* Card Variant */}
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+                      <div>
+                        <div style={{ fontSize:12, fontWeight:700, color:TEXT }}>🃏 Card Preview</div>
+                        <div style={{ fontSize:10, color:SUB }}>Used on Test Series page — standard batch card</div>
+                      </div>
+                      <button onClick={()=>downloadVariant(cardRef,'card')} disabled={downloadingVariant==='card'}
+                        style={{ padding:'7px 14px', background:'rgba(39,174,96,0.12)', border:'1px solid rgba(39,174,96,0.25)', borderRadius:10, color:'#27AE60', cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                        {downloadingVariant==='card'?'⏳...':'⬇️ Download'}
+                      </button>
+                    </div>
+                    <div ref={cardRef}><BannerPreview b={form} size='card' /></div>
+                  </div>
+
+                  <div style={{ height:1, background:BORDER }} />
+
+                  {/* Wide Variant */}
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+                      <div>
+                        <div style={{ fontSize:12, fontWeight:700, color:TEXT }}>📰 Wide / Hero Preview</div>
+                        <div style={{ fontSize:10, color:SUB }}>Used in Spotlight section — full-width banner</div>
+                      </div>
+                      <button onClick={()=>downloadVariant(wideRef,'wide')} disabled={downloadingVariant==='wide'}
+                        style={{ padding:'7px 14px', background:'rgba(39,174,96,0.12)', border:'1px solid rgba(39,174,96,0.25)', borderRadius:10, color:'#27AE60', cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                        {downloadingVariant==='wide'?'⏳...':'⬇️ Download'}
+                      </button>
+                    </div>
+                    <div ref={wideRef}><BannerPreview b={form} size='wide' /></div>
+                  </div>
+
+                  <div style={{ height:1, background:BORDER }} />
+
+                  {/* Square Variant */}
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+                      <div>
+                        <div style={{ fontSize:12, fontWeight:700, color:TEXT }}>⬜ Square Preview</div>
+                        <div style={{ fontSize:10, color:SUB }}>WhatsApp / Social Media — 1:1 ratio</div>
+                      </div>
+                      <button onClick={()=>downloadVariant(squareRef,'square')} disabled={downloadingVariant==='square'}
+                        style={{ padding:'7px 14px', background:'rgba(39,174,96,0.12)', border:'1px solid rgba(39,174,96,0.25)', borderRadius:10, color:'#27AE60', cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                        {downloadingVariant==='square'?'⏳...':'⬇️ Download'}
+                      </button>
+                    </div>
+                    <div ref={squareRef} style={{ display:'flex', justifyContent:'center' }}><BannerPreview b={form} size='square' /></div>
+                  </div>
+
+                  <div style={{ height:1, background:BORDER }} />
+
+                  {/* Mobile Variant */}
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+                      <div>
+                        <div style={{ fontSize:12, fontWeight:700, color:TEXT }}>📱 Mobile Preview</div>
+                        <div style={{ fontSize:10, color:SUB }}>Mobile-optimized — 320×180px compact view</div>
+                      </div>
+                      <button onClick={()=>downloadVariant(mobileRef,'mobile')} disabled={downloadingVariant==='mobile'}
+                        style={{ padding:'7px 14px', background:'rgba(39,174,96,0.12)', border:'1px solid rgba(39,174,96,0.25)', borderRadius:10, color:'#27AE60', cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                        {downloadingVariant==='mobile'?'⏳...':'⬇️ Download'}
+                      </button>
+                    </div>
+                    <div ref={mobileRef} style={{ display:'flex', justifyContent:'center' }}>
+                      <div style={{ width:320, border:'8px solid rgba(255,255,255,0.1)', borderRadius:20, overflow:'hidden', boxShadow:'0 8px 30px rgba(0,0,0,0.4)' }}>
+                        <BannerPreview b={form} size='mobile' />
+                      </div>
+                    </div>
+                    <div style={{ textAlign:'center', marginTop:8, fontSize:10, color:SUB }}>📱 Mobile frame simulation — 320×180</div>
+                  </div>
+
+                </div>
+              </div>
+            )}
 
             {/* Quick Info */}
             <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 16, backdropFilter: 'blur(16px)', fontSize: 11, color: SUB, lineHeight: 1.8 }}>
