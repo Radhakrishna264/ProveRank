@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useEffect, useCallback, Suspense, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
@@ -72,9 +72,12 @@ function CompareInner() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const modalRef = useRef<HTMLDivElement>(null)
   const [tok, setTok] = useState('')
   const [enrolling, setEnrolling] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [publicCopied, setPublicCopied] = useState(false)
 
   useEffect(() => {
     const t = localStorage.getItem('pr_token') || ''
@@ -122,6 +125,31 @@ function CompareInner() {
     const url = `${window.location.origin}/dashboard/batch-compare?ids=${selected.map(b => b._id).join(',')}`
     navigator.clipboard.writeText(url)
     setCopied(true); setTimeout(() => setCopied(false), 2500)
+  }
+
+  const shareAsImage = async () => {
+    setDownloading(true)
+    try {
+      const el = modalRef.current
+      if (!el) { alert('Open the comparison modal first'); setDownloading(false); return }
+      const html2canvas = (await import('html2canvas')).default
+      const canvas = await html2canvas(el, {
+        backgroundColor: '#020816', scale: 2, useCORS: true,
+        allowTaint: true, logging: false
+      })
+      const link = document.createElement('a')
+      link.download = 'proverank-comparison.png'
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    } catch { alert('Download failed — try again') }
+    finally { setDownloading(false) }
+  }
+
+  const copyPublicLink = () => {
+    const ids = selected.map(b => b._id).join(',')
+    const url = `${window.location.origin}/compare/public?ids=${ids}`
+    navigator.clipboard.writeText(url)
+    setPublicCopied(true); setTimeout(() => setPublicCopied(false), 2500)
   }
 
   const filtered = allBatches.filter(b =>
@@ -297,6 +325,12 @@ function CompareInner() {
                 </button>
                 <button onClick={() => window.print()} style={{ background: 'rgba(39,174,96,0.1)', border: '1px solid rgba(39,174,96,0.25)', borderRadius: 10, padding: '7px 13px', color: '#27AE60', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
                   📄 Export PDF
+                </button>
+                <button onClick={shareAsImage} disabled={downloading} style={{ background: 'rgba(155,89,182,0.1)', border: '1px solid rgba(155,89,182,0.25)', borderRadius: 10, padding: '7px 13px', color: '#9B59B6', cursor: downloading ? 'wait' : 'pointer', fontSize: 11, fontWeight: 600 }}>
+                  {downloading ? '⏳ Saving...' : '🖼️ Save as Image'}
+                </button>
+                <button onClick={copyPublicLink} style={{ background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.2)', borderRadius: 10, padding: '7px 13px', color: '#FFD700', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                  {publicCopied ? '✅ Public Link Copied!' : '🌐 Share Public Link'}
                 </button>
                 <button onClick={() => setShowModal(false)} style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.25)', borderRadius: 10, padding: '7px 13px', color: '#E74C3C', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>✕ Close</button>
               </div>
