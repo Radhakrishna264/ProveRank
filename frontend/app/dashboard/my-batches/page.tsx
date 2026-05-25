@@ -283,7 +283,7 @@ export default function MyBatchesPage() {
       <div style={{position:'relative',zIndex:2,padding:'14px 14px 80px',maxWidth:900,margin:'0 auto'}}>
 
         {/* NOTIFICATION BANNER */}
-        {!notifAsked&&'Notification' in window&&(
+        {isClient&&!notifAsked&&typeof window!=='undefined'&&'Notification' in window&&(
           <div style={{background:'rgba(77,159,255,0.08)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:14,padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12,animation:'slideUp 0.4s ease'}}>
             <span style={{fontSize:22,flexShrink:0}}>🔔</span>
             <div style={{flex:1}}>
