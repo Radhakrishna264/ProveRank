@@ -1,3 +1,226 @@
+#!/bin/bash
+# ProveRank — Part-03 Phase-02
+# Adds: BatchActivity model+route, Progress Auto-sync hook in resultRoutes,
+#       Batch Leaderboard filter, Horizontal Progress Bar toggle,
+#       Browser Push Notification for streak
+# ZERO existing features removed
+
+set -e
+echo "🚀 ProveRank Part-03 Phase-02 — Starting..."
+
+# ─────────────────────────────────────────────
+# STEP 1 — BatchActivity.js Model (NEW)
+# ─────────────────────────────────────────────
+echo "📝 Step 1: BatchActivity model..."
+cat > ~/workspace/src/models/BatchActivity.js << 'EOF'
+const mongoose = require('mongoose');
+const BatchActivitySchema = new mongoose.Schema({
+  batchId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', required: true },
+  type:      { type: String, enum: ['new_test','new_material','announcement','update','tip'], default: 'announcement' },
+  title:     { type: String, required: true },
+  message:   { type: String, default: '' },
+  icon:      { type: String, default: '📢' },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  isActive:  { type: Boolean, default: true },
+}, { timestamps: true });
+module.exports = mongoose.model('BatchActivity', BatchActivitySchema);
+EOF
+echo "✅ BatchActivity.js created"
+
+# ─────────────────────────────────────────────
+# STEP 2 — batchActivityRoutes.js (NEW)
+# ─────────────────────────────────────────────
+echo "📝 Step 2: batchActivityRoutes.js..."
+cat > ~/workspace/src/routes/batchActivityRoutes.js << 'EOF'
+const express  = require('express');
+const router   = express.Router();
+const jwt      = require('jsonwebtoken');
+const mongoose = require('mongoose');
+const BatchActivity = require('../models/BatchActivity');
+const JWT = process.env.JWT_SECRET || 'proverank_jwt_super_secret_key_2024';
+
+const auth = (req, res, next) => {
+  const h = req.headers.authorization;
+  if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+  try { req.user = jwt.verify(h.split(' ')[1], JWT); next(); }
+  catch (e) { res.status(401).json({ error: 'Invalid token' }); }
+};
+const isAdmin = (req, res, next) => {
+  if (!['admin','superadmin'].includes(req.user?.role)) return res.status(403).json({ error: 'Admin only' });
+  next();
+};
+
+// GET /api/batch-activity/:batchId — get activities for a batch
+router.get('/:batchId', auth, async (req, res) => {
+  try {
+    const activities = await BatchActivity.find({ batchId: req.params.batchId, isActive: true })
+      .sort({ createdAt: -1 }).limit(10).lean();
+    res.json({ activities });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/batch-activity — admin push activity
+router.post('/', auth, isAdmin, async (req, res) => {
+  try {
+    const { batchId, type, title, message, icon } = req.body;
+    if (!batchId || !title) return res.status(400).json({ error: 'batchId and title required' });
+    const activity = await BatchActivity.create({
+      batchId, type: type || 'announcement',
+      title, message: message || '', icon: icon || '📢',
+      createdBy: req.user.id
+    });
+    res.json({ success: true, activity });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE /api/batch-activity/:id — admin remove activity
+router.delete('/:id', auth, isAdmin, async (req, res) => {
+  try {
+    await BatchActivity.findByIdAndUpdate(req.params.id, { isActive: false });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+module.exports = router;
+EOF
+echo "✅ batchActivityRoutes.js created"
+
+# ─────────────────────────────────────────────
+# STEP 3 — resultRoutes.js — Add progress auto-sync hook
+# ─────────────────────────────────────────────
+echo "📝 Step 3: Adding progress auto-sync to resultRoutes.js..."
+cd ~/workspace && node -e "
+const fs = require('fs');
+let c = fs.readFileSync('src/routes/resultRoutes.js', 'utf8');
+if (c.includes('enrolledBatchesMeta')) {
+  console.log('Auto-sync already exists — skipping'); process.exit(0);
+}
+// Add User require if not present
+if (!c.includes(\"require('../models/User')\")) {
+  c = c.replace(
+    'const express',
+    \"const User = require('../models/User');\nconst express\"
+  );
+}
+// Add Exam require if not present
+if (!c.includes(\"require('../models/Exam')\")) {
+  c = c.replace(
+    'const express',
+    \"const Exam = require('../models/Exam');\nconst express\"
+  );
+}
+// Find result save pattern and add sync hook after
+// Look for result.save() or Result.create in submit route
+const hookCode = \`
+// ── Auto-sync testsCompleted in enrolledBatchesMeta ──
+try {
+  if (req.user && req.user.id) {
+    const exam = await Exam.findById(req.body.examId || req.params.examId).lean();
+    const batchName = exam && exam.batch ? exam.batch : null;
+    if (batchName) {
+      const mongoose = require('mongoose');
+      const userDoc = await User.collection.findOne({ _id: new mongoose.Types.ObjectId(req.user.id) });
+      if (userDoc && userDoc.enrolledBatchesMeta) {
+        const Batch = require('mongoose').model('Batch');
+        const batchDoc = await Batch.findOne({ name: { \\\$regex: batchName, \\\$options: 'i' } }).lean();
+        if (batchDoc) {
+          const meta = userDoc.enrolledBatchesMeta || [];
+          const mIdx = meta.findIndex(m => m.batchId && m.batchId.toString() === batchDoc._id.toString());
+          if (mIdx >= 0) {
+            const currentCount = meta[mIdx].testsCompleted || 0;
+            const newCount = currentCount + 1;
+            await User.collection.updateOne(
+              { _id: new mongoose.Types.ObjectId(req.user.id) },
+              { \\\$set: { [\\\`enrolledBatchesMeta.\\\${mIdx}.testsCompleted\\\`]: newCount } }
+            );
+          }
+        }
+      }
+    }
+  }
+} catch(syncErr) { /* silent — sync error should not break result save */ }
+\`;
+// Insert before res.json in submit result route
+const insertBefore = 'res.json({ success: true';
+const firstOccur = c.indexOf(insertBefore);
+if (firstOccur !== -1) {
+  c = c.substring(0, firstOccur) + hookCode + c.substring(firstOccur);
+  console.log('Auto-sync hook inserted');
+} else {
+  console.log('Could not find insertion point — skipping sync hook');
+}
+fs.writeFileSync('src/routes/resultRoutes.js', c);
+"
+echo "✅ Progress auto-sync added"
+
+# ─────────────────────────────────────────────
+# STEP 4 — myBatches.js — Add batch leaderboard route
+# ─────────────────────────────────────────────
+echo "📝 Step 4: Adding batch leaderboard route to myBatches.js..."
+cd ~/workspace && node -e "
+const fs = require('fs');
+let c = fs.readFileSync('src/routes/myBatches.js', 'utf8');
+if (c.includes('leaderboard')) {
+  console.log('Leaderboard already exists — skipping'); process.exit(0);
+}
+const leaderboardRoute = \`
+// GET /api/my-batches/:batchId/leaderboard — batch-specific leaderboard
+router.get('/:batchId/leaderboard', auth, async (req, res) => {
+  try {
+    const batchId = req.params.batchId;
+    const users = await User.collection.find({
+      'enrolledBatchesMeta.batchId': new (require('mongoose').Types.ObjectId)(batchId)
+    }).toArray();
+    const lb = users.map(u => {
+      const meta = (u.enrolledBatchesMeta || []).find(m => m.batchId && m.batchId.toString() === batchId);
+      return {
+        name: u.name || 'Student',
+        testsCompleted: meta ? (meta.testsCompleted || 0) : 0,
+        avgScore:       meta ? (meta.avgScore || 0) : 0,
+        streak:         meta ? (meta.streak || 0) : 0,
+        bestRank:       meta ? (meta.bestRank || null) : null,
+      };
+    }).sort((a, b) => b.testsCompleted - a.testsCompleted || b.avgScore - a.avgScore);
+    const myIdx = lb.findIndex((_, i) => {
+      const u = users[i];
+      return u && u._id && req.user && u._id.toString() === req.user.id;
+    });
+    res.json({ leaderboard: lb.slice(0, 20), myRank: myIdx + 1, total: lb.length });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+\`;
+// Insert before module.exports
+c = c.replace('module.exports=router;', leaderboardRoute + 'module.exports=router;');
+fs.writeFileSync('src/routes/myBatches.js', c);
+console.log('Batch leaderboard route added');
+"
+echo "✅ Batch leaderboard route added"
+
+# ─────────────────────────────────────────────
+# STEP 5 — index.js — Mount batchActivityRoutes
+# ─────────────────────────────────────────────
+echo "📝 Step 5: Mounting batchActivityRoutes in index.js..."
+cd ~/workspace && node -e "
+const fs = require('fs');
+let c = fs.readFileSync('src/index.js', 'utf8');
+if (c.includes('batchActivityRoutes')) {
+  console.log('Already mounted'); process.exit(0);
+}
+const ins = \`
+const batchActivityRoutes = require('./routes/batchActivityRoutes');
+app.use('/api/batch-activity', batchActivityRoutes);
+\`;
+c = c.replace('server.listen(', ins + 'server.listen(');
+fs.writeFileSync('src/index.js', c);
+console.log('batchActivityRoutes mounted');
+"
+echo "✅ index.js updated"
+
+# ─────────────────────────────────────────────
+# STEP 6 — my-batches page — Add 4 new features
+# ─────────────────────────────────────────────
+echo "📝 Step 6: Updating my-batches page..."
+cat > ~/workspace/frontend/app/dashboard/my-batches/page.tsx << 'PAGEEOF'
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -442,3 +665,22 @@ export default function MyBatchesPage() {
     </div>
   )
 }
+PAGEEOF
+echo "✅ my-batches page updated"
+
+# ─────────────────────────────────────────────
+# VERIFY
+# ─────────────────────────────────────────────
+echo ""
+echo "=== VERIFICATION ==="
+echo "BatchActivity model:" && ls ~/workspace/src/models/BatchActivity.js
+echo "batchActivityRoutes:" && ls ~/workspace/src/routes/batchActivityRoutes.js
+echo "index.js batch-activity:" && grep -c "batch-activity" ~/workspace/src/index.js
+echo "Leaderboard in myBatches.js:" && grep -c "leaderboard" ~/workspace/src/routes/myBatches.js
+echo "Progress auto-sync:" && grep -c "enrolledBatchesMeta" ~/workspace/src/routes/resultRoutes.js
+echo "ProgressBar in page:" && grep -c "ProgressBar\|progressView\|horizontal" ~/workspace/frontend/app/dashboard/my-batches/page.tsx
+echo "BatchLeaderboardModal:" && grep -c "BatchLeaderboardModal\|lbBatch" ~/workspace/frontend/app/dashboard/my-batches/page.tsx
+echo "ActivityFeed:" && grep -c "ActivityFeed\|batch-activity" ~/workspace/frontend/app/dashboard/my-batches/page.tsx
+echo "Push Notification:" && grep -c "Notification\|notifGranted\|requestNotif" ~/workspace/frontend/app/dashboard/my-batches/page.tsx
+echo ""
+echo "✅✅✅ Part-03 Phase-02 COMPLETE!"

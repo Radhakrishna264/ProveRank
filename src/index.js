@@ -159,6 +159,9 @@ cron.schedule('* * * * *', async () => {
     }
   } catch(e) { /* silent — cron errors should not crash server */ }
 });
+
+const batchActivityRoutes = require('./routes/batchActivityRoutes');
+app.use('/api/batch-activity', batchActivityRoutes);
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`ProveRank server running at http://0.0.0.0:${PORT}`);
 });

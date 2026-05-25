@@ -121,4 +121,29 @@ router.get('/wishlist',auth,async(req,res)=>{
   }catch(e){res.status(500).json({error:e.message});}
 });
 
+
+// GET /api/my-batches/:batchId/leaderboard — batch-specific leaderboard
+router.get('/:batchId/leaderboard', auth, async (req, res) => {
+  try {
+    const batchId = req.params.batchId;
+    const users = await User.collection.find({
+      'enrolledBatchesMeta.batchId': new (require('mongoose').Types.ObjectId)(batchId)
+    }).toArray();
+    const lb = users.map(u => {
+      const meta = (u.enrolledBatchesMeta || []).find(m => m.batchId && m.batchId.toString() === batchId);
+      return {
+        name: u.name || 'Student',
+        testsCompleted: meta ? (meta.testsCompleted || 0) : 0,
+        avgScore:       meta ? (meta.avgScore || 0) : 0,
+        streak:         meta ? (meta.streak || 0) : 0,
+        bestRank:       meta ? (meta.bestRank || null) : null,
+      };
+    }).sort((a, b) => b.testsCompleted - a.testsCompleted || b.avgScore - a.avgScore);
+    const myIdx = lb.findIndex((_, i) => {
+      const u = users[i];
+      return u && u._id && req.user && u._id.toString() === req.user.id;
+    });
+    res.json({ leaderboard: lb.slice(0, 20), myRank: myIdx + 1, total: lb.length });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 module.exports=router;

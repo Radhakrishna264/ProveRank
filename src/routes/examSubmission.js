@@ -110,6 +110,28 @@ router.post('/:examId/submit', verifyToken, async (req, res) => {
       unattemptedCount,
       attemptNumber: attemptCount + 1
     });
+try {
+  if (req.user && req.user.id) {
+    const mongoose = require('mongoose');
+    const User = require('../models/User');
+    const Exam = require('../models/Exam');
+    const exam = await Exam.findById(req.body.examId || req.params.examId).lean();
+    if (exam && exam.batch) {
+      const Batch = mongoose.model('Batch');
+      const batchDoc = await Batch.findOne({ name: { $regex: exam.batch, $options: 'i' } }).lean();
+      if (batchDoc) {
+        const userDoc = await User.collection.findOne({ _id: new mongoose.Types.ObjectId(req.user.id) });
+        const meta = userDoc?.enrolledBatchesMeta || [];
+        const mIdx = meta.findIndex(m => m.batchId && m.batchId.toString() === batchDoc._id.toString());
+        if (mIdx >= 0) {
+          await User.collection.updateOne({ _id: new mongoose.Types.ObjectId(req.user.id) }, { $inc: { [`enrolledBatchesMeta.${mIdx}.testsCompleted`]: 1 } });
+          console.log('Progress synced for batch:', batchDoc.name);
+        }
+      }
+    }
+  }
+} catch(e) { /* silent */ }
+
 
     // Rank recalculation
     const allResults = await Result.find({ examId }).sort({ score: -1 });
