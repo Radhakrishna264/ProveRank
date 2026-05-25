@@ -176,6 +176,7 @@ export default function MyBatchesPage() {
   const [lbBatch,setLbBatch]=useState<{id:string;name:string}|null>(null)
   const [notifGranted,setNotifGranted]=useState(false)
   const [notifAsked,setNotifAsked]=useState(false)
+  const [isClient,setIsClient]=useState(false)
 
   const BG=darkMode?'transparent':'rgba(240,244,248,0.95)'
   const CARD=darkMode?'rgba(4,12,30,0.95)':'rgba(255,255,255,0.95)'
@@ -184,10 +185,11 @@ export default function MyBatchesPage() {
   const SUB=darkMode?'rgba(180,200,220,0.55)':'rgba(0,0,0,0.5)'
 
   useEffect(()=>{
+    setIsClient(true)
     const t=localStorage.getItem('pr_token')||''
     setTok(t); fetchData(t)
     // Check notification permission
-    if('Notification' in window){
+    if(typeof window !== 'undefined' && 'Notification' in window){
       setNotifGranted(Notification.permission==='granted')
       setNotifAsked(Notification.permission!=='default')
     }
@@ -212,7 +214,7 @@ export default function MyBatchesPage() {
       const d=await r.json()
       if(d.streak&&d.streak>0){
         // Browser push notification for streak
-        if(notifGranted&&'Notification' in window){
+        if(notifGranted&&typeof window!=='undefined'&&'Notification' in window){
           new Notification('🔥 ProveRank Streak!',{
             body:`You're on a ${d.streak}-day streak! Keep it up!`,
             icon:'/favicon.ico'
@@ -223,7 +225,7 @@ export default function MyBatchesPage() {
   }
 
   const requestNotifPermission=async()=>{
-    if(!('Notification' in window))return
+    if(typeof window==='undefined'||!('Notification' in window))return
     const perm=await Notification.requestPermission()
     setNotifGranted(perm==='granted')
     setNotifAsked(true)
