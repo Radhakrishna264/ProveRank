@@ -1182,7 +1182,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
     if(Array.isArray(tk))setTickets(tk)
     if(Array.isArray(sn))setSnapshots(sn)
     if(Array.isArray(nf))setNotifs(nf)
-else if(nf?.notifications&&Array.isArray(nf.notifications)){setNotifs(nf.notifications);if(nf.unreadCount!==undefined)setUnreadNotifCount(nf.unreadCount)}
+else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifications)
     if(Array.isArray(bt))setBatches(bt)
     // Auto-open batch from URL (refresh fix)
     if(typeof window!=='undefined'){
