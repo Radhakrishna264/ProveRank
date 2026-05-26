@@ -1182,6 +1182,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
     if(Array.isArray(tk))setTickets(tk)
     if(Array.isArray(sn))setSnapshots(sn)
     if(Array.isArray(nf))setNotifs(nf)
+else if(nf?.notifications&&Array.isArray(nf.notifications)){setNotifs(nf.notifications);if(nf.unreadCount!==undefined)setUnreadNotifCount(nf.unreadCount)}
     if(Array.isArray(bt))setBatches(bt)
     // Auto-open batch from URL (refresh fix)
     if(typeof window!=='undefined'){
@@ -1814,7 +1815,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
           {loading&&<span style={{fontSize:10,color:DIM,animation:'pulse 1s infinite'}}>⟳</span>}
 
           {/* Notifications */}
-          <button onClick={()=>setNotifOpen(p=>!p)} style={{background:'none',border:`1px solid ${BOR}`,color:TS,fontSize:14,cursor:'pointer',position:'relative',width:32,height:32,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+          <button onClick={()=>setNotifOpen(p=>!p)} style={{position:'relative'}} style={{background:'none',border:`1px solid ${BOR}`,color:TS,fontSize:14,cursor:'pointer',position:'relative',width:32,height:32,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
             🔔
             {(notifs||[]).filter(n=>!n.read).length>0&&<span style={{position:'absolute',top:-2,right:-2,background:DNG,color:'#fff',fontSize:8,borderRadius:'50%',width:14,height:14,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{(notifs||[]).filter(n=>!n.read).length}</span>}
           </button>
