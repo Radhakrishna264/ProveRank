@@ -1099,6 +1099,22 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
   const [emailType,setEmailType]=useState('welcome')
   const [sendingEmail,setSendingEmail]=useState(false)
 
+  // Custom reg fields
+  // M2: Fetch custom fields from DB on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(`${API}/api/auth/registration-fields`, { headers: H() });
+        const d = await r.json();
+        if (d.success && d.fields) {
+          setCustomFields(
+            d.fields.map(f => ({ ...f, key: f.fieldName || f.key, type: f.fieldType || f.type }))
+          );
+        }
+      } catch (e) { console.error('M2 fetch error:', e); }
+    })();
+  }, []);
 
   // Certificate
   const [certExamId,setCertExamId]=useState('')
@@ -2890,6 +2906,80 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
             </div>
           )}
 
+          {/* ══ CUSTOM REG FIELDS ══ */}
+          {tab==='custom_fields'&&(
+            <div>
+              <div style={pageTitle}>📋 Custom Registration Fields (M2)</div>
+              <div style={pageSub}>Add extra fields to student registration form — School Name, City, Class, etc.</div>
+              <PageHero icon="📋" title="Customize Registration Form" subtitle="Collect additional student information during registration. Add fields like School Name, City, Roll Number, or any custom data you need."/>
+              <div style={cs}>
+                <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>➕ Add New Field</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+                  <div><label style={lbl}>Field Label *</label><SInput init='' onSet={v=>{cfLabelR.current=v}} ph='e.g. School Name' style={inp}/></div>
+                  <div><label style={lbl}>Field Key *</label><SInput init='' onSet={v=>{cfKeyR.current=v}} ph='e.g. school_name' style={inp}/></div>
+                  <div><label style={lbl}>Field Type</label><SSelect val={cfType} onChange={setCfType} opts={[{v:'text',l:'Text Input'},{v:'select',l:'Dropdown'},{v:'number',l:'Number'},{v:'date',l:'Date'}]} style={{...inp}}/></div>
+                  <div style={{display:'flex',alignItems:'center',gap:8,paddingTop:16}}>
+                    <input type='checkbox' checked={cfRequired} onChange={e=>setCfRequired(e.target.checked)} style={{width:16,height:16,accentColor:ACC}}/>
+                    <label style={{fontSize:12,color:TS}}>Required field</label>
+                  </div>
+                  {cfType==='select'&&<div style={{gridColumn:'1/-1'}}><label style={lbl}>Options (comma separated)</label><SInput init='' onSet={v=>{cfOptsR.current=v}} ph='11th, 12th, Dropper' style={inp}/></div>}
+                </div>
+                <button onClick={async () => {
+  if (!cfLabelR.current || !cfKeyR.current) { T('Label and key required.', 'e'); return; }
+  try {
+    const r = await fetch(`${API}/api/auth/registration-fields`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...H() },
+      body: JSON.stringify({
+        fieldName: cfKeyR.current,
+        label: cfLabelR.current,
+        fieldType: cfType,
+        required: cfRequired,
+        options: cfOptsR.current || []
+      })
+    });
+    const d = await r.json();
+    if (d.success && d.field) {
+      const nf = d.field;
+      setCustomFields(p => [...p, { ...nf, key: nf.fieldName, type: nf.fieldType }]);
+      T('Field added.', 's');
+      cfLabelR.current = '';
+      cfKeyR.current = '';
+    } else {
+      T(d.message || 'Add failed', 'e');
+    }
+  } catch (e) { T('Server error', 'e'); }
+}} style={bp}>➕ Add Field</button>
+              </div>
+              <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>Current Fields ({customFields.length})</div>
+              {customFields.map((f,i)=>(
+                <div key={i} style={{...cs,display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
+                  <div>
+                    <span style={{fontWeight:600,fontSize:12,color:TS}}>{f.label}</span>
+                    <span style={{fontSize:10,color:DIM,marginLeft:8}}>key: {f.key}</span>
+                    <div style={{display:'flex',gap:6,marginTop:4}}>
+                      <Badge label={f.type} col={ACC}/>
+                      {f.required&&<Badge label='Required' col={WRN}/>}
+                    </div>
+                  </div>
+                  <button onClick={async () => {
+  try {
+    if (f._id) {
+      const r = await fetch(`${API}/api/auth/registration-fields/${f._id}`, {
+        method: 'DELETE',
+        headers: H()
+      });
+      const d = await r.json();
+      if (!d.success) { T(d.message || 'Remove failed', 'e'); return; }
+    }
+    setCustomFields(p => p.filter((_, j) => j !== i));
+    T('Field removed.', 's');
+  } catch (e) { T('Server error', 'e'); }
+}} style={{...bd,fontSize:10,padding:'4px 10px'}}>Remove</button>
+                </div>
+              ))}
+            </div>
+          )}
 
                     {/* ══ ADMINS ══ */}
           {showProfileModal&&(
