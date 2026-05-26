@@ -1679,7 +1679,6 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
     {id:'pyq_bank',ico:'📚',lbl:'PYQ Bank',grp:'Questions'},
     {id:'students',ico:'👥',lbl:'Students',grp:'Students'},
     {id:'batches',ico:'📦',lbl:'Batches',grp:'Students'},
-    {id:'custom_fields',ico:'📋',lbl:'Reg Fields',grp:'Students'},
     {id:'admins',ico:'🛡️',lbl:'Admins',grp:'Admin'},
     {id:'permissions',ico:'🔐',lbl:'Permissions',grp:'Admin'},
     {id:'results',ico:'📈',lbl:'Results',grp:'Results'},
@@ -1740,7 +1739,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
     manage_branding:['branding'],
     manage_backup:['backup'],
   }
-  const ADMIN_HIDDEN=['admins','permissions','maintenance','changelog','tasks','parent_portal','transparency','omr_view','proct_pdf','retention','institute_report','re_eval','whatsapp_sms','email_tmpl','custom_fields','global_search','live']
+  const ADMIN_HIDDEN=['admins','permissions','maintenance','changelog','tasks','parent_portal','transparency','omr_view','proct_pdf','retention','institute_report','re_eval','whatsapp_sms','email_tmpl','global_search','live']
   const filteredNAV=role==='superadmin'?NAV:(()=>{
     const allowed=new Set(['dashboard','myprofile'])
     Object.entries(adminOwnPerms).forEach(([perm,val])=>{
