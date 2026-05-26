@@ -1100,6 +1100,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
   const [sendingEmail,setSendingEmail]=useState(false)
 
   // Custom reg fields
+  const [customFields,setCustomFields]=useState([])
   // M2: Fetch custom fields from DB on mount
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -1115,6 +1116,9 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
       } catch (e) { console.error('M2 fetch error:', e); }
     })();
   }, []);
+  const cfLabelR=useRef('');const cfKeyR=useRef('');const cfOptsR=useRef('')
+  const [cfType,setCfType]=useState('text')
+  const [cfRequired,setCfRequired]=useState(false)
 
   // Certificate
   const [certExamId,setCertExamId]=useState('')

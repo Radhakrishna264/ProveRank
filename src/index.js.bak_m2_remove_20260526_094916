@@ -40,6 +40,7 @@ const adminQuestionMgmtRoutes = require('./routes/adminQuestionMgmtRoutes');
 const adminResultRoutes = require('./routes/adminResultRoutes');
 const adminManagementRoutes  = require('./routes/adminManagement');
 const questionFeaturesRoutes = require('./routes/questionFeatures');
+const customFieldsRoutes     = require('./routes/customFields');
 const twoFactorRoutes        = require('./routes/twoFactor');
 
 // ── Optional Routes (load if file exists) ────────────────────
@@ -90,6 +91,7 @@ app.get('/api/health', (req, res) => {
 
 // ── Auth Routes ───────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', customFieldsRoutes);
 app.use('/api/auth', twoFactorRoutes);
 
 // ── Admin Routes ──────────────────────────────────────────────
