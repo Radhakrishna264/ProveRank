@@ -135,7 +135,9 @@ app.use('/api/admin/batch-controls',  adminBatchControlRoutes);
 app.use('/api/student/batch-extras',  studentBatchExtrasRoutes);
 
 const studentNotificationRoutes = require('./routes/studentNotificationRoutes');
+const adminNotificationRoutes = require('./routes/adminNotificationRoutes');
 app.use('/api/student/notifications', studentNotificationRoutes);
+app.use('/api/admin/notifications', adminNotificationRoutes);
 
 // ── Scheduled Banner Auto-Publish Cron (runs every minute) ──
 const cron = require('node-cron');
