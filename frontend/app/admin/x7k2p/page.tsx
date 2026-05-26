@@ -241,6 +241,10 @@ const GlobalSearch=memo(function GlobalSearch({setTab,token}:{setTab:(t:string)=
     if(!q||q.length<2){setResults(null);return}
     debRef.current=setTimeout(async()=>{
       setLoading(true)
+
+  // Top students — standalone (has own state handler)
+  const tk2=getToken();if(tk2){fetch(`${API}/api/admin/notifications/top-students?limit=10`,{headers:{Authorization:`Bearer ${tk2}`}}).then(r=>r.ok?r.json():null).then(d=>{if(d&&d.success&&d.topStudents)setTopStudents(d.topStudents);}).catch(()=>{});}
+
       try{
         const r=await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/global-search?q=${encodeURIComponent(q)}`,{headers:{Authorization:`Bearer ${token}`}})
         const d=await r.json()
@@ -1165,7 +1169,6 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
       getFirst(`${API}/api/admin/manage/tickets`,`${API}/api/admin/tickets`),
       getFirst(`${API}/api/admin/manage/snapshots`,`${API}/api/admin/snapshots`),
       get(`${API}/api/admin/features`),
-      fetch(`${API}/api/admin/notifications/top-students?limit=10`,{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.ok?r.json():null).then(d=>{if(d&&d.success&&d.topStudents)setTopStudents(d.topStudents);}).catch(()=>{}),
     fetch(`${API}/api/admin/notifications`,{headers:{Authorization:`Bearer ${getToken()}`}}).then(r=>r.json()),
       getFirst(`${API}/api/admin/batches`,`${API}/api/admin/manage/batches`),
       get(`${API}/api/admin/manage/admins`),
