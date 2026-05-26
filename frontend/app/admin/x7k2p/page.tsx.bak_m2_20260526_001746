@@ -1100,22 +1100,11 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
   const [sendingEmail,setSendingEmail]=useState(false)
 
   // Custom reg fields
-  const [customFields,setCustomFields]=useState([])
-  // M2: Fetch custom fields from DB on mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await fetch(`${API}/api/auth/registration-fields`, { headers: H() });
-        const d = await r.json();
-        if (d.success && d.fields) {
-          setCustomFields(
-            d.fields.map(f => ({ ...f, key: f.fieldName || f.key, type: f.fieldType || f.type }))
-          );
-        }
-      } catch (e) { console.error('M2 fetch error:', e); }
-    })();
-  }, []);
+  const [customFields,setCustomFields]=useState([
+    {key:'school_name',label:'School Name',type:'text',required:false},
+    {key:'city',label:'City',type:'text',required:false},
+    {key:'class',label:'Class',type:'select',required:true,options:'11th,12th,Dropper'},
+  ])
   const cfLabelR=useRef('');const cfKeyR=useRef('');const cfOptsR=useRef('')
   const [cfType,setCfType]=useState('text')
   const [cfRequired,setCfRequired]=useState(false)
@@ -2928,32 +2917,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
                   </div>
                   {cfType==='select'&&<div style={{gridColumn:'1/-1'}}><label style={lbl}>Options (comma separated)</label><SInput init='' onSet={v=>{cfOptsR.current=v}} ph='11th, 12th, Dropper' style={inp}/></div>}
                 </div>
-                <button onClick={async () => {
-  if (!cfLabelR.current || !cfKeyR.current) { T('Label and key required.', 'e'); return; }
-  try {
-    const r = await fetch(`${API}/api/auth/registration-fields`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...H() },
-      body: JSON.stringify({
-        fieldName: cfKeyR.current,
-        label: cfLabelR.current,
-        fieldType: cfType,
-        required: cfRequired,
-        options: cfOptsR.current || []
-      })
-    });
-    const d = await r.json();
-    if (d.success && d.field) {
-      const nf = d.field;
-      setCustomFields(p => [...p, { ...nf, key: nf.fieldName, type: nf.fieldType }]);
-      T('Field added.', 's');
-      cfLabelR.current = '';
-      cfKeyR.current = '';
-    } else {
-      T(d.message || 'Add failed', 'e');
-    }
-  } catch (e) { T('Server error', 'e'); }
-}} style={bp}>➕ Add Field</button>
+                <button onClick={()=>{if(!cfLabelR.current||!cfKeyR.current){T('Label and key required.','e');return}setCustomFields(p=>[...p,{key:cfKeyR.current,label:cfLabelR.current,type:cfType,required:cfRequired,options:cfOptsR.current}]);T('Field added.');cfLabelR.current='';cfKeyR.current=''}} style={bp}>➕ Add Field</button>
               </div>
               <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>Current Fields ({customFields.length})</div>
               {customFields.map((f,i)=>(
@@ -2966,20 +2930,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
                       {f.required&&<Badge label='Required' col={WRN}/>}
                     </div>
                   </div>
-                  <button onClick={async () => {
-  try {
-    if (f._id) {
-      const r = await fetch(`${API}/api/auth/registration-fields/${f._id}`, {
-        method: 'DELETE',
-        headers: H()
-      });
-      const d = await r.json();
-      if (!d.success) { T(d.message || 'Remove failed', 'e'); return; }
-    }
-    setCustomFields(p => p.filter((_, j) => j !== i));
-    T('Field removed.', 's');
-  } catch (e) { T('Server error', 'e'); }
-}} style={{...bd,fontSize:10,padding:'4px 10px'}}>Remove</button>
+                  <button onClick={()=>setCustomFields(p=>p.filter((_,j)=>j!==i))} style={{...bd,fontSize:10,padding:'4px 10px'}}>Remove</button>
                 </div>
               ))}
             </div>
