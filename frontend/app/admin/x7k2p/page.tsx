@@ -1166,7 +1166,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
       getFirst(`${API}/api/admin/manage/snapshots`,`${API}/api/admin/snapshots`),
       get(`${API}/api/admin/features`),
       fetch(`${API}/api/admin/notifications/top-students?limit=10`,{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.ok?r.json():null).then(d=>{if(d&&d.success&&d.topStudents)setTopStudents(d.topStudents);}).catch(()=>{}),
-    fetch(`${API}/api/admin/notifications`,{headers:{Authorization:`Bearer ${localStorage.getItem('pr_token')}`}}).then(r=>r.json()),
+    fetch(`${API}/api/admin/notifications`,{headers:{Authorization:`Bearer ${getToken()}`}}).then(r=>r.json()),
       getFirst(`${API}/api/admin/batches`,`${API}/api/admin/manage/batches`),
       get(`${API}/api/admin/manage/admins`),
       getFirst(`${API}/api/results`,`${API}/api/admin/results`),
@@ -1970,13 +1970,6 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
     </div>
   ))
 }
-                  {(students||[]).filter(s=>!s.banned).slice(0,4).map((s,i)=>(
-                    <div key={s._id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 0',borderBottom:`1px solid ${BOR}`,fontSize:11}}>
-                      <span style={{width:20,height:20,borderRadius:'50%',background:i===0?GOLD:i===1?'#C0C0C0':i===2?'#CD7F32':CRD2,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:10,color:i<3?'#000':DIM,flexShrink:0}}>{i+1}</span>
-                      <span style={{flex:1,fontWeight:500,color:TS,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.name||'—'}</span>
-                    </div>
-                  ))}
-                  {(students||[]).length===0&&<div style={{color:DIM,fontSize:11,textAlign:'center',padding:'10px 0'}}>No students yet</div>}
                 </div>
                 <div style={cs}>
                   <div style={{fontWeight:700,marginBottom:8,fontSize:12}}>🚨 Recent Flags</div>
