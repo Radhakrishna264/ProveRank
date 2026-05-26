@@ -955,7 +955,8 @@ export default function AdminPanel() {
   const _setTab_orig=(t:string)=>{try{sessionStorage.setItem('pr_admin_tab',t)}catch{};setTab(t)}
   const [sideOpen,setSideOpen]=useState(false)
   const [toast,setToast]=useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
-  const [notifOpen,setNotifOpen]=useState(false)
+  const [notifOpen,setNotifOpen]=useState(false);
+const [topStudents,setTopStudents]=useState<{rank:number,name:string,bestScore:number,totalExams:number}[]>([])
   const [loading,setLoading]=useState(true)
 
   // Data states
@@ -1164,7 +1165,8 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
       getFirst(`${API}/api/admin/manage/tickets`,`${API}/api/admin/tickets`),
       getFirst(`${API}/api/admin/manage/snapshots`,`${API}/api/admin/snapshots`),
       get(`${API}/api/admin/features`),
-      get(`${API}/api/admin/notifications`),
+      fetch(`${API}/api/admin/top-students?limit=10`,{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.ok?r.json():null).then(d=>{if(d&&d.success&&d.topStudents)setTopStudents(d.topStudents);}).catch(()=>{}),
+    get(`${API}/api/admin/notifications`),
       getFirst(`${API}/api/admin/batches`,`${API}/api/admin/manage/batches`),
       get(`${API}/api/admin/manage/admins`),
       getFirst(`${API}/api/results`,`${API}/api/admin/results`),
@@ -1817,7 +1819,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
           {/* Notifications */}
           <button onClick={()=>setNotifOpen(p=>!p)} style={{position:'relative'}} style={{background:'none',border:`1px solid ${BOR}`,color:TS,fontSize:14,cursor:'pointer',position:'relative',width:32,height:32,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
             🔔
-            {(notifs||[]).filter(n=>!n.read).length>0&&<span style={{position:'absolute',top:-2,right:-2,background:DNG,color:'#fff',fontSize:8,borderRadius:'50%',width:14,height:14,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{(notifs||[]).filter(n=>!n.read).length}</span>}
+            {(notifs||[]).filter(n=>!n.isRead).length>0&&<span style={{position:'absolute',top:-2,right:-2,background:DNG,color:'#fff',fontSize:8,borderRadius:'50%',width:14,height:14,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{(notifs||[]).filter(n=>!n.isRead).length}</span>}
           </button>
 
           <button onClick={fetchAll} title="Refresh" style={{background:'rgba(77,159,255,0.1)',color:ACC,border:`1px solid ${BOR2}`,borderRadius:8,width:32,height:32,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>↻</button>
@@ -1839,9 +1841,9 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
               <div style={{fontSize:11,marginTop:4}}>Alerts will appear here</div>
             </div>
             :(notifs||[]).map((n,i)=>(
-              <div key={n.id||i} style={{...cs,padding:'10px 12px',marginBottom:8}}>
-                <div style={{fontSize:13,fontWeight:600}}>{n.icon} {n.msg}</div>
-                <div style={{fontSize:10,color:DIM,marginTop:3}}>{n.t}</div>
+              <div key={n._id||i} style={{...cs,padding:'10px 12px',marginBottom:8,borderLeft:`3px solid ${n.severity==='warning'?'#f59e0b':n.severity==='error'?'#ef4444':'#38bdf8'}`,opacity:n.isRead?0.6:1}}>
+                <div style={{fontSize:13,fontWeight:600}}>{n.title||n.type||"Notification"}</div>
+                <div style={{fontSize:10,color:DIM,marginTop:3}}>{n.createdAt ? new Date(n.createdAt).toLocaleString("en-IN",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : ""}</div>
               </div>
             ))
           }
@@ -1958,6 +1960,16 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:12}}>
                 <div style={cs}>
                   <div style={{fontWeight:700,marginBottom:8,fontSize:12}}>🏆 Top Students</div>
+{topStudents.length===0
+  ?<div style={{fontSize:12,color:'#64748b',textAlign:'center',padding:'10px 0'}}>No exam data yet</div>
+  :topStudents.slice(0,5).map((s,idx)=>(
+    <div key={idx} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 0',borderBottom:'1px solid rgba(255,255,255,0.05)'}}>
+      <span style={{fontSize:12,fontWeight:700,minWidth:18,color:idx===0?'#fbbf24':idx===1?'#94a3b8':idx===2?'#b45309':'#64748b'}}>{idx+1}</span>
+      <span style={{fontSize:12,color:'#e2e8f0',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.name}</span>
+      <span style={{fontSize:11,color:'#38bdf8',fontWeight:600}}>{s.bestScore}pts</span>
+    </div>
+  ))
+}
                   {(students||[]).filter(s=>!s.banned).slice(0,4).map((s,i)=>(
                     <div key={s._id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 0',borderBottom:`1px solid ${BOR}`,fontSize:11}}>
                       <span style={{width:20,height:20,borderRadius:'50%',background:i===0?GOLD:i===1?'#C0C0C0':i===2?'#CD7F32':CRD2,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:10,color:i<3?'#000':DIM,flexShrink:0}}>{i+1}</span>

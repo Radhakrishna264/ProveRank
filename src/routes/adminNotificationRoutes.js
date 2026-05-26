@@ -60,4 +60,58 @@ router.post('/test', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+
+// ---- GET /api/admin/top-students (Real Data) ----
+router.get('/top-students', async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    const limit = parseInt(req.query.limit) || 10;
+    const db = mongoose.connection.db;
+    if (!db) return res.json({ success: true, topStudents: [] });
+
+    const results = await db.collection('results').aggregate([
+      { $group: {
+        _id: '$studentId',
+        bestScore: { $max: '$totalScore' },
+        totalExams: { $sum: 1 },
+        avgScore: { $avg: '$totalScore' }
+      }},
+      { $sort: { bestScore: -1 } },
+      { $limit: limit }
+    ]).toArray();
+
+    const { ObjectId } = require('mongodb');
+    const ids = results.map(r => {
+      try { return new ObjectId(r._id); } catch(e) { return r._id; }
+    }).filter(Boolean);
+
+    const students = ids.length
+      ? await db.collection('students').find(
+          { _id: { $in: ids } },
+          { projection: { name: 1, email: 1, studentId: 1 } }
+        ).toArray()
+      : [];
+
+    const sMap = {};
+    students.forEach(s => { sMap[s._id.toString()] = s; });
+
+    const top = results.map((r, i) => {
+      const st = sMap[r._id ? r._id.toString() : ''] || {};
+      return {
+        rank: i + 1,
+        name: st.name || 'Unknown',
+        studentId: st.studentId || '',
+        bestScore: Math.round(r.bestScore || 0),
+        totalExams: r.totalExams || 0,
+        avgScore: Math.round(r.avgScore || 0)
+      };
+    });
+
+    res.json({ success: true, topStudents: top });
+  } catch (e) {
+    console.error('top-students err:', e.message);
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 module.exports = router;
