@@ -1761,7 +1761,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
   // ══════════════════════════════════════════════════════════════
 
   const markAllRead=async()=>{const tk=getToken();if(!tk)return;try{await fetch(`${API}/api/admin/notifications/mark-read`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${tk}`},body:JSON.stringify({all:true})});setNotifs((prev:any[])=>prev.map((n:any)=>({...n,isRead:true})));}catch(e){}};
-  const markOneRead=async(id:string)=>{const tk=getToken();if(!tk)return;try{await fetch(`${API}/api/admin/notifications/mark-read`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${tk}`},body:JSON.stringify({id})});setNotifs((prev:any[])=>prev.map((n:any)=>n._id===id?{...n,isRead:true}:n));}catch(e){}};
+  const markOneRead=async(id:string,notif?:any)=>{const tk=getToken();if(notif)setNotifDetail(notif);if(!tk)return;try{await fetch(`${API}/api/admin/notifications/mark-read`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${tk}`},body:JSON.stringify({id})});setNotifs((prev:any[])=>prev.map((n:any)=>n._id===id?{...n,isRead:true}:n));}catch(e){}};
 
   return (
     <div style={{background:BG_GRAD,minHeight:'100vh',color:TS,fontFamily:'Inter,sans-serif',position:'relative'}}>
