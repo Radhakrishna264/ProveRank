@@ -1861,7 +1861,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
             const c=cm[sev]||cm.info;
             const ts=n.createdAt?new Date(n.createdAt).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
             return(
-              <div key={n._id||ni} onClick={()=>markOneRead(n._id)} style={{padding:'10px 14px',borderBottom:'1px solid #1e3a5f',background:n.isRead?'transparent':c.bg,borderLeft:'3px solid '+(n.isRead?'#1e3a5f':c.bd),cursor:'pointer'}}>
+              <div key={n._id||ni} onClick={()=>markOneRead(n._id,n)} style={{padding:'10px 14px',borderBottom:'1px solid #1e3a5f',background:n.isRead?'transparent':c.bg,borderLeft:'3px solid '+(n.isRead?'#1e3a5f':c.bd),cursor:'pointer'}}>
                 <div style={{display:'flex',gap:8,alignItems:'flex-start'}}>
                   <span style={{fontSize:14}}>{c.ic}</span>
                   <div style={{flex:1,minWidth:0}}>
