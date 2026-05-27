@@ -1880,7 +1880,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
       </div>
       {notifs.length>0&&(
         <div style={{padding:'8px 14px',borderTop:'1px solid #1e3a5f',background:'#0a1628',textAlign:'center'}}>
-          <button onClick={()=>{setNotifOpen(false);setTab("notifications");}} style={{fontSize:11,color:"#60a5fa",cursor:"pointer",fontWeight:600,background:"none",border:"none",padding:0,textDecoration:"underline"}}>View All Notifications →</button>
+          <button onClick={()=>{setNotifOpen(false);setNotifDetail({_all:true,title:"All Notifications",items:notifs});}} style={{fontSize:11,color:"#60a5fa",cursor:"pointer",fontWeight:600,background:"none",border:"none",padding:0,textDecoration:"underline"}}>View All Notifications →</button>
         </div>
       )}
     </div>
@@ -4135,7 +4135,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
               <span style={{fontSize:16,fontWeight:700,color:'#e2e8f0',flex:1}}>{notifDetail.title||'Notification'}</span>
               <button onClick={()=>setNotifDetail(null)} style={{background:'none',border:'none',color:'#64748b',fontSize:20,cursor:'pointer',marginLeft:8,lineHeight:1}}>×</button>
             </div>
-            <div style={{fontSize:13,color:'#94a3b8',marginBottom:16,lineHeight:1.6}}>{notifDetail.message||notifDetail.description||'No details available'}</div>
+            <div style={{fontSize:13,color:'#94a3b8',marginBottom:16,lineHeight:1.6}}>{notifDetail._all?(notifDetail.items||[]).map((n:any,i:number)=>(<div key={i} style={{padding:"8px 0",borderBottom:"1px solid #1e3a5f",fontSize:12,color:"#94a3b8"}}>{n.title||n.message}</div>)):(notifDetail.message||notifDetail.description||"No details available")}</div>
             {notifDetail.severity&&<div style={{marginBottom:12}}><span style={{fontSize:11,background:'rgba(59,130,246,0.2)',color:'#60a5fa',borderRadius:6,padding:'3px 10px',fontWeight:600}}>Type: {notifDetail.severity||notifDetail.type}</span></div>}
             {notifDetail.createdAt&&<div style={{fontSize:11,color:'#475569',marginBottom:16}}>🕐 {new Date(notifDetail.createdAt).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'})}</div>}
             <button onClick={()=>setNotifDetail(null)} style={{width:'100%',padding:'10px',background:'#1e3a5f',border:'none',borderRadius:8,color:'#e2e8f0',cursor:'pointer',fontSize:13,fontWeight:600}}>Close</button>
