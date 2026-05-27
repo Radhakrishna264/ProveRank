@@ -1313,7 +1313,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
         T('Question added to bank successfully.')
         qTxtR.current='';qHindiR.current='';qA.current='';qB.current='';qC.current='';qD.current='';qChapR.current='';qTopicR.current='';qExpR.current=''
         const r=await fetch(`${API}/api/questions`,{headers:{Authorization:`Bearer ${token}`}})
-        if(r.ok)setQuestions(await r.json())
+        if(r.ok){const qd=await r.json();setQuestions(Array.isArray(qd)?qd:(qd.questions||qd.data||[]))}
       } else {
         const e=await res.json().catch(()=>({}))
         T(e.message||`Error ${res.status}`,'e')
