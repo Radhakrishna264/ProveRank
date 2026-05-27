@@ -79,6 +79,13 @@ function PRLogo({size=36}:{size?:number}) {
   const rSize = Math.round(blockSize * 0.63)
   const fontSize = Math.round(pSize * 0.52)
   const radius = Math.round(pSize * 0.28)
+
+  // S86: Mark all notifications as read
+  const markAllRead=async()=>{const tk=getToken();if(!tk)return;try{await fetch(`${API}/api/admin/notifications/mark-read`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${tk}`},body:JSON.stringify({all:true})});setNotifs(prev=>prev.map(n=>({...n,isRead:true})));}catch(e){}};
+
+  // S86: Mark single notification as read
+  const markOneRead=async(id:string)=>{const tk=getToken();if(!tk)return;try{await fetch(`${API}/api/admin/notifications/mark-read`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${tk}`},body:JSON.stringify({id})});setNotifs(prev=>prev.map(n=>n._id===id?{...n,isRead:true}:n));}catch(e){}};
+
   return (
     <div style={{position:'relative',width:blockSize,height:blockSize,flexShrink:0,display:'inline-flex'}}>
       <div style={{
@@ -1832,21 +1839,57 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
 
       {/* ══ NOTIFICATION PANEL ══ */}
       {notifOpen&&(
-        <div style={{position:'fixed',top:58,right:0,width:320,height:'calc(100vh - 58px)',background:'rgba(0,10,24,0.97)',borderLeft:`1px solid ${BOR}`,zIndex:200,overflow:'auto',padding:16,backdropFilter:'blur(20px)',boxShadow:'-4px 0 24px rgba(0,0,0,0.5)'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-            <span style={{fontWeight:700,fontSize:15,fontFamily:'Playfair Display,serif',color:ACC}}>🔔 Notifications</span>
-            <button onClick={()=>setNotifOpen(false)} style={{background:'none',border:'none',color:DIM,fontSize:18,cursor:'pointer'}}>✕</button>
-          </div>
-          {(notifs||[]).length===0
-            ?<div style={{textAlign:'center',padding:'40px 20px',color:DIM}}>
-              <div style={{fontSize:40,marginBottom:10}}>🔕</div>
-              <div style={{fontSize:13}}>No notifications yet</div>
-              <div style={{fontSize:11,marginTop:4}}>Alerts will appear here</div>
+  <div style={{position:'fixed',top:52,right:8,width:340,maxHeight:480,background:'#0d1b2e',border:'1px solid #1e3a5f',borderRadius:12,boxShadow:'0 8px 32px rgba(0,0,0,0.6)',zIndex:9999,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+    {/* Header */}
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',borderBottom:'1px solid #1e3a5f',background:'#0a1628'}}>
+      <span style={{fontWeight:700,fontSize:15,color:'#e2e8f0'}}>🔔 Notifications</span>
+      <div style={{display:'flex',gap:8,alignItems:'center'}}>
+        {notifs.filter(n=>!n.isRead).length>0&&(
+          <button onClick={markAllRead} style={{fontSize:11,color:'#60a5fa',background:'none',border:'1px solid #1e3a5f',borderRadius:6,padding:'3px 8px',cursor:'pointer'}}>Mark all read</button>
+        )}
+        <button onClick={()=>setNotifOpen(false)} style={{background:'none',border:'none',color:'#64748b',fontSize:18,cursor:'pointer',lineHeight:1}}>×</button>
+      </div>
+    </div>
+    {/* List */}
+    <div style={{overflowY:'auto',flex:1}}>
+      {notifs.length===0?(
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'40px 20px',color:'#475569'}}>
+          <div style={{fontSize:40,marginBottom:8}}>🔕</div>
+          <div style={{fontSize:13,fontWeight:600}}>No notifications yet</div>
+          <div style={{fontSize:11,marginTop:4}}>Alerts will appear here</div>
+        </div>
+      ):(
+        notifs.slice(0,20).map((n:any)=>{
+          const sev=n.severity||n.type||'info';
+          const colors:any={high:{bg:'#2d0a0a',border:'#dc2626',icon:'🔴',badge:'#dc2626'},warning:{bg:'#2d1f0a',border:'#f59e0b',icon:'⚠️',badge:'#f59e0b'},info:{bg:'#0a1e2d',border:'#3b82f6',icon:'💬',badge:'#3b82f6'},success:{bg:'#0a2d1a',border:'#22c55e',icon:'✅',badge:'#22c55e'},suspicious:{bg:'#2d0a2d',border:'#a855f7',icon:'🚨',badge:'#a855f7'}};
+          const c=colors[sev]||colors.info;
+          const timeStr=n.createdAt?new Date(n.createdAt).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+          return(
+            <div key={n._id||n.id||Math.random()} onClick={()=>markOneRead(n._id||n.id)} style={{padding:'12px 16px',borderBottom:'1px solid #1e3a5f',background:n.isRead?'transparent':c.bg,borderLeft:`3px solid ${n.isRead?'#1e3a5f':c.border}`,cursor:'pointer',transition:'background 0.2s'}}>
+              <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                <span style={{fontSize:16,marginTop:1}}>{c.icon}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
+                    <span style={{fontSize:13,fontWeight:n.isRead?400:700,color:n.isRead?'#94a3b8':'#e2e8f0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.title||n.message||'Notification'}</span>
+                    {!n.isRead&&<span style={{width:7,height:7,borderRadius:'50%',background:c.badge,flexShrink:0,display:'inline-block'}}/>}
+                  </div>
+                  {n.message&&n.title&&<div style={{fontSize:11,color:'#64748b',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.message}</div>}
+                  {timeStr&&<div style={{fontSize:10,color:'#475569',marginTop:3}}>{timeStr}</div>}
+                </div>
+              </div>
             </div>
-            :(notifs||[]).map((n,i)=>(
-              <div key={n._id||i} style={{...cs,padding:'10px 12px',marginBottom:8,borderLeft:`3px solid ${n.severity==='warning'?'#f59e0b':n.severity==='error'?'#ef4444':'#38bdf8'}`,opacity:n.isRead?0.6:1}}>
-                <div style={{fontSize:13,fontWeight:600}}>{n.title||n.type||"Notification"}</div>
-                <div style={{fontSize:10,color:DIM,marginTop:3}}>{n.createdAt ? new Date(n.createdAt).toLocaleString("en-IN",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : ""}</div>
+          );
+        })
+      )}
+    </div>
+    {/* Footer */}
+    {notifs.length>0&&(
+      <div style={{padding:'10px 16px',borderTop:'1px solid #1e3a5f',background:'#0a1628',textAlign:'center'}}>
+        <a href="/admin/x7k2p?tab=notifications" style={{fontSize:12,color:'#60a5fa',textDecoration:'none',fontWeight:600}}>View All Notifications →</a>
+      </div>
+    )}
+  </div>
+)} : ""}</div>
               </div>
             ))
           }
