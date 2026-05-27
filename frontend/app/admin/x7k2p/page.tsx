@@ -960,6 +960,7 @@ export default function AdminPanel() {
   const [sideOpen,setSideOpen]=useState(false)
   const [toast,setToast]=useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
   const [notifOpen,setNotifOpen]=useState(false);
+  const [notifDetail,setNotifDetail]=useState<any>(null);
 const [topStudents,setTopStudents]=useState<{rank:number,name:string,bestScore:number,totalExams:number}[]>([])
   const [loading,setLoading]=useState(true)
 
@@ -1879,7 +1880,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
       </div>
       {notifs.length>0&&(
         <div style={{padding:'8px 14px',borderTop:'1px solid #1e3a5f',background:'#0a1628',textAlign:'center'}}>
-          <button onClick={()=>{setNotifOpen(false);if(typeof window!=="undefined"){const u=new URL(window.location.href);u.searchParams.set("tab","notifications");window.history.pushState({},"",u.toString());}}} style={{fontSize:11,color:"#60a5fa",cursor:"pointer",fontWeight:600,background:"none",border:"none",padding:0,textDecoration:"underline"}}>View All Notifications →</button>
+          <button onClick={()=>{setNotifOpen(false);const el=document.querySelector('[data-tab="notifications"],[data-value="notifications"]');if(el){(el as HTMLElement).click();}else{const u=new URL(window.location.href);u.searchParams.set('tab','notifications');window.location.href=u.toString();}}},"",u.toString());}}} style={{fontSize:11,color:"#60a5fa",cursor:"pointer",fontWeight:600,background:"none",border:"none",padding:0,textDecoration:"underline"}}>View All Notifications →</button>
         </div>
       )}
     </div>
@@ -4125,6 +4126,22 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
         </div>
       </div>
       <AdminWelcomeBanner />
+
+      {/* S86: Notification Detail Modal */}
+      {notifDetail&&(
+        <div onClick={()=>setNotifDetail(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:10000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+          <div onClick={(e)=>e.stopPropagation()} style={{background:'#0d1b2e',border:'1px solid #1e3a5f',borderRadius:14,padding:24,maxWidth:400,width:'100%',boxShadow:'0 16px 48px rgba(0,0,0,0.8)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
+              <span style={{fontSize:16,fontWeight:700,color:'#e2e8f0',flex:1}}>{notifDetail.title||'Notification'}</span>
+              <button onClick={()=>setNotifDetail(null)} style={{background:'none',border:'none',color:'#64748b',fontSize:20,cursor:'pointer',marginLeft:8,lineHeight:1}}>×</button>
+            </div>
+            <div style={{fontSize:13,color:'#94a3b8',marginBottom:16,lineHeight:1.6}}>{notifDetail.message||notifDetail.description||'No details available'}</div>
+            {notifDetail.severity&&<div style={{marginBottom:12}}><span style={{fontSize:11,background:'rgba(59,130,246,0.2)',color:'#60a5fa',borderRadius:6,padding:'3px 10px',fontWeight:600}}>Type: {notifDetail.severity||notifDetail.type}</span></div>}
+            {notifDetail.createdAt&&<div style={{fontSize:11,color:'#475569',marginBottom:16}}>🕐 {new Date(notifDetail.createdAt).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'})}</div>}
+            <button onClick={()=>setNotifDetail(null)} style={{width:'100%',padding:'10px',background:'#1e3a5f',border:'none',borderRadius:8,color:'#e2e8f0',cursor:'pointer',fontSize:13,fontWeight:600}}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
