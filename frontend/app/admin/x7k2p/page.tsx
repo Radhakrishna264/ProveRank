@@ -1880,7 +1880,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
       </div>
       {notifs.length>0&&(
         <div style={{padding:'8px 14px',borderTop:'1px solid #1e3a5f',background:'#0a1628',textAlign:'center'}}>
-          <button onClick={()=>{setNotifOpen(false);const el=document.querySelector('[data-tab="notifications"],[data-value="notifications"]');if(el){(el as HTMLElement).click();}else{const u=new URL(window.location.href);u.searchParams.set('tab','notifications');window.location.href=u.toString();}}},"",u.toString());}}} style={{fontSize:11,color:"#60a5fa",cursor:"pointer",fontWeight:600,background:"none",border:"none",padding:0,textDecoration:"underline"}}>View All Notifications →</button>
+          <button onClick={()=>{setNotifOpen(false);setTab("notifications");}} style={{fontSize:11,color:"#60a5fa",cursor:"pointer",fontWeight:600,background:"none",border:"none",padding:0,textDecoration:"underline"}}>View All Notifications →</button>
         </div>
       )}
     </div>
