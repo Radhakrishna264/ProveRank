@@ -114,4 +114,23 @@ router.get('/top-students', async (req, res) => {
   }
 });
 
+
+// S86: Mark notifications as read
+router.post('/mark-read', async (req, res) => {
+  try {
+    const { id, all } = req.body;
+    if (all) {
+      await AdminNotification.updateMany({ isRead: false }, { isRead: true });
+      return res.json({ success: true, message: 'All marked as read' });
+    }
+    if (id) {
+      await AdminNotification.findByIdAndUpdate(id, { isRead: true, readAt: new Date() });
+      return res.json({ success: true, message: 'Marked as read' });
+    }
+    res.status(400).json({ success: false, message: 'id or all required' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 module.exports = router;

@@ -1879,7 +1879,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
       </div>
       {notifs.length>0&&(
         <div style={{padding:'8px 14px',borderTop:'1px solid #1e3a5f',background:'#0a1628',textAlign:'center'}}>
-          <span style={{fontSize:11,color:'#60a5fa',cursor:'pointer',fontWeight:600}}>View All Notifications →</span>
+          <button onClick={()=>{setNotifOpen(false);if(typeof window!=="undefined"){const u=new URL(window.location.href);u.searchParams.set("tab","notifications");window.history.pushState({},"",u.toString());}}} style={{fontSize:11,color:"#60a5fa",cursor:"pointer",fontWeight:600,background:"none",border:"none",padding:0,textDecoration:"underline"}}>View All Notifications →</button>
         </div>
       )}
     </div>
