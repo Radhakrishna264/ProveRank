@@ -370,7 +370,7 @@ router.get('/batches/compare', verifyToken, isSuperAdmin, async (req, res) => {
     if (!batch1 || !batch2) return res.status(400).json({ success: false, message: 'batch1 and batch2 required' });
 
     const getStats = async (batchName) => {
-      const students = await User.find({ role: 'student', batch: batchName }).select('_id');
+      const students = await User.find({ role: 'student', batch: batchName }).select('_id image');
       const ids = students.map(s => s._id);
       const filter = { studentId: { $in: ids } };
       if (examId) filter.examId = new mongoose.Types.ObjectId(examId);
@@ -437,7 +437,7 @@ router.get('/batches/:id/students', verifyToken, isSuperAdmin, async (req, res) 
   try {
     const User = require('../models/User');
     const students = await User.find({ batch: req.params.id, role: 'student' })
-      .select('-password -__v').sort({ name: 1 }).lean();
+      .select('-password -__v image').sort({ name: 1 }).lean();
     res.json(students);
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
@@ -454,7 +454,7 @@ router.post('/batches/:id/students/add', verifyToken, isSuperAdmin, async (req, 
       { ...filter, role: 'student' },
       { $set: { batch: req.params.id } },
       { new: true }
-    ).select('-password');
+    ).select('-password image');
     if (!student) return res.status(404).json({ success: false, message: 'Student not found or not a student account' });
     res.json({ success: true, student });
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
@@ -544,7 +544,7 @@ router.delete('/batches/:id/notes/:nid',verifyToken,isSuperAdmin,async(req,res)=
 router.get('/batches/all-exams',verifyToken,isSuperAdmin,async(req,res)=>{
   try{
     const Exam=require('../models/Exam');
-    const exams=await Exam.find({}).select('title status scheduledAt duration totalMarks').sort({createdAt:-1}).lean();
+    const exams=await Exam.find({}).select('title status scheduledAt duration totalMarks image').sort({createdAt:-1}).lean();
     res.json(exams);
   }catch(e){res.json([]);}
 });

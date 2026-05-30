@@ -11,7 +11,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 // ── TypeScript Interfaces ──
 interface Student { _id:string;name:string;email:string;phone?:string;role:string;createdAt:string;banned?:boolean;banReason?:string;group?:string;integrityScore?:number;loginHistory?:any[];parentEmail?:string;deleted?:boolean;deletedAt?:string;deleteReason?:string;city?:string;school?:string;dob?:string;targetExam?:string;qualifications?:string;_snapshot?:any }
 interface Exam { _id:string;title:string;scheduledAt:string;totalMarks:number;duration:number;status:string;attempts?:number;category?:string;password?:string;batch?:string;subject?:string }
-interface Question { _id:string;text:string;subject:string;chapter?:string;topic?:string;difficulty:string;type:string;options?:string[];correctAnswer?:string;explanation?:string;approvalStatus?:string }
+interface Question { _id:string;text:string;subject:string;chapter?:string;topic?:string;difficulty:string;type:string;options?:string[];correctAnswer?:string;explanation?:string;approvalStatus?:string;image?:string }
 interface Log { _id:string;action:string;by:string;at:string;detail:string }
 interface Flag { _id:string;studentName:string;examTitle:string;type:string;count:number;severity:string;at:string;integrityScore?:number }
 interface Ticket { _id:string;studentName:string;examTitle:string;type:string;status:string;createdAt:string;description:string }

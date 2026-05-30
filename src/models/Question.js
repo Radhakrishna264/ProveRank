@@ -97,7 +97,12 @@ questionSchema.pre('save', async function () {
     });
   }
   if (this.isModified('text') || this.isNew) {
+    const _userDiff = (this.difficulty && this.difficulty !== 'Untagged') ? this.difficulty : null;
+    const _userSubj = (this.subject && this.subject !== 'General') ? this.subject : null;
     await runAIPipeline(this);
+    // Restore user-set values — AI must NOT override manual selection
+    if (_userDiff) this.difficulty = _userDiff;
+    if (_userSubj) this.subject = _userSubj;
   }
 });
 
