@@ -1389,7 +1389,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
     const text=qTxtR.current
     if(!text){T('Question text is required.','e');return}
     setSavingQ(true)
-    const payload={text,hindiText:qHindiR.current||undefined,subject:qSubj,chapter:qChapR.current||undefined,topic:qTopicR.current||undefined,difficulty:qDiff,type:qType,options:['SCQ','MSQ'].includes(qType)?[qA.current,qB.current,qC.current,qD.current].filter(Boolean):undefined,correct:qAns,explanation:qExpR.current||undefined,image:qImgR.current||undefined}
+    const payload={text,hindiText:qHindiR.current||undefined,subject:qSubj,chapter:qChapR.current||undefined,topic:qTopicR.current||undefined,difficulty:qDiff,type:qType,options:['SCQ','MSQ'].includes(qType)?[qA.current,qB.current,qC.current,qD.current].filter(Boolean):undefined,correct:qAns,explanation:qExpR.current||undefined,image:qImageR.current||undefined}
     try{
       const res=await fetch(`${API}/api/questions`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(payload)})
       if(res.ok||res.status===201){
