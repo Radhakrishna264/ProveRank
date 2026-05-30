@@ -968,6 +968,15 @@ const [topStudents,setTopStudents]=useState<{rank:number,name:string,bestScore:n
   const [students,setStudents]=useState<Student[]>([])
   const [exams,setExams]=useState<Exam[]>([])
   const [questions,setQuestions]=useState<Question[]>([])
+  // FIX: Preview view open hone par questions auto-fetch
+  useEffect(()=>{
+    if(qbView==='preview'&&token&&questions.length===0){
+      fetch(`${API}/api/questions`,{headers:{Authorization:`Bearer ${token}`}})
+        .then(r=>r.ok?r.json():null)
+        .then(d=>{if(d)setQuestions(Array.isArray(d)?d:(d.questions||d.data||[]))})
+        .catch(()=>{})
+    }
+  },[qbView,token])
   const [flags,setFlags]=useState<Flag[]>([])
   const [logs,setLogs]=useState<Log[]>([])
   const [tickets,setTickets]=useState<Ticket[]>([])
