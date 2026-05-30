@@ -1389,7 +1389,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
     const text=qTxtR.current
     if(!text){T('Question text is required.','e');return}
     setSavingQ(true)
-    const payload={text,hindiText:qHindiR.current||undefined,subject:qSubj,chapter:qChapR.current||undefined,topic:qTopicR.current||undefined,difficulty:qDiff,type:qType,options:['SCQ','MSQ'].includes(qType)?[qA.current,qB.current,qC.current,qD.current].filter(Boolean):undefined,correct:qAns,explanation:qExpR.current||undefined,image:qImageR.current||undefined}
+    const payload={text,hindiText:qHindiR.current||undefined,subject:qSubj,chapter:qChapR.current||undefined,topic:qTopicR.current||undefined,difficulty:qDiff,type:qType,options:['SCQ','MSQ'].includes(qType)?[qA.current,qB.current,qC.current,qD.current].filter(Boolean):undefined,correct:(qType==='Integer'?parseInt(qAns)||0:qType==='MSQ'?(Array.isArray(qAns)?qAns:qAns?qAns.split(','):[]).map(function(x){return['A','B','C','D'].indexOf(x)}).filter(function(x){return x>=0}):[['A','B','C','D'].indexOf((qAns||'').replace('Option ','').trim())].filter(function(x){return x>=0})),explanation:qExpR.current||undefined,image:qImageR.current||undefined}
     try{
       const res=await fetch(`${API}/api/questions`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(payload)})
       if(res.ok||res.status===201){
@@ -2551,18 +2551,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                         </select>
                       </div>
                       <div>
-                        <label style={lbl}>✅ Correct Answer</label>
-                        <select value={qAns} onChange={function(e){setQAns(e.target.value)}} style={{...inp,width:'100%'}}>
-                          <option value=''>— Select Answer —</option>
-                          <option value='A'>Option A</option>
-                          <option value='B'>Option B</option>
-                          <option value='C'>Option C</option>
-                          <option value='D'>Option D</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label style={lbl}>📖 Chapter</label>
-                        <SInput init='' onSet={function(v){qChapR.current=v}} ph='e.g. Electrostatics' style={inp}/>
+					{qType==='Integer'?(<input type='number' value={qAns} onChange={function(e){setQAns(e.target.value)}} style={{...inp,width:'100%'}} placeholder='Enter integer answer'/>):qType==='MSQ'?(<div style={{display:'flex',gap:'10px',flexWrap:'wrap',marginTop:'6px'}}>{['A','B','C','D'].map(function(opt){const sel=Array.isArray(qAns)?qAns:qAns?qAns.split(','):[];return(<label key={opt} style={{display:'flex',alignItems:'center',gap:'6px',cursor:'pointer',padding:'6px 12px',background:sel.includes(opt)?'rgba(77,159,255,0.25)':'rgba(255,255,255,0.05)',borderRadius:'8px',border:'1px solid rgba(77,159,255,0.3)'}}><input type='checkbox' checked={sel.includes(opt)} onChange={function(){const p=Array.isArray(qAns)?[...qAns]:qAns?qAns.split(','):[];const n=p.includes(opt)?p.filter(function(x){return x!==opt}):[...p,opt];setQAns(n);}}/><span style={{color:'#E2E8F0',fontSize:'13px'}}>Option {opt}</span></label>)})}</div>):(<select value={qAns} onChange={function(e){setQAns(e.target.value)}} style={{...inp,width:'100%'}}><option value={''}>— Select Answer —</option><option value='A'>Option A</option><option value='B'>Option B</option><option value='C'>Option C</option><option value='D'>Option D</option></select>)}
                       </div>
                       <div>
                         <label style={lbl}>📌 Topic</label>
