@@ -1411,7 +1411,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
         :[['A','B','C','D'].indexOf((qAns||'').replace('Option ','').trim())].filter(function(x){return x>=0})
     ),
     explanation:qExp||undefined,
-    image:qImg||undefined
+    image:qImg||qImageR.current||undefined
   }
     try{
       const res=await fetch(`${API}/api/questions`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(payload)})
