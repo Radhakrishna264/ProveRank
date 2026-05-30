@@ -6,9 +6,9 @@ const { computeDBSimilarity } = require('./similarityService');
 
 async function runAIPipeline(questionDoc) {
   questionDoc.difficulty = calculateDifficulty(questionDoc.text);
-  questionDoc.subject = classify(questionDoc.text);
-  questionDoc.hindiText = translateToHindi(questionDoc.text);
-  questionDoc.explanation = generateExplanation(
+  if(!questionDoc.subject||questionDoc.subject==="General")questionDoc.subject = classify(questionDoc.text);
+  if(!questionDoc.hindiText)questionDoc.hindiText = translateToHindi(questionDoc.text);
+  if(!questionDoc.explanation)questionDoc.explanation = generateExplanation(
     questionDoc.text,
     questionDoc.options[questionDoc.correct[0]]
   );
