@@ -2681,7 +2681,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                                   {(q.options||[]).map(function(opt,oi){
                                     const ltr=String.fromCharCode(65+oi)
                                     const cIdx=Array.isArray(q.correct)?q.correct[0]:undefined
-                                    const isC=(cIdx!==undefined&&String(cIdx)===String(oi))||(q.correctAnswer&&q.correctAnswer===ltr)
+                                    const isC=(Array.isArray(cIdx)?cIdx.includes(oi):cIdx===oi)||(q.correctAnswer&&q.correctAnswer===ltr)
                                     return(<div key={oi} style={{padding:'3px 7px',borderRadius:5,fontSize:10,border:'1px solid '+(isC?'rgba(0,200,100,0.4)':'rgba(255,255,255,0.06)'),background:isC?'rgba(0,200,100,0.08)':'rgba(255,255,255,0.02)',color:isC?'#00C864':'#94A3B8'}}>
                                       <span style={{fontWeight:700,marginRight:4,color:isC?'#00C864':'#4D9FFF'}}>{ltr}.</span>{(opt||'').slice(0,28)}{isC&&' ✓'}
                                     </div>)
@@ -2817,8 +2817,8 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                       {(q.options||[]).length>0&&(<div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:10}}>
                         {(q.options||[]).map(function(opt,oi){
                           const ltr=String.fromCharCode(65+oi)
-                          const cIdx=Array.isArray(q.correct)&&q.correct.length>0?q.correct[0]:undefined
-                          const isC=(cIdx!==undefined&&String(cIdx)===String(oi))||(q.correctAnswer&&q.correctAnswer===ltr)
+                          const cIdx=Array.isArray(q.correct)&&q.correct.length>0?q.correct:q.correct!==undefined?[q.correct]:[]
+                          const isC=(Array.isArray(cIdx)?cIdx.includes(oi):cIdx===oi)||(q.correctAnswer&&q.correctAnswer===ltr)
                           return(<div key={oi} style={{padding:'7px 11px',borderRadius:7,border:'1px solid '+(isC?'rgba(0,200,100,0.4)':'rgba(255,255,255,0.07)'),background:isC?'rgba(0,200,100,0.08)':'rgba(255,255,255,0.02)'}}>
                             <span style={{fontWeight:700,color:isC?'#00C864':'#4D9FFF',marginRight:8}}>{ltr}.</span>
                             <span style={{fontSize:12,color:isC?'#E2E8F0':'#94A3B8'}}>{opt}</span>
@@ -2828,7 +2828,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                       </div>)}
                       {(q.chapter||q.topic||q.explanation)&&(<div style={{fontSize:11,color:'#64748B',marginBottom:10,lineHeight:1.6}}>
                         {q.chapter&&<div>📖 {q.chapter}{q.topic?' › '+q.topic:''}</div>}
-                        {q.explanation&&<div style={{color:'#94A3B8',marginTop:4}}>💡 {q.explanation}</div>}
+                        {q.explanation&&<div style={{color:'#94A3B8',marginTop:4}}>💡 {q.explanation}</div>}{q.image&&<img src={q.image} alt='question' style={{width:'100%',maxHeight:'200px',objectFit:'contain',marginTop:'8px',borderRadius:'8px'}}/>}
                       </div>)}
                       <div style={{display:'flex',gap:7}}>
                         <button onClick={function(){if(qi>0)setSelQId((questions||[])[qi-1]._id)}} disabled={qi===0} style={{...bg_,flex:1,opacity:qi===0?0.35:1,fontSize:11}}>← Prev</button>
