@@ -2828,7 +2828,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                       </div>)}
                       {(q.chapter||q.topic||q.explanation)&&(<div style={{fontSize:11,color:'#64748B',marginBottom:10,lineHeight:1.6}}>
                         {q.chapter&&<div>📖 {q.chapter}{q.topic?' › '+q.topic:''}</div>}
-                        {q.explanation&&<div style={{color:'#94A3B8',marginTop:4}}>💡 {q.explanation}</div>}{q.image&&<img src={q.image} alt='question' style={{width:'100%',maxHeight:'200px',objectFit:'contain',marginTop:'8px',borderRadius:'8px'}}/>}
+                        {q.explanation&&<div style={{color:'#94A3B8',marginTop:4}}>💡 {q.explanation}</div>}{q.image&&<div style={{margin:'8px 0',borderRadius:8,overflow:'hidden',background:'rgba(255,255,255,0.03)',padding:4}}><img src={q.image} alt='' onError={function(e){e.currentTarget.parentElement.style.display='none'}} style={{width:'100%',maxHeight:'200px',objectFit:'contain',display:'block',borderRadius:6}}/></div>}
                       </div>)}
                       <div style={{display:'flex',gap:7}}>
                         <button onClick={function(){if(qi>0)setSelQId((questions||[])[qi-1]._id)}} disabled={qi===0} style={{...bg_,flex:1,opacity:qi===0?0.35:1,fontSize:11}}>← Prev</button>
