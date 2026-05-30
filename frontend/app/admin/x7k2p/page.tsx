@@ -1016,6 +1016,12 @@ const [topStudents,setTopStudents]=useState<{rank:number,name:string,bestScore:n
   const [qDiff,setQDiff]=useState('medium')
   const [qType,setQType]=useState('SCQ')
   const [qAns,setQAns]=useState('')
+  const [qHindi,setQHindi]=useState('')
+  const [qChap,setQChap]=useState('')
+  const [qTopic,setQTopic]=useState('')
+  const [qExp,setQExp]=useState('')
+  const [qImg,setQImg]=useState('')
+  //FIX_STATES_DONE
   const [savingQ,setSavingQ]=useState(false)
   const [qPreview,setQPreview]=useState(false)
   const [qBV,setQBV]=useState(()=>{try{return sessionStorage.getItem('pr_qbv')||'home'}catch{return 'home'}})
@@ -1389,12 +1395,29 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
     const text=qTxtR.current
     if(!text){T('Question text is required.','e');return}
     setSavingQ(true)
-    const payload={text,hindiText:qHindiR.current||undefined,subject:qSubj,chapter:qChapR.current||undefined,topic:qTopicR.current||undefined,difficulty:qDiff,type:qType,options:['SCQ','MSQ'].includes(qType)?[qA.current,qB.current,qC.current,qD.current].filter(Boolean):undefined,correct:(qType==='Integer'?parseInt(qAns)||0:qType==='MSQ'?(Array.isArray(qAns)?qAns:qAns?qAns.split(','):[]).map(function(x){return['A','B','C','D'].indexOf(x)}).filter(function(x){return x>=0}):[['A','B','C','D'].indexOf((qAns||'').replace('Option ','').trim())].filter(function(x){return x>=0})),explanation:qExpR.current||undefined,image:qImageR.current||undefined}
+    const payload={
+    text,
+    hindiText:qHindi||undefined,
+    subject:qSubj||'General',
+    chapter:qChap||undefined,
+    topic:qTopic||undefined,
+    difficulty:qDiff||'medium',
+    type:qType||'SCQ',
+    options:['SCQ','MSQ'].includes(qType)?[qA.current,qB.current,qC.current,qD.current].filter(Boolean):undefined,
+    correct:(qType==='Integer'
+      ?[parseInt(qAns)||0]
+      :qType==='MSQ'
+        ?(Array.isArray(qAns)?qAns:qAns?qAns.split(','):[]).map(function(x){return['A','B','C','D'].indexOf(x)}).filter(function(x){return x>=0})
+        :[['A','B','C','D'].indexOf((qAns||'').replace('Option ','').trim())].filter(function(x){return x>=0})
+    ),
+    explanation:qExp||undefined,
+    image:qImg||undefined
+  }
     try{
       const res=await fetch(`${API}/api/questions`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(payload)})
       if(res.ok||res.status===201){
         T('Question added to bank successfully.')
-        qTxtR.current='';qHindiR.current='';qA.current='';qB.current='';qC.current='';qD.current='';qChapR.current='';qTopicR.current='';qExpR.current='';setQSubj('');setQDiff('medium');setQType('SCQ');setQAns('');setFormKey(function(k){return k+1})
+        qTxtR.current='';qA.current='';qB.current='';qC.current='';qD.current='';setQHindi('');setQChap('');setQTopic('');setQExp('');setQImg('');setQSubj('');setQDiff('medium');setQType('SCQ');setQAns('');setFormKey(function(k){return k+1})
         const r=await fetch(`${API}/api/questions`,{headers:{Authorization:`Bearer ${token}`}})
         if(r.ok){const qd=await r.json();setQuestions(Array.isArray(qd)?qd:(qd.questions||qd.data||[]))}
       } else {
@@ -2520,7 +2543,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                       </div>
                       <div style={{gridColumn:'1/-1'}}>
                         <label style={lbl}>🇮🇳 Hindi Text <span style={{color:'#475569',fontSize:10}}>(optional)</span></label>
-                        <STextarea init='' onSet={function(v){qHindiR.current=v}} ph='हिंदी में प्रश्न (वैकल्पिक)…' rows={2} style={{...inp,resize:'vertical'}}/>
+                        <STextarea init='' onSet={function(v){qHindiR.current=v;setQHindi(v)}} ph='हिंदी में प्रश्न (वैकल्पिक)…' rows={2} style={{...inp,resize:'vertical'}}/>
                       </div>
                       <div>
                         <label style={lbl}>📚 Subject *</label>
@@ -2555,7 +2578,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                       </div>
                       <div>
                         <label style={lbl}>📌 Topic</label>
-                        <SInput init='' onSet={function(v){qTopicR.current=v}} ph='e.g. Coulombs Law' style={inp}/>
+                        <SInput init='' onSet={function(v){qTopicR.current=v;setQTopic(v)}} ph='e.g. Coulombs Law' style={inp}/>
                       </div>
                       {['SCQ','MSQ'].includes(qType)&&(<>
                         <div><label style={lbl}>Option A</label><SInput init='' onSet={function(v){qA.current=v}} ph='Option A…' style={inp}/></div>
@@ -2565,11 +2588,11 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                       </>)}
                       <div style={{gridColumn:'1/-1'}}>
                         <label style={lbl}>💡 Explanation <span style={{color:'#475569',fontSize:10}}>(optional)</span></label>
-                        <STextarea init='' onSet={function(v){qExpR.current=v}} ph='Explain the correct answer…' rows={2} style={{...inp,resize:'vertical'}}/>
+                        <STextarea init='' onSet={function(v){qExpR.current=v;setQExp(v)}} ph='Explain the correct answer…' rows={2} style={{...inp,resize:'vertical'}}/>
                       </div>
                       <div style={{gridColumn:'1/-1'}}>
                         <label style={lbl}>🖼️ Image URL <span style={{color:'#475569',fontSize:10}}>(optional)</span></label>
-                        <SInput init='' onSet={function(v){qImageR.current=v}} ph='https://imgur.com/… (paste image link)' style={inp}/>
+                        <SInput init='' onSet={function(v){qImageR.current=v;setQImg(v)}} ph='https://imgur.com/… (paste image link)' style={inp}/>
                       </div>
                     </div>
                     <div style={{display:'flex',gap:10,marginTop:14,flexWrap:'wrap'}}>
