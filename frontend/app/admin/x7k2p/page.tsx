@@ -1410,7 +1410,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
         ?(Array.isArray(qAns)?qAns:qAns?qAns.split(','):[]).map(function(x){return['A','B','C','D'].indexOf(x)}).filter(function(x){return x>=0})
         :[['A','B','C','D'].indexOf((qAns||'').replace('Option ','').trim())].filter(function(x){return x>=0})
     ),
-    explanation:qExp||undefined,
+    explanation:qExpR.current||qExp||undefined,
     image:qImg||qImageR.current||undefined
   }
     try{
