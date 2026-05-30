@@ -1031,6 +1031,7 @@ const [topStudents,setTopStudents]=useState<{rank:number,name:string,bestScore:n
   const [formKey,setFormKey]=useState(0)
   const [qSec,setQSec]=useState('all')
   const [qBioSub,setQBioSub]=useState('all')
+  const [aiSelChap,setAiSelChap]=useState('')
   const [bulkSel,setBulkSel]=useState([])
   const [selQId,setSelQId]=useState(null)
   const [editQD,setEditQD]=useState(null)
