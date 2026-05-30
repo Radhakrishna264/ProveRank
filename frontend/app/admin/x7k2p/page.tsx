@@ -2543,7 +2543,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                       </div>
                       <div style={{gridColumn:'1/-1'}}>
                         <label style={lbl}>🇮🇳 Hindi Text <span style={{color:'#475569',fontSize:10}}>(optional)</span></label>
-                        <STextarea init='' onSet={function(v){qHindiR.current=v;setQHindi(v)}} ph='हिंदी में प्रश्न (वैकल्पिक)…' rows={2} style={{...inp,resize:'vertical'}}/>
+                        <textarea value={qHindi} onChange={function(e){qHindiR.current=e.target.value;setQHindi(e.target.value)}} rows={2} placeholder='हिंदी में प्रश्न (वैकल्पिक)...' style={{...inp,resize:'vertical'}}/>
                       </div>
                       <div>
                         <label style={lbl}>📚 Subject *</label>
@@ -2578,7 +2578,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                       </div>
                       <div>
                         <label style={lbl}>📌 Topic</label>
-                        <SInput init='' onSet={function(v){qTopicR.current=v;setQTopic(v)}} ph='e.g. Coulombs Law' style={inp}/>
+                        <input value={qTopic} onChange={function(e){qTopicR.current=e.target.value;setQTopic(e.target.value)}} placeholder='e.g. Coulombs Law' style={{...inp}}/>
                       </div>
                       {['SCQ','MSQ'].includes(qType)&&(<>
                         <div><label style={lbl}>Option A</label><SInput init='' onSet={function(v){qA.current=v}} ph='Option A…' style={inp}/></div>
@@ -2588,11 +2588,11 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                       </>)}
                       <div style={{gridColumn:'1/-1'}}>
                         <label style={lbl}>💡 Explanation <span style={{color:'#475569',fontSize:10}}>(optional)</span></label>
-                        <STextarea init='' onSet={function(v){qExpR.current=v;setQExp(v)}} ph='Explain the correct answer…' rows={2} style={{...inp,resize:'vertical'}}/>
+                        <textarea value={qExp} onChange={function(e){qExpR.current=e.target.value;setQExp(e.target.value)}} rows={2} placeholder='Explain the correct answer...' style={{...inp,resize:'vertical'}}/>
                       </div>
                       <div style={{gridColumn:'1/-1'}}>
                         <label style={lbl}>🖼️ Image URL <span style={{color:'#475569',fontSize:10}}>(optional)</span></label>
-                        <SInput init='' onSet={function(v){qImageR.current=v;setQImg(v)}} ph='https://imgur.com/… (paste image link)' style={inp}/>
+                        <input value={qImg} onChange={function(e){qImageR.current=e.target.value;setQImg(e.target.value)}} placeholder='https://imgur.com/... (paste image link)' style={{...inp}}/>
                       </div>
                     </div>
                     <div style={{display:'flex',gap:10,marginTop:14,flexWrap:'wrap'}}>
