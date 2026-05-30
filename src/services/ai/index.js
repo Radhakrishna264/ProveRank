@@ -8,7 +8,7 @@ async function runAIPipeline(questionDoc) {
   questionDoc.difficulty = calculateDifficulty(questionDoc.text);
   if(!questionDoc.subject||questionDoc.subject==="General")questionDoc.subject = classify(questionDoc.text);
   if(!questionDoc.hindiText)questionDoc.hindiText = translateToHindi(questionDoc.text);
-  if(!questionDoc.explanation)questionDoc.explanation = generateExplanation(
+  if(!questionDoc.explanation||!questionDoc.explanation.trim())questionDoc.explanation = generateExplanation(
     questionDoc.text,
     questionDoc.options[questionDoc.correct[0]]
   );
