@@ -2813,7 +2813,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                         <button onClick={function(){setSelQId(null)}} style={{...bg_,padding:'3px 8px',fontSize:11}}>✕</button>
                       </div>
                       <div style={{fontSize:13,color:'#E2E8F0',lineHeight:1.7,marginBottom:10,padding:'11px 13px',background:'rgba(255,255,255,0.03)',borderRadius:10,border:'1px solid rgba(255,255,255,0.06)'}}>{q.text}</div>
-                      {q.hindiText&&<div style={{fontSize:11,color:'#94A3B8',marginBottom:10,fontStyle:'italic',padding:'6px 11px',background:'rgba(255,255,255,0.02)',borderRadius:8}}>{q.hindiText}</div>}
+                      {q.hindiText&&<div style={{fontSize:11,color:'#94A3B8',marginBottom:10,fontStyle:'italic',padding:'6px 11px',background:'rgba(255,255,255,0.02)',borderRadius:8}}>{q.hindiText}</div>}{q.image&&<div style={{margin:'8px 0',borderRadius:8,background:'rgba(255,255,255,0.03)',padding:6}}><img src={q.image} alt='' onError={function(e){e.currentTarget.style.display='none';var fb=document.getElementById('imgfb_'+q._id);if(fb)fb.style.display='flex'}} style={{width:'100%',maxHeight:'200px',objectFit:'contain',display:'block',borderRadius:6}}/><div id={'imgfb_'+q._id} style={{display:'none',alignItems:'center',gap:6,padding:'4px 0'}}><span style={{fontSize:10,color:'#94A3B8'}}>🖼️ Image URL:</span><a href={q.image} target='_blank' style={{fontSize:10,color:'#60A5FA',wordBreak:'break-all'}}>{q.image.length>50?q.image.substring(0,50)+'...':q.image}</a></div></div>}
                       {(q.options||[]).length>0&&(<div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:10}}>
                         {(q.options||[]).map(function(opt,oi){
                           const ltr=String.fromCharCode(65+oi)
@@ -2828,7 +2828,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                       </div>)}
                       {(q.chapter||q.topic||q.explanation)&&(<div style={{fontSize:11,color:'#64748B',marginBottom:10,lineHeight:1.6}}>
                         {q.chapter&&<div>📖 {q.chapter}{q.topic?' › '+q.topic:''}</div>}
-                        {q.explanation&&<div style={{color:'#94A3B8',marginTop:4}}>💡 {q.explanation}</div>}{q.image&&<div style={{margin:'8px 0',borderRadius:8,background:'rgba(255,255,255,0.03)',padding:6}}><img src={q.image} alt='' onError={function(e){e.currentTarget.style.display='none';var fb=document.getElementById('imgfb_'+q._id);if(fb)fb.style.display='flex'}} style={{width:'100%',maxHeight:'200px',objectFit:'contain',display:'block',borderRadius:6}}/><div id={'imgfb_'+q._id} style={{display:'none',alignItems:'center',gap:6,padding:'4px 0'}}><span style={{fontSize:10,color:'#94A3B8'}}>🖼️ Image URL:</span><a href={q.image} target='_blank' style={{fontSize:10,color:'#60A5FA',wordBreak:'break-all'}}>{q.image.length>50?q.image.substring(0,50)+'...':q.image}</a></div></div>}
+                        {q.explanation&&<div style={{color:'#94A3B8',marginTop:4}}>💡 {q.explanation}</div>}
                       </div>)}
                       <div style={{display:'flex',gap:7}}>
                         <button onClick={function(){if(qi>0)setSelQId((questions||[])[qi-1]._id)}} disabled={qi===0} style={{...bg_,flex:1,opacity:qi===0?0.35:1,fontSize:11}}>← Prev</button>
