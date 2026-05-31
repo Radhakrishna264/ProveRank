@@ -2,6 +2,8 @@
 import AdminWelcomeBanner from './AdminWelcomeBanner';
 import AdminProfilePage from './AdminProfilePage';
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
+import katex from 'katex'
+function renderLatex(t){if(!t)return '';let h=t.replace(/\$\$([^$]+)\$\$/g,function(_,m){try{return katex.renderToString(m,{displayMode:true,throwOnError:false})}catch(e){return m}});h=h.replace(/\$([^$\n]+)\$/g,function(_,m){try{return katex.renderToString(m,{displayMode:false,throwOnError:false})}catch(e){return m}});return h;}
 import { useRouter } from 'next/navigation'
 import { getToken, getRole, clearAuth } from '@/lib/auth'
 
@@ -1035,6 +1037,11 @@ const [topStudents,setTopStudents]=useState<{rank:number,name:string,bestScore:n
     }
   },[qBV,token])
   const [formKey,setFormKey]=useState(0)
+  const [latexPrev,setLatexPrev]=useState(false)
+  const [qTxtVal,setQTxtVal]=useState('')
+  const [qTxtInit,setQTxtInit]=useState('')
+  const [draftSaved,setDraftSaved]=useState(false)
+  const [draftRestored,setDraftRestored]=useState(false)
   const [qSec,setQSec]=useState('all')
   const [qBioSub,setQBioSub]=useState('all')
   const [aiSelChap,setAiSelChap]=useState('')
@@ -1391,7 +1398,10 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
     const blob=new Blob([hdr+'\n'+rows.join('\n')],{type:'text/csv'})
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='qbank.csv';a.click()
   }
-    const addQ=useCallback(async()=>{
+    useEffect(()=>{const t=setInterval(()=>{setQTxtVal(qTxtR.current||'')},800);return ()=>clearInterval(t);},[]);
+  useEffect(()=>{const timer=setTimeout(()=>{const d={text:qTxtVal,subj:qSubj,diff:qDiff,type:qType,ans:qAns};if(d.text||d.subj){try{localStorage.setItem('pr_q_draft',JSON.stringify(d));setDraftSaved(true);setTimeout(()=>setDraftSaved(false),2000)}catch(ex){}}},2000);return ()=>clearTimeout(timer);},[qTxtVal,qSubj,qDiff,qType,qAns]);
+  useEffect(()=>{try{const d=JSON.parse(localStorage.getItem('pr_q_draft')||'{}');if(d.text||d.subj){if(d.text){qTxtR.current=d.text;setQTxtVal(d.text);setQTxtInit(d.text);setFormKey(function(k){return k+1})}if(d.subj)setQSubj(d.subj);if(d.diff)setQDiff(d.diff);if(d.type)setQType(d.type);if(d.ans)setQAns(d.ans);setDraftRestored(true);setTimeout(()=>setDraftRestored(false),3000)}}catch(e){}},[]);
+  const addQ=useCallback(async()=>{
     const text=qTxtR.current
     if(!text){T('Question text is required.','e');return}
     setSavingQ(true)
@@ -1417,7 +1427,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
       const res=await fetch(`${API}/api/questions`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(payload)})
       if(res.ok||res.status===201){
         T('Question added to bank successfully.')
-        qTxtR.current='';qA.current='';qB.current='';qC.current='';qD.current='';setQHindi('');setQChap('');setQTopic('');setQExp('');setQImg('');setQSubj('');setQDiff('medium');setQType('SCQ');setQAns('');setFormKey(function(k){return k+1})
+        qTxtR.current='';qA.current='';qB.current='';qC.current='';qD.current='';setQHindi('');setQChap('');setQTopic('');setQExp('');setQImg('');setQSubj('');setQDiff('medium');setQType('SCQ');setQAns('');setFormKey(function(k){return k+1});try{localStorage.removeItem('pr_q_draft')}catch(e){};setQTxtVal('');setQTxtInit('');setLatexPrev(false)
         const r=await fetch(`${API}/api/questions`,{headers:{Authorization:`Bearer ${token}`}})
         if(r.ok){const qd=await r.json();setQuestions(Array.isArray(qd)?qd:(qd.questions||qd.data||[]))}
       } else {
@@ -2539,7 +2549,13 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:11}}>
                       <div style={{gridColumn:'1/-1'}}>
                         <label style={lbl}>📝 Question Text (English) *</label>
-                        <STextarea init='' onSet={function(v){qTxtR.current=v}} ph='Type the full question here…' rows={3} style={{...inp,resize:'vertical'}}/>
+                        <STextarea init={qTxtInit} onSet={function(v){qTxtR.current=v}} ph='Type the full question here…' rows={3} style={{...inp,resize:'vertical'}}/>
+                  <div style={{marginTop:6,display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                    <button type='button' onClick={()=>setLatexPrev(function(p){return !p})} style={{fontSize:10,padding:'3px 10px',borderRadius:4,background:'rgba(167,139,250,0.15)',border:'1px solid rgba(167,139,250,0.3)',color:'#A78BFA',cursor:'pointer'}}>{latexPrev?'\u25b2 Hide Math':'\u25bc Preview Math \u0192(x)'}</button>
+                    {draftSaved&&<span style={{fontSize:10,color:'#22c55e',marginLeft:4}}>{'\u2713 Draft saved'}</span>}
+                    {draftRestored&&<span style={{fontSize:10,color:'#A78BFA',marginLeft:4}}>{'\u21ba Draft restored'}</span>}
+                  </div>
+                  {latexPrev&&<div style={{marginTop:6,padding:'8px 12px',background:'rgba(255,255,255,0.04)',borderRadius:6,border:'1px solid rgba(255,255,255,0.08)',color:'#E2E8F0',fontSize:13,lineHeight:1.6,minHeight:40}} dangerouslySetInnerHTML={{__html:renderLatex(qTxtVal)||'<span style="color:#475569;font-style:italic">Type $x^2$ above to preview math...</span>'}}/>}
                       </div>
                       <div style={{gridColumn:'1/-1'}}>
                         <label style={lbl}>🇮🇳 Hindi Text <span style={{color:'#475569',fontSize:10}}>(optional)</span></label>
@@ -2601,7 +2617,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                         qTxtR.current='';qHindiR.current='';qA.current='';qB.current='';qC.current='';qD.current='';
                         qChapR.current='';qTopicR.current='';qExpR.current='';qImageR.current='';
                         setQSubj('');setQDiff('medium');setQType('SCQ');setQAns('');
-                        setFormKey(function(k){return k+1});T('Form cleared')
+                        setFormKey(function(k){return k+1});try{localStorage.removeItem('pr_q_draft')}catch(e){};setQTxtVal('');setQTxtInit('');setLatexPrev(false);T('Form cleared')
                       }} style={{...bg_,padding:'8px 16px'}}>🗑️ Clear</button>
                     </div>
                   </div>
