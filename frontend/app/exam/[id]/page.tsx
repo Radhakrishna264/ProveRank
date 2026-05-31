@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { renderLatex } from '@/lib/renderLatex'
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 const _gt=():string=>{try{return localStorage.getItem('pr_token')||''}catch{return''}}
 const _gl=():string=>{try{return localStorage.getItem('pr_lang')||'en'}catch{return'en'}}
@@ -223,8 +224,8 @@ export default function ExamPage() {
                 {flag.has(q._id)?'🚩 Flagged':'🏳️ Flag'}
               </button>
             </div>
-            <div style={{fontSize:15,color:TXT,lineHeight:1.7,marginBottom:q.hindiText?7:0}}>{q.text||q.question||'—'}</div>
-            {q.hindiText&&<div style={{fontSize:12,color:SUB,lineHeight:1.6,fontStyle:'italic'}}>{q.hindiText}</div>}
+            <div style={{fontSize:15,color:TXT,lineHeight:1.7,marginBottom:q.hindiText?7:0}} dangerouslySetInnerHTML={{__html:renderLatex(q.text||q.question||'')}}/>—'}</div>
+            {q.hindiText&&<div style={{fontSize:12,color:SUB,lineHeight:1.6,fontStyle:'italic'}} dangerouslySetInnerHTML={{__html:renderLatex(q.hindiText||'')}}/>}
           </div>
           {/* Options */}
           <div style={{display:'flex',flexDirection:'column',gap:9,marginBottom:16}}>
@@ -233,7 +234,7 @@ export default function ExamPage() {
               return (
                 <button key={i} onClick={()=>{setAns(p=>({...p,[q._id]:ltr}));setVisited(p=>{const n=new Set(p);n.add(q._id);return n})}} style={{display:'flex',alignItems:'center',gap:11,padding:'13px 16px',background:sel?'rgba(77,159,255,.2)':'rgba(0,22,40,.6)',border:`2px solid ${sel?PRI:'rgba(77,159,255,.14)'}`,borderRadius:11,cursor:'pointer',textAlign:'left',transition:'all .15s',color:sel?TXT:SUB,fontFamily:'Inter,sans-serif'}}>
                   <span style={{width:30,height:30,borderRadius:'50%',background:sel?PRI:'rgba(77,159,255,.1)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:13,color:sel?'#fff':SUB,flexShrink:0,border:`1px solid ${sel?PRI:'rgba(77,159,255,.2)'}`}}>{ltr}</span>
-                  <span style={{fontSize:14,lineHeight:1.5}}>{opt}</span>
+                  <span style={{fontSize:14,lineHeight:1.5}} dangerouslySetInnerHTML={{__html:renderLatex(String(opt||''))}}></span>
                 </button>
               )
             })}
