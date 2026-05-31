@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import StudentShell, { useShell, C } from '@/src/components/StudentShell'
+import { renderLatex } from '@/lib/renderLatex'
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 function PYQContent() {
   const {lang,darkMode:dm,toast,token}=useShell()
