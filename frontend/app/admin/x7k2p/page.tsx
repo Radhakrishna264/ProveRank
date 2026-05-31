@@ -2600,10 +2600,10 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                         <input value={qTopic} onChange={function(e){qTopicR.current=e.target.value;setQTopic(e.target.value)}} placeholder='e.g. Coulombs Law' style={{...inp}}/>
                       </div>
                       {['SCQ','MSQ'].includes(qType)&&(<>
-                        <div><label style={lbl}>Option A</label><SInput key={'opt_a_'+draftKey} init={optInit.a} onSet={function(v){qA.current=v}} ph='Option A…' style={inp}/></div>
-                        <div><label style={lbl}>Option B</label><SInput key={'opt_b_'+draftKey} init={optInit.b} onSet={function(v){qB.current=v}} ph='Option B…' style={inp}/></div>
-                        <div><label style={lbl}>Option C</label><SInput key={'opt_c_'+draftKey} init={optInit.c} onSet={function(v){qC.current=v}} ph='Option C…' style={inp}/></div>
-                        <div><label style={lbl}>Option D</label><SInput key={'opt_d_'+draftKey} init={optInit.d} onSet={function(v){qD.current=v}} ph='Option D…' style={inp}/></div>
+                        <div><label style={lbl}>Option A</label><input value={optInit.a} onChange={e=>{const v=e.target.value;qA.current=v;setOptInit(p=>({...p,a:v}))}} placeholder='Option A.' style={inp}/></div>
+                        <div><label style={lbl}>Option B</label><input value={optInit.b} onChange={e=>{const v=e.target.value;qB.current=v;setOptInit(p=>({...p,b:v}))}} placeholder='Option B.' style={inp}/></div>
+                        <div><label style={lbl}>Option C</label><input value={optInit.c} onChange={e=>{const v=e.target.value;qC.current=v;setOptInit(p=>({...p,c:v}))}} placeholder='Option C.' style={inp}/></div>
+                        <div><label style={lbl}>Option D</label><input value={optInit.d} onChange={e=>{const v=e.target.value;qD.current=v;setOptInit(p=>({...p,d:v}))}} placeholder='Option D.' style={inp}/></div>
                       </>)}
                       <div style={{gridColumn:'1/-1'}}>
                         <label style={lbl}>💡 Explanation <span style={{color:'#475569',fontSize:10}}>(optional)</span></label>
