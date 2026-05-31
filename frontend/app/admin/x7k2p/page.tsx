@@ -2831,8 +2831,8 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                         </div>
                         <button onClick={function(){setSelQId(null)}} style={{...bg_,padding:'3px 8px',fontSize:11}}>✕</button>
                       </div>
-                      <div style={{fontSize:13,color:'#E2E8F0',lineHeight:1.7,marginBottom:10,padding:'11px 13px',background:'rgba(255,255,255,0.03)',borderRadius:10,border:'1px solid rgba(255,255,255,0.06)'}}>{q.text}</div>
-                      {q.hindiText&&<div style={{fontSize:11,color:'#94A3B8',marginBottom:10,fontStyle:'italic',padding:'6px 11px',background:'rgba(255,255,255,0.02)',borderRadius:8}}>{q.hindiText}</div>}{q.image&&<div style={{margin:'8px 0',borderRadius:8,background:'rgba(255,255,255,0.03)',padding:6}}><img src={q.image} alt='' onError={function(e){e.currentTarget.style.display='none';var fb=document.getElementById('imgfb_'+q._id);if(fb)fb.style.display='flex'}} style={{width:'100%',maxHeight:'200px',objectFit:'contain',display:'block',borderRadius:6}}/><div id={'imgfb_'+q._id} style={{display:'none',alignItems:'center',gap:6,padding:'4px 0'}}><span style={{fontSize:10,color:'#94A3B8'}}>🖼️ Image URL:</span><a href={q.image} target='_blank' style={{fontSize:10,color:'#60A5FA',wordBreak:'break-all'}}>{q.image.length>50?q.image.substring(0,50)+'...':q.image}</a></div></div>}
+                      <div style={{fontSize:13,color:'#E2E8F0',lineHeight:1.7,marginBottom:10,padding:'11px 13px',background:'rgba(255,255,255,0.03)',borderRadius:10,border:'1px solid rgba(255,255,255,0.06)'}} dangerouslySetInnerHTML={{__html:renderLatex(q.text||'')}}/>
+                      {q.hindiText&&<div style={{fontSize:11,color:'#94A3B8',marginBottom:10,fontStyle:'italic',padding:'6px 11px',background:'rgba(255,255,255,0.02)',borderRadius:8}} dangerouslySetInnerHTML={{__html:renderLatex(q.hindiText||'')}}/>}{q.image&&<div style={{margin:'8px 0',borderRadius:8,background:'rgba(255,255,255,0.03)',padding:6}}><img src={q.image} alt='' onError={function(e){e.currentTarget.style.display='none';var fb=document.getElementById('imgfb_'+q._id);if(fb)fb.style.display='flex'}} style={{width:'100%',maxHeight:'200px',objectFit:'contain',display:'block',borderRadius:6}}/><div id={'imgfb_'+q._id} style={{display:'none',alignItems:'center',gap:6,padding:'4px 0'}}><span style={{fontSize:10,color:'#94A3B8'}}>🖼️ Image URL:</span><a href={q.image} target='_blank' style={{fontSize:10,color:'#60A5FA',wordBreak:'break-all'}}>{q.image.length>50?q.image.substring(0,50)+'...':q.image}</a></div></div>}
                       {(q.options||[]).length>0&&(<div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:10}}>
                         {(q.options||[]).map(function(opt,oi){
                           const ltr=String.fromCharCode(65+oi)
@@ -2840,14 +2840,14 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                           const isC=(Array.isArray(cIdx)?cIdx.includes(oi):cIdx===oi)||(q.correctAnswer&&q.correctAnswer===ltr)
                           return(<div key={oi} style={{padding:'7px 11px',borderRadius:7,border:'1px solid '+(isC?'rgba(0,200,100,0.4)':'rgba(255,255,255,0.07)'),background:isC?'rgba(0,200,100,0.08)':'rgba(255,255,255,0.02)'}}>
                             <span style={{fontWeight:700,color:isC?'#00C864':'#4D9FFF',marginRight:8}}>{ltr}.</span>
-                            <span style={{fontSize:12,color:isC?'#E2E8F0':'#94A3B8'}}>{opt}</span>
+                            <span style={{fontSize:12,color:isC?'#E2E8F0':'#94A3B8'}} dangerouslySetInnerHTML={{__html:renderLatex(String(opt||''))}}></span>
                             {isC&&<span style={{marginLeft:8,fontSize:10,color:'#00C864',fontWeight:700}}>✓ Correct</span>}
                           </div>)
                         })}
                       </div>)}
                       {(q.chapter||q.topic||q.explanation)&&(<div style={{fontSize:11,color:'#64748B',marginBottom:10,lineHeight:1.6}}>
                         {q.chapter&&<div>📖 {q.chapter}{q.topic?' › '+q.topic:''}</div>}
-                        {q.explanation&&<div style={{color:'#94A3B8',marginTop:4}}>💡 {q.explanation}</div>}
+                        {q.explanation&&<div style={{color:'#94A3B8',marginTop:4}} dangerouslySetInnerHTML={{__html:'💡 '+renderLatex(q.explanation||'')}}/>
                       </div>)}
                       <div style={{display:'flex',gap:7}}>
                         <button onClick={function(){if(qi>0)setSelQId((questions||[])[qi-1]._id)}} disabled={qi===0} style={{...bg_,flex:1,opacity:qi===0?0.35:1,fontSize:11}}>← Prev</button>
