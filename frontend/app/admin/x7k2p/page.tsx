@@ -60,12 +60,12 @@ const DEF_FEATURES: Feature[] = [
 // ══════════════════════════════════════════════════════════════
 const SInput = memo(function SInput({init='',onSet,style,ph,type='text',disabled=false}:{init?:string;onSet:(v:string)=>void;style?:any;ph?:string;type?:string;disabled?:boolean}) {
   const [v,setV]=useState(init)
-  useEffect(()=>{setV(init)},[init])
+  useEffect(()=>{setV(init);onSet(init)},[init])
   return <input type={type} value={v} disabled={disabled} placeholder={ph} style={style} onChange={e=>{const x=e.target.value;setV(x);onSet(x)}} />
 })
 const STextarea = memo(function STextarea({init='',onSet,style,ph,rows=4}:{init?:string;onSet:(v:string)=>void;style?:any;ph?:string;rows?:number}) {
   const [v,setV]=useState(init)
-  useEffect(()=>{setV(init)},[init])
+  useEffect(()=>{setV(init);onSet(init)},[init])
   return <textarea value={v} rows={rows} placeholder={ph} style={style} onChange={e=>{const x=e.target.value;setV(x);onSet(x)}} />
 })
 const SSelect = memo(function SSelect({val,onChange,opts,style}:{val:string;onChange:(v:string)=>void;opts:{v:string;l:string}[];style?:any}) {
