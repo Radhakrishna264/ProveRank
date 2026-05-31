@@ -1400,9 +1400,9 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
     const blob=new Blob([hdr+'\n'+rows.join('\n')],{type:'text/csv'})
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='qbank.csv';a.click()
   }
-    useEffect(()=>{const t=setInterval(()=>{setQTxtVal(qTxtR.current||'')},800);return ()=>clearInterval(t);},[]);
-  useEffect(()=>{const timer=setTimeout(()=>{const d={text:qTxtVal,subj:qSubj,diff:qDiff,type:qType,ans:qAns};if(d.text||d.subj){try{localStorage.setItem('pr_q_draft',JSON.stringify(d));setDraftSaved(true);setTimeout(()=>setDraftSaved(false),2000)}catch(ex){}}},2000);return ()=>clearTimeout(timer);},[qTxtVal,qSubj,qDiff,qType,qAns]);
-  useEffect(()=>{try{const d=JSON.parse(localStorage.getItem('pr_q_draft')||'{}');if(d.text||d.subj){if(d.text){qTxtR.current=d.text;setQTxtVal(d.text);setQTxtInit(d.text);setFormKey(function(k){return k+1})}if(d.subj)setQSubj(d.subj);if(d.diff)setQDiff(d.diff);if(d.type)setQType(d.type);if(d.ans)setQAns(d.ans);setDraftRestored(true);setTimeout(()=>setDraftRestored(false),3000)}}catch(e){}},[]);
+    useEffect(()=>{const t=setInterval(()=>{setQTxtVal(qTxtR.current||'');setOptVals({a:qA.current||'',b:qB.current||'',c:qC.current||'',d:qD.current||''})},800);return ()=>clearInterval(t);},[]);
+  useEffect(()=>{const timer=setTimeout(()=>{const d={text:qTxtVal,subj:qSubj,diff:qDiff,type:qType,ans:qAns,hindi:qHindi,chap:qChap,topic:qTopic,exp:qExp,img:qImg,optA:qA.current,optB:qB.current,optC:qC.current,optD:qD.current};if(d.text||d.subj||d.hindi||d.optA){try{localStorage.setItem('pr_q_draft',JSON.stringify(d));setDraftSaved(true);setTimeout(()=>setDraftSaved(false),2000)}catch(ex){}}},2000);return ()=>clearTimeout(timer);},[qTxtVal,qSubj,qDiff,qType,qAns,qHindi,qChap,qTopic,qExp,qImg]);
+  useEffect(()=>{try{const d=JSON.parse(localStorage.getItem('pr_q_draft')||'{}');if(d.text||d.subj||d.hindi||d.optA){if(d.text){qTxtR.current=d.text;setQTxtVal(d.text);setQTxtInit(d.text)}if(d.subj)setQSubj(d.subj);if(d.diff)setQDiff(d.diff);if(d.type)setQType(d.type);if(d.ans)setQAns(d.ans);if(d.hindi){qHindiR.current=d.hindi;setQHindi(d.hindi)}if(d.chap){qChapR.current=d.chap;setQChap(d.chap)}if(d.topic){qTopicR.current=d.topic;setQTopic(d.topic)}if(d.exp){qExpR.current=d.exp;setQExp(d.exp)}if(d.img)setQImg(d.img);if(d.optA||d.optB||d.optC||d.optD){qA.current=d.optA||'';qB.current=d.optB||'';qC.current=d.optC||'';qD.current=d.optD||'';setOptInit({a:d.optA||'',b:d.optB||'',c:d.optC||'',d:d.optD||''})}setFormKey(function(k){return k+1});setDraftRestored(true);setTimeout(()=>setDraftRestored(false),3000)}}catch(e){}},[]);
   const addQ=useCallback(async()=>{
     const text=qTxtR.current
     if(!text){T('Question text is required.','e');return}
@@ -2599,10 +2599,10 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                         <input value={qTopic} onChange={function(e){qTopicR.current=e.target.value;setQTopic(e.target.value)}} placeholder='e.g. Coulombs Law' style={{...inp}}/>
                       </div>
                       {['SCQ','MSQ'].includes(qType)&&(<>
-                        <div><label style={lbl}>Option A</label><SInput init='' onSet={function(v){qA.current=v}} ph='Option A…' style={inp}/></div>
-                        <div><label style={lbl}>Option B</label><SInput init='' onSet={function(v){qB.current=v}} ph='Option B…' style={inp}/></div>
-                        <div><label style={lbl}>Option C</label><SInput init='' onSet={function(v){qC.current=v}} ph='Option C…' style={inp}/></div>
-                        <div><label style={lbl}>Option D</label><SInput init='' onSet={function(v){qD.current=v}} ph='Option D…' style={inp}/></div>
+                        <div><label style={lbl}>Option A</label><SInput init={optInit.a} onSet={function(v){qA.current=v}} ph='Option A…' style={inp}/></div>
+                        <div><label style={lbl}>Option B</label><SInput init={optInit.b} onSet={function(v){qB.current=v}} ph='Option B…' style={inp}/></div>
+                        <div><label style={lbl}>Option C</label><SInput init={optInit.c} onSet={function(v){qC.current=v}} ph='Option C…' style={inp}/></div>
+                        <div><label style={lbl}>Option D</label><SInput init={optInit.d} onSet={function(v){qD.current=v}} ph='Option D…' style={inp}/></div>
                       </>)}
                       <div style={{gridColumn:'1/-1'}}>
                         <label style={lbl}>💡 Explanation <span style={{color:'#475569',fontSize:10}}>(optional)</span></label>
