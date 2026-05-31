@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import StudentShell, { useShell, C } from '@/src/components/StudentShell'
+import { renderLatex } from '@/lib/renderLatex'
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 function ExamReviewContent() {
   const params = useParams()
@@ -85,7 +86,7 @@ function ExamReviewContent() {
                   return (
                     <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'11px 14px',background:isC?'rgba(0,196,140,.15)':isWrong?'rgba(255,77,77,.15)':'rgba(0,22,40,.5)',border:`1px solid ${isC?'rgba(0,196,140,.5)':isWrong?'rgba(255,77,77,.5)':'rgba(77,159,255,.14)'}`,borderRadius:10,transition:'all .2s'}}>
                       <span style={{width:28,height:28,borderRadius:'50%',background:isC?C.success:isWrong?C.danger:'rgba(77,159,255,.1)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:12,color:isC||isWrong?'#fff':C.sub,flexShrink:0}}>{ltr}</span>
-                      <span style={{fontSize:13,color:isC?C.success:isWrong?C.danger:dm?C.text:C.textL,flex:1}}>{opt}</span>
+                      <span style={{fontSize:13,color:isC?C.success:isWrong?C.danger:dm?C.text:C.textL,flex:1}} dangerouslySetInnerHTML={{__html:renderLatex(String(opt||''))}}></span>
                       {isC&&<span style={{marginLeft:'auto',fontSize:14}}>✅</span>}
                       {isWrong&&<span style={{marginLeft:'auto',fontSize:14}}>❌</span>}
                     </div>
