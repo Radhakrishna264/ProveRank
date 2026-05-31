@@ -224,7 +224,7 @@ export default function ExamPage() {
                 {flag.has(q._id)?'🚩 Flagged':'🏳️ Flag'}
               </button>
             </div>
-            <div style={{fontSize:15,color:TXT,lineHeight:1.7,marginBottom:q.hindiText?7:0}} dangerouslySetInnerHTML={{__html:renderLatex(q.text||q.question||'')}}/>—'}</div>
+            <div style={{fontSize:15,color:TXT,lineHeight:1.7,marginBottom:q.hindiText?7:0}} dangerouslySetInnerHTML={{__html:renderLatex(q.text||q.question||'')}}/>
             {q.hindiText&&<div style={{fontSize:12,color:SUB,lineHeight:1.6,fontStyle:'italic'}} dangerouslySetInnerHTML={{__html:renderLatex(q.hindiText||'')}}/>}
           </div>
           {/* Options */}
