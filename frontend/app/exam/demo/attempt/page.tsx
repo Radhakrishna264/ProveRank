@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { renderLatex } from '@/lib/renderLatex'
 import { useRouter } from 'next/navigation'
 
 /* ─── 30 Demo NEET Questions ──────────────────────────────── */
@@ -251,7 +252,7 @@ export default function ExamAttempt() {
 
           {/* Question */}
           <div style={{background:'rgba(0,18,38,0.8)',border:'1px solid rgba(77,159,255,0.15)',borderRadius:16,padding:'20px',marginBottom:20,lineHeight:1.8,fontSize:15,color:'#E8F4FF',boxShadow:'inset 0 1px 0 rgba(77,159,255,0.08)'}}>
-            {q.text}
+            <span dangerouslySetInnerHTML={{__html:renderLatex(q.text||'')}}/> 
           </div>
 
           {/* Options */}
@@ -261,7 +262,7 @@ export default function ExamAttempt() {
                 <div style={{width:28,height:28,borderRadius:8,background:answers[current]===i?'#4D9FFF':'rgba(77,159,255,0.1)',border:`1.5px solid ${answers[current]===i?'#4D9FFF':'rgba(77,159,255,0.2)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:12,color:answers[current]===i?'#fff':'#4D9FFF',flexShrink:0,transition:'all 0.2s'}}>
                   {'ABCD'[i]}
                 </div>
-                <span>{opt}</span>
+                <span dangerouslySetInnerHTML={{__html:renderLatex(String(opt||'')||''}}></span>
               </button>
             ))}
           </div>
