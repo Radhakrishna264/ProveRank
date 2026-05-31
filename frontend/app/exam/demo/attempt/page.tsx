@@ -262,7 +262,7 @@ export default function ExamAttempt() {
                 <div style={{width:28,height:28,borderRadius:8,background:answers[current]===i?'#4D9FFF':'rgba(77,159,255,0.1)',border:`1.5px solid ${answers[current]===i?'#4D9FFF':'rgba(77,159,255,0.2)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:12,color:answers[current]===i?'#fff':'#4D9FFF',flexShrink:0,transition:'all 0.2s'}}>
                   {'ABCD'[i]}
                 </div>
-                <span dangerouslySetInnerHTML={{__html:renderLatex(String(opt||'')||''}}></span>
+                <span dangerouslySetInnerHTML={{__html:renderLatex(String(opt||'')}}></span>
               </button>
             ))}
           </div>
