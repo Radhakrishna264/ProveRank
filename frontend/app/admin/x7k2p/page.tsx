@@ -2662,6 +2662,7 @@ return <div key={i} style={{padding:'8px 12px',borderRadius:8,marginBottom:6,bac
 <b style={{marginRight:8}}>{L}.</b><span dangerouslySetInnerHTML={{__html:renderLatex(opt)}}/>{isAns&&<span style={{marginLeft:8,fontSize:11}}>✓ Correct</span>}
 </div>
 })}
+{qAns&&qAns!=='— Select Answer —'&&<div style={{background:'rgba(34,197,94,0.1)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:8,padding:'8px 12px',marginBottom:8,fontSize:12,color:'#4ade80'}}>✅ Correct Answer: <b>{qAns}</b></div>}
 {qExpR.current&&<div style={{background:'rgba(252,211,77,0.08)',borderRadius:8,padding:'10px',margin:'10px 0',fontSize:12,color:'#fcd34d'}} dangerouslySetInnerHTML={{__html:'💡 '+renderLatex(qExpR.current)}}/>}
 <div style={{display:'flex',flexWrap:'wrap',gap:6,margin:'10px 0'}}>
 {qSubj&&<span style={{background:'rgba(168,85,247,0.2)',color:'#c084fc',padding:'3px 10px',borderRadius:20,fontSize:11}}>{qSubj}</span>}
