@@ -1125,6 +1125,7 @@ const [adminOwnPerms,setAdminOwnPerms]=useState({});
   const [aiCount,setAiCount]=useState('10')
   const [aiSubj,setAiSubj]=useState('Physics')
   const [aiDiff,setAiDiff]=useState('medium')
+const [aiType,setAiType]=useState('SCQ')
   const [aiLoading,setAiLoading]=useState(false)
   const [aiResult,setAiResult]=useState<any[]>([])
   const [aiSaving,setAiSaving]=useState(false)
@@ -1654,7 +1655,7 @@ const confirmAndAdd=useCallback(async()=>{
     if(!aiTopicR.current){T('Please enter a topic.','e');return}
     setAiLoading(true)
     try{
-      const res=await fetch(`${API}/api/questions/generate`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({topic:aiTopicR.current,chapter:aiChapR.current||undefined,count:parseInt(aiCount)||10,subject:aiSubj,difficulty:aiDiff})})
+      const res=await fetch(`${API}/api/questions/generate`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({topic:aiTopicR.current,chapter:aiChapR.current||undefined,count:parseInt(aiCount)||10,subject:aiSubj,difficulty:aiDiff,type:aiType})})
       if(res.ok){const d=await res.json();const list=Array.isArray(d)?d:(d.questions||[]);setAiResult(list);T(`${list.length} questions generated.`)}
       else T('AI generation failed. Check backend.','e')
     } catch{T('Network error.','e')}
@@ -2829,7 +2830,7 @@ return <div key={i} style={{padding:'8px 12px',borderRadius:8,marginBottom:6,bac
                           <label style={lbl}>📋 Question Type</label>
                           <div style={{display:'flex',gap:6}}>
                             {['SCQ','MSQ','Integer'].map(function(tp){return(
-                              <button key={tp} style={{...bg_,fontSize:10,padding:'4px 10px',flex:1}} onClick={function(){}}>{tp}</button>
+                <button key={tp} style={{...bg_,fontSize:10,padding:'4px 10px',flex:1,background:aiType===tp?'rgba(168,85,247,0.4)':undefined,border:aiType===tp?'1px solid rgba(168,85,247,0.8)':'1px solid rgba(255,255,255,0.1)',color:aiType===tp?'#fff':'#94a3b8'}} onClick={function(){setAiType(tp)}}>{tp}</button>
                             )})}
                           </div>
                         </div>
