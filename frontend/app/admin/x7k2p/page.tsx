@@ -1044,6 +1044,9 @@ const [topStudents,setTopStudents]=useState<{rank:number,name:string,bestScore:n
   const [draftRestored,setDraftRestored]=useState(false)
   const [optInit,setOptInit]=useState({a:'',b:'',c:'',d:''})
   const [draftKey,setDraftKey]=useState(0)
+const [confirmQ,setConfirmQ]=useState<any>(null)
+const [aiEditIdx,setAiEditIdx]=useState<number|null>(null)
+const [aiEditQ,setAiEditQ]=useState<any>(null)
   const [optVals,setOptVals]=useState({a:'',b:'',c:'',d:''})
   const [qSec,setQSec]=useState('all')
   const [qBioSub,setQBioSub]=useState('all')
@@ -1404,7 +1407,24 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
     useEffect(()=>{const t=setInterval(()=>{setQTxtVal(qTxtR.current||'');setOptVals({a:qA.current||'',b:qB.current||'',c:qC.current||'',d:qD.current||''})},800);return ()=>clearInterval(t);},[]);
   useEffect(()=>{const timer=setTimeout(()=>{const d={text:qTxtVal,subj:qSubj,diff:qDiff,type:qType,ans:qAns,hindi:qHindi,chap:qChap,topic:qTopic,exp:qExp,img:qImg,optA:qA.current,optB:qB.current,optC:qC.current,optD:qD.current};if(d.text||d.subj||d.hindi||d.optA){try{localStorage.setItem('pr_q_draft',JSON.stringify(d));setDraftSaved(true);setTimeout(()=>setDraftSaved(false),2000)}catch(ex){}}},2000);return ()=>clearTimeout(timer);},[qTxtVal,qSubj,qDiff,qType,qAns,qHindi,qChap,qTopic,qExp,qImg]);
   useEffect(()=>{try{const d=JSON.parse(localStorage.getItem('pr_q_draft')||'{}');if(d.text||d.subj||d.hindi||d.optA){if(d.text){qTxtR.current=d.text;setQTxtVal(d.text);setQTxtInit(d.text)}if(d.subj)setQSubj(d.subj);if(d.diff)setQDiff(d.diff);if(d.type)setQType(d.type);if(d.ans)setQAns(d.ans);if(d.hindi){qHindiR.current=d.hindi;setQHindi(d.hindi)}if(d.chap){qChapR.current=d.chap;setQChap(d.chap)}if(d.topic){qTopicR.current=d.topic;setQTopic(d.topic)}if(d.exp){qExpR.current=d.exp;setQExp(d.exp)}if(d.img)setQImg(d.img);if(d.optA||d.optB||d.optC||d.optD){qA.current=d.optA||'';qB.current=d.optB||'';qC.current=d.optC||'';qD.current=d.optD||'';qA.current=d.optA||'';qB.current=d.optB||'';qC.current=d.optC||'';qD.current=d.optD||'';setOptInit({a:d.optA||'',b:d.optB||'',c:d.optC||'',d:d.optD||''});setDraftKey(k=>k+1)}setFormKey(function(k){return k+1});setDraftRestored(true);setTimeout(()=>setDraftRestored(false),3000)}}catch(e){}},[]);
-  const addQ=useCallback(async()=>{
+  const addQ=useCallback(()=>{
+const text=qTxtR.current
+if(!text){T('Question text is required.','e');return}
+setConfirmQ({
+  text,
+  hindi:qHindiR.current||undefined,
+  subject:qSubj||'General',
+  chapter:qChapR.current||undefined,
+  topic:qTopicR.current||undefined,
+  difficulty:qDiff,
+  type:qType,
+  ans:qAns,
+  options:['SCQ','MSQ'].includes(qType)?[qA.current,qB.current,qC.current,qD.current].filter(Boolean):[],
+  exp:qExpR.current||undefined,
+  img:qImgR.current||undefined,
+})
+},[qSubj,qDiff,qType,qAns])
+const confirmAndAdd=async()=>{
     const text=qTxtR.current
     if(!text){T('Question text is required.','e');return}
     setSavingQ(true)
@@ -2635,7 +2655,68 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                 </div>
               )}
 
-              {/* PREVIEW ALL */}
+              {/* CONFIRM PREVIEW MODAL */}
+{confirmQ&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:'16px'}} onClick={()=>setConfirmQ(null)}>
+<div style={{background:'#0d1117',border:'1px solid rgba(168,85,247,0.4)',borderRadius:16,padding:'20px',maxWidth:600,width:'100%',maxHeight:'90vh',overflowY:'auto'}} onClick={e=>e.stopPropagation()}>
+<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+<span style={{color:'#A788BF',fontWeight:700,fontSize:16}}>📋 Question Preview</span>
+<button onClick={()=>setConfirmQ(null)} style={{background:'none',border:'none',color:'#888',fontSize:20,cursor:'pointer'}}>✕</button>
+</div>
+<div style={{background:'rgba(168,85,247,0.07)',borderRadius:10,padding:'14px',marginBottom:14}}>
+<div style={{color:'#E2E8F0',fontSize:14,marginBottom:8}} dangerouslySetInnerHTML={{__html:_html.renderLatex(confirmQ.text)}}/>
+{confirmQ.hindi&&<div style={{color:'#94a3b8',fontSize:12,marginTop:6}} dangerouslySetInnerHTML={{__html:_html.renderLatex(confirmQ.hindi)}}/>}
+{confirmQ.img&&<img src={confirmQ.img} style={{maxWidth:'100%',borderRadius:8,marginTop:8}} onError={e=>{(e.target as HTMLImageElement).style.display='none'}}/>}
+</div>
+{confirmQ.options&&confirmQ.options.length>0&&<div style={{marginBottom:14}}>
+{confirmQ.options.map((opt:string,i:number)=>{
+const letters=['A','B','C','D']
+const isAns=confirmQ.ans===('Option '+letters[i])
+return <div key={i} style={{padding:'8px 12px',borderRadius:8,marginBottom:6,background:isAns?'rgba(34,197,94,0.15)':'rgba(255,255,255,0.04)',border:isAns?'1px solid rgba(34,197,94,0.5)':'1px solid rgba(255,255,255,0.1)',color:isAns?'#4ade80':'#E2E8F0',fontSize:13}}>
+<span style={{fontWeight:700,marginRight:8}}>{letters[i]}.</span>
+<span dangerouslySetInnerHTML={{__html:_html.renderLatex(opt)}}/>
+{isAns&&<span style={{marginLeft:8,fontSize:11,color:'#4ade80'}}>✓ Correct</span>}
+</div>
+})}
+</div>}
+{confirmQ.exp&&<div style={{background:'rgba(252,211,77,0.08)',borderRadius:8,padding:'10px',marginBottom:14,fontSize:12,color:'#fcd34d'}} dangerouslySetInnerHTML={{__html:'💡 '+_html.renderLatex(confirmQ.exp)}}/>}
+<div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
+{confirmQ.subject&&<span style={{background:'rgba(168,85,247,0.2)',color:'#c084fc',padding:'3px 10px',borderRadius:20,fontSize:11}}>{confirmQ.subject}</span>}
+{confirmQ.chapter&&<span style={{background:'rgba(59,130,246,0.2)',color:'#60a5fa',padding:'3px 10px',borderRadius:20,fontSize:11}}>{confirmQ.chapter}</span>}
+{confirmQ.topic&&<span style={{background:'rgba(20,184,166,0.2)',color:'#2dd4bf',padding:'3px 10px',borderRadius:20,fontSize:11}}>{confirmQ.topic}</span>}
+{confirmQ.difficulty&&<span style={{background:'rgba(245,158,11,0.2)',color:'#fbbf24',padding:'3px 10px',borderRadius:20,fontSize:11}}>{confirmQ.difficulty}</span>}
+</div>
+<div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+<button onClick={()=>setConfirmQ(null)} style={{padding:'10px 20px',borderRadius:8,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.15)',color:'#94a3b8',cursor:'pointer',fontSize:13}}>✏️ Edit</button>
+<button onClick={()=>{setConfirmQ(null);confirmAndAdd()}} style={{padding:'10px 24px',borderRadius:8,background:'linear-gradient(135deg,#7c3aed,#4f46e5)',border:'none',color:'#fff',cursor:'pointer',fontSize:13,fontWeight:700}}>✅ Confirm & Add</button>
+</div>
+</div>
+</div>}
+
+{/* AI EDIT MODAL */}
+{aiEditQ&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:'16px'}} onClick={()=>setAiEditQ(null)}>
+<div style={{background:'#0d1117',border:'1px solid rgba(168,85,247,0.4)',borderRadius:16,padding:'20px',maxWidth:600,width:'100%',maxHeight:'90vh',overflowY:'auto'}} onClick={e=>e.stopPropagation()}>
+<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+<span style={{color:'#A788BF',fontWeight:700,fontSize:16}}>✏️ Edit AI Question {aiEditIdx!==null?(aiEditIdx+1):''}</span>
+<button onClick={()=>setAiEditQ(null)} style={{background:'none',border:'none',color:'#888',fontSize:20,cursor:'pointer'}}>✕</button>
+</div>
+<div style={{marginBottom:10}}><label style={{...lbl}}>Question Text</label><textarea value={aiEditQ.text||''} onChange={e=>setAiEditQ((p:any)=>({...p,text:e.target.value}))} rows={3} style={{...inp,resize:'vertical'}}/></div>
+<div style={{marginBottom:10}}><label style={{...lbl}}>Option A</label><input value={aiEditQ.options?.[0]||''} onChange={e=>setAiEditQ((p:any)=>{const o=[...(p.options||[])];o[0]=e.target.value;return{...p,options:o}})} style={{...inp}}/></div>
+<div style={{marginBottom:10}}><label style={{...lbl}}>Option B</label><input value={aiEditQ.options?.[1]||''} onChange={e=>setAiEditQ((p:any)=>{const o=[...(p.options||[])];o[1]=e.target.value;return{...p,options:o}})} style={{...inp}}/></div>
+<div style={{marginBottom:10}}><label style={{...lbl}}>Option C</label><input value={aiEditQ.options?.[2]||''} onChange={e=>setAiEditQ((p:any)=>{const o=[...(p.options||[])];o[2]=e.target.value;return{...p,options:o}})} style={{...inp}}/></div>
+<div style={{marginBottom:10}}><label style={{...lbl}}>Option D</label><input value={aiEditQ.options?.[3]||''} onChange={e=>setAiEditQ((p:any)=>{const o=[...(p.options||[])];o[3]=e.target.value;return{...p,options:o}})} style={{...inp}}/></div>
+<div style={{marginBottom:10}}><label style={{...lbl}}>Correct Answer</label>
+<select value={aiEditQ.correctAnswer||''} onChange={e=>setAiEditQ((p:any)=>({...p,correctAnswer:e.target.value}))} style={{...inp,width:'100%'}}>
+<option value=''>Select</option><option value='Option A'>Option A</option><option value='Option B'>Option B</option><option value='Option C'>Option C</option><option value='Option D'>Option D</option>
+</select></div>
+<div style={{marginBottom:10}}><label style={{...lbl}}>Explanation</label><textarea value={aiEditQ.explanation||''} onChange={e=>setAiEditQ((p:any)=>({...p,explanation:e.target.value}))} rows={2} style={{...inp,resize:'vertical'}}/></div>
+<div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
+<button onClick={()=>setAiEditQ(null)} style={{padding:'10px 20px',borderRadius:8,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.15)',color:'#94a3b8',cursor:'pointer'}}>Cancel</button>
+<button onClick={()=>{if(aiEditIdx!==null){setPyqData((p:any[])=>{const a=[...p];a[aiEditIdx]=aiEditQ;return a})};setAiEditQ(null)}} style={{padding:'10px 24px',borderRadius:8,background:'linear-gradient(135deg,#7c3aed,#4f46e5)',border:'none',color:'#fff',cursor:'pointer',fontWeight:700}}>💾 Save Changes</button>
+</div>
+</div>
+</div>}
+
+{/* PREVIEW ALL */}
               {qBV==='preview'&&(
                 <div>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
@@ -2961,7 +3042,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                 <div>
                   <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>Generated Questions ({aiResult.length})</div>
                   {aiResult.map((q:any,i:number)=>(
-                    <div key={i} style={{...cs,marginBottom:8}}>
+                    <div key={i} style={{...cs,marginBottom:8,position:'relative'}}><button onClick={()=>{setAiEditIdx(i);setAiEditQ(q)}} style={{position:'absolute',top:6,right:6,background:'rgba(168,85,247,0.2)',border:'1px solid rgba(168,85,247,0.4)',color:'#c084fc',borderRadius:6,padding:'3px 8px',fontSize:11,cursor:'pointer',zIndex:1}}>✏️ Edit</button>
                       <div style={{fontSize:12,fontWeight:600,color:TS,marginBottom:6}}>Q{i+1}. {q.text||q.question||'—'}</div>
                       {q.options&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
                         {(Array.isArray(q.options)?q.options:[q.optionA,q.optionB,q.optionC,q.optionD].filter(Boolean)).map((o:string,j:number)=>(
