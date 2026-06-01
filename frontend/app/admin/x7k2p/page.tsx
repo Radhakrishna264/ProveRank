@@ -1407,7 +1407,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
     useEffect(()=>{const t=setInterval(()=>{setQTxtVal(qTxtR.current||'');setOptVals({a:qA.current||'',b:qB.current||'',c:qC.current||'',d:qD.current||''})},800);return ()=>clearInterval(t);},[]);
   useEffect(()=>{const timer=setTimeout(()=>{const d={text:qTxtVal,subj:qSubj,diff:qDiff,type:qType,ans:qAns,hindi:qHindi,chap:qChap,topic:qTopic,exp:qExp,img:qImg,optA:qA.current,optB:qB.current,optC:qC.current,optD:qD.current};if(d.text||d.subj||d.hindi||d.optA){try{localStorage.setItem('pr_q_draft',JSON.stringify(d));setDraftSaved(true);setTimeout(()=>setDraftSaved(false),2000)}catch(ex){}}},2000);return ()=>clearTimeout(timer);},[qTxtVal,qSubj,qDiff,qType,qAns,qHindi,qChap,qTopic,qExp,qImg]);
   useEffect(()=>{try{const d=JSON.parse(localStorage.getItem('pr_q_draft')||'{}');if(d.text||d.subj||d.hindi||d.optA){if(d.text){qTxtR.current=d.text;setQTxtVal(d.text);setQTxtInit(d.text)}if(d.subj)setQSubj(d.subj);if(d.diff)setQDiff(d.diff);if(d.type)setQType(d.type);if(d.ans)setQAns(d.ans);if(d.hindi){qHindiR.current=d.hindi;setQHindi(d.hindi)}if(d.chap){qChapR.current=d.chap;setQChap(d.chap)}if(d.topic){qTopicR.current=d.topic;setQTopic(d.topic)}if(d.exp){qExpR.current=d.exp;setQExp(d.exp)}if(d.img)setQImg(d.img);if(d.optA||d.optB||d.optC||d.optD){qA.current=d.optA||'';qB.current=d.optB||'';qC.current=d.optC||'';qD.current=d.optD||'';qA.current=d.optA||'';qB.current=d.optB||'';qC.current=d.optC||'';qD.current=d.optD||'';setOptInit({a:d.optA||'',b:d.optB||'',c:d.optC||'',d:d.optD||''});setDraftKey(k=>k+1)}setFormKey(function(k){return k+1});setDraftRestored(true);setTimeout(()=>setDraftRestored(false),3000)}}catch(e){}},[]);
-  const addQ=useCallback(()=>{
+  const confirmAndAdd=useCallback(async()=>{
 const text=qTxtR.current
 if(!text){T('Question text is required.','e');return}
 setConfirmQ({
@@ -1424,7 +1424,7 @@ setConfirmQ({
   img:qImgR.current||undefined,
 })
 },[qSubj,qDiff,qType,qAns])
-const confirmAndAdd=async()=>{
+const confirmAndAdd=useCallback(async()=>{
     const text=qTxtR.current
     if(!text){T('Question text is required.','e');return}
     setSavingQ(true)
@@ -1460,6 +1460,12 @@ const confirmAndAdd=async()=>{
     } catch(err:any){T(`Network error: ${err.message}`,'e')}
     setSavingQ(false)
   },[qSubj,qDiff,qType,qAns,token,T])
+
+const addQ=useCallback(()=>{
+const text=qTxtR.current
+if(!text){T('Question text is required.','e');return}
+setConfirmQ({text,hindi:qHindiR.current||undefined,subject:qSubj||'General',chapter:qChapR.current||undefined,topic:qTopicR.current||undefined,difficulty:qDiff,type:qType,ans:qAns,options:['SCQ','MSQ'].includes(qType)?[qA.current,qB.current,qC.current,qD.current].filter(Boolean):[],exp:qExpR.current||undefined,img:qImgR.current||undefined})
+},[qSubj,qDiff,qType,qAns])
 
   // ══ BAN / UNBAN ══
   const banStd=useCallback(async()=>{
