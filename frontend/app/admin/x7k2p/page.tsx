@@ -1026,6 +1026,7 @@ const [topStudents,setTopStudents]=useState<{rank:number,name:string,bestScore:n
   //FIX_STATES_DONE
   const [savingQ,setSavingQ]=useState(false)
   const [qPreview,setQPreview]=useState(false)
+const [showAddPreview,setShowAddPreview]=useState(false)
   const [qBV,setQBV]=useState(()=>{try{return sessionStorage.getItem('pr_qbv')||'home'}catch{return 'home'}})
   // FIX_PREVIEW_AUTOFETCH
   useEffect(()=>{
@@ -2615,7 +2616,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
                       </div>
                     </div>
                     <div style={{display:'flex',gap:10,marginTop:14,flexWrap:'wrap'}}>
-                      <button onClick={addQ} disabled={savingQ} style={{...bp,flex:2,minWidth:150,opacity:savingQ?0.7:1}}>{savingQ?'⟳ Saving…':'✅ Add to Question Bank'}</button>
+                      <button onClick={()=>setShowAddPreview(true)} disabled={savingQ} style={{...bp,flex:2,minWidth:150,opacity:savingQ?0.7:1}}>{savingQ?'⟳ Saving…':'✅ Add to Question Bank'}</button>
                       <button onClick={function(){
                         qTxtR.current='';qHindiR.current='';qA.current='';qB.current='';qC.current='';qD.current='';
                         qChapR.current='';qTopicR.current='';qExpR.current='';qImageR.current='';
@@ -2636,7 +2637,42 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
               )}
 
               {/* PREVIEW ALL */}
-              {qBV==='preview'&&(
+              {showAddPreview&&(
+<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:'12px'}} onClick={()=>setShowAddPreview(false)}>
+<div style={{background:'#0d1117',border:'1px solid rgba(168,85,247,0.45)',borderRadius:16,padding:'20px',maxWidth:620,width:'100%',maxHeight:'90vh',overflowY:'auto'}} onClick={e=>e.stopPropagation()}>
+<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+<span style={{color:'#A788BF',fontWeight:700,fontSize:15}}>📋 Question Preview — Confirm before adding</span>
+<button onClick={()=>setShowAddPreview(false)} style={{background:'none',border:'none',color:'#666',fontSize:22,cursor:'pointer',lineHeight:1}}>✕</button>
+</div>
+<div style={{background:'rgba(168,85,247,0.07)',borderRadius:10,padding:'14px',marginBottom:12}}>
+<div style={{color:'#e2e8f0',fontSize:14,lineHeight:1.7,marginBottom:8}} dangerouslySetInnerHTML={{__html:renderLatex(qTxtR.current||'')}}/>
+{qHindiR.current&&<div style={{color:'#94a3b8',fontSize:12,marginTop:6}} dangerouslySetInnerHTML={{__html:renderLatex(qHindiR.current)}}/>}
+{qImgR.current&&<img src={qImgR.current} style={{maxWidth:'100%',borderRadius:8,marginTop:8}} onError={e=>{(e.target as HTMLImageElement).style.display='none'}}/>}
+</div>
+{['SCQ','MSQ'].includes(qType)&&[qA.current,qB.current,qC.current,qD.current].map((opt,i)=>{
+if(!opt)return null
+const L=['A','B','C','D'][i]
+const isAns=qAns==='Option '+L
+return <div key={i} style={{padding:'8px 12px',borderRadius:8,marginBottom:6,background:isAns?'rgba(34,197,94,0.13)':'rgba(255,255,255,0.04)',border:isAns?'1px solid rgba(34,197,94,0.5)':'1px solid rgba(255,255,255,0.08)',fontSize:13,color:isAns?'#4ade80':'#e2e8f0'}}>
+<b style={{marginRight:8}}>{L}.</b><span dangerouslySetInnerHTML={{__html:renderLatex(opt)}}/>{isAns&&<span style={{marginLeft:8,fontSize:11}}>✓ Correct</span>}
+</div>
+})}
+{qExpR.current&&<div style={{background:'rgba(252,211,77,0.08)',borderRadius:8,padding:'10px',margin:'10px 0',fontSize:12,color:'#fcd34d'}} dangerouslySetInnerHTML={{__html:'💡 '+renderLatex(qExpR.current)}}/>}
+<div style={{display:'flex',flexWrap:'wrap',gap:6,margin:'10px 0'}}>
+{qSubj&&<span style={{background:'rgba(168,85,247,0.2)',color:'#c084fc',padding:'3px 10px',borderRadius:20,fontSize:11}}>{qSubj}</span>}
+{qChapR.current&&<span style={{background:'rgba(59,130,246,0.2)',color:'#60a5fa',padding:'3px 10px',borderRadius:20,fontSize:11}}>{qChapR.current}</span>}
+{qTopicR.current&&<span style={{background:'rgba(20,184,166,0.2)',color:'#2dd4bf',padding:'3px 10px',borderRadius:20,fontSize:11}}>{qTopicR.current}</span>}
+{qDiff&&<span style={{background:'rgba(245,158,11,0.2)',color:'#fbbf24',padding:'3px 10px',borderRadius:20,fontSize:11}}>{qDiff}</span>}
+{qType&&<span style={{background:'rgba(99,102,241,0.2)',color:'#818cf8',padding:'3px 10px',borderRadius:20,fontSize:11}}>{qType}</span>}
+</div>
+<div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
+<button onClick={()=>setShowAddPreview(false)} style={{padding:'10px 20px',borderRadius:8,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.15)',color:'#94a3b8',cursor:'pointer',fontSize:13}}>✏️ Edit</button>
+<button onClick={()=>{setShowAddPreview(false);addQ()}} disabled={savingQ} style={{padding:'10px 24px',borderRadius:8,background:'linear-gradient(135deg,#7c3aed,#4f46e5)',border:'none',color:'#fff',cursor:'pointer',fontSize:13,fontWeight:700}}>{savingQ?'Adding...':'✅ Confirm & Add'}</button>
+</div>
+</div>
+</div>
+)}
+{qBV==='preview'&&(
                 <div>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
                     <button onClick={function(){setQBV('home');setBulkSel([]);try{sessionStorage.setItem('pr_qbv','home')}catch{}}} style={{...bg_,padding:'5px 11px',fontSize:11}}>← Back</button>
