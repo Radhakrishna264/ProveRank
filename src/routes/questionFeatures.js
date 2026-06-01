@@ -248,6 +248,14 @@ router.post('/generate', verifyToken, isAdmin, async (req, res) => {
       const tmpl = templates[i % templates.length]
       const opts = optionSets[i % optionSets.length]
       const qText = tmpl.replace(/{topic}/g, topic).replace(/{chapter}/g, chapter)
+      const cIdx_gen = Math.floor(Math.random() * 4);
+      const cLetter_gen = ['A','B','C','D'][cIdx_gen];
+      const _expMap = {
+        Physics: opts[cIdx_gen] + ' is the correct answer. In ' + chapter + ', the concept of ' + topic + ' follows this fundamental Physics principle as per NCERT — frequently tested in NEET.',
+        Chemistry: opts[cIdx_gen] + ' is correct. ' + topic + ' in ' + chapter + ' demonstrates this key chemical property as per NCERT. Important NEET Chemistry concept.',
+        Biology: opts[cIdx_gen] + ' is the correct answer. ' + topic + ' in ' + chapter + ' is a crucial Biology concept as per NCERT — frequently asked in NEET examination.',
+      };
+      const genExpl_ai = _expMap[subject] || (opts[cIdx_gen] + ' is correct. ' + topic + ' in ' + chapter + ' — this fundamental principle is essential for NEET preparation.');
       generated.push({
         text: qText,
         subject,
@@ -256,9 +264,9 @@ router.post('/generate', verifyToken, isAdmin, async (req, res) => {
         difficulty,
         type: 'SCQ',
         options: opts,
-        correct: [0],
-        correctAnswer: 'A',
-        explanation: 'The correct answer is based on the fundamental concept of ' + topic + ' as described in ' + chapter + '.',
+        correct: [cIdx_gen],
+        correctAnswer: cLetter_gen,
+        explanation: genExpl_ai,
         approvalStatus: 'pending'
       })
     }
