@@ -2741,7 +2741,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 <div style={{marginBottom:10}}><label style={lbl}>Explanation</label><textarea value={aiEditQ.explanation||aiEditQ.exp||''} onChange={e=>setAiEditQ((p:any)=>({...p,explanation:e.target.value,exp:e.target.value}))} rows={2} style={{...inp,resize:'vertical' as any}}/></div>
 <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
 <button onClick={()=>setAiEditQ(null)} style={{padding:'10px 20px',borderRadius:8,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.15)',color:'#94a3b8',cursor:'pointer'}}>Cancel</button>
-<button onClick={()=>{setAiGResult((p:any[])=>{const a=[...p];a[aiEditIdx as number]=aiEditQ;return a});setAiEditQ(null)}} style={{padding:'10px 24px',borderRadius:8,background:'linear-gradient(135deg,#7c3aed,#4f46e5)',border:'none',color:'#fff',cursor:'pointer',fontWeight:700}}>💾 Save</button>
+<button onClick={()=>{setAiGResult((p:any[])=>{const a=[...p];const _q={...aiEditQ};const _optMap={'Option A':0,'Option B':1,'Option C':2,'Option D':3};const _ci=_optMap[_q.correctAnswer];if(_ci!==undefined){_q.correct=[_ci];_q.correctLetter=['A','B','C','D'][_ci];}a[aiEditIdx as number]=_q;return a});setAiEditQ(null)}} style={{padding:'10px 24px',borderRadius:8,background:'linear-gradient(135deg,#7c3aed,#4f46e5)',border:'none',color:'#fff',cursor:'pointer',fontWeight:700}}>💾 Save</button>
 </div>
 </div>
 </div>
