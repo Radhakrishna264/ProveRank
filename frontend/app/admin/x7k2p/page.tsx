@@ -2702,7 +2702,7 @@ return <div key={i} style={{padding:'8px 12px',borderRadius:8,marginBottom:6,bac
 <div style={{color:'#e2e8f0',fontSize:13,marginBottom:6}} dangerouslySetInnerHTML={{__html:renderLatex(q.text||q.question||'')}}/>
 {q.options&&q.options.map((opt:string,j:number)=>{
 const L=['A','B','C','D'][j]
-const isAns=q.correctAnswer===('Option '+L)||q.correctAnswer===L||q.correctLetter===L||q.correct_answer===('Option '+L)||q.correct_answer===L
+const isAns=q.correctAnswer===('Option '+L)||q.correctAnswer===L||q.correctLetter===L||q.correct_answer===('Option '+L)||q.correct_answer===L||(Array.isArray(q.correct)&&q.correct.includes(j))
 return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginBottom:3,background:isAns?'rgba(34,197,94,0.12)':'rgba(255,255,255,0.03)',border:isAns?'1px solid rgba(34,197,94,0.4)':'1px solid rgba(255,255,255,0.06)',color:isAns?'#4ade80':'#94a3b8'}}>
 <b>{L}.</b> <span dangerouslySetInnerHTML={{__html:renderLatex(opt)}}/>{isAns&&<span style={{marginLeft:6,fontSize:10}}>✓</span>}
 </div>
