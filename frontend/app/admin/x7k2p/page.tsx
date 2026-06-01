@@ -1055,6 +1055,9 @@ const [showAddPreview,setShowAddPreview]=useState(false)
   const [savingEQ,setSavingEQ]=useState(false)
   const [stdPrv,setStdPrv]=useState(false)
   const [aiGO,setAiGO]=useState(false)
+const [showAiPreview,setShowAiPreview]=useState(false)
+const [aiEditIdx,setAiEditIdx]=useState<number|null>(null)
+const [aiEditQ,setAiEditQ]=useState<any>(null)
   const [aiGStep,setAiGStep]=useState(1)
   const [aiGSub,setAiGSub]=useState('Physics')
   const [aiGCnt,setAiGCnt]=useState('10')
@@ -2679,6 +2682,71 @@ return <div key={i} style={{padding:'8px 12px',borderRadius:8,marginBottom:6,bac
 </div>
 </div>
 )}
+{showAiPreview&&(
+<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:'12px'}} onClick={()=>setShowAiPreview(false)}>
+<div style={{background:'#0d1117',border:'1px solid rgba(168,85,247,0.4)',borderRadius:16,padding:'20px',maxWidth:660,width:'100%',maxHeight:'92vh',overflowY:'auto'}} onClick={e=>e.stopPropagation()}>
+<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+<span style={{color:'#A788BF',fontWeight:700,fontSize:15}}>🤖 AI Questions Preview ({aiResult.length})</span>
+<button onClick={()=>setShowAiPreview(false)} style={{background:'none',border:'none',color:'#666',fontSize:22,cursor:'pointer'}}>✕</button>
+</div>
+<div style={{marginBottom:14}}>
+{aiResult.map((q:any,i:number)=>(
+<div key={i} style={{background:'rgba(168,85,247,0.06)',border:'1px solid rgba(168,85,247,0.2)',borderRadius:10,padding:'12px',marginBottom:10,position:'relative'}}>
+<div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+<span style={{color:'#c084fc',fontSize:11,fontWeight:700}}>Q{i+1}</span>
+<div style={{display:'flex',gap:6}}>
+<button onClick={()=>{setAiEditIdx(i);setAiEditQ({...q})}} style={{background:'rgba(59,130,246,0.2)',border:'1px solid rgba(59,130,246,0.4)',color:'#60a5fa',borderRadius:6,padding:'3px 10px',fontSize:11,cursor:'pointer'}}>✏️ Edit</button>
+<button onClick={()=>setAiResult((p:any[])=>p.filter((_:any,j:number)=>j!==i))} style={{background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',color:'#f87171',borderRadius:6,padding:'3px 10px',fontSize:11,cursor:'pointer'}}>🗑️ Delete</button>
+</div>
+</div>
+<div style={{color:'#e2e8f0',fontSize:13,marginBottom:6}} dangerouslySetInnerHTML={{__html:renderLatex(q.text||q.question||'')}}/>
+{q.options&&q.options.map((opt:string,j:number)=>{
+const L=['A','B','C','D'][j]
+const isAns=q.correctAnswer===('Option '+L)||q.correct_answer===('Option '+L)
+return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginBottom:3,background:isAns?'rgba(34,197,94,0.12)':'rgba(255,255,255,0.03)',border:isAns?'1px solid rgba(34,197,94,0.4)':'1px solid rgba(255,255,255,0.06)',color:isAns?'#4ade80':'#94a3b8'}}>
+<b>{L}.</b> <span dangerouslySetInnerHTML={{__html:renderLatex(opt)}}/>{isAns&&<span style={{marginLeft:6,fontSize:10}}>✓</span>}
+</div>
+})}
+{(q.explanation||q.exp)&&<div style={{fontSize:11,color:'#fcd34d',marginTop:6,padding:'4px 8px',background:'rgba(252,211,77,0.07)',borderRadius:6}}>💡 <span dangerouslySetInnerHTML={{__html:renderLatex(q.explanation||q.exp||'')}}/></div>}
+</div>
+))}
+</div>
+{aiResult.length===0&&<div style={{color:'#f87171',textAlign:'center',padding:'20px'}}>All questions deleted!</div>}
+<div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+<button onClick={()=>setShowAiPreview(false)} style={{padding:'10px 20px',borderRadius:8,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.15)',color:'#94a3b8',cursor:'pointer',fontSize:13}}>Cancel</button>
+<button onClick={()=>{setShowAiPreview(false);saveAiQs()}} disabled={aiResult.length===0||aiSaving} style={{padding:'10px 24px',borderRadius:8,background:'linear-gradient(135deg,#7c3aed,#4f46e5)',border:'none',color:'#fff',cursor:'pointer',fontSize:13,fontWeight:700}}>{aiSaving?'Saving...':'✅ Confirm Save All ('+aiResult.length+')'}</button>
+</div>
+</div>
+</div>
+)}
+
+{aiEditQ!==null&&aiEditIdx!==null&&(
+<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',zIndex:10000,display:'flex',alignItems:'center',justifyContent:'center',padding:'12px'}} onClick={()=>setAiEditQ(null)}>
+<div style={{background:'#0d1117',border:'1px solid rgba(168,85,247,0.4)',borderRadius:16,padding:'20px',maxWidth:600,width:'100%',maxHeight:'90vh',overflowY:'auto'}} onClick={e=>e.stopPropagation()}>
+<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+<span style={{color:'#A788BF',fontWeight:700,fontSize:15}}>✏️ Edit Q{(aiEditIdx||0)+1}</span>
+<button onClick={()=>setAiEditQ(null)} style={{background:'none',border:'none',color:'#666',fontSize:22,cursor:'pointer'}}>✕</button>
+</div>
+<div style={{marginBottom:10}}><label style={lbl}>Question Text</label><textarea value={aiEditQ.text||aiEditQ.question||''} onChange={e=>setAiEditQ((p:any)=>({...p,text:e.target.value,question:e.target.value}))} rows={3} style={{...inp,resize:'vertical' as any}}/></div>
+{[0,1,2,3].map(j=>(
+<div key={j} style={{marginBottom:8}}><label style={lbl}>Option {['A','B','C','D'][j]}</label>
+<input value={aiEditQ.options?.[j]||''} onChange={e=>setAiEditQ((p:any)=>{const o=[...(p.options||['','','',''])];o[j]=e.target.value;return{...p,options:o}})} style={{...inp}}/>
+</div>
+))}
+<div style={{marginBottom:10}}><label style={lbl}>Correct Answer</label>
+<select value={aiEditQ.correctAnswer||aiEditQ.correct_answer||''} onChange={e=>setAiEditQ((p:any)=>({...p,correctAnswer:e.target.value,correct_answer:e.target.value}))} style={{...inp,width:'100%'}}>
+<option value=''>Select</option>
+{['A','B','C','D'].map(l=><option key={l} value={'Option '+l}>Option {l}</option>)}
+</select></div>
+<div style={{marginBottom:10}}><label style={lbl}>Explanation</label><textarea value={aiEditQ.explanation||aiEditQ.exp||''} onChange={e=>setAiEditQ((p:any)=>({...p,explanation:e.target.value,exp:e.target.value}))} rows={2} style={{...inp,resize:'vertical' as any}}/></div>
+<div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
+<button onClick={()=>setAiEditQ(null)} style={{padding:'10px 20px',borderRadius:8,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.15)',color:'#94a3b8',cursor:'pointer'}}>Cancel</button>
+<button onClick={()=>{setAiResult((p:any[])=>{const a=[...p];a[aiEditIdx as number]=aiEditQ;return a});setAiEditQ(null)}} style={{padding:'10px 24px',borderRadius:8,background:'linear-gradient(135deg,#7c3aed,#4f46e5)',border:'none',color:'#fff',cursor:'pointer',fontWeight:700}}>💾 Save</button>
+</div>
+</div>
+</div>
+)}
+
 {qBV==='preview'&&(
                 <div>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
@@ -2842,7 +2910,7 @@ return <div key={i} style={{padding:'8px 12px',borderRadius:8,marginBottom:6,bac
                             <div key={i} style={{padding:'4px 8px',background:'rgba(0,200,100,0.05)',borderRadius:5,fontSize:10,color:'#CBD5E1'}}>Q{i+1}: {(q.text||'').slice(0,65)}…</div>
                           )})}
                         </div>
-                        <button onClick={saveAiQs} style={{...bp,width:'100%',fontSize:11,marginBottom:8}}>💾 Save All {aiGResult.length} to Question Bank</button>
+                        <button onClick={()=>setShowAiPreview(true)} style={{...bp,width:'100%',fontSize:11,marginBottom:8}}>💾 Save All {aiGResult.length} to Question Bank</button>
                       </div>)}
                       <button onClick={aiGF} disabled={aiGLoading} style={{...bp,width:'100%',opacity:aiGLoading?0.7:1}}>
                         {aiGLoading?'⟳ Generating NCERT Questions…':'🤖 Generate Questions'}
