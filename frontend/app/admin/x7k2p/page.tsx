@@ -2690,13 +2690,13 @@ return <div key={i} style={{padding:'8px 12px',borderRadius:8,marginBottom:6,bac
 <button onClick={()=>setShowAiPreview(false)} style={{background:'none',border:'none',color:'#666',fontSize:22,cursor:'pointer'}}>✕</button>
 </div>
 <div style={{marginBottom:14}}>
-{aiResult.map((q:any,i:number)=>(
+{aiGResult.map((q:any,i:number)=>(
 <div key={i} style={{background:'rgba(168,85,247,0.06)',border:'1px solid rgba(168,85,247,0.2)',borderRadius:10,padding:'12px',marginBottom:10,position:'relative'}}>
 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
 <span style={{color:'#c084fc',fontSize:11,fontWeight:700}}>Q{i+1}</span>
 <div style={{display:'flex',gap:6}}>
 <button onClick={()=>{setAiEditIdx(i);setAiEditQ({...q})}} style={{background:'rgba(59,130,246,0.2)',border:'1px solid rgba(59,130,246,0.4)',color:'#60a5fa',borderRadius:6,padding:'3px 10px',fontSize:11,cursor:'pointer'}}>✏️ Edit</button>
-<button onClick={()=>setAiResult((p:any[])=>p.filter((_:any,j:number)=>j!==i))} style={{background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',color:'#f87171',borderRadius:6,padding:'3px 10px',fontSize:11,cursor:'pointer'}}>🗑️ Delete</button>
+<button onClick={()=>setAiGResult((p:any[])=>p.filter((_:any,j:number)=>j!==i))} style={{background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',color:'#f87171',borderRadius:6,padding:'3px 10px',fontSize:11,cursor:'pointer'}}>🗑️ Delete</button>
 </div>
 </div>
 <div style={{color:'#e2e8f0',fontSize:13,marginBottom:6}} dangerouslySetInnerHTML={{__html:renderLatex(q.text||q.question||'')}}/>
@@ -2711,10 +2711,10 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 </div>
 ))}
 </div>
-{aiResult.length===0&&<div style={{color:'#f87171',textAlign:'center',padding:'20px'}}>All questions deleted!</div>}
+{aiGResult.length===0&&<div style={{color:'#f87171',textAlign:'center',padding:'20px'}}>All questions deleted!</div>}
 <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
 <button onClick={()=>setShowAiPreview(false)} style={{padding:'10px 20px',borderRadius:8,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.15)',color:'#94a3b8',cursor:'pointer',fontSize:13}}>Cancel</button>
-<button onClick={()=>{setShowAiPreview(false);saveAiQs()}} disabled={aiResult.length===0||aiSaving} style={{padding:'10px 24px',borderRadius:8,background:'linear-gradient(135deg,#7c3aed,#4f46e5)',border:'none',color:'#fff',cursor:'pointer',fontSize:13,fontWeight:700}}>{aiSaving?'Saving...':'✅ Confirm Save All ('+aiResult.length+')'}</button>
+<button onClick={()=>{setShowAiPreview(false);saveAiQs()}} disabled={aiGResult.length===0||aiSaving} style={{padding:'10px 24px',borderRadius:8,background:'linear-gradient(135deg,#7c3aed,#4f46e5)',border:'none',color:'#fff',cursor:'pointer',fontSize:13,fontWeight:700}}>{aiSaving?'Saving...':'✅ Confirm Save All ('+aiGResult.length+')'}</button>
 </div>
 </div>
 </div>
@@ -2741,7 +2741,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 <div style={{marginBottom:10}}><label style={lbl}>Explanation</label><textarea value={aiEditQ.explanation||aiEditQ.exp||''} onChange={e=>setAiEditQ((p:any)=>({...p,explanation:e.target.value,exp:e.target.value}))} rows={2} style={{...inp,resize:'vertical' as any}}/></div>
 <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
 <button onClick={()=>setAiEditQ(null)} style={{padding:'10px 20px',borderRadius:8,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.15)',color:'#94a3b8',cursor:'pointer'}}>Cancel</button>
-<button onClick={()=>{setAiResult((p:any[])=>{const a=[...p];a[aiEditIdx as number]=aiEditQ;return a});setAiEditQ(null)}} style={{padding:'10px 24px',borderRadius:8,background:'linear-gradient(135deg,#7c3aed,#4f46e5)',border:'none',color:'#fff',cursor:'pointer',fontWeight:700}}>💾 Save</button>
+<button onClick={()=>{setAiGResult((p:any[])=>{const a=[...p];a[aiEditIdx as number]=aiEditQ;return a});setAiEditQ(null)}} style={{padding:'10px 24px',borderRadius:8,background:'linear-gradient(135deg,#7c3aed,#4f46e5)',border:'none',color:'#fff',cursor:'pointer',fontWeight:700}}>💾 Save</button>
 </div>
 </div>
 </div>
