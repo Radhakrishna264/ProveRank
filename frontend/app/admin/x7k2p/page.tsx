@@ -2652,7 +2652,7 @@ const confirmAndAdd=useCallback(async()=>{
 <div style={{background:'rgba(168,85,247,0.07)',borderRadius:10,padding:'14px',marginBottom:12}}>
 <div style={{color:'#e2e8f0',fontSize:14,lineHeight:1.7,marginBottom:8}} dangerouslySetInnerHTML={{__html:renderLatex(qTxtR.current||'')}}/>
 {qHindiR.current&&<div style={{color:'#94a3b8',fontSize:12,marginTop:6}} dangerouslySetInnerHTML={{__html:renderLatex(qHindiR.current)}}/>}
-{qImgR.current&&<img src={qImgR.current} style={{maxWidth:'100%',borderRadius:8,marginTop:8}} onError={e=>{(e.target as HTMLImageElement).style.display='none'}}/>}
+{qImg&&<img src={qImg} style={{maxWidth:'100%',borderRadius:8,marginTop:8}} onError={e=>{(e.target as HTMLImageElement).style.display='none'}}/>}
 </div>
 {['SCQ','MSQ'].includes(qType)&&[qA.current,qB.current,qC.current,qD.current].map((opt,i)=>{
 if(!opt)return null
