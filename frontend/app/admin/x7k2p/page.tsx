@@ -1659,7 +1659,7 @@ const confirmAndAdd=useCallback(async()=>{
     setAiLoading(true)
     try{
       const res=await fetch(`${API}/api/questions/generate`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({topic:aiTopicR.current,chapter:aiChapR.current||undefined,count:parseInt(aiCount)||10,subject:aiSubj,difficulty:aiDiff,type:aiType})})
-      if(res.ok){const d=await res.json();const list=Array.isArray(d)?d:(d.questions||[]);setAiResult(list);T(`${list.length} questions generated.`)}
+      if(res.ok){const d=await res.json();const list=Array.isArray(d)?d:(d.questions||[]);setAiResult(list);setAiGResult(list);T(`${list.length} questions generated.`)}
       else T('AI generation failed. Check backend.','e')
     } catch{T('Network error.','e')}
     setAiLoading(false)
@@ -1669,7 +1669,7 @@ const confirmAndAdd=useCallback(async()=>{
     if(!aiResult.length){T('No generated questions to save.','e');return}
     setAiSaving(true)
     try{
-      const res=await fetch(`${API}/api/questions/bulk-save`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({questions:aiResult})})
+      const res=await fetch(`${API}/api/questions/bulk-save`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({questions:aiGResult.length?aiGResult:aiResult})})
       if(res.ok){T(`${aiResult.length} AI questions saved to bank.`);setAiResult([]);setTimeout(()=>fetchAll(),500)}
       else T('Failed to save AI questions.','e')
     } catch{T('Network error.','e')}
