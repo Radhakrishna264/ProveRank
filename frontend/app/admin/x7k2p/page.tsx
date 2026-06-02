@@ -2810,7 +2810,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                                 {stdPrv&&(q.options||[]).length>0&&(<div style={{marginTop:6,display:'grid',gridTemplateColumns:'1fr 1fr',gap:3}}>
                                   {(q.options||[]).map(function(opt,oi){
                                     const ltr=String.fromCharCode(65+oi)
-                                    const cIdx=Array.isArray(q.correct)?q.correct[0]:undefined
+                                    const cIdx=Array.isArray(q.correct)?q.correct:q.correct!==undefined?[q.correct]:[]
                                     const isC=(Array.isArray(cIdx)?cIdx.includes(oi):cIdx===oi)||(q.correctAnswer&&q.correctAnswer===ltr)
                                     return(<div key={oi} style={{padding:'3px 7px',borderRadius:5,fontSize:10,border:'1px solid '+(isC?'rgba(0,200,100,0.4)':'rgba(255,255,255,0.06)'),background:isC?'rgba(0,200,100,0.08)':'rgba(255,255,255,0.02)',color:isC?'#00C864':'#94A3B8'}}>
                                       <span style={{fontWeight:700,marginRight:4,color:isC?'#00C864':'#4D9FFF'}}>{ltr}.</span>{(opt||'').slice(0,28)}{isC&&' ✓'}
