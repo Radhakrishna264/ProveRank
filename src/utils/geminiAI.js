@@ -182,7 +182,15 @@ Return ONLY a valid JSON array. NO markdown. NO explanation. NO text before or a
   }
 ]
 
-Generate all ${n} questions now. Maximum scientific accuracy. Zero compromise on quality.`;
+Generate all ${n} questions now. Maximum scientific accuracy. Zero compromise on quality.
+
+━━━ LATEX MATH RULES (MANDATORY for numerical/physics/chemistry) ━━━
+- All mathematical formulas MUST use LaTeX notation
+- Inline math: wrap in single $...$ e.g. $\tau = r \times F$, $I = \frac{V}{R}$, $\alpha = \frac{\tau}{I}$
+- Display math: wrap in $...$ for standalone equations e.g. $P/Q = R/S$
+- Use proper LaTeX: \frac{a}{b} for fractions, \times for multiplication, \omega for omega, \alpha for alpha, ^2 for squared, _0 for subscript
+- Example explanation format: "The torque is given by $\tau = r \times F = 0.5 \times 20 = 10$ Nm. Angular acceleration: $\alpha = \frac{\tau}{I} = \frac{10}{1.25} = 8 \text{ rad/s}^2$"
+- For pure text questions (Biology/History), LaTeX is NOT needed`;
 };
 
 module.exports = { callGeminiAPI, buildPrompt };

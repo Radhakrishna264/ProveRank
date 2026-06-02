@@ -1135,6 +1135,7 @@ const [aiType,setAiType]=useState('SCQ')
 const [aiExamLevel,setAiExamLevel]=useState('NEET')
 const [aiFormats,setAiFormats]=useState(['Random'])
 const [aiImageUrl,setAiImageUrl]=useState('')
+const [aiQImgs,setAiQImgs]=useState({})
 
   // Task manager
   const [todos,setTodos]=useState([
@@ -1673,7 +1674,7 @@ const confirmAndAdd=useCallback(async()=>{
     setAiSaving(true)
     try{
       const res=await fetch(`${API}/api/questions/bulk-save`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({questions:aiGResult.length?aiGResult:aiResult})})
-      if(res.ok){T(`${aiResult.length} AI questions saved to bank.`);setAiResult([]);setTimeout(()=>fetchAll(),500)}
+      if(res.ok){T(`${aiResult.length} AI questions saved to bank.`);setAiResult([]);setAiQImgs({});setTimeout(()=>fetchAll(),500)}
       else T('Failed to save AI questions.','e')
     } catch{T('Network error.','e')}
     setAiSaving(false)
@@ -3113,7 +3114,12 @@ return(
                         ))}
                       </div>}
                       {(q.correctAnswer||q.answer)&&<div style={{fontSize:11,color:SUC,fontWeight:600}}>✅ Answer: {q.correctAnswer||q.answer}</div>}
-                      {q.explanation&&<div style={{fontSize:10,color:DIM,marginTop:4,lineHeight:1.5}}>💡 {q.explanation?.slice(0,100)}…</div>}
+                      {q.explanation&&<div style={{fontSize:10,color:DIM,marginTop:4,lineHeight:1.5}}>💡 {q.explanation?.slice(0,100)}…</div><div style={{marginTop:8,padding:'8px 10px',background:'rgba(99,102,241,0.08)',borderRadius:8,border:'1px solid rgba(99,102,241,0.15)'}}>
+<div style={{fontSize:10,fontWeight:700,color:'#818CF8',marginBottom:5}}>📷 ATTACH IMAGES (Optional)</div>
+<div style={{marginBottom:5}}><div style={{fontSize:10,color:'#9CA3AF',marginBottom:2}}>Question Image URL:</div>
+<input value={(aiQImgs[i]&&aiQImgs[i].qImg)||''} onChange={function(e){setAiQImgs(function(p){var n=Object.assign({},p);if(!n[i])n[i]={qImg:'',optImgs:['','','','']};n[i]=Object.assign({},n[i],{qImg:e.target.value});return n;})}} placeholder="https://... (diagram/image for this question)" style={{width:'100%',padding:'4px 8px',background:'rgba(255,255,255,0.05)',border:'1px solid rgba(99,102,241,0.3)',borderRadius:5,color:'#fff',fontSize:11,outline:'none',boxSizing:'border-box'}}/></div>
+{q.options&&q.options.length>0&&(<div><div style={{fontSize:10,color:'#9CA3AF',marginBottom:3}}>Option Image URLs:</div>
+{q.options.map(function(_,oi){return(<div key={oi} style={{display:'flex',alignItems:'center',gap:5,marginBottom:3}}><span style={{fontSize:10,color:'#6EE7B7',fontWeight:700,minWidth:18}}>{['A','B','C','D'][oi]}.</span><input value={(aiQImgs[i]&&aiQImgs[i].optImgs&&aiQImgs[i].optImgs[oi])||''} onChange={function(e){setAiQImgs(function(p){var n=Object.assign({},p);if(!n[i])n[i]={qImg:'',optImgs:['','','','']};var opts=(n[i].optImgs||['','','','']).slice();opts[oi]=e.target.value;n[i]=Object.assign({},n[i],{optImgs:opts});return n;})}} placeholder={'Image for option '+['A','B','C','D'][oi]} style={{flex:1,padding:'3px 6px',background:'rgba(255,255,255,0.04)',border:'1px solid rgba(99,102,241,0.2)',borderRadius:4,color:'#fff',fontSize:10,outline:'none'}}/></div>);})}</div>}
                     </div>
                   ))}
                 </div>
