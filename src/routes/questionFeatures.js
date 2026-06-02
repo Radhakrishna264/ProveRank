@@ -1,4 +1,5 @@
 const express = require('express');
+const { callGeminiAPI, buildPrompt } = require('../utils/geminiAI');
 const router = express.Router();
 const { verifyToken, isSuperAdmin, isAdmin } = require('../middleware/auth');
 const Question = require('../models/Question');
@@ -220,83 +221,89 @@ router.post('/check-answer', verifyToken, async (req, res) => {
 // ── AI GENERATE QUESTIONS ──────────────────────────────────
 router.post('/generate', verifyToken, isAdmin, async (req, res) => {
   try {
-    const { subject, chapter, topic, count = 10, difficulty = 'medium', type: reqType = 'SCQ' } = req.body
-    if (!subject || !chapter || !topic) {
-      return res.status(400).json({ success: false, message: 'subject, chapter, topic required' })
+    const {
+      subject, chapter, topic, count, difficulty, type,
+      examLevel, formats, imageUrl
+    } = req.body;
+
+    if (!subject || !topic) {
+      return res.status(400).json({
+        success: false,
+        message: 'Subject and Topic are required'
+      });
     }
-    const n = Math.min(parseInt(count) || 10, 30)
-    const templates = [
-      'Which of the following best describes {topic} in {chapter}?',
-      'In the context of {chapter}, what is the significance of {topic}?',
-      'Which statement about {topic} ({chapter}) is CORRECT?',
-      'The fundamental principle of {topic} in {chapter} states that:',
-      'Which of the following is NOT related to {topic} in {chapter}?',
-      'According to {chapter}, {topic} is primarily characterized by:',
-      'What is the primary role of {topic} as described in {chapter}?',
-      'Which of the following correctly explains {topic} ({chapter})?',
-      'In {chapter}, the concept of {topic} is best associated with:',
-      'The relationship between {topic} and related concepts in {chapter} is:'
-    ]
-    const integerTemplates = [
-      'What is the numerical value associated with {topic} in {chapter}?',
-      'In {chapter}, calculate the integer answer for {topic}:',
-      'The numerical result of {topic} concept in {chapter} equals:',
-      'Find the integer value: {topic} ({chapter}) gives answer:',
-      'In {chapter}, {topic} has a specific numerical value. The answer is:'
-    ]
-    const activeTemplates = reqType === 'Integer' ? integerTemplates : templates
-    const optionSets = [
-      ['The primary mechanism described', 'An unrelated physical process', 'A chemical property only', 'None of the above'],
-      ['Directly related to the core principle', 'Only applicable in extreme conditions', 'Not relevant to this topic', 'All of the above'],
-      ['It follows the fundamental law', 'It contradicts basic theory', 'It is only theoretical', 'It has no practical applications'],
-      ['The standard scientific definition', 'A common misconception', 'An outdated theory', 'A hypothesis only'],
-    ]
-    const generated = []
-    for (let i = 0; i < n; i++) {
-      const tmpl = activeTemplates[i % activeTemplates.length]
-      const opts = optionSets[i % optionSets.length]
-      const qText = tmpl.replace(/{topic}/g, topic).replace(/{chapter}/g, chapter)
-      const cIdx_gen = Math.floor(Math.random() * 4);
-      const cLetter_gen = ['A','B','C','D'][cIdx_gen];
-      const _expMap = {
-        Physics: opts[cIdx_gen] + ' is the correct answer. In ' + chapter + ', the concept of ' + topic + ' follows this fundamental Physics principle as per NCERT — frequently tested in NEET.',
-        Chemistry: opts[cIdx_gen] + ' is correct. ' + topic + ' in ' + chapter + ' demonstrates this key chemical property as per NCERT. Important NEET Chemistry concept.',
-        Biology: opts[cIdx_gen] + ' is the correct answer. ' + topic + ' in ' + chapter + ' is a crucial Biology concept as per NCERT — frequently asked in NEET examination.',
-      };
-      let genExpl_ai = _expMap[subject] || (opts[cIdx_gen] + ' is correct. ' + topic + ' in ' + chapter + ' — this fundamental principle is essential for NEET preparation.');
-      // Type-aware answer logic
-      let _correct = [cIdx_gen];
-      let _correctAnswer = cLetter_gen;
-      let _options = opts;
-      if (reqType === 'MSQ') {
-        const numC=Math.floor(Math.random()*3)+2;const shuffled=[0,1,2,3].sort(()=>Math.random()-0.5);_correct=shuffled.slice(0,numC).sort((a,b)=>a-b);
-        _correctAnswer = _correct.map(i => ['A','B','C','D'][i]).join(',');
-      } else if (reqType === 'Integer') {
-        const _intAns = Math.floor(Math.random() * 100) + 1;
-        _correct = [_intAns];
-        _correctAnswer = String(_intAns);
-        _options = [];
-        genExpl_ai = 'The numerical answer is ' + _intAns + '. In ' + chapter + ', ' + topic + ' gives this integer value as per NCERT syllabus.';
+
+    const n = Math.min(parseInt(count) || 5, 30);
+
+    const prompt = buildPrompt({
+      subject: subject || 'Physics',
+      chapter: chapter || topic,
+      topic,
+      count: n,
+      difficulty: difficulty || 'medium',
+      type: type || 'SCQ',
+      examLevel: examLevel || 'NEET',
+      formats: Array.isArray(formats) && formats.length > 0 ? formats : ['Random'],
+      imageUrl: imageUrl || ''
+    });
+
+    const rawQuestions = await callGeminiAPI(prompt);
+
+    if (!Array.isArray(rawQuestions) || rawQuestions.length === 0) {
+      return res.status(500).json({ success: false, message: 'AI returned no questions. Please retry.' });
+    }
+
+    // Normalize & validate each question
+    const questions = rawQuestions.slice(0, n).map((q, idx) => {
+      let opts = Array.isArray(q.options) ? q.options : [];
+      let corr = Array.isArray(q.correct) ? q.correct : [0];
+      const qType = q.type || type || 'SCQ';
+
+      // Integer type: no options
+      if (qType === 'Integer') {
+        opts = [];
+        corr = typeof corr[0] === 'number' ? corr : [0];
       }
-      generated.push({
-        text: qText,
-        subject,
-        chapter,
-        topic,
-        difficulty,
-        type: reqType,
-        options: _options,
-        correct: _correct,
-        correctAnswer: _correctAnswer,
-        explanation: genExpl_ai,
+      // SCQ: exactly 1 correct
+      if (qType === 'SCQ' && corr.length > 1) corr = [corr[0]];
+      // MSQ: 2-3 correct
+      if (qType === 'MSQ') {
+        if (corr.length < 2) corr = [0, 2];
+        if (corr.length > 3) corr = corr.slice(0, 3);
+      }
+      // Bounds check
+      corr = corr.filter(x => typeof x === 'number' && x >= 0 && (qType === 'Integer' || x < opts.length));
+
+      return {
+        text: q.text || ('Question ' + (idx + 1)),
+        hindiText: q.hindiText || '',
+        options: opts,
+        correct: corr.length > 0 ? corr : [0],
+        type: qType,
+        difficulty: q.difficulty || difficulty || 'medium',
+        subject: q.subject || subject,
+        chapter: q.chapter || chapter || '',
+        topic: q.topic || topic,
+        explanation: q.explanation || '',
+        format: q.format || (Array.isArray(formats) ? formats[0] : 'Random'),
+        examLevel: q.examLevel || examLevel || 'NEET',
+        imageUrl: q.imageUrl || imageUrl || '',
         approvalStatus: 'pending'
-      })
-    }
-    res.json({ success: true, questions: generated, count: generated.length })
+      };
+    });
+
+    res.json({ success: true, questions, count: questions.length });
+
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message })
+    console.error('Gemini Generate Error:', err.message);
+    res.status(500).json({
+      success: false,
+      message: 'AI generation failed: ' + err.message
+    });
   }
-})
+});
+
+
 
 // ── BULK SAVE QUESTIONS ────────────────────────────────────
 router.post('/bulk-save', verifyToken, isAdmin, async (req, res) => {

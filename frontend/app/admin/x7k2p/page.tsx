@@ -1658,7 +1658,7 @@ const confirmAndAdd=useCallback(async()=>{
     if(!aiTopicR.current){T('Please enter a topic.','e');return}
     setAiLoading(true)
     try{
-      const res=await fetch(`${API}/api/questions/generate`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({topic:aiTopicR.current,chapter:aiChapR.current||undefined,count:parseInt(aiCount)||10,subject:aiSubj,difficulty:aiDiff,type:aiType})})
+      const res=await fetch(`${API}/api/questions/generate`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({topic:aiTopicR.current,chapter:aiChapR.current||undefined,count:parseInt(aiCount)||10,subject:aiSubj,difficulty:aiDiff,type:aiType,examLevel:aiExamLevel,formats:aiFormats,imageUrl:aiImageUrl})})
       if(res.ok){const d=await res.json();const list=Array.isArray(d)?d:(d.questions||[]);setAiResult(list);setAiGResult(list);T(`${list.length} questions generated.`)}
       else T('AI generation failed. Check backend.','e')
     } catch{T('Network error.','e')}
@@ -2912,7 +2912,37 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                         </div>
                         <button onClick={()=>setShowAiPreview(true)} style={{...bp,width:'100%',fontSize:11,marginBottom:8}}>💾 Save All {aiGResult.length} to Question Bank</button>
                       </div>)}
-                      <button onClick={aiGF} disabled={aiGLoading} style={{...bp,width:'100%',opacity:aiGLoading?0.7:1}}>
+                      {/* ── AI Generator — Exam Level & Format Selectors ── */}
+<div style={{marginBottom:12}}>
+<div style={{fontSize:11,fontWeight:700,color:'#A78BFA',letterSpacing:1,marginBottom:6}}>🎯 EXAM LEVEL</div>
+<div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+{(['NEET','JEE_MAINS','JEE_ADVANCED','CUET','BOARD','OTHER'] as const).map(lvl=>(
+<button key={lvl} onClick={()=>setAiExamLevel(lvl)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:600,border:'none',cursor:'pointer',background:aiExamLevel===lvl?'#7C3AED':'rgba(124,58,237,0.15)',color:aiExamLevel===lvl?'#fff':'#C4B5FD',transition:'all 0.2s'}}>
+{lvl.replace(/_/g,' ')}
+</button>
+))}
+</div>
+</div>
+<div style={{marginBottom:12}}>
+<div style={{fontSize:11,fontWeight:700,color:'#A78BFA',letterSpacing:1,marginBottom:4}}>📋 FORMAT <span style={{fontWeight:400,color:'#888'}}>(multi-select)</span></div>
+<div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+{(['Random','Statement_Based','Assertion_Reason','True_False','Numerical','Fill_Blanks','Match_Column','Passage_Based','Sequence_Based','Graph_Data_Based','Diagram_Based'] as const).map(fmt=>{
+const sel=aiFormats.includes(fmt);
+return(
+<button key={fmt} onClick={()=>setAiFormats((p:string[])=>{if(fmt==='Random')return['Random'];const filtered=p.filter((x:string)=>x!=='Random');const already=filtered.includes(fmt);const next=already?filtered.filter((x:string)=>x!==fmt):[...filtered,fmt];return next.length===0?['Random']:next;})} style={{padding:'3px 8px',borderRadius:5,fontSize:10,fontWeight:600,border:'none',cursor:'pointer',background:sel?'#059669':'rgba(5,150,105,0.15)',color:sel?'#fff':'#6EE7B7',transition:'all 0.2s'}}>
+{fmt.replace(/_/g,' ')}
+</button>
+);})}
+</div>
+</div>
+{aiFormats.includes('Diagram_Based')&&(
+<div style={{marginBottom:12}}>
+<div style={{fontSize:11,fontWeight:700,color:'#F59E0B',letterSpacing:1,marginBottom:4}}>🖼️ DIAGRAM IMAGE URL <span style={{fontWeight:400,color:'#888'}}>(optional)</span></div>
+<input value={aiImageUrl} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setAiImageUrl(e.target.value)} placeholder="Paste image URL — or leave empty for AI text-based diagram" style={{width:'100%',padding:'6px 10px',background:'rgba(245,158,11,0.08)',border:'1px solid rgba(245,158,11,0.3)',borderRadius:6,color:'#fff',fontSize:11,outline:'none',boxSizing:'border-box'}}/>
+<div style={{fontSize:10,color:'#888',marginTop:3}}>Empty = AI writes diagram description. Add URL to attach image to question/options later.</div>
+</div>
+)}
+<button onClick={aiGF} disabled={aiGLoading} style={{...bp,width:'100%',opacity:aiGLoading?0.7:1}}>
                         {aiGLoading?'⟳ Generating NCERT Questions…':'🤖 Generate Questions'}
                       </button>
                       <div style={{fontSize:9,color:'#475569',textAlign:'center',marginTop:6}}>Generates NCERT-based questions with correct answers & explanations</div>

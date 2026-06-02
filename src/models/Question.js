@@ -33,6 +33,9 @@ const questionSchema = new mongoose.Schema({
 
   usageCount: { type: Number, default: 0 },
   sourceExam: { type: String, default: '' },
+  examLevel: { type: String, default: 'NEET' },
+  format: { type: String, default: '' },
+  imageUrl: { type: String, default: '' },
 
   similarityScore: { type: Number, default: 0 },
   similarQuestionId: {
