@@ -261,8 +261,7 @@ router.post('/generate', verifyToken, isAdmin, async (req, res) => {
       let _correctAnswer = cLetter_gen;
       let _options = opts;
       if (reqType === 'MSQ') {
-        const _s = (cIdx_gen + 2) % 4;
-        _correct = [cIdx_gen, _s].sort((a, b) => a - b);
+        const numC=Math.floor(Math.random()*3)+2;const shuffled=[0,1,2,3].sort(()=>Math.random()-0.5);_correct=shuffled.slice(0,numC).sort((a,b)=>a-b);
         _correctAnswer = _correct.map(i => ['A','B','C','D'][i]).join(',');
       } else if (reqType === 'Integer') {
         const _intAns = Math.floor(Math.random() * 100) + 1;
