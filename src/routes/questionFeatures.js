@@ -256,6 +256,20 @@ router.post('/generate', verifyToken, isAdmin, async (req, res) => {
         Biology: opts[cIdx_gen] + ' is the correct answer. ' + topic + ' in ' + chapter + ' is a crucial Biology concept as per NCERT — frequently asked in NEET examination.',
       };
       const genExpl_ai = _expMap[subject] || (opts[cIdx_gen] + ' is correct. ' + topic + ' in ' + chapter + ' — this fundamental principle is essential for NEET preparation.');
+      // Type-aware answer logic
+      let _correct = [cIdx_gen];
+      let _correctAnswer = cLetter_gen;
+      let _options = opts;
+      if (reqType === 'MSQ') {
+        const _s = (cIdx_gen + 2) % 4;
+        _correct = [cIdx_gen, _s].sort((a, b) => a - b);
+        _correctAnswer = _correct.map(i => ['A','B','C','D'][i]).join(',');
+      } else if (reqType === 'Integer') {
+        const _intAns = Math.floor(Math.random() * 100) + 1;
+        _correct = [_intAns];
+        _correctAnswer = String(_intAns);
+        _options = [];
+      }
       generated.push({
         text: qText,
         subject,
@@ -263,9 +277,9 @@ router.post('/generate', verifyToken, isAdmin, async (req, res) => {
         topic,
         difficulty,
         type: reqType,
-        options: opts,
-        correct: [cIdx_gen],
-        correctAnswer: cLetter_gen,
+        options: _options,
+        correct: _correct,
+        correctAnswer: _correctAnswer,
         explanation: genExpl_ai,
         approvalStatus: 'pending'
       })
