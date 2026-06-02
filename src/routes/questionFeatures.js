@@ -263,7 +263,7 @@ router.post('/generate', verifyToken, isAdmin, async (req, res) => {
         Chemistry: opts[cIdx_gen] + ' is correct. ' + topic + ' in ' + chapter + ' demonstrates this key chemical property as per NCERT. Important NEET Chemistry concept.',
         Biology: opts[cIdx_gen] + ' is the correct answer. ' + topic + ' in ' + chapter + ' is a crucial Biology concept as per NCERT — frequently asked in NEET examination.',
       };
-      const genExpl_ai = _expMap[subject] || (opts[cIdx_gen] + ' is correct. ' + topic + ' in ' + chapter + ' — this fundamental principle is essential for NEET preparation.');
+      let genExpl_ai = _expMap[subject] || (opts[cIdx_gen] + ' is correct. ' + topic + ' in ' + chapter + ' — this fundamental principle is essential for NEET preparation.');
       // Type-aware answer logic
       let _correct = [cIdx_gen];
       let _correctAnswer = cLetter_gen;
