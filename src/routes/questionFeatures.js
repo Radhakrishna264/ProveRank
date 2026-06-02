@@ -237,6 +237,14 @@ router.post('/generate', verifyToken, isAdmin, async (req, res) => {
       'In {chapter}, the concept of {topic} is best associated with:',
       'The relationship between {topic} and related concepts in {chapter} is:'
     ]
+    const integerTemplates = [
+      'What is the numerical value associated with {topic} in {chapter}?',
+      'In {chapter}, calculate the integer answer for {topic}:',
+      'The numerical result of {topic} concept in {chapter} equals:',
+      'Find the integer value: {topic} ({chapter}) gives answer:',
+      'In {chapter}, {topic} has a specific numerical value. The answer is:'
+    ]
+    const activeTemplates = reqType === 'Integer' ? integerTemplates : templates
     const optionSets = [
       ['The primary mechanism described', 'An unrelated physical process', 'A chemical property only', 'None of the above'],
       ['Directly related to the core principle', 'Only applicable in extreme conditions', 'Not relevant to this topic', 'All of the above'],
@@ -245,7 +253,7 @@ router.post('/generate', verifyToken, isAdmin, async (req, res) => {
     ]
     const generated = []
     for (let i = 0; i < n; i++) {
-      const tmpl = templates[i % templates.length]
+      const tmpl = activeTemplates[i % activeTemplates.length]
       const opts = optionSets[i % optionSets.length]
       const qText = tmpl.replace(/{topic}/g, topic).replace(/{chapter}/g, chapter)
       const cIdx_gen = Math.floor(Math.random() * 4);
@@ -268,6 +276,7 @@ router.post('/generate', verifyToken, isAdmin, async (req, res) => {
         _correct = [_intAns];
         _correctAnswer = String(_intAns);
         _options = [];
+        genExpl_ai = 'The numerical answer is ' + _intAns + '. In ' + chapter + ', ' + topic + ' gives this integer value as per NCERT syllabus.';
       }
       generated.push({
         text: qText,
