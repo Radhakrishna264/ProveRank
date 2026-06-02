@@ -1132,6 +1132,9 @@ const [aiType,setAiType]=useState('SCQ')
   const [aiLoading,setAiLoading]=useState(false)
   const [aiResult,setAiResult]=useState<any[]>([])
   const [aiSaving,setAiSaving]=useState(false)
+const [aiExamLevel,setAiExamLevel]=useState('NEET')
+const [aiFormats,setAiFormats]=useState(['Random'])
+const [aiImageUrl,setAiImageUrl]=useState('')
 
   // Task manager
   const [todos,setTodos]=useState([
