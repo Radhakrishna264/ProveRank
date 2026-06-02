@@ -220,7 +220,7 @@ router.post('/check-answer', verifyToken, async (req, res) => {
 // ── AI GENERATE QUESTIONS ──────────────────────────────────
 router.post('/generate', verifyToken, isAdmin, async (req, res) => {
   try {
-    const { subject, chapter, topic, count = 10, difficulty = 'medium' } = req.body
+    const { subject, chapter, topic, count = 10, difficulty = 'medium', type: reqType = 'SCQ' } = req.body
     if (!subject || !chapter || !topic) {
       return res.status(400).json({ success: false, message: 'subject, chapter, topic required' })
     }
