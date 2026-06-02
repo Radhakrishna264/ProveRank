@@ -1381,7 +1381,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
     if(!ch||!tp){T('Chapter aur Topic fill karo','e');return}
     setAiGLoading(true)
     try{
-      const r=await fetch(API+'/api/questions/generate',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({subject:aiGSub,chapter:ch,topic:tp,count:parseInt(aiGCnt)||10,difficulty:aiGDiff,type:aiType})})
+      const r=await fetch(API+'/api/questions/generate',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({subject:aiGSub,chapter:ch,topic:tp,count:parseInt(aiGCnt)||10,difficulty:aiGDiff})})
       if(r.ok){const d=await r.json();const qs=d.questions||d.generated||[];setAiGResult(qs);T(qs.length+' generated!')}
       else T('AI failed','e')
     }catch{T('Network error','e')}
@@ -2702,7 +2702,7 @@ return <div key={i} style={{padding:'8px 12px',borderRadius:8,marginBottom:6,bac
 <div style={{color:'#e2e8f0',fontSize:13,marginBottom:6}} dangerouslySetInnerHTML={{__html:renderLatex(q.text||q.question||'')}}/>
 {q.options&&q.options.map((opt:string,j:number)=>{
 const L=['A','B','C','D'][j]
-const isAns=q.correctAnswer===('Option '+L)||q.correctAnswer===L||q.correctLetter===L||q.correct_answer===('Option '+L)||q.correct_answer===L||(Array.isArray(q.correct)&&q.correct.includes(j))
+const isAns=q.correctAnswer===('Option '+L)||q.correctLetter===L||q.correct_answer===('Option '+L)
 return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginBottom:3,background:isAns?'rgba(34,197,94,0.12)':'rgba(255,255,255,0.03)',border:isAns?'1px solid rgba(34,197,94,0.4)':'1px solid rgba(255,255,255,0.06)',color:isAns?'#4ade80':'#94a3b8'}}>
 <b>{L}.</b> <span dangerouslySetInnerHTML={{__html:renderLatex(opt)}}/>{isAns&&<span style={{marginLeft:6,fontSize:10}}>✓</span>}
 </div>
@@ -2741,7 +2741,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 <div style={{marginBottom:10}}><label style={lbl}>Explanation</label><textarea value={aiEditQ.explanation||aiEditQ.exp||''} onChange={e=>setAiEditQ((p:any)=>({...p,explanation:e.target.value,exp:e.target.value}))} rows={2} style={{...inp,resize:'vertical' as any}}/></div>
 <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
 <button onClick={()=>setAiEditQ(null)} style={{padding:'10px 20px',borderRadius:8,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.15)',color:'#94a3b8',cursor:'pointer'}}>Cancel</button>
-<button onClick={()=>{setAiGResult((p:any[])=>{const a=[...p];const _q={...aiEditQ};const _optMap={'Option A':0,'Option B':1,'Option C':2,'Option D':3};const _ci=_optMap[_q.correctAnswer];if(_ci!==undefined){_q.correct=[_ci];_q.correctLetter=['A','B','C','D'][_ci];}a[aiEditIdx as number]=_q;return a});setAiEditQ(null)}} style={{padding:'10px 24px',borderRadius:8,background:'linear-gradient(135deg,#7c3aed,#4f46e5)',border:'none',color:'#fff',cursor:'pointer',fontWeight:700}}>💾 Save</button>
+<button onClick={()=>{setAiGResult((p:any[])=>{const a=[...p];a[aiEditIdx as number]=aiEditQ;return a});setAiEditQ(null)}} style={{padding:'10px 24px',borderRadius:8,background:'linear-gradient(135deg,#7c3aed,#4f46e5)',border:'none',color:'#fff',cursor:'pointer',fontWeight:700}}>💾 Save</button>
 </div>
 </div>
 </div>

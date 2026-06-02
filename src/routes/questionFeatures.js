@@ -262,7 +262,7 @@ router.post('/generate', verifyToken, isAdmin, async (req, res) => {
         chapter,
         topic,
         difficulty,
-        type: 'SCQ',
+        type: reqType,
         options: opts,
         correct: [cIdx_gen],
         correctAnswer: cLetter_gen,
