@@ -6,57 +6,25 @@
 // ============================================================
 
 const callGeminiAPI = async (prompt) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY not configured in environment');
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.95,
-        topK: 64,
-        topP: 0.95,
-        maxOutputTokens: 8192
-      },
-      safetySettings: [
-        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-      ]
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error('GROQ_API_KEY not configured');
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+    body:JSON.stringify({
+      model:'llama-3.3-70b-versatile',
+      messages:[{role:'user',content:prompt}],
+      temperature:0.9,max_tokens:8192
     })
   });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Gemini API Error ${response.status}: ${errText.slice(0, 300)}`);
-  }
-
-  const data = await response.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-  if (!rawText) throw new Error('Gemini returned empty response');
-
-  // Clean markdown fences
-  let cleaned = rawText.trim()
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/\s*```$/i, '')
-    .trim();
-
-  // Extract JSON array
-  const arrStart = cleaned.indexOf('[');
-  const arrEnd = cleaned.lastIndexOf(']');
-  if (arrStart === -1 || arrEnd === -1) {
-    throw new Error('No JSON array found in Gemini response. Raw: ' + cleaned.slice(0, 200));
-  }
-
-  const jsonStr = cleaned.slice(arrStart, arrEnd + 1);
-  return JSON.parse(jsonStr);
+  if(!response.ok){const e=await response.text();throw new Error('Groq Error '+response.status+': '+e.slice(0,200));}
+  const data=await response.json();
+  const raw=data?.choices?.[0]?.message?.content||'';
+  if(!raw) throw new Error('Empty response from Groq');
+  let cleaned=raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/i,'').trim();
+  const s=cleaned.indexOf('['),e=cleaned.lastIndexOf(']');
+  if(s===-1||e===-1) throw new Error('No JSON array in response');
+  return JSON.parse(cleaned.slice(s,e+1));
 };
 
 const buildPrompt = ({ subject, chapter, topic, count, difficulty, type, examLevel, formats, imageUrl }) => {
