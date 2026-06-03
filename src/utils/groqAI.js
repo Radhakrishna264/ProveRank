@@ -217,9 +217,32 @@ CONCRETE EXAMPLE — How Statement_Based question text MUST look:
     return `FORMAT ${idx + 1} — ${f}:\n${fmtGuide[f] || fmtGuide.Random}${example}`;
   }).join('\n\n');
 
+  // Per-question explicit format assignment
+  const perQFormat = [];
+  if (selectedFormats.length === 1 && selectedFormats[0] !== 'Random') {
+    for (let i = 0; i < n; i++) perQFormat.push(selectedFormats[0]);
+  } else if (selectedFormats.length > 1) {
+    for (let i = 0; i < n; i++) perQFormat.push(selectedFormats[i % selectedFormats.length]);
+  }
+
+  const perQAssignment = perQFormat.length > 0
+    ? perQFormat.map((f, i) => `Q${i+1}: MUST use "${f}" format — ${
+        f === 'Assertion_Reason' ? 'text MUST start with Assertion (A): and include Reason (R):' :
+        f === 'True_False' ? 'text MUST list 4 numbered statements with T/F options' :
+        f === 'Statement_Based' ? 'text MUST list numbered statements and ask which is correct' :
+        f === 'Numerical' ? 'text MUST provide numerical data for calculation' :
+        f === 'Fill_Blanks' ? 'text MUST have a blank (___________) to fill' :
+        f === 'Match_Column' ? 'text MUST have Column I and Column II to match' :
+        f === 'Passage_Based' ? 'text MUST start with a scientific paragraph/passage' :
+        f === 'Sequence_Based' ? 'text MUST list scrambled steps to arrange in order' :
+        f === 'Graph_Data_Based' ? 'text MUST present data/graph description to interpret' :
+        'follow format instructions above'
+      }`).join('\n')
+    : '';
+
   const distributionNote = selectedFormats.length > 1
     ? `⚠️ DISTRIBUTION: Spread ${n} questions evenly across the ${selectedFormats.length} selected formats. No single format gets more than 60% of questions.`
-    : `All ${n} questions use "${selectedFormats[0]}" format.`;
+    : `ALL ${n} questions MUST use ONLY "${selectedFormats[0]}" format. Every single question. No exceptions. Any question not in this format is INVALID.`;
 
   // Build per-format enforcement reminder
   const formatEnforcement = selectedFormats.map(f => {
@@ -264,6 +287,8 @@ UNIQUENESS SEED: ${seed} — This ensures different questions each generation. N
 ${formatBlock}
 
 ${distributionNote}
+
+${perQAssignment ? '📋 QUESTION-BY-QUESTION FORMAT ASSIGNMENT (MANDATORY):\n' + perQAssignment + '\n\nEach question listed above MUST strictly follow its assigned format. A question in wrong format = INVALID.' : ''}
 
 ⚠️⚠️ FORMAT ENFORCEMENT — NON-NEGOTIABLE ⚠️⚠️
 The FORMAT selected OVERRIDES any topic-specific tendencies of the AI.

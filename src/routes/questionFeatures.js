@@ -253,8 +253,27 @@ router.post('/generate', verifyToken, isAdmin, async (req, res) => {
       return res.status(500).json({ success: false, message: 'AI returned no questions. Please retry.' });
     }
 
+    // ── FORMAT COMPLIANCE FILTER ──
+    const requestedFormats = Array.isArray(formats) && formats.length > 0 ? formats : ['Random'];
+    const filterByFormat = requestedFormats.length === 1 && requestedFormats[0] !== 'Random';
+    
+    const filteredRaw = filterByFormat ? rawQuestions.filter(q => {
+      const fmt = requestedFormats[0];
+      const txt = (q.text || '').toLowerCase();
+      if (fmt === 'Assertion_Reason') return txt.includes('assertion') && txt.includes('reason');
+      if (fmt === 'True_False') return (txt.includes('true') && txt.includes('false')) || txt.includes('t, f') || txt.includes('t,f');
+      if (fmt === 'Statement_Based') return txt.includes('statement') || (txt.includes('i.') && txt.includes('ii.')) || txt.includes('1.') && txt.includes('2.');
+      if (fmt === 'Passage_Based') return txt.length > 200;
+      if (fmt === 'Sequence_Based') return txt.includes('sequence') || txt.includes('order') || txt.includes('correct order');
+      if (fmt === 'Match_Column') return txt.includes('column') || txt.includes('match');
+      if (fmt === 'Fill_Blanks') return txt.includes('___') || txt.includes('blank');
+      return true;
+    }) : rawQuestions;
+
+    const validRaw = filteredRaw.length > 0 ? filteredRaw : rawQuestions; // fallback if filter too strict
+
     // Normalize & validate each question
-    const questions = rawQuestions.slice(0, n).map((q, idx) => {
+    const questions = validRaw.slice(0, n).map((q, idx) => {
       let opts = Array.isArray(q.options) ? q.options : [];
       let corr = Array.isArray(q.correct) ? q.correct : [0];
       const qType = q.type || type || 'SCQ';
