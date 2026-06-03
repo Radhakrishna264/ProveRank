@@ -19,7 +19,10 @@ const callGroqAI = async (prompt, retries) => {
       signal: controller.signal,
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: prompt }],
+        messages: [
+          { role: 'system', content: 'You are a strict question formatter. You MUST generate questions EXACTLY in the format specified in the user prompt. If the format is Assertion_Reason, every question text MUST start with "Assertion (A):" and include "Reason (R):". If True_False, list 4 statements. If Statement_Based, list numbered statements. NEVER generate generic MCQ calculation questions when a specific format is selected. The format instruction overrides everything else.' },
+          { role: 'user', content: prompt }
+        ],
         temperature: 0.85,
         max_tokens: 4096
       })
@@ -180,10 +183,39 @@ For Biology: Describe a labeled diagram with specific numbered/lettered parts (e
 Leave imageUrl empty — admin can attach diagram image to the question later.`
   };
 
-  // Build format instruction block
-  const formatBlock = selectedFormats.map((f, idx) =>
-    `FORMAT ${idx + 1} — ${f}:\n${fmtGuide[f] || fmtGuide.Random}`
-  ).join('\n\n');
+  // Format-specific concrete examples for AI to mimic
+  const fmtExample = {
+    Assertion_Reason: `
+CONCRETE EXAMPLE — How Assertion_Reason question text MUST look:
+{
+  "text": "Assertion (A): Water molecules have a bent shape.\nReason (R): The two lone pairs on the oxygen atom repel the bonding pairs, reducing the bond angle below 109.5°.",
+  "options": ["A. Both A and R are true, and R is the correct explanation of A", "B. Both A and R are true, but R is NOT the correct explanation of A", "C. A is true but R is false", "D. A is false but R is true"],
+  "correct": [0]
+}
+Your questions MUST follow this EXACT structure. Question text MUST start with "Assertion (A):" on line 1 and "Reason (R):" on line 2.`,
+
+    True_False: `
+CONCRETE EXAMPLE — How True_False question text MUST look:
+{
+  "text": "Consider the following statements about photosynthesis:\n1. Light reaction occurs in stroma\n2. Calvin cycle occurs in thylakoid\n3. ATP is produced in light reaction\n4. CO2 is fixed in Calvin cycle\nWhich of the following shows the correct TRUE (T) / FALSE (F) order?",
+  "options": ["A. F, F, T, T", "B. T, T, F, F", "C. F, T, T, F", "D. T, F, T, T"],
+  "correct": [0]
+}`,
+
+    Statement_Based: `
+CONCRETE EXAMPLE — How Statement_Based question text MUST look:
+{
+  "text": "Consider the following statements about ionic bonding:\nStatement I: Ionic compounds have high melting points\nStatement II: Ionic compounds conduct electricity in solid state\nWhich of the following statement(s) is/are correct?",
+  "options": ["A. Only Statement I", "B. Only Statement II", "C. Both I and II", "D. Neither I nor II"],
+  "correct": [0]
+}`
+  };
+
+  // Build format instruction block with examples
+  const formatBlock = selectedFormats.map((f, idx) => {
+    const example = fmtExample[f] ? `\n${fmtExample[f]}` : '';
+    return `FORMAT ${idx + 1} — ${f}:\n${fmtGuide[f] || fmtGuide.Random}${example}`;
+  }).join('\n\n');
 
   const distributionNote = selectedFormats.length > 1
     ? `⚠️ DISTRIBUTION: Spread ${n} questions evenly across the ${selectedFormats.length} selected formats. No single format gets more than 60% of questions.`
