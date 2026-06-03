@@ -1,31 +1,98 @@
-// ============================================================
-// ProveRank — Gemini AI Question Generator Utility
-// Supports: NEET / JEE Mains / JEE Advanced / CUET / Board / Other
-// Formats: 12 Question Formats
-// Types: SCQ / MSQ / Integer
-// ============================================================
+// ProveRank — Groq AI Question Generator
+// Model: llama-3.3-70b-versatile | Free: 14,400 req/day
 
-const callGroqAI = async (prompt) => {
+const callGroqAI = async (prompt, retries) => {
+  if (retries === undefined) retries = 2;
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error('GROQ_API_KEY not configured');
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
-    body:JSON.stringify({
-      model:'llama-3.3-70b-versatile',
-      messages:[{role:'user',content:prompt}],
-      temperature:0.9,max_tokens:8192
-    })
-  });
-  if(!response.ok){const e=await response.text();throw new Error('Groq Error '+response.status+': '+e.slice(0,200));}
-  const data=await response.json();
-  const raw=data?.choices?.[0]?.message?.content||'';
-  if(!raw) throw new Error('Empty response from Groq');
-  let cleaned=raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/i,'').trim();
-  const s=cleaned.indexOf('['),e=cleaned.lastIndexOf(']');
-  if(s===-1||e===-1) throw new Error('No JSON array in response');
-  return JSON.parse(cleaned.slice(s,e+1));
+
+  const controller = new AbortController();
+  const timer = setTimeout(function() { controller.abort(); }, 28000);
+
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + apiKey
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.85,
+        max_tokens: 4096
+      })
+    });
+
+    clearTimeout(timer);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      if ((response.status === 429 || response.status >= 500) && retries > 0) {
+        const wait = response.status === 429 ? 4000 : 2000;
+        console.log('Groq retry after ' + wait + 'ms (status ' + response.status + ')');
+        await new Promise(function(r) { setTimeout(r, wait); });
+        return callGroqAI(prompt, retries - 1);
+      }
+      throw new Error('Groq API Error ' + response.status + ': ' + errText.slice(0, 200));
+    }
+
+    const data = await response.json();
+    const raw = (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ? data.choices[0].message.content : '';
+    if (!raw) throw new Error('Empty response from Groq');
+
+    const arrStart = raw.indexOf('[');
+    const arrEnd = raw.lastIndexOf(']');
+    if (arrStart === -1 || arrEnd === -1) {
+      throw new Error('No JSON array in response. Got: ' + raw.slice(0, 200));
+    }
+    const jsonStr = raw.slice(arrStart, arrEnd + 1);
+
+    try {
+      return JSON.parse(jsonStr);
+    } catch (e1) {
+      // Remove problematic backslash sequences char by char
+      let fixed = '';
+      for (let i = 0; i < jsonStr.length; i++) {
+        const ch = jsonStr[i];
+        const nx = jsonStr[i + 1];
+        if (ch === '\\' && nx !== undefined) {
+          if (nx === '"' || nx === '\\' || nx === '/' || nx === 'b' || nx === 'f' || nx === 'n' || nx === 'r' || nx === 't' || nx === 'u') {
+            fixed += ch;
+          } else {
+            fixed += '\\\\';
+          }
+        } else {
+          fixed += ch;
+        }
+      }
+      try {
+        return JSON.parse(fixed);
+      } catch (e2) {
+        throw new Error('JSON parse failed: ' + e1.message);
+      }
+    }
+
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      if (retries > 0) {
+        await new Promise(function(r) { setTimeout(r, 2000); });
+        return callGroqAI(prompt, retries - 1);
+      }
+      throw new Error('Request timed out. Please try again.');
+    }
+    if (retries > 0 && err.message &&
+        !err.message.includes('GROQ_API_KEY') &&
+        !err.message.includes('JSON parse failed')) {
+      await new Promise(function(r) { setTimeout(r, 2000); });
+      return callGroqAI(prompt, retries - 1);
+    }
+    throw err;
+  }
 };
+
 
 const buildPrompt = ({ subject, chapter, topic, count, difficulty, type, examLevel, formats, imageUrl }) => {
   const seed = `${Date.now()}-${Math.floor(Math.random() * 999999)}`;
@@ -159,6 +226,7 @@ ${distributionNote}
 8. MSQ: correct array must have 2-3 indices — NEVER 1 or 4
 9. Integer: options = [], correct = [integer_answer]
 10. Match Column: all 8 items (4+4) must be specific, not generic
+10.5. EXPLANATION LIMIT: Maximum 80 words per explanation. Be concise and precise. State: correct answer reason + why 1-2 wrong options are wrong. No repetition.
 11. Each question must stand alone — no references to "the above" without context
 
 ═══════════════ MANDATORY JSON RESPONSE FORMAT ═══════════════
@@ -184,13 +252,13 @@ Return ONLY a valid JSON array. NO markdown. NO explanation. NO text before or a
 
 Generate all ${n} questions now. Maximum scientific accuracy. Zero compromise on quality.
 
-━━━ LATEX MATH RULES (MANDATORY for numerical/physics/chemistry) ━━━
-- All mathematical formulas MUST use LaTeX notation
-- Inline math: wrap in single $...$ e.g. $\tau = r \times F$, $I = \frac{V}{R}$, $\alpha = \frac{\tau}{I}$
-- Display math: wrap in $...$ for standalone equations e.g. $P/Q = R/S$
-- Use proper LaTeX: \frac{a}{b} for fractions, \times for multiplication, \omega for omega, \alpha for alpha, ^2 for squared, _0 for subscript
-- Example explanation format: "The torque is given by $\tau = r \times F = 0.5 \times 20 = 10$ Nm. Angular acceleration: $\alpha = \frac{\tau}{I} = \frac{10}{1.25} = 8 \text{ rad/s}^2$"
-- For pure text questions (Biology/History), LaTeX is NOT needed`;
+━━━ MATH NOTATION RULES:
+- Use Unicode: alpha beta gamma omega tau sigma delta pi
+- Powers: v^2, r^2
+- Fractions: a/b (P/Q = R/S)
+- NO backslash commands of any kind
+
+`;
 };
 
 module.exports = { callGroqAI, buildPrompt };
