@@ -226,9 +226,7 @@ router.post('/generate', verifyToken, isAdmin, async (req, res) => {
       examLevel, formats, imageUrl
     } = req.body;
 
-    console.log('[DEBUG] formats received:', JSON.stringify(formats));
-    console.log('[DEBUG] full body keys:', Object.keys(req.body));
-    if (!subject || !topic) {
+if (!subject || !topic) {
       return res.status(400).json({
         success: false,
         message: 'Subject and Topic are required'

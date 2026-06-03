@@ -1385,7 +1385,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
     if(!ch||!tp){T('Chapter aur Topic fill karo','e');return}
     setAiGLoading(true)
     try{
-      const r=await fetch(API+'/api/questions/generate',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({subject:aiGSub,chapter:ch,topic:tp,count:parseInt(aiGCnt)||10,difficulty:aiGDiff,type:aiType})})
+      const r=await fetch(API+'/api/questions/generate',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({subject:aiGSub,chapter:ch,topic:tp,count:parseInt(aiGCnt)||10,difficulty:aiGDiff,type:aiType,examLevel:aiExamLevel,formats:aiFormats,imageUrl:aiImageUrl||''})})
       if(r.ok){const d=await r.json();const qs=d.questions||d.generated||[];setAiGResult(qs);T(qs.length+' generated!')}
       else T('AI failed','e')
     }catch{T('Network error','e')}
