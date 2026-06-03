@@ -1,5 +1,5 @@
 const express = require('express');
-const { callGeminiAPI, buildPrompt } = require('../utils/geminiAI');
+const { callGeminiAPI, buildPrompt } = require('../utils/groqAI');
 const router = express.Router();
 const { verifyToken, isSuperAdmin, isAdmin } = require('../middleware/auth');
 const Question = require('../models/Question');
