@@ -1,5 +1,5 @@
 const express = require('express');
-const { callGeminiAPI, buildPrompt } = require('../utils/groqAI');
+const { callGroqAI, buildPrompt } = require('../utils/groqAI');
 const router = express.Router();
 const { verifyToken, isSuperAdmin, isAdmin } = require('../middleware/auth');
 const Question = require('../models/Question');
@@ -247,7 +247,7 @@ router.post('/generate', verifyToken, isAdmin, async (req, res) => {
       imageUrl: imageUrl || ''
     });
 
-    const rawQuestions = await callGeminiAPI(prompt);
+    const rawQuestions = await callGroqAI(prompt);
 
     if (!Array.isArray(rawQuestions) || rawQuestions.length === 0) {
       return res.status(500).json({ success: false, message: 'AI returned no questions. Please retry.' });

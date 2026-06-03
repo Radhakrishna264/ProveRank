@@ -5,7 +5,7 @@
 // Types: SCQ / MSQ / Integer
 // ============================================================
 
-const callGeminiAPI = async (prompt) => {
+const callGroqAI = async (prompt) => {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error('GROQ_API_KEY not configured');
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions',{
@@ -193,4 +193,4 @@ Generate all ${n} questions now. Maximum scientific accuracy. Zero compromise on
 - For pure text questions (Biology/History), LaTeX is NOT needed`;
 };
 
-module.exports = { callGeminiAPI, buildPrompt };
+module.exports = { callGroqAI, buildPrompt };
