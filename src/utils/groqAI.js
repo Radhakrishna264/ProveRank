@@ -189,6 +189,24 @@ Leave imageUrl empty — admin can attach diagram image to the question later.`
     ? `⚠️ DISTRIBUTION: Spread ${n} questions evenly across the ${selectedFormats.length} selected formats. No single format gets more than 60% of questions.`
     : `All ${n} questions use "${selectedFormats[0]}" format.`;
 
+  // Build per-format enforcement reminder
+  const formatEnforcement = selectedFormats.map(f => {
+    const enfMap = {
+      Assertion_Reason: `✅ Assertion_Reason: question text MUST start with "Assertion (A):" followed by "Reason (R):". Options MUST be the exact 4 assertion-reason options. NO numerical/calculation structure allowed.`,
+      True_False: `✅ True_False: question MUST list exactly 4 numbered statements. Ask "Which of the following are TRUE (T) and FALSE (F) in the given order?". Options are 4 T/F combinations.`,
+      Statement_Based: `✅ Statement_Based: question MUST list 2-3 numbered statements. Ask "Which statement(s) is/are correct?". Options are combinations of statements.`,
+      Numerical: `✅ Numerical: provide specific numerical data. Student calculates the answer. Options are 4 different numerical values with units.`,
+      Fill_Blanks: `✅ Fill_Blanks: question is a sentence with ONE blank (___________). Options are 4 possible fill-ins.`,
+      Match_Column: `✅ Match_Column: Column I (A,B,C,D) vs Column II (P,Q,R,S). Options are 4 different matching combinations.`,
+      Passage_Based: `✅ Passage_Based: 3-4 sentence scientific paragraph FIRST, then question answerable from passage.`,
+      Sequence_Based: `✅ Sequence_Based: list scrambled steps/stages (P,Q,R,S). Ask for correct sequence order.`,
+      Graph_Data_Based: `✅ Graph_Data_Based: table/graph/data description FIRST, then question requiring data interpretation.`,
+      Diagram_Based: `✅ Diagram_Based: diagram description in question text. Question requires identifying/calculating from diagram.`,
+      Random: `✅ Random: choose MOST VARIED format — mix assertion-reason, statement-based, numerical, fill-blanks across questions.`
+    };
+    return enfMap[f] || `✅ ${f}: follow the format instructions above strictly.`;
+  }).join('\n');
+
   const diffGuide = {
     easy: 'Easy: Direct NCERT recall, single-step, definition based. First-time student should get it right.',
     medium: 'Medium: Requires concept understanding + moderate application. 1-2 steps of reasoning.',
@@ -215,8 +233,18 @@ ${formatBlock}
 
 ${distributionNote}
 
+⚠️⚠️ FORMAT ENFORCEMENT — NON-NEGOTIABLE ⚠️⚠️
+The FORMAT selected OVERRIDES any topic-specific tendencies of the AI.
+Even if the topic is numerical/calculation-heavy, you MUST follow the selected FORMAT.
+DO NOT generate generic calculation MCQs unless "Numerical" or "Random" is the selected format.
+
+${formatEnforcement}
+
+These FORMAT rules apply to EVERY SINGLE question in this batch. No exceptions.
+
 ═══════════════ QUALITY RULES (MANDATORY) ═══════════════
-1. ZERO TEMPLATE REPETITION — Every question must test a DIFFERENT aspect/sub-concept of "${topic}"
+1. FORMAT FIRST — Every question MUST strictly follow the FORMAT specified above. This is the #1 rule. A wrong format means the question is completely rejected.
+1.5. ZERO TEMPLATE REPETITION — Every question must test a DIFFERENT aspect/sub-concept of "${topic}"
 2. NEVER use generic placeholders like "primary mechanism", "unrelated process", "chemical property only", "fundamental law"
 3. All distractors (wrong options) must be scientifically plausible — a student must actually think before rejecting them
 4. For ${lvl}: match the EXACT cognitive demand, terminology, and style of actual ${lvl} papers
@@ -230,6 +258,7 @@ ${distributionNote}
 11. Each question must stand alone — no references to "the above" without context
 
 ═══════════════ MANDATORY JSON RESPONSE FORMAT ═══════════════
+⚠️ FINAL REMINDER: Format selected = "${selectedFormats.join(', ')}". Every question structure MUST match this format.
 Return ONLY a valid JSON array. NO markdown. NO explanation. NO text before or after the array.
 
 [
