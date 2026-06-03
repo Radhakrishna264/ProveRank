@@ -3114,7 +3114,7 @@ return(
                         ))}
                       </div>}
                       {(q.correctAnswer||q.answer)&&<div style={{fontSize:11,color:SUC,fontWeight:600}}>✅ Answer: {q.correctAnswer||q.answer}</div>}
-                      {q.explanation&&<div style={{fontSize:10,color:DIM,marginTop:4,lineHeight:1.5}}>💡 {q.explanation?.slice(0,100)}…</div><div style={{marginTop:8,padding:'8px 10px',background:'rgba(99,102,241,0.08)',borderRadius:8,border:'1px solid rgba(99,102,241,0.15)'}}>
+                      {q.explanation&&<div style={{fontSize:10,color:DIM,marginTop:4,lineHeight:1.5}}>💡 {q.explanation?.slice(0,100)}…</div>}<div style={{marginTop:8,padding:'8px 10px',background:'rgba(99,102,241,0.08)',borderRadius:8,border:'1px solid rgba(99,102,241,0.15)'}}>
 <div style={{fontSize:10,fontWeight:700,color:'#818CF8',marginBottom:5}}>📷 ATTACH IMAGES (Optional)</div>
 <div style={{marginBottom:5}}><div style={{fontSize:10,color:'#9CA3AF',marginBottom:2}}>Question Image URL:</div>
 <input value={(aiQImgs[i]&&aiQImgs[i].qImg)||''} onChange={function(e){setAiQImgs(function(p){var n=Object.assign({},p);if(!n[i])n[i]={qImg:'',optImgs:['','','','']};n[i]=Object.assign({},n[i],{qImg:e.target.value});return n;})}} placeholder="https://... (diagram/image for this question)" style={{width:'100%',padding:'4px 8px',background:'rgba(255,255,255,0.05)',border:'1px solid rgba(99,102,241,0.3)',borderRadius:5,color:'#fff',fontSize:11,outline:'none',boxSizing:'border-box'}}/></div>
