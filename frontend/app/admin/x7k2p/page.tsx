@@ -8,38 +8,44 @@ function formatQText(text) {
   if (!text) return text;
   var t = text;
 
-  // ── Match Column: parse comma-separated inline format ──
-  var colMatch = t.match(/^(.*?)(Column[\s\-]?I(?!I)[:\s])(.*?)(Column[\s\-]?II[:\s])(.*?)(Which of the following.*)/is);
-  if (colMatch) {
-    var intro   = (colMatch[1]||'').trim();
-    var col1raw = (colMatch[3]||'').trim();
-    var col2raw = (colMatch[5]||'').trim();
-    var outro   = (colMatch[6]||'').trim();
+  // ── Match Column: look for "Column I:" and "Column II:" headers ──
+  if (/Column\s*I+\s*:/i.test(t)) {
+    try {
+      // Split on "Column I:" and "Column II:"
+      var col1Split = t.split(/Column\s*I(?!I)\s*:/i);
+      if (col1Split.length >= 2) {
+        var intro = col1Split[0].trim();
+        var afterCol1 = col1Split[1];
+        var col2Split = afterCol1.split(/Column\s*II\s*:/i);
+        var col1raw = col2Split[0].trim();
+        var afterCol2 = col2Split[1] || '';
+        // outro = "Which of the following..."
+        var outroMatch = afterCol2.match(/(Which of the following.*)/is);
+        var col2raw = outroMatch ? afterCol2.slice(0, afterCol2.indexOf(outroMatch[1])).trim() : afterCol2.trim();
+        var outro = outroMatch ? outroMatch[1].trim() : '';
 
-    // Split items by pattern like "A. " "B. " etc
-    var c1items = col1raw.split(/(?=[A-D]\.\s)/g).filter(function(x){return x.trim();});
-    var c2items = col2raw.split(/(?=[P-S]\.\s)/g).filter(function(x){return x.trim();});
+        // Parse items: split on A. B. C. / P. Q. R. S.
+        var c1items = col1raw.split(/(?=[A-D]\.\s)/g).map(function(x){return x.replace(/,\s*$/,'').trim();}).filter(Boolean);
+        var c2items = col2raw.split(/(?=[P-S]\.\s)/g).map(function(x){return x.replace(/,\s*$/,'').trim();}).filter(Boolean);
 
-    // Clean trailing commas/dots
-    c1items = c1items.map(function(x){return x.replace(/,\s*$/,'').trim();});
-    c2items = c2items.map(function(x){return x.replace(/,\s*$/,'').trim();});
+        var rows = '';
+        var max = Math.max(c1items.length, c2items.length);
+        for(var i=0;i<max;i++){
+          rows += '<tr>'
+            +'<td style="padding:4px 8px;border:1px solid rgba(255,255,255,0.15);color:#e2e8f0;font-size:13px">'+(c1items[i]||'')+'</td>'
+            +'<td style="padding:4px 8px;border:1px solid rgba(255,255,255,0.15);color:#e2e8f0;font-size:13px">'+(c2items[i]||'')+'</td>'
+            +'</tr>';
+        }
 
-    var rows = '';
-    var max = Math.max(c1items.length, c2items.length);
-    for(var i=0;i<max;i++){
-      rows += '<tr>'
-        +'<td style="padding:4px 8px;border:1px solid rgba(255,255,255,0.15);color:#e2e8f0;font-size:13px">'+(c1items[i]||'')+'</td>'
-        +'<td style="padding:4px 8px;border:1px solid rgba(255,255,255,0.15);color:#e2e8f0;font-size:13px">'+(c2items[i]||'')+'</td>'
-        +'</tr>';
-    }
-
-    return '<div style="margin-bottom:8px;color:#e2e8f0">'+intro+'</div>'
-      +'<table style="width:100%;border-collapse:collapse;margin:6px 0">'
-      +'<thead><tr>'
-      +'<th style="padding:5px 8px;background:rgba(251,191,36,0.2);border:1px solid rgba(255,255,255,0.2);color:#fbbf24;text-align:left;font-size:13px">Column I</th>'
-      +'<th style="padding:5px 8px;background:rgba(251,191,36,0.2);border:1px solid rgba(255,255,255,0.2);color:#fbbf24;text-align:left;font-size:13px">Column II</th>'
-      +'</tr></thead><tbody>'+rows+'</tbody></table>'
-      +'<div style="margin-top:8px;color:#e2e8f0">'+outro+'</div>';
+        return (intro?'<div style="margin-bottom:8px;color:#e2e8f0">'+intro+'</div>':'')
+          +'<table style="width:100%;border-collapse:collapse;margin:6px 0">'
+          +'<thead><tr>'
+          +'<th style="padding:5px 8px;background:rgba(251,191,36,0.2);border:1px solid rgba(255,255,255,0.2);color:#fbbf24;text-align:left;font-size:13px">Column I</th>'
+          +'<th style="padding:5px 8px;background:rgba(251,191,36,0.2);border:1px solid rgba(255,255,255,0.2);color:#fbbf24;text-align:left;font-size:13px">Column II</th>'
+          +'</tr></thead><tbody>'+rows+'</tbody></table>'
+          +(outro?'<div style="margin-top:8px;color:#e2e8f0">'+outro+'</div>':'');
+      }
+    } catch(e) { console.log('table err',e); }
   }
 
   // ── Assertion / Reason ──
