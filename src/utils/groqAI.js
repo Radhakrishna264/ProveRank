@@ -70,7 +70,7 @@ async function tryCerebras(prompt) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
     body: JSON.stringify({
-      model: 'llama3.1-70b', max_tokens: 4000, temperature: 0.7,
+      model: 'llama-3.3-70b', max_tokens: 4000, temperature: 0.7,
       messages: [
         { role: 'system', content: 'You are a strict question formatter. Follow the specified FORMAT exactly.' },
         { role: 'user', content: prompt }
@@ -173,6 +173,7 @@ async function tryCohere(prompt) {
 
 // Layer 7: Mistral
 async function tryMistral(prompt) {
+  // Mistral needs explicit JSON-only instruction
   const key = process.env.MISTRAL_API_KEY;
   if (!key) throw new Error('No MISTRAL_API_KEY');
   const res = await withTimeout(fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -248,9 +249,9 @@ const callGroqAI = async (prompt) => {
     { name: 'L7-Mistral',             fn: () => tryMistral(prompt) },
     { name: 'L8-Cloudflare',          fn: () => tryCloudflare(prompt) },
     { name: 'L9-Novita',              fn: () => tryNovita(prompt) },
-    { name: 'L10-Groq-gemma2',        fn: () => tryGroq(prompt, 'gemma2-9b-it') },
-    { name: 'L10-Groq-mixtral',       fn: () => tryGroq(prompt, 'mixtral-8x7b-32768') },
-    { name: 'L10-Groq-llama-8b',      fn: () => tryGroq(prompt, 'llama-3.1-8b-instant') },
+    { name: 'L10-Groq-llama70b',       fn: () => tryGroq(prompt, 'llama-3.1-70b-versatile') },
+    { name: 'L10-Groq-llama3-70b',     fn: () => tryGroq(prompt, 'llama3-70b-8192') },
+    { name: 'L10-Groq-llama90b',       fn: () => tryGroq(prompt, 'llama-3.2-90b-text-preview') },
   ];
 
   for (const layer of layers) {
