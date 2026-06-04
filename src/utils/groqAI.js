@@ -116,7 +116,7 @@ async function tryFireworks(prompt) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
     body: JSON.stringify({
-      model: 'accounts/fireworks/models/llama-v3p1-70b-instruct',
+      model: 'accounts/fireworks/models/deepseek-v4-pro',
       max_tokens: 4000, temperature: 0.7,
       messages: [
         { role: 'system', content: 'You are a strict question formatter. Follow the specified FORMAT exactly.' },
@@ -158,7 +158,7 @@ async function tryCohere(prompt) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
     body: JSON.stringify({
-      model: 'command-r-08-2024',
+      model: 'c4ai-aya-expanse-32b',
       max_tokens: 3000, temperature: 0.7,
       messages: [{ role: 'user', content: prompt }]
     })
