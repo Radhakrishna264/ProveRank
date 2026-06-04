@@ -56,7 +56,7 @@ function formatQText(text) {
   t = t.split(nl).join('<br>');
 
   // Auto-convert math notation
-  var supMap = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻','+'：'⁺'};
+  var supMap = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻','+':'⁺'};
   // Convert 10^-11 style → 10⁻¹¹
   t = t.replace(/\^(-?\d+)/g, function(m, exp) {
     return exp.split('').map(function(c){ return supMap[c]||c; }).join('');
