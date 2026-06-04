@@ -487,7 +487,17 @@ These FORMAT rules apply to EVERY SINGLE question in this batch. No exceptions.
 8. MSQ: correct array must have 2-3 indices — NEVER 1 or 4
 9. Integer: options = [], correct = [integer_answer]
 10. Match Column: all 8 items (4+4) must be specific, not generic
-10.5. EXPLANATION LIMIT: Maximum 80 words per explanation. Be concise and precise. State: correct answer reason + why 1-2 wrong options are wrong. No repetition.
+10.5. EXPLANATION FORMAT RULES (follow based on question type):
+- NUMERICAL: Show complete step-by-step solution. Formula used → values substituted → each calculation step → final answer with units. Show all math. Example: "KE = (1/2)mv² = (1/2)(10)(20²) = (1/2)(10)(400) = 2000 J. Option A is correct."
+- ASSERTION-REASON: State whether A is True/False and WHY (give scientific reason). State whether R is True/False and WHY. Explain whether R correctly explains A or not and WHY. Cover all 4 parts clearly.
+- TRUE/FALSE: For each numbered statement, clearly state T or F with a one-line scientific reason why.
+- STATEMENT-BASED: For each statement, state correct/incorrect with reason. Then explain which combination is correct.
+- MATCH COLUMN: For each Column I item (A,B,C,D), explain WHY it matches the Column II item (P,Q,R,S).
+- PASSAGE/GRAPH/DATA: Show calculation or reasoning from the given data. Reference specific values from the passage.
+- FILL IN BLANK: State the correct word/value and explain the concept behind it.
+- SEQUENCE: Explain the correct order with reason for each step's position.
+- GENERAL SCQ: State correct answer + concept/formula used + why other options are wrong (briefly).
+No word limit — write as much as needed to fully explain. No repetition of question text.
 11. Each question must stand alone — no references to "the above" without context
 
 ═══════════════ MANDATORY JSON RESPONSE FORMAT ═══════════════
@@ -505,7 +515,7 @@ Return ONLY a valid JSON array. NO markdown. NO explanation. NO text before or a
     "subject": "${subject}",
     "chapter": "${chapter}",
     "topic": "${topic}",
-    "explanation": "Correct answer explanation. Name the concept. Give formula if applicable. Explain why each wrong option is wrong. Reference NCERT chapter/concept.",
+    "explanation": "FORMAT-SPECIFIC EXPLANATION: For Numerical→show full step-by-step calculation with formula+substitution+steps+answer. For Assertion-Reason→explain A true/false why, R true/false why, R explains A why/why not. For True-False→each statement T/F with reason. For Match Column→each pair match reason. For others→complete concept explanation with formula and reasoning.",
     "format": "actual_format_name_used",
     "examLevel": "${lvl}",
     "imageUrl": "${img}"
