@@ -3052,8 +3052,7 @@ return(
                       </div>)}
                       {(q.chapter||q.topic||q.explanation)&&(<div style={{fontSize:11,color:'#64748B',marginBottom:10,lineHeight:1.6}}>
                         {q.chapter&&<div>📖 {q.chapter}{q.topic?' › '+q.topic:''}</div>}
-                        {q.explanation&&<div style={{color:'#94A3B8',marginTop:4,whiteSpace:'pre-wrap'}} dangerouslySetInnerHTML={{__html:'💡 '+(q.explanation||'').replace(/\\n/g,'<br>').replace(/
-/g,'<br>').replace(/Step /g,'<br>Step ').replace(/Formula:/g,'<br>Formula:').replace(/Given:/g,'<br>Given:').replace(/Answer:/g,'<br><b>Answer:</b>').replace(/Assertion (A):/g,'<br><b style="color:#7dd3fc">Assertion (A):</b>').replace(/Reason (R):/g,'<br><b style="color:#86efac">Reason (R):</b>').replace(/Statement d:/g,(m)=>'<br><b>'+m+'</b>').replace(/^<br>/,'')}}/>}
+                        {q.explanation&&<div style={{color:'#94A3B8',marginTop:4}} dangerouslySetInnerHTML={{__html:'💡 '+formatQText(q.explanation||'')}}/>}
                       </div>)}
                       <div style={{display:'flex',gap:7}}>
                         <button onClick={function(){if(qi>0)setSelQId((questions||[])[qi-1]._id)}} disabled={qi===0} style={{...bg_,flex:1,opacity:qi===0?0.35:1,fontSize:11}}>← Prev</button>
