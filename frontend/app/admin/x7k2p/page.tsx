@@ -3,6 +3,31 @@ import AdminWelcomeBanner from './AdminWelcomeBanner';
 import AdminProfilePage from './AdminProfilePage';
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import katex from 'katex'
+
+function formatQText(text) {
+  if (!text) return text;
+  var t = text;
+  // newlines
+  t = t.replace(/\\n/g, '<br>').replace(/
+/g, '<br>');
+  // Assertion / Reason
+  t = t.replace(/Assertions*(A)s*:/gi, '<br><b style="color:#7dd3fc">Assertion (A):</b>');
+  t = t.replace(/Reasons*(R)s*:/gi, '<br><b style="color:#86efac">Reason (R):</b>');
+  // Column I / Column II
+  t = t.replace(/Columns*II/gi, '<br><b style="color:#fbbf24">Column II</b>');
+  t = t.replace(/Columns*I/gi, '<br><b style="color:#fbbf24">Column I</b>');
+  // Match column items A. B. C. / P. Q. R. S.
+  t = t.replace(/([A-D]).s+/g, '<br>&nbsp;&nbsp;$1. ');
+  t = t.replace(/([P-S]).s+/g, '<br>&nbsp;&nbsp;$1. ');
+  // Numbered statements 1. 2. 3. 4.
+  t = t.replace(/(s|^)(d+).s+/g, '<br>$2. ');
+  // Statement I/II
+  t = t.replace(/Statements*(I{1,3}|d)s*:/gi, '<br><b style="color:#c4b5fd">Statement $1:</b>');
+  // remove leading br
+  t = t.replace(/^(<brs*/?>s*)+/i, '');
+  return t;
+}
+
 function renderLatex(t){if(!t)return '';let h=t.replace(/\$\$([^$]+)\$\$/g,function(_,m){try{return katex.renderToString(m,{displayMode:true,throwOnError:false})}catch(e){return m}});h=h.replace(/\$([^$\n]+)\$/g,function(_,m){try{return katex.renderToString(m,{displayMode:false,throwOnError:false})}catch(e){return m}});return h;}
 import { useRouter } from 'next/navigation'
 import { getToken, getRole, clearAuth } from '@/lib/auth'
@@ -2976,7 +3001,7 @@ return(
                         </div>
                         <button onClick={function(){setSelQId(null)}} style={{...bg_,padding:'3px 8px',fontSize:11}}>✕</button>
                       </div>
-                      <div style={{fontSize:13,color:'#E2E8F0',lineHeight:1.7,marginBottom:10,padding:'11px 13px',background:'rgba(255,255,255,0.03)',borderRadius:10,border:'1px solid rgba(255,255,255,0.06)'}} dangerouslySetInnerHTML={{__html:renderLatex(q.text||'')}}/>
+                      <div style={{fontSize:13,color:'#E2E8F0',lineHeight:1.7,marginBottom:10,padding:'11px 13px',background:'rgba(255,255,255,0.03)',borderRadius:10,border:'1px solid rgba(255,255,255,0.06)'}} dangerouslySetInnerHTML={{__html:renderLatex(formatQText(q.text||''))}}/>
                       {q.hindiText&&<div style={{fontSize:11,color:'#94A3B8',marginBottom:10,fontStyle:'italic',padding:'6px 11px',background:'rgba(255,255,255,0.02)',borderRadius:8}} dangerouslySetInnerHTML={{__html:renderLatex(q.hindiText||'')}}/>}{q.image&&<div style={{margin:'8px 0',borderRadius:8,background:'rgba(255,255,255,0.03)',padding:6}}><img src={q.image} alt='' onError={function(e){e.currentTarget.style.display='none';var fb=document.getElementById('imgfb_'+q._id);if(fb)fb.style.display='flex'}} style={{width:'100%',maxHeight:'200px',objectFit:'contain',display:'block',borderRadius:6}}/><div id={'imgfb_'+q._id} style={{display:'none',alignItems:'center',gap:6,padding:'4px 0'}}><span style={{fontSize:10,color:'#94A3B8'}}>🖼️ Image URL:</span><a href={q.image} target='_blank' style={{fontSize:10,color:'#60A5FA',wordBreak:'break-all'}}>{q.image.length>50?q.image.substring(0,50)+'...':q.image}</a></div></div>}
                       {(q.options||[]).length>0&&(<div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:10}}>
                         {(q.options||[]).map(function(opt,oi){
