@@ -9,19 +9,55 @@ function formatQText(text) {
   var t = text;
   var nl = String.fromCharCode(10);
   var bs = String.fromCharCode(92);
-  t = t.split(bs+bs+"n").join("<br>");
-  t = t.split(nl).join("<br>");
-  t = t.replace(/Assertion\s*\(A\)\s*:/gi, "<br><b style=\"color:#7dd3fc\">Assertion (A):</b>");
-  t = t.replace(/Reason\s*\(R\)\s*:/gi, "<br><b style=\"color:#86efac\">Reason (R):</b>");
-  t = t.replace(/Column\s*II\b/gi, "<br><b style=\"color:#fbbf24\">Column II</b>");
-  t = t.replace(/Column\s*I\b/gi, "<br><b style=\"color:#fbbf24\">Column I</b>");
-  t = t.replace(/\b([A-D])\.\s+/g, "<br>&nbsp;&nbsp;$1. ");
-  t = t.replace(/\b([P-S])\.\s+/g, "<br>&nbsp;&nbsp;$1. ");
-  t = t.replace(/(\d+)\.\s+/g, "<br>$1. ");
-  t = t.replace(/Statement\s*(I{1,3}|\d)\s*:/gi, "<br><b style=\"color:#c4b5fd\">Statement $1:</b>");
-  t = t.replace(/^(<br>\s*)+/i, "");
+  t = t.split(bs+bs+"n").join(nl).split(bs+"n").join(nl);
+
+  // ── Match Column: build HTML table ──
+  if (/Column[\s-]?I/i.test(t)) {
+    try {
+      var col1Items = [], col2Items = [];
+      var lines = t.split(nl);
+      var inCol1 = false, inCol2 = false;
+      var prefix = '';
+      lines.forEach(function(line) {
+        var l = line.trim();
+        if (/Column[\s-]?II/i.test(l)) { inCol1=false; inCol2=true; return; }
+        if (/Column[\s-]?I(?!I)/i.test(l)) { inCol1=true; inCol2=false; return; }
+        if (!inCol1 && !inCol2 && col1Items.length===0) { prefix += l + ' '; return; }
+        if (inCol1 && /^[A-D][.)]/i.test(l)) col1Items.push(l);
+        if (inCol2 && /^[P-S][.)]/i.test(l)) col2Items.push(l);
+      });
+      if (col1Items.length > 0 && col2Items.length > 0) {
+        var rows = '';
+        var max = Math.max(col1Items.length, col2Items.length);
+        for(var i=0;i<max;i++){
+          rows += '<tr>'
+            +'<td style="padding:3px 6px;border:1px solid rgba(255,255,255,0.15);color:#e2e8f0">'+(col1Items[i]||'')+'</td>'
+            +'<td style="padding:3px 6px;border:1px solid rgba(255,255,255,0.15);color:#e2e8f0">'+(col2Items[i]||'')+'</td>'
+            +'</tr>';
+        }
+        return (prefix?'<div style="margin-bottom:6px">'+prefix+'</div>':'')
+          +'<table style="width:100%;border-collapse:collapse;margin:8px 0;font-size:13px">'
+          +'<thead><tr>'
+          +'<th style="padding:4px 6px;background:rgba(251,191,36,0.15);border:1px solid rgba(255,255,255,0.2);color:#fbbf24;text-align:left">Column I</th>'
+          +'<th style="padding:4px 6px;background:rgba(251,191,36,0.15);border:1px solid rgba(255,255,255,0.2);color:#fbbf24;text-align:left">Column II</th>'
+          +'</tr></thead><tbody>'+rows+'</tbody></table>';
+      }
+    } catch(e) {}
+  }
+
+  // ── Assertion / Reason ──
+  t = t.split(nl).join('<br>');
+  t = t.replace(/Assertion\s*\(A\)\s*:/gi, '<br><b style="color:#7dd3fc">Assertion (A):</b>');
+  t = t.replace(/Reason\s*\(R\)\s*:/gi,    '<br><b style="color:#86efac">Reason (R):</b>');
+
+  // ── Numbered statements ──
+  t = t.replace(/Statement\s*(I{1,3}|\d)\s*:/gi, '<br><b style="color:#c4b5fd">Statement $1:</b>');
+  t = t.replace(/(\d+)\.\s+/g, '<br>$1. ');
+
+  t = t.replace(/^(<br>\s*)+/i, '');
   return t;
 }
+
 
 function renderLatex(t){if(!t)return '';let h=t.replace(/\$\$([^$]+)\$\$/g,function(_,m){try{return katex.renderToString(m,{displayMode:true,throwOnError:false})}catch(e){return m}});h=h.replace(/\$([^$\n]+)\$/g,function(_,m){try{return katex.renderToString(m,{displayMode:false,throwOnError:false})}catch(e){return m}});return h;}
 import { useRouter } from 'next/navigation'
