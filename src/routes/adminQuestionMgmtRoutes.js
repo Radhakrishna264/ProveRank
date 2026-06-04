@@ -18,7 +18,7 @@ router.get('/questions', verifyToken, isSuperAdmin, async (req, res) => {
     ];
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const questions = await Question.find(filter)
-      .sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit));
+      .sort({ createdAt: 1 }).skip(skip).limit(parseInt(limit));
     const total = await Question.countDocuments(filter);
     res.json({ success: true, total, page: parseInt(page), totalPages: Math.ceil(total / parseInt(limit)), questions });
   } catch (err) {
@@ -165,7 +165,7 @@ router.get('/question-errors', verifyToken, isSuperAdmin, async (req, res) => {
     const errors = await QuestionError.find(filter)
       .populate('questionId', 'questionText subject')
       .populate('reportedBy', 'name email')
-      .sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit));
+      .sort({ createdAt: 1 }).skip(skip).limit(parseInt(limit));
     const total = await QuestionError.countDocuments(filter);
     res.json({ success: true, total, errors });
   } catch (err) {
@@ -306,7 +306,7 @@ router.get('/doubts', verifyToken, isSuperAdmin, async (req, res) => {
     const doubts = await Doubt.find(filter)
       .populate('studentId', 'name email')
       .populate('questionId', 'questionText subject')
-      .sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit));
+      .sort({ createdAt: 1 }).skip(skip).limit(parseInt(limit));
     const total = await Doubt.countDocuments(filter);
     res.json({ success: true, total, doubts });
   } catch (err) {
