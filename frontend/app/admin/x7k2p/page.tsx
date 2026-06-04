@@ -2771,7 +2771,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 <b>{L}.</b> <span dangerouslySetInnerHTML={{__html:renderLatex(opt)}}/>{isAns&&<span style={{marginLeft:6,fontSize:10}}>✓</span>}
 </div>
 })}
-{(q.explanation||q.exp)&&<div style={{fontSize:11,color:'#fcd34d',marginTop:6,padding:'4px 8px',background:'rgba(252,211,77,0.07)',borderRadius:6}}>💡 <span dangerouslySetInnerHTML={{__html:renderLatex(q.explanation||q.exp||'')}}/></div>}
+{(q.explanation||q.exp)&&<div style={{fontSize:11,color:'#fcd34d',marginTop:6,padding:'4px 8px',background:'rgba(252,211,77,0.07)',borderRadius:6}}>💡 <span dangerouslySetInnerHTML={{__html:renderLatex(formatQText(q.explanation||q.exp||''))}}/></div>}
 </div>
 ))}
 </div>
