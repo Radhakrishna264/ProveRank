@@ -7,53 +7,48 @@ import katex from 'katex'
 function formatQText(text) {
   if (!text) return text;
   var t = text;
-  var nl = String.fromCharCode(10);
-  var bs = String.fromCharCode(92);
-  t = t.split(bs+bs+"n").join(nl).split(bs+"n").join(nl);
 
-  // ── Match Column: build HTML table ──
-  if (/Column[\s-]?I/i.test(t)) {
-    try {
-      var col1Items = [], col2Items = [];
-      var lines = t.split(nl);
-      var inCol1 = false, inCol2 = false;
-      var prefix = '';
-      lines.forEach(function(line) {
-        var l = line.trim();
-        if (/Column[\s-]?II/i.test(l)) { inCol1=false; inCol2=true; return; }
-        if (/Column[\s-]?I(?!I)/i.test(l)) { inCol1=true; inCol2=false; return; }
-        if (!inCol1 && !inCol2 && col1Items.length===0) { prefix += l + ' '; return; }
-        if (inCol1 && /^[A-D][.)]/i.test(l)) col1Items.push(l);
-        if (inCol2 && /^[P-S][.)]/i.test(l)) col2Items.push(l);
-      });
-      if (col1Items.length > 0 && col2Items.length > 0) {
-        var rows = '';
-        var max = Math.max(col1Items.length, col2Items.length);
-        for(var i=0;i<max;i++){
-          rows += '<tr>'
-            +'<td style="padding:3px 6px;border:1px solid rgba(255,255,255,0.15);color:#e2e8f0">'+(col1Items[i]||'')+'</td>'
-            +'<td style="padding:3px 6px;border:1px solid rgba(255,255,255,0.15);color:#e2e8f0">'+(col2Items[i]||'')+'</td>'
-            +'</tr>';
-        }
-        return (prefix?'<div style="margin-bottom:6px">'+prefix+'</div>':'')
-          +'<table style="width:100%;border-collapse:collapse;margin:8px 0;font-size:13px">'
-          +'<thead><tr>'
-          +'<th style="padding:4px 6px;background:rgba(251,191,36,0.15);border:1px solid rgba(255,255,255,0.2);color:#fbbf24;text-align:left">Column I</th>'
-          +'<th style="padding:4px 6px;background:rgba(251,191,36,0.15);border:1px solid rgba(255,255,255,0.2);color:#fbbf24;text-align:left">Column II</th>'
-          +'</tr></thead><tbody>'+rows+'</tbody></table>';
-      }
-    } catch(e) {}
+  // ── Match Column: parse comma-separated inline format ──
+  var colMatch = t.match(/^(.*?)(Column[\s\-]?I(?!I)[:\s])(.*?)(Column[\s\-]?II[:\s])(.*?)(Which of the following.*)/is);
+  if (colMatch) {
+    var intro   = (colMatch[1]||'').trim();
+    var col1raw = (colMatch[3]||'').trim();
+    var col2raw = (colMatch[5]||'').trim();
+    var outro   = (colMatch[6]||'').trim();
+
+    // Split items by pattern like "A. " "B. " etc
+    var c1items = col1raw.split(/(?=[A-D]\.\s)/g).filter(function(x){return x.trim();});
+    var c2items = col2raw.split(/(?=[P-S]\.\s)/g).filter(function(x){return x.trim();});
+
+    // Clean trailing commas/dots
+    c1items = c1items.map(function(x){return x.replace(/,\s*$/,'').trim();});
+    c2items = c2items.map(function(x){return x.replace(/,\s*$/,'').trim();});
+
+    var rows = '';
+    var max = Math.max(c1items.length, c2items.length);
+    for(var i=0;i<max;i++){
+      rows += '<tr>'
+        +'<td style="padding:4px 8px;border:1px solid rgba(255,255,255,0.15);color:#e2e8f0;font-size:13px">'+(c1items[i]||'')+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid rgba(255,255,255,0.15);color:#e2e8f0;font-size:13px">'+(c2items[i]||'')+'</td>'
+        +'</tr>';
+    }
+
+    return '<div style="margin-bottom:8px;color:#e2e8f0">'+intro+'</div>'
+      +'<table style="width:100%;border-collapse:collapse;margin:6px 0">'
+      +'<thead><tr>'
+      +'<th style="padding:5px 8px;background:rgba(251,191,36,0.2);border:1px solid rgba(255,255,255,0.2);color:#fbbf24;text-align:left;font-size:13px">Column I</th>'
+      +'<th style="padding:5px 8px;background:rgba(251,191,36,0.2);border:1px solid rgba(255,255,255,0.2);color:#fbbf24;text-align:left;font-size:13px">Column II</th>'
+      +'</tr></thead><tbody>'+rows+'</tbody></table>'
+      +'<div style="margin-top:8px;color:#e2e8f0">'+outro+'</div>';
   }
 
   // ── Assertion / Reason ──
+  var nl = String.fromCharCode(10);
   t = t.split(nl).join('<br>');
   t = t.replace(/Assertion\s*\(A\)\s*:/gi, '<br><b style="color:#7dd3fc">Assertion (A):</b>');
   t = t.replace(/Reason\s*\(R\)\s*:/gi,    '<br><b style="color:#86efac">Reason (R):</b>');
-
-  // ── Numbered statements ──
   t = t.replace(/Statement\s*(I{1,3}|\d)\s*:/gi, '<br><b style="color:#c4b5fd">Statement $1:</b>');
-  t = t.replace(/(\d+)\.\s+/g, '<br>$1. ');
-
+  t = t.replace(/(\d+)\.\s/g, '<br>$1. ');
   t = t.replace(/^(<br>\s*)+/i, '');
   return t;
 }
