@@ -158,7 +158,7 @@ async function tryCohere(prompt) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
     body: JSON.stringify({
-      model: 'command-r',
+      model: 'command-r-08-2024',
       max_tokens: 3000, temperature: 0.7,
       messages: [{ role: 'user', content: prompt }]
     })
@@ -525,10 +525,13 @@ Return ONLY a valid JSON array. NO markdown. NO explanation. NO text before or a
 Generate all ${n} questions now. Maximum scientific accuracy. Zero compromise on quality.
 
 ━━━ MATH NOTATION RULES:
-- Use Unicode: alpha beta gamma omega tau sigma delta pi
-- Powers: v^2, r^2
-- Fractions: a/b (P/Q = R/S)
-- NO backslash commands of any kind
+- Powers/Superscripts: use Unicode superscripts — m² not m^2, r² not r^2, 10⁻¹¹ not 10^-11, 10²⁴ not 10^24
+- For negative powers: 10⁻¹¹ 10⁻³ 10⁻⁶ 10⁻⁹ (use ⁻ Unicode)
+- Multiplication: use × not * (e.g. 5 × 10⁻¹¹ not 5*10^-11)
+- Fractions: a/b format (P/Q = R/S)
+- Greek letters: α β γ ω τ σ δ π θ μ
+- Units: m² kg⁻² N·m² m/s² rad/s²
+- NO ^ symbol, NO * for multiplication, NO backslash commands
 
 `;
 };

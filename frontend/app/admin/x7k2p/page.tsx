@@ -54,6 +54,19 @@ function formatQText(text) {
   t = t.split('\\n').join('<br>');
   t = t.split('\n').join('<br>');
   t = t.split(nl).join('<br>');
+
+  // Auto-convert math notation
+  var supMap = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻','+'：'⁺'};
+  // Convert 10^-11 style → 10⁻¹¹
+  t = t.replace(/\^(-?\d+)/g, function(m, exp) {
+    return exp.split('').map(function(c){ return supMap[c]||c; }).join('');
+  });
+  // Convert m^2 kg^2 style (letter^number)
+  t = t.replace(/([a-zA-Z])\^(\d+)/g, function(m, base, exp) {
+    return base + exp.split('').map(function(c){ return supMap[c]||c; }).join('');
+  });
+  // * to × (multiplication) but not in CSS/HTML
+  t = t.replace(/(\d)\s*\*\s*(\d)/g, '$1 × $2');
   t = t.replace(/Assertion\s*\(A\)\s*:/gi, '<br><b style="color:#7dd3fc">Assertion (A):</b>');
   t = t.replace(/Reason\s*\(R\)\s*:/gi,    '<br><b style="color:#86efac">Reason (R):</b>');
   t = t.replace(/Statement\s*(I{1,3}|\d)\s*:/gi, '<br><b style="color:#c4b5fd">Statement $1:</b>');
