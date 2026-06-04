@@ -70,7 +70,7 @@ async function tryCerebras(prompt) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
     body: JSON.stringify({
-      model: 'llama3.3-70b', max_tokens: 4000, temperature: 0.7,
+      model: 'llama3.1-70b', max_tokens: 4000, temperature: 0.7,
       messages: [
         { role: 'system', content: 'You are a strict question formatter. Follow the specified FORMAT exactly.' },
         { role: 'user', content: prompt }
