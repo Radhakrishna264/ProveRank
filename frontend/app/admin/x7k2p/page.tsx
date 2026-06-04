@@ -7,24 +7,19 @@ import katex from 'katex'
 function formatQText(text) {
   if (!text) return text;
   var t = text;
-  // newlines
-  t = t.replace(/\\n/g, '<br>').replace(/
-/g, '<br>');
-  // Assertion / Reason
-  t = t.replace(/Assertions*(A)s*:/gi, '<br><b style="color:#7dd3fc">Assertion (A):</b>');
-  t = t.replace(/Reasons*(R)s*:/gi, '<br><b style="color:#86efac">Reason (R):</b>');
-  // Column I / Column II
-  t = t.replace(/Columns*II/gi, '<br><b style="color:#fbbf24">Column II</b>');
-  t = t.replace(/Columns*I/gi, '<br><b style="color:#fbbf24">Column I</b>');
-  // Match column items A. B. C. / P. Q. R. S.
-  t = t.replace(/([A-D]).s+/g, '<br>&nbsp;&nbsp;$1. ');
-  t = t.replace(/([P-S]).s+/g, '<br>&nbsp;&nbsp;$1. ');
-  // Numbered statements 1. 2. 3. 4.
-  t = t.replace(/(s|^)(d+).s+/g, '<br>$2. ');
-  // Statement I/II
-  t = t.replace(/Statements*(I{1,3}|d)s*:/gi, '<br><b style="color:#c4b5fd">Statement $1:</b>');
-  // remove leading br
-  t = t.replace(/^(<brs*/?>s*)+/i, '');
+  var nl = String.fromCharCode(10);
+  var bs = String.fromCharCode(92);
+  t = t.split(bs+bs+"n").join("<br>");
+  t = t.split(nl).join("<br>");
+  t = t.replace(/Assertion\s*\(A\)\s*:/gi, "<br><b style=\"color:#7dd3fc\">Assertion (A):</b>");
+  t = t.replace(/Reason\s*\(R\)\s*:/gi, "<br><b style=\"color:#86efac\">Reason (R):</b>");
+  t = t.replace(/Column\s*II\b/gi, "<br><b style=\"color:#fbbf24\">Column II</b>");
+  t = t.replace(/Column\s*I\b/gi, "<br><b style=\"color:#fbbf24\">Column I</b>");
+  t = t.replace(/\b([A-D])\.\s+/g, "<br>&nbsp;&nbsp;$1. ");
+  t = t.replace(/\b([P-S])\.\s+/g, "<br>&nbsp;&nbsp;$1. ");
+  t = t.replace(/(\d+)\.\s+/g, "<br>$1. ");
+  t = t.replace(/Statement\s*(I{1,3}|\d)\s*:/gi, "<br><b style=\"color:#c4b5fd\">Statement $1:</b>");
+  t = t.replace(/^(<br>\s*)+/i, "");
   return t;
 }
 
