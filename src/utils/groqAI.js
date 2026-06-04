@@ -488,16 +488,16 @@ These FORMAT rules apply to EVERY SINGLE question in this batch. No exceptions.
 9. Integer: options = [], correct = [integer_answer]
 10. Match Column: all 8 items (4+4) must be specific, not generic
 10.5. EXPLANATION FORMAT RULES (follow based on question type):
-- NUMERICAL: Show complete step-by-step solution. Formula used → values substituted → each calculation step → final answer with units. Show all math. Example: "KE = (1/2)mv² = (1/2)(10)(20²) = (1/2)(10)(400) = 2000 J. Option A is correct."
-- ASSERTION-REASON: State whether A is True/False and WHY (give scientific reason). State whether R is True/False and WHY. Explain whether R correctly explains A or not and WHY. Cover all 4 parts clearly.
-- TRUE/FALSE: For each numbered statement, clearly state T or F with a one-line scientific reason why.
+- NUMERICAL: Show complete step-by-step solution on SEPARATE LINES using \n between each step. Format: "Given: [values]\nFormula: [formula]\nStep 1: [substitution]\nStep 2: [calculation]\nStep 3: [result]\nAnswer: [final answer with units]. Option X is correct."
+- ASSERTION-REASON: Use \n between each part. Format: "Assertion (A): [True/False] — [reason why]\nReason (R): [True/False] — [reason why]\nR explains A: [Yes/No] — [why R is/isn't the correct explanation]\nCorrect option: [A/B/C/D]"
+- TRUE/FALSE: Use \n between each statement. Format: "Statement 1: [T/F] — [reason]\nStatement 2: [T/F] — [reason]\nStatement 3: [T/F] — [reason]\nStatement 4: [T/F] — [reason]\nCorrect order: [T,F,T,F etc]. Option X is correct."
 - STATEMENT-BASED: For each statement, state correct/incorrect with reason. Then explain which combination is correct.
-- MATCH COLUMN: For each Column I item (A,B,C,D), explain WHY it matches the Column II item (P,Q,R,S).
+- MATCH COLUMN: Use \n between each pair. Format: "A → P: [reason]\nB → Q: [reason]\nC → R: [reason]\nD → S: [reason]\nCorrect matching: [A-P, B-Q, C-R, D-S]. Option X is correct."
 - PASSAGE/GRAPH/DATA: Show calculation or reasoning from the given data. Reference specific values from the passage.
 - FILL IN BLANK: State the correct word/value and explain the concept behind it.
 - SEQUENCE: Explain the correct order with reason for each step's position.
 - GENERAL SCQ: State correct answer + concept/formula used + why other options are wrong (briefly).
-No word limit — write as much as needed to fully explain. No repetition of question text.
+No word limit — write as much as needed to fully explain. No repetition of question text. ALWAYS use \n to separate each step, part, or statement — never write everything in one paragraph.
 11. Each question must stand alone — no references to "the above" without context
 
 ═══════════════ MANDATORY JSON RESPONSE FORMAT ═══════════════

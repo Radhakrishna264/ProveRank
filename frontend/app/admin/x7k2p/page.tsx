@@ -3049,7 +3049,7 @@ return(
                       </div>)}
                       {(q.chapter||q.topic||q.explanation)&&(<div style={{fontSize:11,color:'#64748B',marginBottom:10,lineHeight:1.6}}>
                         {q.chapter&&<div>📖 {q.chapter}{q.topic?' › '+q.topic:''}</div>}
-                        {q.explanation&&<div style={{color:'#94A3B8',marginTop:4}} dangerouslySetInnerHTML={{__html:'💡 '+renderLatex(q.explanation||'')}}/>}
+                        {q.explanation&&<div style={{color:'#94A3B8',marginTop:4}} dangerouslySetInnerHTML={{__html:'💡 '+renderLatex((q.explanation||'').split('\\n').join('<br>').split('\n').join('<br>'))}}/>}
                       </div>)}
                       <div style={{display:'flex',gap:7}}>
                         <button onClick={function(){if(qi>0)setSelQId((questions||[])[qi-1]._id)}} disabled={qi===0} style={{...bg_,flex:1,opacity:qi===0?0.35:1,fontSize:11}}>← Prev</button>
