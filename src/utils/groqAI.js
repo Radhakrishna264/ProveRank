@@ -1,99 +1,275 @@
-// ProveRank — Groq AI Question Generator
-// Model: llama-3.3-70b-versatile | Free: 14,400 req/day
 
-const callGroqAI = async (prompt, retries) => {
-  if (retries === undefined) retries = 2;
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error('GROQ_API_KEY not configured');
+// ══════════════════════════════════════════════════════
+// ProveRank — 10-Layer AI Fallback System
+// L1: Groq | L2: Cerebras | L3: OpenRouter | L4: Fireworks
+// L5: HuggingFace | L6: Cohere | L7: Mistral | L8: Cloudflare
+// L9: Novita | L10: Groq Fallback Models
+// ══════════════════════════════════════════════════════
 
-  const controller = new AbortController();
-  const timer = setTimeout(function() { controller.abort(); }, 28000);
+const TIMEOUT_MS = 30000;
 
-  try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + apiKey
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: 'You are a strict question formatter. You MUST generate questions EXACTLY in the format specified in the user prompt. If the format is Assertion_Reason, every question text MUST start with "Assertion (A):" and include "Reason (R):". If True_False, list 4 statements. If Statement_Based, list numbered statements. NEVER generate generic MCQ calculation questions when a specific format is selected. The format instruction overrides everything else.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.85,
-        max_tokens: 4096
-      })
-    });
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
+  ]);
+}
 
-    clearTimeout(timer);
-
-    if (!response.ok) {
-      const errText = await response.text();
-      if ((response.status === 429 || response.status >= 500) && retries > 0) {
-        const wait = response.status === 429 ? 4000 : 2000;
-        console.log('Groq retry after ' + wait + 'ms (status ' + response.status + ')');
-        await new Promise(function(r) { setTimeout(r, wait); });
-        return callGroqAI(prompt, retries - 1);
-      }
-      throw new Error('Groq API Error ' + response.status + ': ' + errText.slice(0, 200));
-    }
-
-    const data = await response.json();
-    const raw = (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ? data.choices[0].message.content : '';
-    if (!raw) throw new Error('Empty response from Groq');
-
-    const arrStart = raw.indexOf('[');
-    const arrEnd = raw.lastIndexOf(']');
-    if (arrStart === -1 || arrEnd === -1) {
-      throw new Error('No JSON array in response. Got: ' + raw.slice(0, 200));
-    }
-    const jsonStr = raw.slice(arrStart, arrEnd + 1);
-
-    try {
-      return JSON.parse(jsonStr);
-    } catch (e1) {
-      // Remove problematic backslash sequences char by char
-      let fixed = '';
-      for (let i = 0; i < jsonStr.length; i++) {
-        const ch = jsonStr[i];
-        const nx = jsonStr[i + 1];
-        if (ch === '\\' && nx !== undefined) {
-          if (nx === '"' || nx === '\\' || nx === '/' || nx === 'b' || nx === 'f' || nx === 'n' || nx === 'r' || nx === 't' || nx === 'u') {
-            fixed += ch;
-          } else {
-            fixed += '\\\\';
-          }
-        } else {
-          fixed += ch;
-        }
-      }
-      try {
-        return JSON.parse(fixed);
-      } catch (e2) {
-        throw new Error('JSON parse failed: ' + e1.message);
-      }
-    }
-
-  } catch (err) {
-    clearTimeout(timer);
-    if (err.name === 'AbortError') {
-      if (retries > 0) {
-        await new Promise(function(r) { setTimeout(r, 2000); });
-        return callGroqAI(prompt, retries - 1);
-      }
-      throw new Error('Request timed out. Please try again.');
-    }
-    if (retries > 0 && err.message &&
-        !err.message.includes('GROQ_API_KEY') &&
-        !err.message.includes('JSON parse failed')) {
-      await new Promise(function(r) { setTimeout(r, 2000); });
-      return callGroqAI(prompt, retries - 1);
-    }
-    throw err;
+// Parse OpenAI-compatible response
+function parseOAIResponse(data) {
+  if (data && data.choices && data.choices[0] && data.choices[0].message) {
+    return data.choices[0].message.content;
   }
+  return null;
+}
+
+// Parse JSON questions from text
+function parseQuestions(text) {
+  if (!text) return null;
+  try {
+    const clean = text.replace(/```json/g,'').replace(/```/g,'').trim();
+    const arr = JSON.parse(clean);
+    if (Array.isArray(arr) && arr.length > 0) return arr;
+  } catch(e) {}
+  try {
+    const match = text.match(/[[sS]*]/);
+    if (match) {
+      const arr = JSON.parse(match[0]);
+      if (Array.isArray(arr) && arr.length > 0) return arr;
+    }
+  } catch(e) {}
+  return null;
+}
+
+// Layer 1: Groq
+async function tryGroq(prompt, model) {
+  const key = process.env.GROQ_API_KEY;
+  if (!key) throw new Error('No GROQ_API_KEY');
+  const m = model || 'llama-3.3-70b-versatile';
+  const res = await withTimeout(fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+    body: JSON.stringify({
+      model: m, max_tokens: 4000, temperature: 0.7,
+      messages: [
+        { role: 'system', content: 'You are a strict question formatter. Follow the specified FORMAT exactly.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  }), TIMEOUT_MS);
+  const data = await res.json();
+  if (!res.ok) throw new Error('Groq ' + res.status + ': ' + (data.error && data.error.message || ''));
+  return parseOAIResponse(data);
+}
+
+// Layer 2: Cerebras
+async function tryCerebras(prompt) {
+  const key = process.env.CEREBRAS_API_KEY;
+  if (!key) throw new Error('No CEREBRAS_API_KEY');
+  const res = await withTimeout(fetch('https://api.cerebras.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b', max_tokens: 4000, temperature: 0.7,
+      messages: [
+        { role: 'system', content: 'You are a strict question formatter. Follow the specified FORMAT exactly.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  }), TIMEOUT_MS);
+  const data = await res.json();
+  if (!res.ok) throw new Error('Cerebras ' + res.status + ': ' + (data.error && data.error.message || ''));
+  return parseOAIResponse(data);
+}
+
+// Layer 3: OpenRouter
+async function tryOpenRouter(prompt) {
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) throw new Error('No OPENROUTER_API_KEY');
+  const res = await withTimeout(fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + key,
+      'HTTP-Referer': 'https://proverank.onrender.com',
+      'X-Title': 'ProveRank'
+    },
+    body: JSON.stringify({
+      model: 'meta-llama/llama-3.3-70b-instruct:free',
+      max_tokens: 4000, temperature: 0.7,
+      messages: [
+        { role: 'system', content: 'You are a strict question formatter. Follow the specified FORMAT exactly.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  }), TIMEOUT_MS);
+  const data = await res.json();
+  if (!res.ok) throw new Error('OpenRouter ' + res.status + ': ' + (data.error && data.error.message || ''));
+  return parseOAIResponse(data);
+}
+
+// Layer 4: Fireworks AI
+async function tryFireworks(prompt) {
+  const key = process.env.FIREWORKS_API_KEY;
+  if (!key) throw new Error('No FIREWORKS_API_KEY');
+  const res = await withTimeout(fetch('https://api.fireworks.ai/inference/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+    body: JSON.stringify({
+      model: 'accounts/fireworks/models/llama-v3p3-70b-instruct',
+      max_tokens: 4000, temperature: 0.7,
+      messages: [
+        { role: 'system', content: 'You are a strict question formatter. Follow the specified FORMAT exactly.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  }), TIMEOUT_MS);
+  const data = await res.json();
+  if (!res.ok) throw new Error('Fireworks ' + res.status + ': ' + (data.error && data.error.message || ''));
+  return parseOAIResponse(data);
+}
+
+// Layer 5: HuggingFace
+async function tryHuggingFace(prompt) {
+  const key = process.env.HF_API_KEY;
+  if (!key) throw new Error('No HF_API_KEY');
+  const res = await withTimeout(fetch('https://api-inference.huggingface.co/models/Qwen/Qwen2.5-72B-Instruct/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+    body: JSON.stringify({
+      model: 'Qwen/Qwen2.5-72B-Instruct',
+      max_tokens: 3000, temperature: 0.7,
+      messages: [
+        { role: 'system', content: 'You are a strict question formatter. Follow the specified FORMAT exactly.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  }), TIMEOUT_MS);
+  const data = await res.json();
+  if (!res.ok) throw new Error('HuggingFace ' + res.status + ': ' + (data.error || ''));
+  return parseOAIResponse(data);
+}
+
+// Layer 6: Cohere
+async function tryCohere(prompt) {
+  const key = process.env.COHERE_API_KEY;
+  if (!key) throw new Error('No COHERE_API_KEY');
+  const res = await withTimeout(fetch('https://api.cohere.com/v2/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+    body: JSON.stringify({
+      model: 'command-r-plus',
+      max_tokens: 3000, temperature: 0.7,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  }), TIMEOUT_MS);
+  const data = await res.json();
+  if (!res.ok) throw new Error('Cohere ' + res.status + ': ' + (data.message || ''));
+  if (data.message && data.message.content && data.message.content[0]) {
+    return data.message.content[0].text;
+  }
+  return null;
+}
+
+// Layer 7: Mistral
+async function tryMistral(prompt) {
+  const key = process.env.MISTRAL_API_KEY;
+  if (!key) throw new Error('No MISTRAL_API_KEY');
+  const res = await withTimeout(fetch('https://api.mistral.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+    body: JSON.stringify({
+      model: 'mistral-small-latest',
+      max_tokens: 3000, temperature: 0.7,
+      messages: [
+        { role: 'system', content: 'You are a strict question formatter. Follow the specified FORMAT exactly.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  }), TIMEOUT_MS);
+  const data = await res.json();
+  if (!res.ok) throw new Error('Mistral ' + res.status + ': ' + (data.message || ''));
+  return parseOAIResponse(data);
+}
+
+// Layer 8: Cloudflare Workers AI
+async function tryCloudflare(prompt) {
+  const key = process.env.CLOUDFLARE_API_KEY;
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  if (!key || !accountId) throw new Error('No CLOUDFLARE keys');
+  const model = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+  const res = await withTimeout(fetch('https://api.cloudflare.com/client/v4/accounts/' + accountId + '/ai/run/' + model, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+    body: JSON.stringify({
+      max_tokens: 3000, temperature: 0.7,
+      messages: [
+        { role: 'system', content: 'You are a strict question formatter. Follow the specified FORMAT exactly.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  }), TIMEOUT_MS);
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error('Cloudflare ' + res.status);
+  if (data.result && data.result.response) return data.result.response;
+  return parseOAIResponse(data.result);
+}
+
+// Layer 9: Novita AI
+async function tryNovita(prompt) {
+  const key = process.env.NOVITA_API_KEY;
+  if (!key) throw new Error('No NOVITA_API_KEY');
+  const res = await withTimeout(fetch('https://api.novita.ai/v3/openai/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+    body: JSON.stringify({
+      model: 'meta-llama/llama-3.3-70b-instruct',
+      max_tokens: 3000, temperature: 0.7,
+      messages: [
+        { role: 'system', content: 'You are a strict question formatter. Follow the specified FORMAT exactly.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  }), TIMEOUT_MS);
+  const data = await res.json();
+  if (!res.ok) throw new Error('Novita ' + res.status + ': ' + (data.error && data.error.message || ''));
+  return parseOAIResponse(data);
+}
+
+// Main callGroqAI with 10-layer fallback
+const callGroqAI = async (prompt) => {
+  const layers = [
+    { name: 'L1-Groq-70B',           fn: () => tryGroq(prompt, 'llama-3.3-70b-versatile') },
+    { name: 'L2-Cerebras-70B',        fn: () => tryCerebras(prompt) },
+    { name: 'L3-OpenRouter',          fn: () => tryOpenRouter(prompt) },
+    { name: 'L4-Fireworks',           fn: () => tryFireworks(prompt) },
+    { name: 'L5-HuggingFace',         fn: () => tryHuggingFace(prompt) },
+    { name: 'L6-Cohere',              fn: () => tryCohere(prompt) },
+    { name: 'L7-Mistral',             fn: () => tryMistral(prompt) },
+    { name: 'L8-Cloudflare',          fn: () => tryCloudflare(prompt) },
+    { name: 'L9-Novita',              fn: () => tryNovita(prompt) },
+    { name: 'L10-Groq-gemma2',        fn: () => tryGroq(prompt, 'gemma2-9b-it') },
+    { name: 'L10-Groq-mixtral',       fn: () => tryGroq(prompt, 'mixtral-8x7b-32768') },
+    { name: 'L10-Groq-llama-8b',      fn: () => tryGroq(prompt, 'llama-3.1-8b-instant') },
+  ];
+
+  for (const layer of layers) {
+    try {
+      console.log('[AI] Trying ' + layer.name + '...');
+      const text = await layer.fn();
+      const questions = parseQuestions(text);
+      if (questions && questions.length > 0) {
+        console.log('[AI] ✅ Success: ' + layer.name + ' — ' + questions.length + ' questions');
+        return questions;
+      }
+      console.log('[AI] ' + layer.name + ' returned no valid questions, trying next...');
+    } catch (err) {
+      console.log('[AI] ' + layer.name + ' failed: ' + err.message);
+    }
+  }
+
+  console.error('[AI] ❌ All 10 layers exhausted');
+  return [];
 };
 
 
