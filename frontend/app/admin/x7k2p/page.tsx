@@ -2864,11 +2864,10 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                     <button onClick={blkDelQs} style={{...bd,fontSize:10,padding:'3px 12px'}}>🗑️ Delete</button>
                     <button onClick={function(){setBulkSel([])}} style={{...bg_,fontSize:10,padding:'3px 10px'}}>✕</button>
                   </div>)}
-                  <div style={{display:'flex',justifyContent:'flex-end',marginBottom:6}}><button onClick={()=>setQSortAsc(p=>!p)} style={{fontSize:11,color:'#4D9FFF',background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.3)',borderRadius:6,padding:'4px 10px',cursor:'pointer',fontWeight:600}}>{qSortAsc?'\u2191 Oldest First':'\u2193 Newest First'}</button></div>
-{fQs.length===0
+                  {fQs.length===0
                     ?<PageHero icon='❓' title='No Questions Found' subtitle={questions.length===0?'Loading questions…':'Try different search or section filter.'}/>
                     :<div style={{display:'flex',flexDirection:'column',gap:5}}>
-                      {[...fQs].sort(function(a,b){return qSortAsc?new Date(a.createdAt)-new Date(b.createdAt):new Date(b.createdAt)-new Date(a.createdAt)}).map(function(q,qi){
+                      {[...fQs].sort(function(a,b){return new Date(a.createdAt)-new Date(b.createdAt)}).map(function(q,qi){
                         const isChk=bulkSel.includes(q._id)
                         const sCol=q.subject==='Physics'?'#60A5FA':q.subject==='Chemistry'?'#F472B6':q.subject==='Biology'?'#34D399':q.subject==='Math'?'#FBBF24':'#94A3B8'
                         const dCol=q.difficulty==='hard'?'#FF4D4D':q.difficulty==='easy'?'#00C864':'#FFB300'
