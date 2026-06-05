@@ -133,7 +133,6 @@ const DEF_FEATURES: Feature[] = [
 // ══════════════════════════════════════════════════════════════
 const SInput = memo(function SInput({init='',onSet,style,ph,type='text',disabled=false}:{init?:string;onSet:(v:string)=>void;style?:any;ph?:string;type?:string;disabled?:boolean}) {
   const [v,setV]=useState(init)
-  const [qSortAsc,setQSortAsc]=useState(true)
   useEffect(()=>{setV(init);onSet(init)},[init])
   return <input type={type} value={v} disabled={disabled} placeholder={ph} style={style} onChange={e=>{const x=e.target.value;setV(x);onSet(x)}} />
 })
@@ -1872,6 +1871,7 @@ const confirmAndAdd=useCallback(async()=>{
     return ok
   })
   const fExams=(exams||[]).filter(e=>!examSearch||e.title?.toLowerCase().includes(examSearch.toLowerCase()))
+  const [qSortAsc,setQSortAsc]=useState(true)
   const fQs=(questions||[]).filter(q=>{
     const mq=!qSearch||q.text?.toLowerCase().includes(qSearch.toLowerCase())||q.subject?.toLowerCase().includes(qSearch.toLowerCase())||q.chapter?.toLowerCase().includes(qSearch.toLowerCase())||q.topic?.toLowerCase().includes(qSearch.toLowerCase())
     const ms=qSubjFilter==='all'||q.subject===qSubjFilter
