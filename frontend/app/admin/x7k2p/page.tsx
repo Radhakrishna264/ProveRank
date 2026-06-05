@@ -595,6 +595,7 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
   const[annMsg,setAnnMsg]=useState('')
   const[renaming,setRenaming]=useState(false)
   const[newName,setNewName]=useState('')
+  const[qPage,setQPage]=useState(1)
   const[assignExamId,setAssignExamId]=useState('')
   const[noteTitle,setNoteTitle]=useState('')
   const[noteDesc,setNoteDesc]=useState('')
@@ -1879,6 +1880,10 @@ const confirmAndAdd=useCallback(async()=>{
     const bio=qSec!=='Biology'||qBioSub==='all'||(q.chapter||'').toLowerCase().includes(qBioSub.toLowerCase())||(q.topic||'').toLowerCase().includes(qBioSub.toLowerCase())
     return mq&&ms&&sec&&bio
   })
+  const _fQsSorted=[...fQs].sort(function(a,b){return new Date(b.createdAt)-new Date(a.createdAt)})
+  const _qTP=Math.ceil(_fQsSorted.length/25)||1
+  const _qPg=Math.min(qPage,_qTP)
+  const pagedQs=_fQsSorted.slice((_qPg-1)*25,_qPg*25)
 
   // ══ NAV ITEMS ══
   const NAV=[
@@ -2867,7 +2872,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                   {fQs.length===0
                     ?<PageHero icon='❓' title='No Questions Found' subtitle={questions.length===0?'Loading questions…':'Try different search or section filter.'}/>
                     :<div style={{display:'flex',flexDirection:'column',gap:5}}>
-                      {[...fQs].sort(function(a,b){return new Date(a.createdAt)-new Date(b.createdAt)}).map(function(q,qi){
+                      {pagedQs.map(function(q,qi){
                         const isChk=bulkSel.includes(q._id)
                         const sCol=q.subject==='Physics'?'#60A5FA':q.subject==='Chemistry'?'#F472B6':q.subject==='Biology'?'#34D399':q.subject==='Math'?'#FBBF24':'#94A3B8'
                         const dCol=q.difficulty==='hard'?'#FF4D4D':q.difficulty==='easy'?'#00C864':'#FFB300'
