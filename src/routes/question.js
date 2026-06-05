@@ -23,7 +23,7 @@ router.get('/', verifyToken, isAdmin, async (req, res) => {
     if (difficulty) filter.difficulty = difficulty;
     if (type) filter.type = type;
     if (search) filter.text = { $regex: search, $options: 'i' };
-    const questions = await Question.find(filter).sort({ createdAt: -1 });
+    const questions = await Question.find(filter).sort({ createdAt: 1 });
     res.json({ success: true, count: questions.length, questions });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
