@@ -595,7 +595,6 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
   const[annMsg,setAnnMsg]=useState('')
   const[renaming,setRenaming]=useState(false)
   const[newName,setNewName]=useState('')
-  const[qPage,setQPage]=useState(1)
   const[assignExamId,setAssignExamId]=useState('')
   const[noteTitle,setNoteTitle]=useState('')
   const[noteDesc,setNoteDesc]=useState('')
