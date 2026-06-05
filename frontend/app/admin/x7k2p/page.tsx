@@ -2055,7 +2055,51 @@ const confirmAndAdd=useCallback(async()=>{
           </button>
 
           <button onClick={fetchAll} title="Refresh" style={{background:'rgba(77,159,255,0.1)',color:ACC,border:`1px solid ${BOR2}`,borderRadius:8,width:32,height:32,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>↻</button>
-          <button onClick={()=>{sessionStorage.removeItem('pr_admin_tab');clearAuth();window.location.href='/login'}} style={{background:'rgba(255,77,77,0.12)',color:DNG,border:'1px solid rgba(255,77,77,0.25)',borderRadius:8,width:32,height:32,cursor:'pointer',fontWeight:700,fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:11,fontWeight:700}}>OUT</button>
+          <button
+  onClick={()=>{sessionStorage.removeItem('pr_admin_tab');clearAuth();window.location.href='/login'}}
+  title="Logout"
+  style={{
+    background:'rgba(255,255,255,0.05)',
+    color:'#94a3b8',
+    border:'1px solid rgba(255,255,255,0.10)',
+    borderRadius:8,
+    height:32,
+    minWidth:32,
+    cursor:'pointer',
+    fontWeight:600,
+    fontSize:13,
+    display:'flex',
+    alignItems:'center',
+    justifyContent:'center',
+    flexShrink:0,
+    gap:6,
+    padding:'0 10px',
+    transition:'all 0.18s ease',
+    whiteSpace:'nowrap',
+    letterSpacing:'0.02em'
+  }}
+  onMouseEnter={e=>{
+    e.currentTarget.style.background='rgba(239,68,68,0.13)';
+    e.currentTarget.style.color='#fca5a5';
+    e.currentTarget.style.borderColor='rgba(239,68,68,0.28)';
+  }}
+  onMouseLeave={e=>{
+    e.currentTarget.style.background='rgba(255,255,255,0.05)';
+    e.currentTarget.style.color='#94a3b8';
+    e.currentTarget.style.borderColor='rgba(255,255,255,0.10)';
+  }}
+>
+  {/* Logout SVG icon */}
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2.2"
+    strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+    <polyline points="16 17 21 12 16 7"/>
+    <line x1="21" y1="12" x2="9" y2="12"/>
+  </svg>
+  {/* Text: visible only on desktop (md and above) */}
+  <span className="hidden md:inline">Logout</span>
+</button>
         </div>
       </div>
 
