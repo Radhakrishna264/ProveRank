@@ -9,13 +9,18 @@ function formatQText(text) {
   var t = text;
 
   // ── Match Column: look for "Column I:" and "Column II:" headers ──
-  if (/Column\s*I+\s*:/i.test(t)) {
+  if (/Column\s*I/i.test(t)) {
     try {
+      // Normalize: add colon after Column I/II headers if missing
+      // Skip intro sentence - only match Column I/II when followed by newline or colon
+      var normalized = t
+        .replace(/Column\s*II\s*(?=[\n\r])/gi, 'Column II:')
+        .replace(/Column\s*I(?!I)\s*(?=[\n\r])/gi, 'Column I:');
       // Split on "Column I:" and "Column II:"
-      var col1Split = t.split(/Column\s*I(?!I)\s*:/i);
+      var col1Split = normalized.split(/Column\s*I(?!I)\s*:/i);
       if (col1Split.length >= 2) {
         var intro = col1Split[0].trim();
-        var afterCol1 = col1Split[1];
+        var afterCol1 = col1Split[1] || '';
         var col2Split = afterCol1.split(/Column\s*II\s*:/i);
         var col1raw = col2Split[0].trim();
         var afterCol2 = col2Split[1] || '';
