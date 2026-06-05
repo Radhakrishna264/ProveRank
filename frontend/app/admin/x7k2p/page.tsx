@@ -95,7 +95,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 // ── TypeScript Interfaces ──
 interface Student { _id:string;name:string;email:string;phone?:string;role:string;createdAt:string;banned?:boolean;banReason?:string;group?:string;integrityScore?:number;loginHistory?:any[];parentEmail?:string;deleted?:boolean;deletedAt?:string;deleteReason?:string;city?:string;school?:string;dob?:string;targetExam?:string;qualifications?:string;_snapshot?:any }
 interface Exam { _id:string;title:string;scheduledAt:string;totalMarks:number;duration:number;status:string;attempts?:number;category?:string;password?:string;batch?:string;subject?:string }
-interface Question { _id:string;text:string;subject:string;chapter?:string;topic?:string;difficulty:string;type:string;options?:string[];correctAnswer?:string;explanation?:string;approvalStatus?:string;image?:string }
+interface Question { _id:string;text:string;subject:string;chapter?:string;topic?:string;difficulty:string;type:string;options?:string[];correctAnswer?:string;explanation?:string;approvalStatus?:string;image?:string;optionImages?:string[] }
 interface Log { _id:string;action:string;by:string;at:string;detail:string }
 interface Flag { _id:string;studentName:string;examTitle:string;type:string;count:number;severity:string;at:string;integrityScore?:number }
 interface Ticket { _id:string;studentName:string;examTitle:string;type:string;status:string;createdAt:string;description:string }
@@ -1495,7 +1495,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
   }
     useEffect(()=>{const t=setInterval(()=>{setQTxtVal(qTxtR.current||'');setOptVals({a:qA.current||'',b:qB.current||'',c:qC.current||'',d:qD.current||''})},800);return ()=>clearInterval(t);},[]);
   useEffect(()=>{const timer=setTimeout(()=>{const d={text:qTxtVal,subj:qSubj,diff:qDiff,type:qType,ans:qAns,hindi:qHindi,chap:qChap,topic:qTopic,exp:qExp,img:qImg,optA:qA.current,optB:qB.current,optC:qC.current,optD:qD.current};if(d.text||d.subj||d.hindi||d.optA){try{localStorage.setItem('pr_q_draft',JSON.stringify(d));setDraftSaved(true);setTimeout(()=>setDraftSaved(false),2000)}catch(ex){}}},2000);return ()=>clearTimeout(timer);},[qTxtVal,qSubj,qDiff,qType,qAns,qHindi,qChap,qTopic,qExp,qImg]);
-  useEffect(()=>{try{const d=JSON.parse(localStorage.getItem('pr_q_draft')||'{}');if(d.text||d.subj||d.hindi||d.optA){if(d.text){qTxtR.current=d.text;setQTxtVal(d.text);setQTxtInit(d.text)}if(d.subj)setQSubj(d.subj);if(d.diff)setQDiff(d.diff);if(d.type)setQType(d.type);if(d.ans)setQAns(d.ans);if(d.hindi){qHindiR.current=d.hindi;setQHindi(d.hindi)}if(d.chap){qChapR.current=d.chap;setQChap(d.chap)}if(d.topic){qTopicR.current=d.topic;setQTopic(d.topic)}if(d.exp){qExpR.current=d.exp;setQExp(d.exp)}if(d.img)setQImg(d.img);if(d.optA||d.optB||d.optC||d.optD){qA.current=d.optA||'';qB.current=d.optB||'';qC.current=d.optC||'';qD.current=d.optD||'';qA.current=d.optA||'';qB.current=d.optB||'';qC.current=d.optC||'';qD.current=d.optD||'';setOptInit({a:d.optA||'',b:d.optB||'',c:d.optC||'',d:d.optD||''});setDraftKey(k=>k+1)}setFormKey(function(k){return k+1});setDraftRestored(true);setTimeout(()=>setDraftRestored(false),3000)}}catch(e){}},[]);
+  useEffect(()=>{try{const d=JSON.parse(localStorage.getItem('pr_q_draft')||'{}');if(d.text||d.subj||d.hindi||d.optA){if(d.text){qTxtR.current=d.text;setQTxtVal(d.text);setQTxtInit(d.text)}if(d.subj)setQSubj(d.subj);if(d.diff)setQDiff(d.diff);if(d.type)setQType(d.type);if(d.ans)setQAns(d.ans);if(d.hindi){qHindiR.current=d.hindi;setQHindi(d.hindi)}if(d.chap){qChapR.current=d.chap;setQChap(d.chap)}if(d.topic){qTopicR.current=d.topic;setQTopic(d.topic)}if(d.exp){qExpR.current=d.exp;setQExp(d.exp)}if(d.img)setQImg(d.img);if(d.optA||d.optB||d.optC||d.optD){qA.current=d.optA||'';qB.current=d.optB||'';qC.current=d.optC||'';qD.current=d.optD||'';qA.current=d.optA||'';qB.current=d.optB||'';qC.current=d.optC||'';qD.current=d.optD||'';setOptInit({a:d.optA||'',b:d.optB||'',c:d.optC||'',d:d.optD||''});setOptImgsInit({a:(d.optionImages&&d.optionImages[0])||'',b:(d.optionImages&&d.optionImages[1])||'',c:(d.optionImages&&d.optionImages[2])||'',d:(d.optionImages&&d.optionImages[3])||''});setDraftKey(k=>k+1)}setFormKey(function(k){return k+1});setDraftRestored(true);setTimeout(()=>setDraftRestored(false),3000)}}catch(e){}},[]);
   const addQ=useCallback(()=>{
 const text=qTxtR.current
 if(!text){T('Question text is required.','e');return}
@@ -1514,6 +1514,7 @@ const confirmAndAdd=useCallback(async()=>{
     difficulty:qDiff||'medium',
     type:qType||'SCQ',
     options:['SCQ','MSQ'].includes(qType)?[qA.current,qB.current,qC.current,qD.current].filter(Boolean):undefined,
+      optionImages:[optImgsInit.a,optImgsInit.b,optImgsInit.c,optImgsInit.d],
     correct:(qType==='Integer'
       ?[parseInt(qAns)||0]
       :qType==='MSQ'
@@ -2721,7 +2722,7 @@ const confirmAndAdd=useCallback(async()=>{
                         qTxtR.current='';qHindiR.current='';qA.current='';qB.current='';qC.current='';qD.current='';
                         qChapR.current='';qTopicR.current='';qExpR.current='';qImageR.current='';
                         setQSubj('');setQDiff('medium');setQType('SCQ');setQAns('');
-                        setFormKey(function(k){return k+1});try{localStorage.removeItem('pr_q_draft')}catch(e){};setQTxtVal('');setQTxtInit('');setLatexPrev(false);setOptInit({a:'',b:'',c:'',d:''});setOptVals({a:'',b:'',c:'',d:''});T('Form cleared')
+                        setFormKey(function(k){return k+1});try{localStorage.removeItem('pr_q_draft')}catch(e){};setQTxtVal('');setQTxtInit('');setLatexPrev(false);setOptInit({a:'',b:'',c:'',d:''});setOptImgsInit({a:'',b:'',c:'',d:''});setOptVals({a:'',b:'',c:'',d:''});T('Form cleared')
                       }} style={{...bg_,padding:'8px 16px'}}>🗑️ Clear</button>
                     </div>
                   </div>
