@@ -30,12 +30,12 @@ function formatQText(text) {
         var outro = outroMatch ? outroMatch[1].trim() : '';
 
         // Parse items: split on A. B. C. / P. Q. R. S.
-        // Split on both A. and A) patterns
-        var c1items = col1raw.split(/(?=[A-D][.)\s])/g).map(function(x){return x.replace(/,\s*$/,'').trim();}).filter(function(x){return x.length>1;});
-        var c2items = col2raw.split(/(?=[P-S][.)\s])/g).map(function(x){return x.replace(/,\s*$/,'').trim();}).filter(function(x){return x.length>1;});
-        // If split didn't work well, try alternate pattern
-        if(c1items.length <= 1) c1items = col1raw.split(/\s+(?=[A-D][.)])/g).map(function(x){return x.trim();}).filter(Boolean);
-        if(c2items.length <= 1) c2items = col2raw.split(/\s+(?=[P-S][.)])/g).map(function(x){return x.trim();}).filter(Boolean);
+        // Split on A. B. C. D. or A) B) C) D) — only at word boundary with space after
+        var c1items = col1raw.split(/(?:^|\s)(?=[A-D][.)][\s])/g).map(function(x){return x.replace(/,\s*$/,'').trim();}).filter(function(x){return x.length>1;});
+        var c2items = col2raw.split(/(?:^|\s)(?=[P-S][.)][\s])/g).map(function(x){return x.replace(/,\s*$/,'').trim();}).filter(function(x){return x.length>1;});
+        // Fallback: original dot-only split
+        if(c1items.length <= 1) c1items = col1raw.split(/(?=[A-D]\.\s)/g).map(function(x){return x.replace(/,\s*$/,'').trim();}).filter(Boolean);
+        if(c2items.length <= 1) c2items = col2raw.split(/(?=[P-S]\.\s)/g).map(function(x){return x.replace(/,\s*$/,'').trim();}).filter(Boolean);
 
         var rows = '';
         var max = Math.max(c1items.length, c2items.length);
