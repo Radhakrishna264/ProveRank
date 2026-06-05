@@ -1871,7 +1871,6 @@ const confirmAndAdd=useCallback(async()=>{
     return ok
   })
   const fExams=(exams||[]).filter(e=>!examSearch||e.title?.toLowerCase().includes(examSearch.toLowerCase()))
-  const [qSortAsc,setQSortAsc]=useState(true)
   const fQs=(questions||[]).filter(q=>{
     const mq=!qSearch||q.text?.toLowerCase().includes(qSearch.toLowerCase())||q.subject?.toLowerCase().includes(qSearch.toLowerCase())||q.chapter?.toLowerCase().includes(qSearch.toLowerCase())||q.topic?.toLowerCase().includes(qSearch.toLowerCase())
     const ms=qSubjFilter==='all'||q.subject===qSubjFilter
