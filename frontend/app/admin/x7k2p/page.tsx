@@ -1041,6 +1041,15 @@ export default function AdminPanel() {
   const [tab,setTab]=useState('dashboard')
   const _setTab=(id:string)=>{if(id==='creative_studio'){window.location.href='/admin/x7k2p/banner-generator';return;}_setTab_orig(id);}
   const _setTab_orig=(t:string)=>{try{sessionStorage.setItem('pr_admin_tab',t)}catch{};setTab(t)}
+  useEffect(()=>{
+    const id='pr-nav-desktop-styles';
+    if(document.getElementById(id))return;
+    const s=document.createElement('style');
+    s.id=id;
+    s.textContent='@media(min-width:768px){#pr-top-nav{height:68px!important;}#pr-top-nav>div:first-child{gap:20px!important;}#pr-top-nav>div:first-child>button:first-child{font-size:24px!important;padding:8px 14px!important;}#pr-top-nav>div:last-child{gap:14px!important;}#pr-top-nav>div:last-child button{min-width:42px!important;height:42px!important;border-radius:10px!important;}#pr-top-nav .pr-brand-name{font-size:16px!important;}#pr-top-nav .pr-role-tag{font-size:11px!important;letter-spacing:1.5px!important;}}';
+    document.head.appendChild(s);
+    return()=>{const el=document.getElementById(id);if(el)el.remove();};
+  },[]);
   const [sideOpen,setSideOpen]=useState(false)
   const [toast,setToast]=useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
   const [notifOpen,setNotifOpen]=useState(false);
@@ -2025,7 +2034,7 @@ const confirmAndAdd=useCallback(async()=>{
       )}
 
       {/* ══ TOP NAVIGATION BAR ══ */}
-      <div style={{position:'sticky',top:0,zIndex:100,background:'rgba(0,10,24,0.95)',backdropFilter:'blur(20px)',borderBottom:`1px solid ${BOR}`,padding:'0 12px',height:56,display:'flex',alignItems:'center',justifyContent:'space-between',boxShadow:'0 2px 20px rgba(0,0,0,0.4)',overflow:'hidden'}}>
+      <div style={{position:'sticky',top:0,zIndex:100,background:'rgba(0,10,24,0.95)',backdropFilter:'blur(20px)',borderBottom:`1px solid ${BOR}`,padding:'0 12px',height:56,display:'flex',alignItems:'center',justifyContent:'space-between',boxShadow:'0 2px 20px rgba(0,0,0,0.4)',overflow:'hidden'}} id="pr-top-nav">
 
         {/* Left: Hamburger + Logo */}
         <div style={{display:'flex',alignItems:'center',gap:12}}>
@@ -2033,11 +2042,11 @@ const confirmAndAdd=useCallback(async()=>{
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             <PRLogo size={32}/>
             <div>
-              <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:13,background:`linear-gradient(90deg,${ACC},#fff)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',lineHeight:1,whiteSpace:'nowrap'}}>
+              <div className="pr-brand-name" style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:13,background:`linear-gradient(90deg,${ACC},#fff)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',lineHeight:1,whiteSpace:'nowrap'}}>
                 ProveRank
               </div>
               {/* SCREENSHOT-MATCHED: role display with lightning bolt */}
-              <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:role==='superadmin'?GOLD:ACC,lineHeight:1.2,whiteSpace:'nowrap'}}>
+              <div className="pr-role-tag" style={{fontSize:9,fontWeight:700,letterSpacing:1,color:role==='superadmin'?GOLD:ACC,lineHeight:1.2,whiteSpace:'nowrap'}}>
                 ⚡ {role.toUpperCase()}
               </div>
             </div>
