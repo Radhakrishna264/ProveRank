@@ -2869,7 +2869,8 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                     <button onClick={blkDelQs} style={{...bd,fontSize:10,padding:'3px 12px'}}>🗑️ Delete</button>
                     <button onClick={function(){setBulkSel([])}} style={{...bg_,fontSize:10,padding:'3px 10px'}}>✕</button>
                   </div>)}
-                  {fQs.length===0
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 4px",marginBottom:8,flexWrap:"wrap",gap:4,borderBottom:"1px solid rgba(255,255,255,0.06)",paddingBottom:10}}><span style={{fontSize:11,color:"#94a3b8"}}>{_fQsSorted.length>0?((_qPg-1)*25+1)+"–"+Math.min(_qPg*25,_fQsSorted.length)+" of "+_fQsSorted.length+" Qs":""}</span><div style={{display:"flex",gap:6,alignItems:"center"}}><button onClick={()=>setQPage(p=>Math.max(1,p-1))} disabled={_qPg<=1} style={{fontSize:11,color:"#4D9FFF",background:"rgba(77,159,255,0.1)",border:"1px solid rgba(77,159,255,0.3)",borderRadius:6,padding:"3px 10px",cursor:"pointer",opacity:_qPg<=1?0.4:1,fontWeight:600}}>{"← Prev"}</button><span style={{fontSize:11,color:"#4D9FFF",fontWeight:700,minWidth:70,textAlign:"center"}}>{"Page "+_qPg+" / "+_qTP}</span><button onClick={()=>setQPage(p=>Math.min(_qTP,p+1))} disabled={_qPg>=_qTP} style={{fontSize:11,color:"#4D9FFF",background:"rgba(77,159,255,0.1)",border:"1px solid rgba(77,159,255,0.3)",borderRadius:6,padding:"3px 10px",cursor:"pointer",opacity:_qPg>=_qTP?0.4:1,fontWeight:600}}>{"Next →"}</button></div></div>
+{fQs.length===0
                     ?<PageHero icon='❓' title='No Questions Found' subtitle={questions.length===0?'Loading questions…':'Try different search or section filter.'}/>
                     :<div style={{display:'flex',flexDirection:'column',gap:5}}>
                       {pagedQs.map(function(q,qi){
