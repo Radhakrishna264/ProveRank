@@ -2897,7 +2897,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                 <div>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
                     <button onClick={function(){setQBV('home');setBulkSel([]);try{sessionStorage.setItem('pr_qbv','home')}catch{}}} style={{...bg_,padding:'5px 11px',fontSize:11}}>← Back</button>
-                    <div style={{flex:1}}><div style={pageTitle}>👁️ Preview All Questions</div><div style={pageSub}>{fQs.length} of {(questions||[]).length} shown</div></div>
+                    <div style={{flex:1,minWidth:0,overflow:'hidden'}}><div style={{...pageTitle,fontSize:16,lineHeight:1.2}}>☁️ Preview All Questions</div><div style={pageSub}>{fQs.length} of {(questions||[]).length} shown</div></div>
                     <button onClick={function(){setStdPrv(function(p){return !p})}} style={{...bg_,fontSize:10,padding:'5px 10px',background:stdPrv?'rgba(0,229,160,0.12)':'rgba(255,255,255,0.05)',color:stdPrv?'#00E5A0':'#94A3B8'}}>{stdPrv?'🎓 ON':'🎓 View'}</button>
                     <button onClick={expQB} style={{...bg_,fontSize:10,padding:'5px 10px'}}>⬇️</button>
                     <button onClick={function(){setQBV('add');try{sessionStorage.setItem('pr_qbv','add')}catch{}}} style={{...bp,fontSize:10,padding:'5px 12px'}}>➕ Add</button>
