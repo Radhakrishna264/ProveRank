@@ -2942,7 +2942,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                         const sCol=q.subject==='Physics'?'#60A5FA':q.subject==='Chemistry'?'#F472B6':q.subject==='Biology'?'#34D399':q.subject==='Math'?'#FBBF24':'#94A3B8'
                         const dCol=q.difficulty==='hard'?'#FF4D4D':q.difficulty==='easy'?'#00C864':'#FFB300'
                         return(
-                          <div key={q._id||qi} style={{background:isChk?'rgba(77,159,255,0.05)':'rgba(255,255,255,0.02)',border:'1px solid '+(isChk?'rgba(77,159,255,0.2)':'rgba(255,255,255,0.05)'),borderLeft:'4px solid '+sCol,borderRadius:10,padding:'12px 14px'}}>
+                          <div key={q._id||qi} style={{background:isChk?'rgba(77,159,255,0.05)':'rgba(255,255,255,0.02)',border:'1px solid '+(isChk?'rgba(77,159,255,0.2)':'rgba(255,255,255,0.05)'),borderLeft:'4px solid '+sCol,borderRadius:10,padding:'8px 10px'}}>
                             <div style={{display:'flex',alignItems:'flex-start',gap:7}}>
                               <input type='checkbox' checked={isChk} onChange={function(e){if(e.target.checked)setBulkSel(function(p){return [...p,q._id]});else setBulkSel(function(p){return p.filter(function(x){return x!==q._id})})}} style={{marginTop:3,cursor:'pointer',accentColor:'#4D9FFF',flexShrink:0}}/>
                               <div style={{flex:1,minWidth:0}}>
@@ -2952,7 +2952,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                                   <span style={{fontSize:9,fontWeight:600,padding:'1px 6px',borderRadius:4,background:dCol+'18',color:dCol,border:'1px solid '+dCol+'30'}}>{q.difficulty||'?'}</span>
                                   <span style={{fontSize:9,padding:'1px 5px',borderRadius:3,background:'rgba(77,159,255,0.08)',color:'#4D9FFF'}}>{q.type||'SCQ'}</span>
                                 </div>
-                                <div onClick={function(){setSelQId(q._id)}} style={{cursor:'pointer',fontSize:12,color:'#CBD5E1',lineHeight:1.5,marginBottom:3}}>{(q.text||'').slice(0,140)}{(q.text||'').length>140?'…':''}</div>
+                                <div onClick={function(){setSelQId(q._id)}} style={{cursor:'pointer',fontSize:12,color:'#CBD5E1',lineHeight:1.5,marginBottom:3,display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{(q.text||'').slice(0,90)}{(q.text||'').length>90?'…':''}</div>
                                 {q.chapter&&<div style={{fontSize:10,color:'#475569'}}>📖 {q.chapter}{q.topic?' › '+q.topic:''}</div>}
                                 {stdPrv&&(q.options||[]).length>0&&(<div style={{marginTop:6,display:'grid',gridTemplateColumns:'1fr 1fr',gap:3}}>
                                   {(q.options||[]).map(function(opt,oi){
@@ -2966,15 +2966,15 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                                 </div>)}
                               </div>
                               {/* HORIZONTAL action buttons */}
-                              <div style={{display:'flex',gap:3,flexShrink:0,flexWrap:'nowrap'}}>
-                                <button onClick={function(){setSelQId(q._id)}} style={{...bg_,padding:'4px 7px',fontSize:10,borderRadius:6}} title='Preview'>👁️</button>
+                              <div style={{display:'flex',gap:2,flexShrink:0,flexWrap:'nowrap'}}>
+                                <button onClick={function(){setSelQId(q._id)}} style={{...bg_,padding:'3px 5px',fontSize:10,borderRadius:5}} title='Preview'>👁️</button>
                                 <button onClick={function(){
                                   const ltrs=['A','B','C','D']
                                   const cIdx=Array.isArray(q.correct)&&q.correct.length>0?q.correct[0]:(q.correctAnswer?ltrs.indexOf(q.correctAnswer):0)
                                   setEditQD(Object.assign({},q,{correctLetter:ltrs[cIdx>=0?cIdx:0]||'A'}))
-                                }} style={{...bg_,padding:'4px 7px',fontSize:10,borderRadius:6}} title='Edit'>✏️</button>
-                                <button onClick={function(){dupQF(q)}} style={{...bg_,padding:'4px 7px',fontSize:10,borderRadius:6}} title='Duplicate'>📋</button>
-                                <button onClick={async function(){if(confirm('Delete?')){const r=await fetch(API+'/api/questions/'+q._id,{method:'DELETE',headers:{Authorization:'Bearer '+token}});if(r.ok){setQuestions(function(p){return p.filter(function(x){return x._id!==q._id})});T('Deleted.')}else T('Failed','e')}}} style={{...bd,padding:'4px 7px',fontSize:10,borderRadius:6}} title='Delete'>🗑️</button>
+                                }} style={{...bg_,padding:'3px 5px',fontSize:10,borderRadius:5}} title='Edit'>✏️</button>
+                                <button onClick={function(){dupQF(q)}} style={{...bg_,padding:'3px 5px',fontSize:10,borderRadius:5}} title='Duplicate'>📋</button>
+                                <button onClick={async function(){if(confirm('Delete?')){const r=await fetch(API+'/api/questions/'+q._id,{method:'DELETE',headers:{Authorization:'Bearer '+token}});if(r.ok){setQuestions(function(p){return p.filter(function(x){return x._id!==q._id})});T('Deleted.')}else T('Failed','e')}}} style={{...bd,padding:'3px 5px',fontSize:10,borderRadius:5}} title='Delete'>🗑️</button>
                               </div>
                             </div>
                           </div>
