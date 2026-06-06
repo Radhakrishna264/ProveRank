@@ -106,7 +106,7 @@ function ProfileContent(){
       </div>
 
       {/* ── Hero Card ── */}
-      <div style={{background:'linear-gradient(145deg,rgba(13,17,30,0.97),rgba(6,22,44,0.96))',border:'1px solid rgba(212,175,55,0.28)',borderRadius:22,padding:'24px 4px',marginBottom:20,position:'relative',overflow:'hidden',boxShadow:'0 8px 40px rgba(0,0,0,.3),0 0 0 1px rgba(77,159,255,.07)'}}>
+      <div style={{background:'linear-gradient(145deg,rgba(13,17,30,0.97),rgba(6,22,44,0.96))',border:'1px solid rgba(212,175,55,0.28)',borderRadius:22,padding:'24px 22px',marginBottom:20,position:'relative',overflow:'hidden',boxShadow:'0 8px 40px rgba(0,0,0,.3),0 0 0 1px rgba(77,159,255,.07)'}}>
         {/* Gold top line */}
         <div style={{position:'absolute',top:0,left:'10%',right:'10%',height:'2px',background:'linear-gradient(90deg,transparent,#D4AF37,#FFD700,#D4AF37,transparent)'}}/>
         {/* DNA BG decoration */}

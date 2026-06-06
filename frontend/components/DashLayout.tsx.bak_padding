@@ -166,7 +166,7 @@ export default function DashLayout({ children, title, subtitle }: Props) {
         </header>
 
         {/* Page Content */}
-        <main style={{flex:1,padding:'20px 0px',animation:'fadeIn 0.4s ease forwards',overflowY:'auto'}}>
+        <main style={{flex:1,padding:'28px',animation:'fadeIn 0.4s ease forwards',overflowY:'auto'}}>
           {title && (
             <div className="mob-header" style={{display:'block',marginBottom:20}}>
               <h1 style={{fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:700,color:v.tm}}>{title}</h1>

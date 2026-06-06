@@ -51,7 +51,7 @@ function DNASVG() {
 
 function StatCard({icon,label,value,col,dm,sub}:{icon:string;label:string;value:any;col:string;dm:boolean;sub?:string}) {
   return (
-    <div className="card-h" style={{background:dm?C.card:C.cardL,border:`1px solid ${C.border}`,borderRadius:16,padding:'18px 4px',flex:1,minWidth:130,backdropFilter:'blur(14px)',position:'relative',overflow:'hidden',transition:'all .25s',textAlign:'center',boxShadow:'0 4px 16px rgba(0,0,0,.2)'}}>
+    <div className="card-h" style={{background:dm?C.card:C.cardL,border:`1px solid ${C.border}`,borderRadius:16,padding:'18px 16px',flex:1,minWidth:130,backdropFilter:'blur(14px)',position:'relative',overflow:'hidden',transition:'all .25s',textAlign:'center',boxShadow:'0 4px 16px rgba(0,0,0,.2)'}}>
       <div style={{position:'absolute',right:-8,bottom:-8,fontSize:48,opacity:.07,filter:'blur(2px)'}}>{icon}</div>
       <div style={{fontSize:26,marginBottom:8,display:'block'}}>{icon}</div>
       <div style={{fontSize:26,fontWeight:800,color:col,fontFamily:'Inter,sans-serif',lineHeight:1,textShadow:`0 0 20px ${col}44`}}>{value??'—'}</div>
@@ -113,7 +113,7 @@ useEffect(()=>{
     <div>
       {showWelcome&&welcomeData&&<WelcomeBanner student={welcomeData} onClose={()=>setShowWelcome(false)}/> }
       {/* Hero Banner */}
-      <div style={{background:'linear-gradient(135deg,rgba(0,85,204,.2),rgba(77,159,255,.08),rgba(0,0,0,0))',border:'1px solid rgba(77,159,255,.25)',borderRadius:22,padding:'24px 4px',marginBottom:24,position:'relative',overflow:'hidden',boxShadow:'0 4px 32px rgba(0,0,0,.25)'}}>
+      <div style={{background:'linear-gradient(135deg,rgba(0,85,204,.2),rgba(77,159,255,.08),rgba(0,0,0,0))',border:'1px solid rgba(77,159,255,.25)',borderRadius:22,padding:'24px 20px',marginBottom:24,position:'relative',overflow:'hidden',boxShadow:'0 4px 32px rgba(0,0,0,.25)'}}>
         {/* Animated BG hexagons */}
         <div style={{position:'absolute',right:-30,top:-20,fontSize:180,color:'rgba(77,159,255,.05)',lineHeight:1,animation:'spinSlow 30s linear infinite',userSelect:'none'}}>⬡</div>
         <div style={{position:'absolute',right:80,bottom:-20,fontSize:100,color:'rgba(77,159,255,.04)',lineHeight:1,animation:'spinSlow 20s linear infinite reverse',userSelect:'none'}}>⬡</div>
