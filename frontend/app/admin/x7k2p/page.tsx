@@ -2967,14 +2967,14 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                               </div>
                               {/* HORIZONTAL action buttons */}
                               <div style={{display:'flex',gap:2,flexShrink:0,flexWrap:'nowrap'}}>
-                                <button onClick={function(){setSelQId(q._id)}} style={{...bg_,padding:'3px 5px',fontSize:10,borderRadius:5}} title='Preview'>👁️</button>
+                                <button onClick={function(){setSelQId(q._id)}} style={{...bg_,padding:'2px',fontSize:10,borderRadius:5,width:30,height:28,display:'flex',alignItems:'center',justifyContent:'center'}} title='Preview'>👁️</button>
                                 <button onClick={function(){
                                   const ltrs=['A','B','C','D']
                                   const cIdx=Array.isArray(q.correct)&&q.correct.length>0?q.correct[0]:(q.correctAnswer?ltrs.indexOf(q.correctAnswer):0)
                                   setEditQD(Object.assign({},q,{correctLetter:ltrs[cIdx>=0?cIdx:0]||'A'}))
-                                }} style={{...bg_,padding:'3px 5px',fontSize:10,borderRadius:5}} title='Edit'>✏️</button>
-                                <button onClick={function(){dupQF(q)}} style={{...bg_,padding:'3px 5px',fontSize:10,borderRadius:5}} title='Duplicate'>📋</button>
-                                <button onClick={async function(){if(confirm('Delete?')){const r=await fetch(API+'/api/questions/'+q._id,{method:'DELETE',headers:{Authorization:'Bearer '+token}});if(r.ok){setQuestions(function(p){return p.filter(function(x){return x._id!==q._id})});T('Deleted.')}else T('Failed','e')}}} style={{...bd,padding:'3px 5px',fontSize:10,borderRadius:5}} title='Delete'>🗑️</button>
+                                }} style={{...bg_,padding:'2px',fontSize:10,borderRadius:5,width:30,height:28,display:'flex',alignItems:'center',justifyContent:'center'}} title='Edit'>✏️</button>
+                                <button onClick={function(){dupQF(q)}} style={{...bg_,padding:'2px',fontSize:10,borderRadius:5,width:30,height:28,display:'flex',alignItems:'center',justifyContent:'center'}} title='Duplicate'>📋</button>
+                                <button onClick={async function(){if(confirm('Delete?')){const r=await fetch(API+'/api/questions/'+q._id,{method:'DELETE',headers:{Authorization:'Bearer '+token}});if(r.ok){setQuestions(function(p){return p.filter(function(x){return x._id!==q._id})});T('Deleted.')}else T('Failed','e')}}} style={{...bd,padding:'2px',fontSize:10,borderRadius:5,width:30,height:28,display:'flex',alignItems:'center',justifyContent:'center'}} title='Delete'>🗑️</button>
                               </div>
                             </div>
                           </div>
