@@ -101,7 +101,7 @@ export default function Profile() {
 
       {/* ── Header Card ── */}
       <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
-      <button onClick={logout} style={{display:'inline-flex',alignItems:'center',gap:6,background:'rgba(79,195,247,0.08)',border:'1px solid rgba(79,195,247,0.3)',borderRadius:9,padding:'7px 15px',color:'#4FC3F7',fontSize:13,fontWeight:700,cursor:'pointer'}}>
+      <button onClick={()=>{try{localStorage.removeItem('pr_token');localStorage.removeItem('pr_role');sessionStorage.clear();}catch(e){}window.location.href='/login'}} style={{display:'inline-flex',alignItems:'center',gap:6,background:'rgba(79,195,247,0.08)',border:'1px solid rgba(79,195,247,0.3)',borderRadius:9,padding:'7px 15px',color:'#4FC3F7',fontSize:13,fontWeight:700,cursor:'pointer'}}>
         <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         Sign Out
       </button>
