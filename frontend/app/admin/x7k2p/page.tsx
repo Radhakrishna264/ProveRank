@@ -1135,6 +1135,7 @@ const [showAddPreview,setShowAddPreview]=useState(false)
   const [draftSaved,setDraftSaved]=useState(false)
   const [draftRestored,setDraftRestored]=useState(false)
   const [optInit,setOptInit]=useState({a:'',b:'',c:'',d:''})
+  const [optImgsInit,setOptImgsInit]=useState({a:'',b:'',c:'',d:''})
   const [draftKey,setDraftKey]=useState(0)
   const [optVals,setOptVals]=useState({a:'',b:'',c:'',d:''})
   const [qSec,setQSec]=useState('all')
@@ -2755,10 +2756,10 @@ const confirmAndAdd=useCallback(async()=>{
                         <input value={qTopic} onChange={function(e){qTopicR.current=e.target.value;setQTopic(e.target.value)}} placeholder='e.g. Coulombs Law' style={{...inp}}/>
                       </div>
                       {['SCQ','MSQ'].includes(qType)&&(<>
-                        <div><label style={lbl}>Option A</label><input value={optInit.a} onChange={e=>{const v=e.target.value;qA.current=v;setOptInit(p=>({...p,a:v}))}} placeholder='Option A.' style={inp}/></div>
-                        <div><label style={lbl}>Option B</label><input value={optInit.b} onChange={e=>{const v=e.target.value;qB.current=v;setOptInit(p=>({...p,b:v}))}} placeholder='Option B.' style={inp}/></div>
-                        <div><label style={lbl}>Option C</label><input value={optInit.c} onChange={e=>{const v=e.target.value;qC.current=v;setOptInit(p=>({...p,c:v}))}} placeholder='Option C.' style={inp}/></div>
-                        <div><label style={lbl}>Option D</label><input value={optInit.d} onChange={e=>{const v=e.target.value;qD.current=v;setOptInit(p=>({...p,d:v}))}} placeholder='Option D.' style={inp}/></div>
+                        <div><label style={lbl}>Option A</label><input value={optInit.a} onChange={e=>{const v=e.target.value;qA.current=v;setOptInit(p=>({...p,a:v}))}} placeholder='Option A.' style={inp}/><input value={optImgsInit.a} onChange={e=>setOptImgsInit(p=>({...p,a:e.target.value}))} placeholder='🖼️ Image URL for Option A (optional)' style={{...inp,marginTop:4,fontSize:10,color:'#a5b4fc',borderColor:'rgba(99,102,241,0.3)'}}/></div>
+                        <div><label style={lbl}>Option B</label><input value={optInit.b} onChange={e=>{const v=e.target.value;qB.current=v;setOptInit(p=>({...p,b:v}))}} placeholder='Option B.' style={inp}/><input value={optImgsInit.b} onChange={e=>setOptImgsInit(p=>({...p,b:e.target.value}))} placeholder='🖼️ Image URL for Option B (optional)' style={{...inp,marginTop:4,fontSize:10,color:'#a5b4fc',borderColor:'rgba(99,102,241,0.3)'}}/></div>
+                        <div><label style={lbl}>Option C</label><input value={optInit.c} onChange={e=>{const v=e.target.value;qC.current=v;setOptInit(p=>({...p,c:v}))}} placeholder='Option C.' style={inp}/><input value={optImgsInit.c} onChange={e=>setOptImgsInit(p=>({...p,c:e.target.value}))} placeholder='🖼️ Image URL for Option C (optional)' style={{...inp,marginTop:4,fontSize:10,color:'#a5b4fc',borderColor:'rgba(99,102,241,0.3)'}}/></div>
+                        <div><label style={lbl}>Option D</label><input value={optInit.d} onChange={e=>{const v=e.target.value;qD.current=v;setOptInit(p=>({...p,d:v}))}} placeholder='Option D.' style={inp}/><input value={optImgsInit.d} onChange={e=>setOptImgsInit(p=>({...p,d:e.target.value}))} placeholder='🖼️ Image URL for Option D (optional)' style={{...inp,marginTop:4,fontSize:10,color:'#a5b4fc',borderColor:'rgba(99,102,241,0.3)'}}/></div>
                       </>)}
                       <div style={{gridColumn:'1/-1'}}>
                         <label style={lbl}>💡 Explanation <span style={{color:'#475569',fontSize:10}}>(optional)</span></label>
@@ -3252,7 +3253,7 @@ return(
                       <div style={{fontSize:12,fontWeight:600,color:TS,marginBottom:6}}>Q{i+1}. {q.text||q.question||'—'}</div>
                       {q.options&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
                         {(Array.isArray(q.options)?q.options:[q.optionA,q.optionB,q.optionC,q.optionD].filter(Boolean)).map((o:string,j:number)=>(
-                          <div key={j} style={{fontSize:11,color:DIM,padding:'3px 0'}}>({String.fromCharCode(65+j)}) {o}</div>
+                          <div key={j} style={{padding:'3px 0'}}><span style={{fontSize:11,color:'#6EE7B7',fontWeight:600}}>{String.fromCharCode(65+j)})</span>{o&&<span style={{fontSize:11,color:DIM,marginLeft:3}}>{o}</span>}{q.optionImages?.[j]&&<img src={q.optionImages[j] as string} alt='' style={{display:'block',maxWidth:'100%',maxHeight:60,borderRadius:3,marginTop:o?3:0,border:'1px solid rgba(255,255,255,0.1)'}} onError={(e:any)=>{e.currentTarget.style.display='none'}}/>}</div>
                         ))}
                       </div>}
                       {(q.correctAnswer||q.answer)&&<div style={{fontSize:11,color:SUC,fontWeight:600}}>✅ Answer: {q.correctAnswer||q.answer}</div>}
