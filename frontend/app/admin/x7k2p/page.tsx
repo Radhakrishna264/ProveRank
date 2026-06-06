@@ -2809,7 +2809,7 @@ if(!opt)return null
 const L=['A','B','C','D'][i]
 const isAns=qAns==='Option '+L
 return <div key={i} style={{padding:'8px 12px',borderRadius:8,marginBottom:6,background:isAns?'rgba(34,197,94,0.13)':'rgba(255,255,255,0.04)',border:isAns?'1px solid rgba(34,197,94,0.5)':'1px solid rgba(255,255,255,0.08)',fontSize:13,color:isAns?'#4ade80':'#e2e8f0'}}>
-<b style={{marginRight:8}}>{L}.</b><span dangerouslySetInnerHTML={{__html:renderLatex(opt)}}/>{isAns&&<span style={{marginLeft:8,fontSize:11}}>✓ Correct</span>}{(()=>{const _k=(['a','b','c','d'])[i];const _u=optImgsInit&&optImgsInit[_k];return _u?(<img src={_u} alt="" style={{display:'block',maxWidth:'100%',marginTop:6,borderRadius:6,border:'1px solid rgba(255,255,255,0.1)'}} onError={(e)=>{(e.target as HTMLImageElement).style.display='none'}}/>):null;})()}
+<b style={{marginRight:8}}>{L}.</b><span dangerouslySetInnerHTML={{__html:renderLatex(opt)}}/>{isAns&&<span style={{marginLeft:8,fontSize:11}}>✓ Correct</span>}{(optImgsInit as any)[['a','b','c','d'][i]]?<img src={(optImgsInit as any)[['a','b','c','d'][i]]} alt='' style={{display:'block',maxWidth:'100%',marginTop:6,borderRadius:6,border:'1px solid rgba(255,255,255,0.1)'}} onError={(e:any)=>{(e.target as HTMLImageElement).style.display='none'}}/>:null}
 </div>
 })}
 {qAns&&qAns!=='— Select Answer —'&&<div style={{background:'rgba(34,197,94,0.1)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:8,padding:'8px 12px',marginBottom:8,fontSize:12,color:'#4ade80'}}>✅ Correct Answer: <b>{qAns}</b></div>}
@@ -3129,7 +3129,7 @@ return(
                           return(<div key={oi} style={{padding:'7px 11px',borderRadius:7,border:'1px solid '+(isC?'rgba(0,200,100,0.4)':'rgba(255,255,255,0.07)'),background:isC?'rgba(0,200,100,0.08)':'rgba(255,255,255,0.02)'}}>
                             <span style={{fontWeight:700,color:isC?'#00C864':'#4D9FFF',marginRight:8}}>{ltr}.</span>
                             <span style={{fontSize:12,color:isC?'#E2E8F0':'#94A3B8'}} dangerouslySetInnerHTML={{__html:renderLatex(String(opt||''))}}></span>
-                            {isC&&<span style={{marginLeft:8,fontSize:10,color:'#00C864',fontWeight:700}}>✓ Correct</span>}
+                            {isC&&<span style={{marginLeft:8,fontSize:10,color:'#00C864',fontWeight:700}}>✓ Correct</span>}{(q.optionImages as any)?.[oi]?<img src={(q.optionImages as any)[oi]} alt='' style={{display:'block',maxWidth:'100%',marginTop:4,borderRadius:4,border:'1px solid rgba(255,255,255,0.08)'}} onError={(e:any)=>{(e.target as HTMLImageElement).style.display='none'}}/>:null}
                           </div>)
                         })}
                       </div>)}
