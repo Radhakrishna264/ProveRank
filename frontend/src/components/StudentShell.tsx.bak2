@@ -105,7 +105,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
           </div>
           <div style={{padding:'12px 14px',borderTop:`1px solid ${bdr}`,flexShrink:0}}>
             <div style={{padding:'12px',background:'rgba(77,159,255,.06)',borderRadius:12,border:`1px solid ${bdr}`,marginBottom:10,textAlign:'center'}}><div style={{fontSize:11,color:sub,marginBottom:4}}>{lang==='en'?'Powered by AI Proctoring':'AI प्रॉक्टरिंग द्वारा संचालित'}</div><div style={{fontSize:10,color:C.success,fontWeight:600}}>🟢 {lang==='en'?'All Systems Live':'सभी सिस्टम लाइव'}</div></div>
-            
+            <button onClick={logout} style={{width:'100%',padding:'11px',background:'rgba(255,77,77,.1)',color:'#FF4D4D',border:'1px solid rgba(255,77,77,.28)',borderRadius:10,cursor:'pointer',fontWeight:700,fontSize:13,fontFamily:'Inter,sans-serif',display:'flex',alignItems:'center',justifyContent:'center',gap:8,transition:'all .2s'}}><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke="#FF4D4D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>{lang==='en'?'Logout':'लॉगआउट'}</button>
           </div>
         </div>
         <div style={{position:'sticky',top:0,zIndex:40,background:dm?'rgba(0,5,18,.95)':'rgba(224,239,255,.96)',backdropFilter:'blur(22px)',borderBottom:`1px solid ${bdr}`,height:58,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 16px',boxShadow:'0 2px 24px rgba(0,0,0,.3)'}}>
