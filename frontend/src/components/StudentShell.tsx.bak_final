@@ -126,7 +126,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
           </button>
           </div>
         </div>
-        <div style={{position:'relative',zIndex:2,padding:'0 0 56px',width:'100%',maxWidth:'100vw',margin:'0',overflow:'hidden visible',animation:'fadeIn .4s ease',background:'transparent'}}>{children}</div>
+        <div style={{position:'relative',zIndex:2,padding:'0 0 56px',width:'100%',animation:'fadeIn .4s ease',background:'transparent'}}>{children}</div>
       </div>
     </ShellCtx.Provider>
   )

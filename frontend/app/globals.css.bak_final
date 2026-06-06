@@ -587,16 +587,3 @@ body {
     height: 52px !important;
   }
 }
-
-/* ProveRank: Force full-width layout */
-html, body {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: hidden;
-  margin: 0;
-  padding: 0;
-}
-#__next, main {
-  width: 100%;
-  max-width: 100%;
-}
