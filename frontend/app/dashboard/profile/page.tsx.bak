@@ -101,10 +101,6 @@ export default function Profile() {
 
       {/* ── Header Card ── */}
       <div style={{background:'linear-gradient(135deg,rgba(0,40,100,0.5),rgba(0,22,50,0.5))',border:'1px solid rgba(77,159,255,0.25)',borderRadius:20,padding:'22px 24px',marginBottom:20,position:'relative'}}>
-      <button onClick={logout} style={{position:'absolute',top:14,right:14,display:'flex',alignItems:'center',gap:5,background:'rgba(79,195,247,0.08)',border:'1px solid rgba(79,195,247,0.28)',borderRadius:8,padding:'6px 13px',color:'#4FC3F7',fontSize:12,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',zIndex:2}} title={lang==='en'?'Sign Out':'साइन आउट'}>
-        <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        {lang==='en'?'Sign Out':'साइन आउट'}
-      </button>
         <div style={{display:'flex',gap:20,alignItems:'flex-start',flexWrap:'wrap'}}>
           {/* Avatar */}
           <div style={{position:'relative',flexShrink:0}}>
