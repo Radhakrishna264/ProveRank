@@ -189,3 +189,7 @@ app.use('/api/my-batches',myBatchesRoutes);
 app.use('/api/admin/banners', bannerGeneratorRoutes);
 app.use('/api/student/batches',studentBatchRoutes);
 app.use('/api/admin/email', require('./routes/emailSend'))
+app.use('/api/admin/store',  adminStoreRoutes);
+app.use('/api/store',         studentStoreRoutes);
+const adminStoreRoutes   = require('./routes/adminStore');
+const studentStoreRoutes = require('./routes/studentStore');

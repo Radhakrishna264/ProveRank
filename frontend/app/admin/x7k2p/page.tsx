@@ -301,6 +301,7 @@ const NAV_TABS=[
   {label:'Multi-Admin',tab:'admins',icon:'👤'},{label:'Parent Portal',tab:'parent_portal',icon:'👨‍👩‍👧'},
   {label:'Transparency',tab:'transparency',icon:'👁️'},{label:'OMR View',tab:'omr_view',icon:'📄'},
   {label:'Global Search',tab:'global_search',icon:'🔎'}
+          { id:'store', label:'Store', icon:'🛒' },
 ]
 
 const GlobalSearch=memo(function GlobalSearch({setTab,token}:{setTab:(t:string)=>void;token:string}){
@@ -358,7 +359,8 @@ const GlobalSearch=memo(function GlobalSearch({setTab,token}:{setTab:(t:string)=
   const show=(key:string)=>activeSection==='all'||activeSection===key
 
   return(
-    <div style={S.wrap}>
+    <div style={S.wrap}
+        {tab === 'store' && <StoreAdminTab />}>
       {/* Search Input */}
       <div style={{position:'relative',display:'flex',alignItems:'center',marginBottom:32}}>
         <span style={{position:'absolute',left:16,fontSize:20,color:'#4D9FFF',zIndex:1}}>🔎</span>
