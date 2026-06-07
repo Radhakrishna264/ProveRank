@@ -300,7 +300,7 @@ const NAV_TABS=[
   {label:'Changelog',tab:'changelog',icon:'📝'},{label:'Permissions',tab:'permissions',icon:'🔐'},
   {label:'Multi-Admin',tab:'admins',icon:'👤'},{label:'Parent Portal',tab:'parent_portal',icon:'👨‍👩‍👧'},
   {label:'Transparency',tab:'transparency',icon:'👁️'},{label:'OMR View',tab:'omr_view',icon:'📄'},
-  {label:'Global Search',tab:'global_search',icon:'🔎'},{label:'Store',tab:'store',icon:'🛒'}
+  {label:'Global Search',tab:'global_search',icon:'🔎'},{label:'Store',tab:'store',icon:'🛒',grp:'STORE',id:'store',alwaysShow:true}
 ]
 
 const GlobalSearch=memo(function GlobalSearch({setTab,token}:{setTab:(t:string)=>void;token:string}){
