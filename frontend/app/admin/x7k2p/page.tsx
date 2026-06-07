@@ -296,11 +296,11 @@ const NAV_TABS=[
   {label:'Email Templates',tab:'email_tmpl',icon:'📧'},{label:'Feature Flags',tab:'feature_flags',icon:'🚩'},
   {label:'Branding',tab:'branding',icon:'🎨'},{label:'SEO Settings',tab:'seo',icon:'🔍'},
   {label:'Maintenance',tab:'maintenance',icon:'🔧'},{label:'Backup',tab:'backup',icon:'💾'},
-  {label:'Audit Logs',tab:'audit',icon:'🔏'},{label:'Task Manager',tab:'tasks',icon:'✅'},
+  {label:'Audit Logs',tab:'audit',icon:'🔏'},{label:'Task Manager',tab:'tasks',icon:'✅'},{label:'Store',tab:'store',icon:'🛒',grp:'TOOLS',id:'store',alwaysShow:true},
   {label:'Changelog',tab:'changelog',icon:'📝'},{label:'Permissions',tab:'permissions',icon:'🔐'},
   {label:'Multi-Admin',tab:'admins',icon:'👤'},{label:'Parent Portal',tab:'parent_portal',icon:'👨‍👩‍👧'},
   {label:'Transparency',tab:'transparency',icon:'👁️'},{label:'OMR View',tab:'omr_view',icon:'📄'},
-  {label:'Global Search',tab:'global_search',icon:'🔎'},{label:'Store',tab:'store',icon:'🛒',grp:'TOOLS',id:'store',alwaysShow:true}
+  {label:'Global Search',tab:'global_search',icon:'🔎'}
 ]
 
 const GlobalSearch=memo(function GlobalSearch({setTab,token}:{setTab:(t:string)=>void;token:string}){
