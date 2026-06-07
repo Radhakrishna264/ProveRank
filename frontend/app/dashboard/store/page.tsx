@@ -555,7 +555,7 @@ export default function StorePage() {
                 </div>
                 <div style={{ display:'flex', gap:10 }}>
                   <button onClick={()=>setStep(1)} style={{ ...S.btnS, flex:1 }}>← Back</button>
-                  <button onClick={placeOrder} disabled={placing} style={{ ...S.btnP, flex:2, padding:16, opacity:placing?0.6:1 }}>{placing?'⏳ Placing...`:`🎉 Place Order — ${fmtP(cart.total)}`}</button>
+                  <button onClick={placeOrder} disabled={placing} style={{ ...S.btnP, flex:2, padding:16, opacity:placing?0.6:1 }}>{placing ? '⏳ Placing...' : '🎉 Place Order — ' + fmtP(cart.total)}</button>
                 </div>
               </div>
             )}
