@@ -131,7 +131,6 @@ router.put('/products/:id', protectAdmin, async (req, res) => {
     await product.save(); // triggers pre-save for discountPercent recalc
     res.json({ message: 'Product updated', product });
   } catch (e) { res.status(400).json({ message: e.message }); }
-}); }
 });
 
 router.delete('/products/:id', protectAdmin, async (req, res) => {
