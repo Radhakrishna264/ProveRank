@@ -72,7 +72,7 @@ const orderSchema = new mongoose.Schema({
   invoiceNumber:     String
 }, { timestamps: true });
 
-orderSchema.pre('save', async function (next) {
+orderSchema.pre('save', async function () {
   if (!this.orderId) {
     const count = await mongoose.model('Order').countDocuments();
     const rand = Math.random().toString(36).substring(2, 5).toUpperCase();
@@ -82,10 +82,9 @@ orderSchema.pre('save', async function (next) {
     const d = new Date();
     this.invoiceNumber = 'INV-' + d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + '-' + this.orderId;
   }
-  next();
 });
 
 orderSchema.index({ student: 1, createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
 
-module.exports = mongoose.model('Order', orderSchema);
+module.exports = mongoose.models.Order || mongoose.model('Order', orderSchema);

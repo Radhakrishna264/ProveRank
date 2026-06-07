@@ -113,10 +113,25 @@ router.put('/products/:id', protectAdmin, async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
-    Object.assign(product, req.body);
-    await product.save(); // triggers pre-save hook to recalculate discountPercent
+
+    // Explicitly set each field to handle 0/false values correctly
+    const fields = ['name','description','shortDescription','category','subject','classLevel',
+      'examType','price','originalPrice','stock','lowStockThreshold','sku','isbn','author',
+      'publisher','edition','language','pages','weight','deliveryTime','returnPolicy',
+      'deliveryCharge','freeDeliveryAbove','isActive','isFeatured','isNew','isBestSeller',
+      'tags','features','specifications','images'];
+
+    fields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        product[field] = req.body[field];
+        product.markModified(field); // ensure 0/false values are saved
+      }
+    });
+
+    await product.save(); // triggers pre-save for discountPercent recalc
     res.json({ message: 'Product updated', product });
   } catch (e) { res.status(400).json({ message: e.message }); }
+}); }
 });
 
 router.delete('/products/:id', protectAdmin, async (req, res) => {
