@@ -1027,9 +1027,6 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
           </div>
         </div>}
       </div>
-    
-      
-          {tab==='store'&&(<StoreAdminTab />)}
           <AdminWelcomeBanner /></div>
   )
 }
@@ -1952,7 +1949,7 @@ const confirmAndAdd=useCallback(async()=>{
     {id:'tasks',ico:'✅',lbl:'Task Manager',grp:'Tools'},
     {id:'changelog',ico:'📝',lbl:'Changelog',grp:'Tools'},
     {id:'parent_portal',ico:'👨‍👩‍👧',lbl:'Parent Portal',grp:'Tools'},
-  {id:'store',ico:'🛒',lbl:'Store',grp:'Tools'},
+  {id:'store',ico:'🛒',lbl:'Store Management',grp:'Tools'},
     {id:'creative_studio',ico:'🎨',lbl:'Creative Studio',grp:'Creative',alwaysShow:true},
   ]
 
@@ -2189,6 +2186,7 @@ const confirmAndAdd=useCallback(async()=>{
         <div style={{flex:1,padding:'20px 16px',maxWidth:'100vw',overflow:'auto',animation:'fadeIn 0.4s ease',paddingBottom:32}}>
 
           {/* ══ DASHBOARD ══ */}
+          {tab==='store'&&(<div style={{minHeight:'100vh'}}><StoreAdminTab /></div>)}
           {tab==='dashboard'&&(
             <div>
               <div style={{marginBottom:20}}>
