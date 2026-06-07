@@ -358,8 +358,7 @@ const GlobalSearch=memo(function GlobalSearch({setTab,token}:{setTab:(t:string)=
   const show=(key:string)=>activeSection==='all'||activeSection===key
 
   return(
-    <div style={S.wrap}
-        {tab === 'store' && <StoreAdminTab />}>
+    <div style={S.wrap}>
       {/* Search Input */}
       <div style={{position:'relative',display:'flex',alignItems:'center',marginBottom:32}}>
         <span style={{position:'absolute',left:16,fontSize:20,color:'#4D9FFF',zIndex:1}}>🔎</span>
@@ -4941,6 +4940,7 @@ return(
           </div>
         </div>
       )}
-    </div>
+            {tab === 'store' && <StoreAdminTab />}
+      </div>
   )
 }// deploy Sun May 31 01:52:47 AM UTC 2026
