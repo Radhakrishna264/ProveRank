@@ -1028,7 +1028,9 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
         </div>}
       </div>
     
-      <AdminWelcomeBanner /></div>
+      
+          {tab==='store'&&(<StoreAdminTab />)}
+          <AdminWelcomeBanner /></div>
   )
 }
 
@@ -4940,7 +4942,6 @@ return(
           </div>
         </div>
       )}
-            {tab === 'store' && <StoreAdminTab />}
       </div>
   )
 }// deploy Sun May 31 01:52:47 AM UTC 2026
