@@ -1,3 +1,45 @@
+#!/bin/bash
+set -e
+echo "🔧 Complete Store Fix — Inline Styles + Back Button + Admin Nav"
+
+# ── FIX 1: Admin nav — move Store to TOOLS group (existing, guaranteed visible) ──
+echo "── Fix 1: Admin nav grp ──"
+node << 'NODEEOF'
+const fs = require('fs');
+const file = process.env.HOME + '/workspace/frontend/app/admin/x7k2p/page.tsx';
+let c = fs.readFileSync(file, 'utf-8');
+
+// Replace Store with TOOLS grp (same as Task Manager, Changelog) 
+const patterns = [
+  `{label:'Store',tab:'store',icon:'🛒',grp:'STORE',id:'store',alwaysShow:true}`,
+  `{label:'Store',tab:'store',icon:'🛒'}`,
+  `{label:'Store',tab:'store',icon:'🛒',grp:'STORE'}`,
+];
+const replacement = `{label:'Store',tab:'store',icon:'🛒',grp:'TOOLS',id:'store',alwaysShow:true}`;
+
+let fixed = false;
+for (const p of patterns) {
+  if (c.includes(p)) { c = c.replace(p, replacement); fixed = true; console.log('✅ Store grp changed to TOOLS'); break; }
+}
+if (!fixed) {
+  const m = c.match(/\{label:['"]Store['"][^}]*\}/);
+  if (m) { c = c.replace(m[0], replacement); console.log('✅ Store nav patched via regex'); }
+  else console.log('⚠️  Store nav not found');
+}
+
+// Verify
+const taskLine = c.split('\n').find(l => l.includes("tab:'tasks'") || l.includes('tab:"tasks"'));
+const storeLine = c.split('\n').find(l => l.includes("tab:'store'") || l.includes('tab:"store"'));
+console.log('Task Manager grp:', taskLine?.match(/grp:'([^']+)'/)?.[1]);
+console.log('Store nav:', storeLine?.trim().substring(0, 100));
+
+fs.writeFileSync(file, c);
+NODEEOF
+
+# ── FIX 2: Student Store — Full rewrite with inline styles + back button ──
+echo ""
+echo "── Fix 2: Rewriting Student Store page ──"
+cat > ~/workspace/frontend/app/dashboard/store/page.tsx << 'TSXEOF'
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -640,3 +682,14 @@ export default function StorePage() {
     </div>
   );
 }
+TSXEOF
+echo "✅ Student store page rewritten"
+
+# ── Git push ──
+echo ""
+echo "── Git push ──"
+cd ~/workspace
+git add -A
+git commit -m "fix: admin Store grp=TOOLS + student store full inline-style rewrite + back button"
+git push origin main
+echo "✅ Pushed!"
