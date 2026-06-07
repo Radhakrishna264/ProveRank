@@ -296,7 +296,7 @@ const NAV_TABS=[
   {label:'Email Templates',tab:'email_tmpl',icon:'📧'},{label:'Feature Flags',tab:'feature_flags',icon:'🚩'},
   {label:'Branding',tab:'branding',icon:'🎨'},{label:'SEO Settings',tab:'seo',icon:'🔍'},
   {label:'Maintenance',tab:'maintenance',icon:'🔧'},{label:'Backup',tab:'backup',icon:'💾'},
-  {label:'Audit Logs',tab:'audit',icon:'🔏'},{label:'Task Manager',tab:'tasks',icon:'✅'},{label:'Store',tab:'store',icon:'🛒',grp:'TOOLS',id:'store',alwaysShow:true},
+  {label:'Audit Logs',tab:'audit',icon:'🔏'},{label:'Task Manager',tab:'tasks',icon:'✅'},
   {label:'Changelog',tab:'changelog',icon:'📝'},{label:'Permissions',tab:'permissions',icon:'🔐'},
   {label:'Multi-Admin',tab:'admins',icon:'👤'},{label:'Parent Portal',tab:'parent_portal',icon:'👨‍👩‍👧'},
   {label:'Transparency',tab:'transparency',icon:'👁️'},{label:'OMR View',tab:'omr_view',icon:'📄'},
@@ -1952,6 +1952,7 @@ const confirmAndAdd=useCallback(async()=>{
     {id:'tasks',ico:'✅',lbl:'Task Manager',grp:'Tools'},
     {id:'changelog',ico:'📝',lbl:'Changelog',grp:'Tools'},
     {id:'parent_portal',ico:'👨‍👩‍👧',lbl:'Parent Portal',grp:'Tools'},
+  {id:'store',ico:'🛒',lbl:'Store',grp:'Tools'},
     {id:'creative_studio',ico:'🎨',lbl:'Creative Studio',grp:'Creative',alwaysShow:true},
   ]
 
