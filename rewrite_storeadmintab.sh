@@ -1,3 +1,8 @@
+#!/bin/bash
+set -e
+echo "🔧 Rewriting StoreAdminTab with inline styles"
+
+cat > ~/workspace/frontend/app/admin/x7k2p/StoreAdminTab.tsx << 'ENDOFFILE'
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 
@@ -221,7 +226,7 @@ function Products({ T }: { T:(m:string,t?:string)=>void }) {
             <div key={p._id} style={{ ...S.card, padding:0, overflow:'hidden' }}>
               <div style={{ position:'relative', height:130, background:'linear-gradient(135deg,rgba(37,99,235,0.15),rgba(14,165,233,0.08))', display:'flex',alignItems:'center',justifyContent:'center' }}>
                 {p.images?.[0]?.url?<img src={p.images[0].url} alt={p.name} style={{ width:'100%',height:'100%',objectFit:'cover' }} />:<span style={{ fontSize:40 }}>📚</span>}
-                {p.originalPrice>p.price&&<span style={{ position:'absolute',top:6,right:6,background:'#ef4444',color:'#fff',fontSize:10,fontWeight:800,padding:'2px 6px',borderRadius:8 }}>{Math.round(((p.originalPrice-p.price)/p.originalPrice)*100)}% OFF</span>}
+                {p.discountPercent>0&&<span style={{ position:'absolute',top:6,right:6,background:'#ef4444',color:'#fff',fontSize:10,fontWeight:800,padding:'2px 6px',borderRadius:8 }}>{p.discountPercent}% OFF</span>}
                 <div style={{ position:'absolute',top:6,left:6,display:'flex',gap:4,flexWrap:'wrap' }}>
                   {p.isFeatured&&<span style={{ background:'#f59e0b',color:'#000',fontSize:9,fontWeight:800,padding:'1px 5px',borderRadius:6 }}>⭐</span>}
                   {p.isBestSeller&&<span style={{ background:'#ef4444',color:'#fff',fontSize:9,fontWeight:800,padding:'1px 5px',borderRadius:6 }}>🔥</span>}
@@ -573,3 +578,11 @@ function Reviews({ T }: { T:(m:string,t?:string)=>void }) {
     </div>
   );
 }
+ENDOFFILE
+echo "✅ StoreAdminTab.tsx rewritten with inline styles"
+
+cd ~/workspace
+git add frontend/app/admin/x7k2p/StoreAdminTab.tsx
+git commit -m "fix: rewrite StoreAdminTab with pure inline styles - premium dark design"
+git push origin main
+echo "✅ Pushed!"

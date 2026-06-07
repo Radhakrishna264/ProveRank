@@ -111,8 +111,10 @@ router.get('/products/:id', protectAdmin, async (req, res) => {
 
 router.put('/products/:id', protectAdmin, async (req, res) => {
   try {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
+    Object.assign(product, req.body);
+    await product.save(); // triggers pre-save hook to recalculate discountPercent
     res.json({ message: 'Product updated', product });
   } catch (e) { res.status(400).json({ message: e.message }); }
 });

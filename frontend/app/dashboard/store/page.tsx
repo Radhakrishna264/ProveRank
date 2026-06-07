@@ -148,7 +148,7 @@ export default function StorePage() {
   }, []);
 
   const loadCart = () => fetch(`${API}/api/store/cart`,{headers:hdr()}).then(r=>r.json()).then(setCart).catch(()=>{});
-  const loadWish = () => fetch(`${API}/api/store/wishlist`,{headers:hdr()}).then(r=>r.json()).then(d=>setWishIds((d.products||[]).map((p:any)=>p._id))).catch(()=>{});
+  const loadWish = () => fetch(`${API}/api/store/wishlist`,{headers:hdr()}).then(r=>r.json()).then(d=>{ const prods=d.products||[]; setWishIds(prods.map((p:any)=>p._id)); setWishlist(prods); }).catch(()=>{});
   const loadOrders = () => fetch(`${API}/api/store/orders`,{headers:hdr()}).then(r=>r.json()).then(d=>setOrders(d.orders||[]));
 
   const addToCart = async (productId: string) => {
@@ -175,6 +175,9 @@ export default function StorePage() {
     if (!tok()) { T('Please login','error'); return; }
     const r = await fetch(`${API}/api/store/wishlist/toggle/${productId}`,{method:'POST',headers:hdr()});
     const d = await r.json(); if (r.ok) { T(d.message); loadWish(); }
+  };
+  const toggleWishAndRefresh = async (productId: string) => {
+    await toggleWish(productId);
   };
   const viewProduct = async (p: any) => {
     setSelProd(p); setView('product');
