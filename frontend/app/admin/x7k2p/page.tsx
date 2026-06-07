@@ -1,4 +1,5 @@
 'use client'
+import StoreAdminTab from './StoreAdminTab';
 import AdminWelcomeBanner from './AdminWelcomeBanner';
 import AdminProfilePage from './AdminProfilePage';
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
