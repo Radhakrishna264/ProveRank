@@ -31,8 +31,15 @@ const calcCart = async (studentId) => {
     itemCount += item.quantity;
     return { product: item.product, quantity: item.quantity, lineTotal };
   }).filter(Boolean);
-  const maxFreeDelivery = Math.max(...(enrichedItems.map(i => i.product.freeDeliveryAbove || 499)));
-  deliveryCharge = subtotal >= maxFreeDelivery ? 0 : 49;
+  // Use product's actual freeDeliveryAbove and deliveryCharge
+  const minFreeDeliveryThreshold = enrichedItems.length > 0
+    ? Math.min(...enrichedItems.map(i => i.product.freeDeliveryAbove ?? 499))
+    : 499;
+  // Use max delivery charge across products in cart
+  const maxProductDelivery = enrichedItems.length > 0
+    ? Math.max(...enrichedItems.map(i => i.product.deliveryCharge ?? 49))
+    : 49;
+  deliveryCharge = subtotal >= minFreeDeliveryThreshold ? 0 : maxProductDelivery;
   // Ensure coupon discount never exceeds subtotal+delivery
   const rawCouponDiscount = cart.couponDiscount || 0;
   const couponDiscount = Math.min(rawCouponDiscount, subtotal + deliveryCharge);

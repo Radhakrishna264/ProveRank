@@ -37,7 +37,8 @@ const calcCart = async (studentId) => {
     return { product: item.product, quantity: item.quantity };
   }).filter(Boolean);
   const maxFreeDelivery = Math.max(...enrichedItems.map(i => i.product.freeDeliveryAbove || 499));
-  const deliveryCharge = subtotal >= maxFreeDelivery ? 0 : 49;
+  const maxProductDelivery = enrichedItems.length > 0 ? Math.max(...enrichedItems.map(i => i.product.deliveryCharge ?? 49)) : 49;
+  const deliveryCharge = subtotal >= maxFreeDelivery ? 0 : maxProductDelivery;
   const couponDiscount = Math.min(cart.couponDiscount || 0, subtotal + deliveryCharge - 1); // min ₹1
   const total = Math.max(1, subtotal + deliveryCharge - couponDiscount); // min ₹1 for Razorpay
   return { items: enrichedItems, subtotal, deliveryCharge, couponDiscount, couponCode: cart.couponCode, total };
