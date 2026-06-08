@@ -25,6 +25,7 @@ const getRazorpay = () => new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
+// Ensure JSON responses
 // ── Utility: calc cart ─────────────────────────
 const calcCart = async (studentId) => {
   const cart = await Cart.findOne({ student: studentId }).populate('items.product');
@@ -37,8 +38,8 @@ const calcCart = async (studentId) => {
   }).filter(Boolean);
   const maxFreeDelivery = Math.max(...enrichedItems.map(i => i.product.freeDeliveryAbove || 499));
   const deliveryCharge = subtotal >= maxFreeDelivery ? 0 : 49;
-  const couponDiscount = cart.couponDiscount || 0;
-  const total = Math.max(0, subtotal + deliveryCharge - couponDiscount);
+  const couponDiscount = Math.min(cart.couponDiscount || 0, subtotal + deliveryCharge - 1); // min ₹1
+  const total = Math.max(1, subtotal + deliveryCharge - couponDiscount); // min ₹1 for Razorpay
   return { items: enrichedItems, subtotal, deliveryCharge, couponDiscount, couponCode: cart.couponCode, total };
 };
 
@@ -184,8 +185,8 @@ router.post('/verify', protect, async (req, res) => {
       order,
     });
   } catch (e) {
-    console.error('Razorpay verify error:', e);
-    res.status(500).json({ success: false, message: e.message });
+    console.error('Razorpay verify error:', e.message, e.stack);
+    res.status(500).json({ success: false, message: 'Server error: ' + (e.message || 'Unknown') });
   }
 });
 

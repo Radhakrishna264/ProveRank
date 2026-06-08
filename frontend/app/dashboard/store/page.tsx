@@ -255,8 +255,9 @@ export default function StorePage() {
           handler: async (response: any) => {
             // Step 3: Verify payment & create order
             try {
-              const vr = await fetch(`${API}/api/store/payment/verify`, {
-                method: 'POST', headers: hdr(),
+              const verifyRes = await fetch(`${API}/api/store/payment/verify`, {
+                method: 'POST',
+                headers: hdr(),
                 body: JSON.stringify({
                   razorpay_order_id:   response.razorpay_order_id,
                   razorpay_payment_id: response.razorpay_payment_id,
@@ -265,16 +266,24 @@ export default function StorePage() {
                   buyerNotes,
                 }),
               });
-              const vd = await vr.json();
-              if (vr.ok && vd.success) {
-                T(`Payment successful! Order: ${vd.orderId} 🎉`);
+
+              let vd: any = {};
+              try { vd = await verifyRes.json(); } catch { vd = { success: false, message: 'Server response error' }; }
+
+              if (verifyRes.ok && vd.success) {
+                T(`✅ Payment successful! Order: ${vd.orderId} 🎉`);
                 setCart({ items:[], total:0, subtotal:0, deliveryCharge:0, couponDiscount:0, itemCount:0 });
-                setStep(0); loadOrders(); setView('orders');
+                setStep(0);
+                loadOrders();
+                setView('orders');
               } else {
-                T(vd.message || 'Payment verification failed', 'error');
+                // Payment went through but order creation failed
+                T(`⚠️ Payment done (ID: ${response.razorpay_payment_id}) but order failed: ${vd.message || 'Unknown error'}. Share Payment ID with admin.`, 'error');
+                console.error('Verify failed:', vd);
               }
-            } catch (err) {
-              T('Order creation failed after payment. Contact support.', 'error');
+            } catch (err: any) {
+              T(`⚠️ Payment done but connection failed. Payment ID: ${response.razorpay_payment_id}. Share with admin!`, 'error');
+              console.error('Verify catch error:', err);
             }
             setPlacing(false);
           },
