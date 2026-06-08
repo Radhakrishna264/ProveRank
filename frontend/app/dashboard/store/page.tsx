@@ -1,6 +1,6 @@
-// Razorpay types
-declare global { interface Window { Razorpay: any; } }
 'use client';
+// Razorpay global type
+declare global { interface Window { Razorpay: any; } }
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
