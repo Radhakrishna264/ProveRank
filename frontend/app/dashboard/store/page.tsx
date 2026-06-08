@@ -629,18 +629,28 @@ export default function StorePage() {
         {view === 'wishlist' && (
           <div>
             <h2 style={{ fontSize:22, fontWeight:900, color:'#fff', marginBottom:20 }}>❤️ Wishlist</h2>
-            {wishlist.length === 0
+            {!wishlist || wishlist.length === 0
               ? <div style={{ ...S.card, padding:60, textAlign:'center' }}>
                   <p style={{ fontSize:48, marginBottom:12 }}>🤍</p>
                   <p style={{ color:'rgba(255,255,255,0.4)', fontSize:16, fontWeight:600, marginBottom:16 }}>Wishlist empty</p>
-                  <p style={{ color:'rgba(255,255,255,0.25)', fontSize:13, marginBottom:20 }}>Go to Store and tap ❤️ on products</p>
+                  <p style={{ color:'rgba(255,255,255,0.25)', fontSize:13, marginBottom:20 }}>
+                    Go to Store and tap ❤️ on any product
+                  </p>
                   <button onClick={()=>setView('store')} style={S.btnP}>Browse Store</button>
                 </div>
               : <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:12 }}>
-                  {wishlist.map((p:any) => (
-                    <PCard key={p._id} p={p} onView={viewProduct} onCart={addToCart} onWish={toggleWish} wished={wishIds.includes(p._id)} />
+                  {wishlist.map((p: any) => (
+                    <PCard
+                      key={p._id}
+                      p={p}
+                      onView={viewProduct}
+                      onCart={addToCart}
+                      onWish={toggleWish}
+                      wished={wishIds.includes(p._id)}
+                    />
                   ))}
-                </div>}
+                </div>
+            }
           </div>
         )}
 
