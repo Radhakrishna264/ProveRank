@@ -1,3 +1,5 @@
+// Razorpay types
+declare global { interface Window { Razorpay: any; } }
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -90,6 +92,20 @@ function PCard({ p, onView, onCart, onWish, wished }: any) {
 // ════════════════════════════════════════════════════
 // MAIN
 // ════════════════════════════════════════════════════
+
+// Load Razorpay checkout script
+const loadRazorpayScript = (): Promise<boolean> => {
+  return new Promise(resolve => {
+    if (typeof window === 'undefined') return resolve(false);
+    if (window.Razorpay) return resolve(true);
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
 export default function StorePage() {
   const router = useRouter();
   const [view, setView]   = useState<'store'|'product'|'cart'|'checkout'|'orders'|'wishlist'>('store');
@@ -191,10 +207,90 @@ export default function StorePage() {
   };
   const placeOrder = async () => {
     setPlacing(true);
-    const r = await fetch(`${API}/api/store/orders/create`,{method:'POST',headers:hdr(),body:JSON.stringify({shippingAddress:addr,paymentMethod:payM})});
-    const d = await r.json();
-    if (r.ok) { T(`Order placed! ID: ${d.orderId} 🎉`); setCart({items:[],total:0,subtotal:0,deliveryCharge:0,couponDiscount:0,itemCount:0}); setStep(0); loadOrders(); setView('orders'); }
-    else T(d.message,'error');
+    try {
+      if (payM === 'COD') {
+        // ── COD flow ──
+        const r = await fetch(`${API}/api/store/orders/create`, {
+          method: 'POST', headers: hdr(),
+          body: JSON.stringify({ shippingAddress: addr, paymentMethod: 'COD', buyerNotes }),
+        });
+        const d = await r.json();
+        if (r.ok) {
+          T(`Order placed! ${d.orderId} 🎉`);
+          setCart({ items:[], total:0, subtotal:0, deliveryCharge:0, couponDiscount:0, itemCount:0 });
+          setStep(0); loadOrders(); setView('orders');
+        } else { T(d.message, 'error'); }
+      } else {
+        // ── Razorpay (UPI / Card / NetBanking) flow ──
+        const loaded = await loadRazorpayScript();
+        if (!loaded) { T('Razorpay failed to load. Check internet.', 'error'); setPlacing(false); return; }
+
+        // Step 1: Create Razorpay order on backend
+        const r = await fetch(`${API}/api/store/payment/create-order`, {
+          method: 'POST', headers: hdr(), body: JSON.stringify({}),
+        });
+        const payData = await r.json();
+        if (!r.ok) { T(payData.message || 'Payment initiation failed', 'error'); setPlacing(false); return; }
+
+        // Step 2: Open Razorpay checkout
+        const options = {
+          key:       payData.key || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+          amount:    payData.amount,
+          currency:  payData.currency || 'INR',
+          order_id:  payData.order_id,
+          name:      'ProveRank Store',
+          description: 'Study Material Purchase',
+          image:     'https://prove-rank.vercel.app/favicon.ico',
+          prefill: {
+            name:    addr.fullName,
+            contact: addr.phone,
+          },
+          theme: { color: '#2563eb' },
+          modal: {
+            ondismiss: () => {
+              T('Payment cancelled', 'info');
+              setPlacing(false);
+            },
+          },
+          handler: async (response: any) => {
+            // Step 3: Verify payment & create order
+            try {
+              const vr = await fetch(`${API}/api/store/payment/verify`, {
+                method: 'POST', headers: hdr(),
+                body: JSON.stringify({
+                  razorpay_order_id:   response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature:  response.razorpay_signature,
+                  shippingAddress:     addr,
+                  buyerNotes,
+                }),
+              });
+              const vd = await vr.json();
+              if (vr.ok && vd.success) {
+                T(`Payment successful! Order: ${vd.orderId} 🎉`);
+                setCart({ items:[], total:0, subtotal:0, deliveryCharge:0, couponDiscount:0, itemCount:0 });
+                setStep(0); loadOrders(); setView('orders');
+              } else {
+                T(vd.message || 'Payment verification failed', 'error');
+              }
+            } catch (err) {
+              T('Order creation failed after payment. Contact support.', 'error');
+            }
+            setPlacing(false);
+          },
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.on('payment.failed', (resp: any) => {
+          T(`Payment failed: ${resp.error?.description || 'Unknown error'}`, 'error');
+          setPlacing(false);
+        });
+        rzp.open();
+        return; // placing will be set false in handler
+      }
+    } catch (e) {
+      T('Something went wrong. Try again.', 'error');
+    }
     setPlacing(false);
   };
   const setA = (k: string, v: string) => setAddr(p => ({...p, [k]:v}));
@@ -517,7 +613,7 @@ export default function StorePage() {
             {step === 1 && (
               <div style={{ ...S.card, padding:16 }}>
                 <p style={{ fontSize:14, fontWeight:700, color:'#fff', marginBottom:14 }}>Payment Method</p>
-                {[{id:'COD',label:'Cash on Delivery',desc:'Pay when delivered',icon:'💵'},{id:'UPI',label:'UPI Payment',desc:'GPay, PhonePe, Paytm',icon:'📱'}].map(pm=>(
+                {[{id:'COD',label:'Cash on Delivery',desc:'Pay when delivered',icon:'💵'},{id:'UPI',label:'UPI / Card / NetBanking',desc:'GPay, PhonePe, Paytm, Visa, Mastercard',icon:'💳'}].map(pm=>(
                   <div key={pm.id} onClick={()=>setPayM(pm.id)} style={{ display:'flex', alignItems:'center', gap:14, padding:14, borderRadius:12, marginBottom:10, cursor:'pointer', border:`1px solid ${payM===pm.id?'rgba(37,99,235,0.6)':'rgba(255,255,255,0.08)'}`, background: payM===pm.id?'rgba(37,99,235,0.1)':'rgba(255,255,255,0.02)' }}>
                     <span style={{ fontSize:28 }}>{pm.icon}</span>
                     <div style={{ flex:1 }}>
