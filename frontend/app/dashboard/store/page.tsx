@@ -160,6 +160,8 @@ function PaymentFailureModal({
 
 export default function StorePage() {
   const router = useRouter();
+  const [failedPayment, setFailedPayment] = useState<any>(null);
+  const [retryingVerify, setRetryingVerify] = useState(false);
   const [view, setView]   = useState<'store'|'product'|'cart'|'checkout'|'orders'|'wishlist'>('store');
   const [toast, setToast] = useState<{ msg: string; type: string } | null>(null);
   const T = (msg: string, type = 'success') => setToast({ msg, type });
@@ -450,7 +452,7 @@ export default function StorePage() {
 
   return (
     <div style={S.page}>
-      {failedPayment && (
+      {(failedPayment !== null && failedPayment !== undefined) && (
         <PaymentFailureModal
           paymentId={failedPayment.paymentId}
           amount={failedPayment.amount}
