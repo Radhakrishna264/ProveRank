@@ -96,17 +96,6 @@ router.post('/verify', protect, async (req, res) => {
       buyerNotes,
     } = req.body;
 
-    // 1. Verify signature
-    const body             = razorpay_order_id + '|' + razorpay_payment_id;
-    const expectedSig      = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(body)
-      .digest('hex');
-
-    if (expectedSig !== razorpay_signature) {
-      return res.status(400).json({ success: false, message: 'Payment verification failed — invalid signature' });
-    }
-
     // 2. Build order from cart
     const cartData = await calcCart(req.user.id);
     if (!cartData.items || cartData.items.length === 0) {
@@ -116,7 +105,25 @@ router.post('/verify', protect, async (req, res) => {
       return res.status(400).json({ message: 'Shipping address required' });
     }
 
-    // 3. Check stock
+      // 1. FIXED: free order bypass — signature skipped for ₹0
+  if (cartData.total > 0) {
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      console.error('RAZORPAY_KEY_SECRET missing from environment!');
+      return res.status(500).json({
+        success: false,
+        message: 'Payment config error. Contact support with Payment ID: ' + razorpay_payment_id
+      });
+    }
+    const body = razorpay_order_id + '|' + razorpay_payment_id;
+    const expectedSig = require('crypto')
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(body).digest('hex');
+    if (expectedSig !== razorpay_signature) {
+      return res.status(400).json({ success: false, message: 'Payment verification failed – invalid signature' });
+    }
+  }
+
+  // 3. Check stock
     for (const item of cartData.items) {
       if (item.product.stock < item.quantity) {
         return res.status(400).json({ message: `Insufficient stock for ${item.product.name}` });
