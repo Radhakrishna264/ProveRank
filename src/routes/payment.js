@@ -3,6 +3,7 @@ const router   = express.Router();
 const Razorpay = require('razorpay');
 const crypto   = require('crypto');
 const jwt      = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const Order    = require('../models/Order');
 const Cart     = require('../models/Cart');
 const Product  = require('../models/Product');
@@ -25,7 +26,6 @@ const getRazorpay = () => new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// Ensure JSON responses
 // ── Utility: calc cart ─────────────────────────
 const calcCart = async (studentId) => {
   const cart = await Cart.findOne({ student: studentId }).populate('items.product');
@@ -36,138 +36,120 @@ const calcCart = async (studentId) => {
     subtotal += item.product.price * item.quantity;
     return { product: item.product, quantity: item.quantity };
   }).filter(Boolean);
-  const maxFreeDelivery = Math.max(...enrichedItems.map(i => i.product.freeDeliveryAbove || 499));
+  const maxFreeDelivery    = Math.max(...enrichedItems.map(i => i.product.freeDeliveryAbove || 499));
   const maxProductDelivery = enrichedItems.length > 0 ? Math.max(...enrichedItems.map(i => i.product.deliveryCharge ?? 49)) : 49;
-  const deliveryCharge = subtotal >= maxFreeDelivery ? 0 : maxProductDelivery;
-  const couponDiscount = Math.min(cart.couponDiscount || 0, subtotal + deliveryCharge - 1); // min ₹1
-  const total = Math.max(1, subtotal + deliveryCharge - couponDiscount); // min ₹1 for Razorpay
+  const deliveryCharge     = subtotal >= maxFreeDelivery ? 0 : maxProductDelivery;
+  const couponDiscount     = Math.min(cart.couponDiscount || 0, subtotal + deliveryCharge - 1);
+  const total              = Math.max(1, subtotal + deliveryCharge - couponDiscount);
   return { items: enrichedItems, subtotal, deliveryCharge, couponDiscount, couponCode: cart.couponCode, total };
 };
 
-// ══════════════════════════════════════════════
-// POST /api/store/payment/create-order
-// Creates a Razorpay order for checkout
-// ══════════════════════════════════════════════
-const mongoose = require('mongoose');
-
-// PendingPayment — cart snapshot before Razorpay payment
+// ── PendingPayment schema (cart snapshot for mobile redirect) ──
 const pendingPaymentSchema = new mongoose.Schema({
   razorpayOrderId: { type: String, required: true, unique: true },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  cartSnapshot: { type: Object, required: true },
-  shippingAddress: { type: Object, required: true },
-  buyerNotes: { type: String, default: '' },
-  createdAt: { type: Date, default: Date.now, expires: 3600 } // auto-delete after 1 hour
+  userId:          { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  cartSnapshot:    { type: Object, required: true },
+  shippingAddress: { type: Object, default: {} },
+  buyerNotes:      { type: String, default: '' },
+  createdAt:       { type: Date, default: Date.now, expires: 3600 },
 });
 const PendingPayment = mongoose.model('PendingPayment', pendingPaymentSchema);
 
-
+// ══════════════════════════════════════════════
+// POST /api/store/payment/create-order
+// ══════════════════════════════════════════════
 router.post('/create-order', protect, async (req, res) => {
   try {
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      return res.status(500).json({ message: 'Razorpay not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET env vars.' });
+      return res.status(500).json({ message: 'Razorpay not configured on server.' });
     }
 
-    let cartData = await calcCart(req.user.id);
-    if (!cartData.items || cartData.items.length === 0) {
+    const cartData = await calcCart(req.user.id);
     if (!cartData.items || cartData.items.length === 0) {
       return res.status(400).json({ message: 'Cart is empty' });
-    }
     }
 
     const razorpay = getRazorpay();
     const receipt  = 'rcpt_' + req.user.id.toString().slice(-6) + '_' + Date.now();
-
     const rzpOrder = await razorpay.orders.create({
-      amount:   Math.round(cartData.total * 100), // paise
+      amount:   Math.round(cartData.total * 100),
       currency: 'INR',
       receipt,
     });
 
-    // Save cart snapshot for verify after mobile redirect
+    // Save snapshot (address + cart) for mobile redirect recovery
     try {
       await PendingPayment.findOneAndDelete({ razorpayOrderId: rzpOrder.id });
       await PendingPayment.create({
         razorpayOrderId: rzpOrder.id,
-        userId: req.user.id,
-        cartSnapshot: cartData,
+        userId:          req.user.id,
+        cartSnapshot:    cartData,
         shippingAddress: req.body.shippingAddress || {},
-        buyerNotes: req.body.buyerNotes || ''
+        buyerNotes:      req.body.buyerNotes      || '',
       });
-      console.log('Snapshot saved:', rzpOrder.id);
-    } catch (se) { console.error(se.message); }
+    } catch (se) { console.error('Snapshot save error:', se.message); }
 
     res.json({
-      success:   true,
-      order_id:  rzpOrder.id,
-      amount:    rzpOrder.amount,
-      currency:  rzpOrder.currency,
-      key:       process.env.RAZORPAY_KEY_ID,
+      success:    true,
+      order_id:   rzpOrder.id,
+      amount:     rzpOrder.amount,
+      currency:   rzpOrder.currency,
+      key:        process.env.RAZORPAY_KEY_ID,
       cart_total: cartData.total,
     });
   } catch (e) {
-    console.error('Razorpay create-order error:', e);
+    console.error('create-order error:', e);
     res.status(500).json({ message: e.message || 'Payment initiation failed' });
   }
 });
 
 // ══════════════════════════════════════════════
 // POST /api/store/payment/verify
-// Verifies Razorpay signature + creates order
 // ══════════════════════════════════════════════
 router.post('/verify', protect, async (req, res) => {
   try {
-    const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-      buyerNotes,
-    } = req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
     let shippingAddress = req.body.shippingAddress;
+    let buyerNotes      = req.body.buyerNotes || '';
 
-    // 2. Build order from cart
+    // 1. Get cart (live first, then snapshot fallback)
     let cartData = await calcCart(req.user.id);
     if (!cartData || !cartData.items || cartData.items.length === 0) {
-      // Try cart snapshot (saved during create-order, survives mobile redirect)
-      const pendingSnap = await PendingPayment.findOne({ razorpayOrderId: razorpay_order_id });
-      if (pendingSnap && pendingSnap.cartSnapshot && pendingSnap.cartSnapshot.items && pendingSnap.cartSnapshot.items.length > 0) {
-        cartData = pendingSnap.cartSnapshot;
-        if (!shippingAddress || !shippingAddress.fullName) shippingAddress = pendingSnap.shippingAddress;
-        if (!buyerNotes) buyerNotes = pendingSnap.buyerNotes;
+      const snap = await PendingPayment.findOne({ razorpayOrderId: razorpay_order_id });
+      if (snap && snap.cartSnapshot?.items?.length > 0) {
+        cartData = snap.cartSnapshot;
+        if (!shippingAddress?.fullName) shippingAddress = snap.shippingAddress;
+        if (!buyerNotes)                buyerNotes       = snap.buyerNotes;
         console.log('Using snapshot for order:', razorpay_order_id);
       } else {
-        return res.status(400).json({ message: 'Cart is empty' });
+        return res.status(400).json({ success: false, message: 'Cart is empty — snapshot not found' });
       }
     }
+
+    // 2. Validate shipping address
     if (!shippingAddress?.fullName || !shippingAddress?.phone || !shippingAddress?.pincode) {
-      return res.status(400).json({ message: 'Shipping address required' });
+      return res.status(400).json({ success: false, message: 'Shipping address required' });
     }
 
-      // 1. FIXED: free order bypass — signature skipped for ₹0
-  if (cartData.total > 0) {
+    // 3. Verify Razorpay signature
     if (!process.env.RAZORPAY_KEY_SECRET) {
-      console.error('RAZORPAY_KEY_SECRET missing from environment!');
-      return res.status(500).json({
-        success: false,
-        message: 'Payment config error. Contact support with Payment ID: ' + razorpay_payment_id
-      });
+      return res.status(500).json({ success: false, message: 'Razorpay key missing on server' });
     }
-    const body = razorpay_order_id + '|' + razorpay_payment_id;
-    const expectedSig = require('crypto')
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(body).digest('hex');
+    const sigBody     = razorpay_order_id + '|' + razorpay_payment_id;
+    const expectedSig = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(sigBody).digest('hex');
+    console.log('Sig check → match:', expectedSig === razorpay_signature, '| orderId:', razorpay_order_id);
     if (expectedSig !== razorpay_signature) {
-      return res.status(400).json({ success: false, message: 'Payment verification failed – invalid signature' });
+      return res.status(400).json({ success: false, message: 'Signature mismatch — check Razorpay keys on Render' });
     }
-  }
 
-  // 3. Check stock
+    // 4. Check stock
     for (const item of cartData.items) {
       if (item.product.stock < item.quantity) {
-        return res.status(400).json({ message: `Insufficient stock for ${item.product.name}` });
+        return res.status(400).json({ success: false, message: `Insufficient stock for ${item.product.name}` });
       }
     }
 
+    // 5. Create order in DB
     const orderItems = cartData.items.map(item => ({
       product:       item.product._id,
       name:          item.product.name,
@@ -179,10 +161,9 @@ router.post('/verify', protect, async (req, res) => {
       discount:      item.product.originalPrice - item.product.price,
     }));
 
-    // 4. Create order in DB
     const order = new Order({
-      student: req.user.id,
-      items:   orderItems,
+      student:  req.user.id,
+      items:    orderItems,
       shippingAddress,
       payment: {
         method:        'UPI',
@@ -201,19 +182,19 @@ router.post('/verify', protect, async (req, res) => {
       couponCode:        cartData.couponCode,
       buyerNotes,
       estimatedDelivery: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-      status:            'confirmed', // auto-confirm for online payment
+      status:            'confirmed',
     });
     order.statusHistory.push({ status: 'confirmed', note: 'Payment received via Razorpay', updatedBy: 'System' });
     await order.save();
 
-    // 5. Deduct stock
+    // 6. Deduct stock
     for (const item of cartData.items) {
       await Product.findByIdAndUpdate(item.product._id, {
         $inc: { stock: -item.quantity, sold: item.quantity }
       });
     }
 
-    // 6. Mark coupon used
+    // 7. Mark coupon used
     if (cartData.couponCode) {
       await Coupon.findOneAndUpdate(
         { code: cartData.couponCode },
@@ -221,28 +202,21 @@ router.post('/verify', protect, async (req, res) => {
       );
     }
 
-    // 7. Clear cart
+    // 8. Clear cart + pending snapshot
     await Cart.findOneAndDelete({ student: req.user.id });
+    await PendingPayment.findOneAndDelete({ razorpayOrderId: razorpay_order_id }).catch(() => {});
 
-    res.json({
-      success: true,
-      message: 'Payment verified & order placed!',
-      orderId: order.orderId,
-      order,
-    });
+    res.json({ success: true, message: 'Payment verified & order placed!', orderId: order.orderId, order });
   } catch (e) {
-    console.error('Razorpay verify error:', e.message, e.stack);
+    console.error('verify error:', e.message, e.stack);
     res.status(500).json({ success: false, message: 'Server error: ' + (e.message || 'Unknown') });
   }
 });
 
-// ══════════════════════════════════════════════
-// GET /api/store/payment/config
-// Returns Razorpay key for frontend
-// ══════════════════════════════════════════════
+// ── GET /api/store/payment/config ──────────────────────────
 router.get('/config', protect, (req, res) => {
   res.json({
-    key: process.env.RAZORPAY_KEY_ID || '',
+    key:        process.env.RAZORPAY_KEY_ID || '',
     configured: !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET),
   });
 });

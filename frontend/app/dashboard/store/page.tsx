@@ -109,9 +109,9 @@ const loadRazorpayScript = (): Promise<boolean> => {
 
 // ── Payment Failure Modal ───────────────────────────────────
 function PaymentFailureModal({
-  paymentId, amount, onRetry, onClose, retrying
+  paymentId, amount, errorMsg, onRetry, onClose, retrying
 }: {
-  paymentId: string; amount: number; onRetry: () => void;
+  paymentId: string; amount: number; errorMsg?: string; onRetry: () => void;
   onClose: () => void; retrying: boolean;
 }) {
   return (
@@ -123,13 +123,16 @@ function PaymentFailureModal({
             Payment Done — Order Failed
           </h2>
           <p style={{ fontSize:13, color:'rgba(255,255,255,0.5)', margin:0 }}>
-            ₹{amount} was deducted but order was not created due to a connection error.
+            ₹{amount} was deducted but order was not created. {errorMsg || 'Retry below or contact support.'}
           </p>
         </div>
 
         <div style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:12, padding:14, marginBottom:16 }}>
-          <p style={{ fontSize:11, color:'rgba(255,255,255,0.4)', margin:'0 0 4px', fontWeight:700 }}>PAYMENT ID (Screenshot karo!)</p>
-          <p style={{ fontSize:14, fontFamily:'monospace', color:'#60a5fa', fontWeight:700, margin:0, wordBreak:'break-all' }}>{paymentId}</p>
+          <p style={{ fontSize:11, color:'rgba(255,255,255,0.4)', margin:'0 0 4px', fontWeight:700 }}>PAYMENT ID</p>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <p style={{ fontSize:13, fontFamily:'monospace', color:'#60a5fa', fontWeight:700, margin:0, wordBreak:'break-all', flex:1 }}>{paymentId}</p>
+            <button onClick={()=>{ navigator.clipboard?.writeText(paymentId); }} style={{ background:'rgba(96,165,250,0.15)', border:'1px solid rgba(96,165,250,0.3)', color:'#60a5fa', borderRadius:8, padding:'4px 10px', fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>📋 Copy</button>
+          </div>
         </div>
 
         <div style={{ fontSize:12, color:'rgba(255,255,255,0.4)', marginBottom:16, lineHeight:1.7 }}>
@@ -312,7 +315,7 @@ export default function StorePage() {
 
         // Step 1: Create Razorpay order on backend
         const r = await fetch(`${API}/api/store/payment/create-order`, {
-          method: 'POST', headers: hdr(), body: JSON.stringify({}),
+          method: 'POST', headers: hdr(), body: JSON.stringify({ shippingAddress: addr, buyerNotes }),
         });
         const payData = await r.json();
         if (!r.ok) { T(payData.message || 'Payment initiation failed', 'error'); setPlacing(false); return; }
@@ -394,6 +397,7 @@ export default function StorePage() {
                 amount:    cart.total,
                 rzpOrderId: response.razorpay_order_id,
                 rzpSignature: response.razorpay_signature,
+                errorMsg:     lastError,
               });
             }
             setPlacing(false);
@@ -457,6 +461,7 @@ export default function StorePage() {
           paymentId={failedPayment.paymentId}
           amount={failedPayment.amount}
           onRetry={retryPaymentVerify}
+          errorMsg={failedPayment?.errorMsg}
           onClose={() => setFailedPayment(null)}
           retrying={retryingVerify}
         />
