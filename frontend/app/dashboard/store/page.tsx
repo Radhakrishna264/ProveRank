@@ -196,6 +196,7 @@ export default function StorePage() {
 
   // Wishlist
   const [wishIds, setWishIds]   = useState<string[]>([]);
+  const [buyerNotes, setBuyerNotes] = useState('');
 
   // Checkout
   const [step, setStep]         = useState(0);
@@ -413,7 +414,7 @@ export default function StorePage() {
         return; // placing will be set false in handler
       }
     } catch (e) {
-      T('ERR: ' + (e instanceof Error ? e.message : JSON.stringify(e)), 'error');
+      T('Something went wrong. Try again.', 'error');
     }
     setPlacing(false);
   };
