@@ -53,7 +53,7 @@ const pendingPaymentSchema = new mongoose.Schema({
   buyerNotes:      { type: String, default: '' },
   createdAt:       { type: Date, default: Date.now, expires: 3600 },
 });
-const PendingPayment = mongoose.model('PendingPayment', pendingPaymentSchema);
+const PendingPayment = mongoose.models.PendingPayment || mongoose.model('PendingPayment', pendingPaymentSchema);
 
 // ══════════════════════════════════════════════
 // POST /api/store/payment/create-order
