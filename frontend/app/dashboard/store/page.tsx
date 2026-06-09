@@ -196,9 +196,11 @@ export default function StorePage() {
 
   // Wishlist
   const [wishIds, setWishIds]   = useState<string[]>([]);
+  const [wishlist, setWishlist]    = useState<any[]>([]);
   const [buyerNotes, setBuyerNotes] = useState('');
 
   // Checkout
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
   const [step, setStep]         = useState(0);
   const [addr, setAddr]         = useState({ fullName:'', phone:'', addressLine1:'', addressLine2:'', city:'', state:'', pincode:'' });
   const [payM, setPayM]         = useState('COD');
@@ -219,6 +221,7 @@ export default function StorePage() {
   useEffect(() => {
     fetch(`${API}/api/store/products/featured`).then(r=>r.json()).then(d=>setFeatured(d.products||[]));
     if (tok()) { loadCart(); loadWish(); }
+    try { const s = localStorage.getItem('pr_saved_addrs'); if (s) setSavedAddresses(JSON.parse(s)); } catch(e){}
   }, []);
 
   const loadCart = () => fetch(`${API}/api/store/cart`,{headers:hdr()}).then(r=>r.json()).then(setCart).catch(()=>{});
@@ -419,6 +422,15 @@ export default function StorePage() {
     setPlacing(false);
   };
   const setA = (k: string, v: string) => setAddr(p => ({...p, [k]:v}));
+  const saveCurrentAddress = () => {
+    if (!addr.fullName || !addr.phone || !addr.pincode) { T('Fill address first','error'); return; }
+    const entry = { ...addr, label: addr.fullName + ', ' + addr.city };
+    const existing: any[] = (() => { try { return JSON.parse(localStorage.getItem('pr_saved_addrs') || '[]'); } catch(e){ return []; } })();
+    const updated = [entry, ...existing.filter((a: any) => a.pincode !== entry.pincode)].slice(0, 5);
+    localStorage.setItem('pr_saved_addrs', JSON.stringify(updated));
+    setSavedAddresses(updated);
+    T('Address saved! 💾');
+  };
   const goBack = () => {
     if (view !== 'store') { setView('store'); setSelProd(null); setSelOrder(null); setStep(0); }
     else router.push('/dashboard');
@@ -722,6 +734,18 @@ export default function StorePage() {
 
             {step === 0 && (
               <div style={{ ...S.card, padding:16 }}>
+                {savedAddresses.length > 0 && (
+                  <div style={{ marginBottom:16 }}>
+                    <p style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.4)', marginBottom:8, letterSpacing:1 }}>💾 SAVED ADDRESSES — TAP TO USE</p>
+                    {savedAddresses.map((sa: any, i: number) => (
+                      <div key={i} onClick={() => setAddr(sa)} style={{ padding:'10px 12px', borderRadius:10, marginBottom:6, cursor:'pointer', border:'1px solid rgba(37,99,235,0.35)', background:'rgba(37,99,235,0.07)' }}>
+                        <p style={{ fontSize:13, fontWeight:700, color:'#fff', margin:'0 0 2px' }}>{sa.fullName} · {sa.phone}</p>
+                        <p style={{ fontSize:11, color:'rgba(255,255,255,0.4)', margin:0 }}>{sa.addressLine1}, {sa.city} — {sa.pincode}</p>
+                      </div>
+                    ))}
+                    <div style={{ height:1, background:'rgba(255,255,255,0.07)', margin:'10px 0 14px' }} />
+                  </div>
+                )}
                 <p style={{ fontSize:14, fontWeight:700, color:'#fff', marginBottom:14 }}>Delivery Address</p>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
                   {[['fullName','Full Name *'],['phone','Phone *'],['addressLine1','Address Line 1 *'],['addressLine2','Address Line 2'],['city','City *'],['pincode','Pincode *']].map(([k,pl])=>(
@@ -743,6 +767,7 @@ export default function StorePage() {
                   if (!addr.phone.match(/^[6-9]\d{9}$/)){T('Invalid phone number','error');return;}
                   setStep(1);
                 }} style={{ ...S.btnP, width:'100%', padding:14, marginTop:16 }}>Continue to Payment →</button>
+                <button onClick={saveCurrentAddress} style={{ ...S.btnS, width:'100%', padding:10, marginTop:8, fontSize:12 }}>💾 Save This Address</button>
               </div>
             )}
             {step === 1 && (
