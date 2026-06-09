@@ -68,7 +68,7 @@ router.post('/create-order', protect, async (req, res) => {
       return res.status(500).json({ message: 'Razorpay not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET env vars.' });
     }
 
-    const cartData = await calcCart(req.user.id);
+    let cartData = await calcCart(req.user.id);
     if (!cartData.items || cartData.items.length === 0) {
     if (!cartData.items || cartData.items.length === 0) {
       return res.status(400).json({ message: 'Cart is empty' });
@@ -121,12 +121,12 @@ router.post('/verify', protect, async (req, res) => {
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
-      shippingAddress,
       buyerNotes,
     } = req.body;
+    let shippingAddress = req.body.shippingAddress;
 
     // 2. Build order from cart
-    const cartData = await calcCart(req.user.id);
+    let cartData = await calcCart(req.user.id);
     if (!cartData || !cartData.items || cartData.items.length === 0) {
       // Try cart snapshot (saved during create-order, survives mobile redirect)
       const pendingSnap = await PendingPayment.findOne({ razorpayOrderId: razorpay_order_id });
