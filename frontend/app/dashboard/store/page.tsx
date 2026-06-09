@@ -413,7 +413,7 @@ export default function StorePage() {
         return; // placing will be set false in handler
       }
     } catch (e) {
-      T('Something went wrong. Try again.', 'error');
+      T('ERR: ' + (e instanceof Error ? e.message : JSON.stringify(e)), 'error');
     }
     setPlacing(false);
   };
