@@ -127,8 +127,17 @@ router.post('/verify', protect, async (req, res) => {
 
     // 2. Build order from cart
     const cartData = await calcCart(req.user.id);
-    if (!cartData.items || cartData.items.length === 0) {
-      return res.status(400).json({ message: 'Cart is empty' });
+    if (!cartData || !cartData.items || cartData.items.length === 0) {
+      // Try cart snapshot (saved during create-order, survives mobile redirect)
+      const pendingSnap = await PendingPayment.findOne({ razorpayOrderId: razorpay_order_id });
+      if (pendingSnap && pendingSnap.cartSnapshot && pendingSnap.cartSnapshot.items && pendingSnap.cartSnapshot.items.length > 0) {
+        cartData = pendingSnap.cartSnapshot;
+        if (!shippingAddress || !shippingAddress.fullName) shippingAddress = pendingSnap.shippingAddress;
+        if (!buyerNotes) buyerNotes = pendingSnap.buyerNotes;
+        console.log('Using snapshot for order:', razorpay_order_id);
+      } else {
+        return res.status(400).json({ message: 'Cart is empty' });
+      }
     }
     if (!shippingAddress?.fullName || !shippingAddress?.phone || !shippingAddress?.pincode) {
       return res.status(400).json({ message: 'Shipping address required' });
