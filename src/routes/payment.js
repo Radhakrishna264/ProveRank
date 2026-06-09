@@ -48,6 +48,20 @@ const calcCart = async (studentId) => {
 // POST /api/store/payment/create-order
 // Creates a Razorpay order for checkout
 // ══════════════════════════════════════════════
+const mongoose = require('mongoose');
+
+// PendingPayment — cart snapshot before Razorpay payment
+const pendingPaymentSchema = new mongoose.Schema({
+  razorpayOrderId: { type: String, required: true, unique: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  cartSnapshot: { type: Object, required: true },
+  shippingAddress: { type: Object, required: true },
+  buyerNotes: { type: String, default: '' },
+  createdAt: { type: Date, default: Date.now, expires: 3600 } // auto-delete after 1 hour
+});
+const PendingPayment = mongoose.model('PendingPayment', pendingPaymentSchema);
+
+
 router.post('/create-order', protect, async (req, res) => {
   try {
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
@@ -56,7 +70,9 @@ router.post('/create-order', protect, async (req, res) => {
 
     const cartData = await calcCart(req.user.id);
     if (!cartData.items || cartData.items.length === 0) {
+    if (!cartData.items || cartData.items.length === 0) {
       return res.status(400).json({ message: 'Cart is empty' });
+    }
     }
 
     const razorpay = getRazorpay();
@@ -67,6 +83,19 @@ router.post('/create-order', protect, async (req, res) => {
       currency: 'INR',
       receipt,
     });
+
+    // Save cart snapshot for verify after mobile redirect
+    try {
+      await PendingPayment.findOneAndDelete({ razorpayOrderId: rzpOrder.id });
+      await PendingPayment.create({
+        razorpayOrderId: rzpOrder.id,
+        userId: req.user.id,
+        cartSnapshot: cartData,
+        shippingAddress: req.body.shippingAddress || {},
+        buyerNotes: req.body.buyerNotes || ''
+      });
+      console.log('Snapshot saved:', rzpOrder.id);
+    } catch (se) { console.error(se.message); }
 
     res.json({
       success:   true,
