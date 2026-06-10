@@ -1523,7 +1523,7 @@ const confirmAndAdd=useCallback(async()=>{
     topic:qTopic||undefined,
     difficulty:qDiff||'medium',
     type:qType||'SCQ',
-    options:['SCQ','MSQ'].includes(qType)?[qA.current,qB.current,qC.current,qD.current].filter(Boolean):undefined,
+    options:['SCQ','MSQ'].includes(qType)?[qA.current||'',qB.current||'',qC.current||'',qD.current||'']:undefined,
       optionImages:[optImgsInit.a,optImgsInit.b,optImgsInit.c,optImgsInit.d],
     correct:(qType==='Integer'
       ?[parseInt(qAns)||0]
@@ -1533,7 +1533,7 @@ const confirmAndAdd=useCallback(async()=>{
     ),
     explanation:qExpR.current||qExp||undefined,
     image:qImg||qImageR.current||undefined,
-      optionImages:[optImgsInit.a,optImgsInit.b,optImgsInit.c,optImgsInit.d].filter(x=>!!(x&&x.trim()))
+      optionImages:[optImgsInit.a||'',optImgsInit.b||'',optImgsInit.c||'',optImgsInit.d||'']
   }
     try{
       const res=await fetch(`${API}/api/questions`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(payload)})
@@ -3255,9 +3255,10 @@ return(
                     <div key={i} style={{...cs,marginBottom:8}}>
                       <div style={{fontSize:12,fontWeight:600,color:TS,marginBottom:6}}>Q{i+1}. {q.text||q.question||'—'}</div>
                       {q.options&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
-                        {(Array.isArray(q.options)?q.options:[q.optionA,q.optionB,q.optionC,q.optionD].filter(Boolean)).map((o:string,j:number)=>(
+                        {(Array.isArray(q.options)?q.options:[q.optionA,q.optionB,q.optionC,q.optionD].filter(Boolean)).map((o:string,j:number)=>{const _hasT=!!(o&&o.trim()),_hasI=!!(q.optionImages&&q.optionImages[j]&&String(q.optionImages[j]).trim());if(!_hasT&&!_hasI)return null;return(
                           <div key={j} style={{padding:'3px 0'}}><span style={{fontSize:11,color:'#6EE7B7',fontWeight:600}}>{String.fromCharCode(65+j)})</span>{o&&<span style={{fontSize:11,color:DIM,marginLeft:3}}>{o}</span>}{q.optionImages?.[j]&&<img src={q.optionImages[j] as string} alt='' style={{display:'block',maxWidth:'100%',maxHeight:60,borderRadius:3,marginTop:o?3:0,border:'1px solid rgba(255,255,255,0.1)'}} onError={(e:any)=>{e.currentTarget.style.display='none'}}/>}{q.optionImages?.[j]&&<img src={q.optionImages[j] as string} alt='' style={{display:'block',maxWidth:'100%',maxHeight:60,borderRadius:3,marginTop:o?3:0,border:'1px solid rgba(255,255,255,0.1)'}} onError={(e:any)=>{e.currentTarget.style.display='none'}}/>}</div>
-                        ))}
+                        )
+            })}
                       </div>}
                       {(q.correctAnswer||q.answer)&&<div style={{fontSize:11,color:SUC,fontWeight:600}}>✅ Answer: {q.correctAnswer||q.answer}</div>}
                       {q.explanation&&<div style={{fontSize:10,color:DIM,marginTop:4,lineHeight:1.5}}>💡 {q.explanation?.slice(0,100)}…</div>}<div style={{marginTop:8,padding:'8px 10px',background:'rgba(99,102,241,0.08)',borderRadius:8,border:'1px solid rgba(99,102,241,0.15)'}}>
