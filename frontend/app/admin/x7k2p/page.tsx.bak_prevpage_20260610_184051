@@ -2901,7 +2901,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                 <div>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
                     <button onClick={function(){setQBV('home');setBulkSel([]);try{sessionStorage.setItem('pr_qbv','home')}catch{}}} style={{...bg_,padding:'5px 11px',fontSize:11}}>← Back</button>
-                    <div style={{flex:1,minWidth:0,overflow:'hidden'}}><div style={{fontSize:18,fontWeight:800,background:'linear-gradient(90deg,#A78BFA,#60A5FA)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',letterSpacing:0.2,lineHeight:1.2}}>📚 Preview All Questions</div><div style={{display:'flex',alignItems:'center',gap:5,marginTop:3,flexWrap:'wrap'}}><span style={{fontSize:10,color:'#64748B',fontWeight:500}}>Showing</span><span style={{fontSize:11,fontWeight:700,color:'#A78BFA',background:'rgba(167,139,250,0.13)',padding:'1px 9px',borderRadius:8,border:'1px solid rgba(167,139,250,0.28)'}}>{fQs.length}</span><span style={{fontSize:10,color:'#64748B'}}>of {(questions||[]).length} Questions</span></div></div>
+                    <div style={{flex:1,minWidth:0,overflow:'hidden'}}><div style={{...pageTitle,fontSize:16,lineHeight:1.2}}>☁️ Preview All Questions</div><div style={pageSub}>{fQs.length} of {(questions||[]).length} shown</div></div>
                     <button onClick={function(){setStdPrv(function(p){return !p})}} style={{...bg_,fontSize:10,padding:'5px 10px',background:stdPrv?'rgba(0,229,160,0.12)':'rgba(255,255,255,0.05)',color:stdPrv?'#00E5A0':'#94A3B8'}}>{stdPrv?'🎓 ON':'🎓 View'}</button>
                     <button onClick={expQB} style={{...bg_,fontSize:10,padding:'5px 10px'}}>⬇️</button>
                     <button onClick={function(){setQBV('add');try{sessionStorage.setItem('pr_qbv','add')}catch{}}} style={{...bp,fontSize:10,padding:'5px 12px'}}>➕ Add</button>
@@ -2920,28 +2920,16 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                       return(<button key={x.k} onClick={function(){setQBioSub(x.k);setQPage(1)}} style={{padding:'3px 9px',borderRadius:12,border:'1px solid '+(isA?'#34D399':'rgba(52,211,153,0.2)'),background:isA?'rgba(52,211,153,0.12)':'transparent',color:isA?'#34D399':'#64748B',fontSize:10,cursor:'pointer'}}>{x.l}</button>)
                     })}
                   </div>)}
-                  {(questions||[]).length>0&&(<div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:5,marginBottom:10}}>
-                    {[{l:'Total',v:(questions||[]).length,c:'#A78BFA'},{l:'Physics',v:(questions||[]).filter(function(q){return q.subject==='Physics'}).length,c:'#60A5FA'},{l:'Chemistry',v:(questions||[]).filter(function(q){return q.subject==='Chemistry'}).length,c:'#F472B6'},{l:'Biology',v:(questions||[]).filter(function(q){return q.subject==='Biology'}).length,c:'#34D399'},{l:'Math',v:(questions||[]).filter(function(q){return q.subject==='Math'}).length,c:'#FBBF24'}].map(function(x){return(
-                      <div key={x.l} style={{background:'rgba(255,255,255,0.03)',border:'1px solid '+x.c+'28',borderRadius:9,padding:'8px 4px',textAlign:'center'}}>
-                        <div style={{fontSize:16,fontWeight:800,color:x.c}}>{x.v}</div>
-                        <div style={{fontSize:8,color:'#64748b',marginTop:1}}>{x.l}</div>
-                      </div>)})}
-                  </div>)}
                   {fQs.length>0&&(function(){
-                    const tot=fQs.length||1
+                    const tot=fQs.length
                     const ez=fQs.filter(function(q){return q.difficulty==='easy'}).length
                     const md=fQs.filter(function(q){return q.difficulty==='medium'}).length
                     const hd=fQs.filter(function(q){return q.difficulty==='hard'}).length
-                    return(<div style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)',borderRadius:10,padding:'10px 12px',marginBottom:8}}>
-                      <div style={{fontSize:10,color:'#94A3B8',fontWeight:600,marginBottom:7}}>📊 Difficulty Distribution</div>
-                      {[{l:'Easy',v:ez,col:'#00C864'},{l:'Medium',v:md,col:'#FFB300'},{l:'Hard',v:hd,col:'#FF4D4D'}].map(function(x){
-                        const pct=Math.round((x.v/tot)*100)
-                        return(<div key={x.l} style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
-                          <div style={{width:44,fontSize:9,color:x.col,fontWeight:600}}>{x.l}</div>
-                          <div style={{flex:1,height:4,background:'rgba(255,255,255,0.06)',borderRadius:2}}><div style={{width:pct+'%',height:'100%',background:x.col,borderRadius:2,transition:'width 0.4s ease'}}/></div>
-                          <div style={{width:54,fontSize:9,color:'#475569',textAlign:'right'}}>{x.v} ({pct}%)</div>
-                        </div>)
-                      })}
+                    return(<div style={{display:'flex',gap:10,alignItems:'center',marginBottom:8,padding:'5px 10px',background:'rgba(255,255,255,0.02)',borderRadius:7,flexWrap:'wrap'}}>
+                      <span style={{color:'#475569',fontSize:10,fontWeight:600}}>Difficulty:</span>
+                      {[{l:'Easy',v:ez,c:'#00C864'},{l:'Med',v:md,c:'#FFB300'},{l:'Hard',v:hd,c:'#FF4D4D'}].map(function(x){return(
+                        <span key={x.l} style={{fontSize:10,color:x.c,fontWeight:600}}>{x.v} {x.l} <span style={{color:'#475569',fontWeight:400}}>({Math.round((x.v/tot)*100)}%)</span></span>
+                      )})}
                     </div>)
                   })()}
                   {bulkSel.length>0&&(<div style={{display:'flex',alignItems:'center',gap:8,padding:'7px 12px',background:'rgba(255,60,60,0.07)',border:'1px solid rgba(255,60,60,0.2)',borderRadius:8,marginBottom:8,flexWrap:'wrap'}}>
