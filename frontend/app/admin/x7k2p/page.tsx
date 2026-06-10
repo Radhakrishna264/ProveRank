@@ -1136,6 +1136,7 @@ const [showAddPreview,setShowAddPreview]=useState(false)
   const [draftRestored,setDraftRestored]=useState(false)
   const [optInit,setOptInit]=useState({a:'',b:'',c:'',d:''})
   const [optImgsInit,setOptImgsInit]=useState({a:'',b:'',c:'',d:''})
+  const [lbImg,setLbImg]=useState<string>('');
   const [draftKey,setDraftKey]=useState(0)
   const [optVals,setOptVals]=useState({a:'',b:'',c:'',d:''})
   const [qSec,setQSec]=useState('all')
@@ -3132,7 +3133,7 @@ return(
                           return(<div key={oi} style={{padding:'7px 11px',borderRadius:7,border:'1px solid '+(isC?'rgba(0,200,100,0.4)':'rgba(255,255,255,0.07)'),background:isC?'rgba(0,200,100,0.08)':'rgba(255,255,255,0.02)'}}>
                             <span style={{fontWeight:700,color:isC?'#00C864':'#4D9FFF',marginRight:8}}>{ltr}.</span>
                             <span style={{fontSize:12,color:isC?'#E2E8F0':'#94A3B8'}} dangerouslySetInnerHTML={{__html:renderLatex(String(opt||''))}}></span>
-                            {isC&&<span style={{marginLeft:8,fontSize:10,color:'#00C864',fontWeight:700}}>✓ Correct</span>}{(q.optionImages as any)?.[oi]?<img src={(q.optionImages as any)[oi]} alt='' style={{display:'block',maxWidth:'100%',marginTop:4,borderRadius:4,border:'1px solid rgba(255,255,255,0.08)'}} onError={(e:any)=>{(e.target as HTMLImageElement).style.display='none'}}/>:null}
+                            {isC&&<span style={{marginLeft:8,fontSize:10,color:'#00C864',fontWeight:700}}>✓ Correct</span>}{(q.optionImages as any)?.[oi]?<img src={(q.optionImages as any)[oi]} alt='' style={{height:56,width:'100%',objectFit:'cover',borderRadius:4,marginTop:4,cursor:'pointer',border:'1px solid rgba(99,102,241,0.3)'}} onClick={()=>setLbImg(String((q.optionImages as any)?.[oi]||''))} onError={(e:any)=>{(e.target as HTMLImageElement).style.display='none'}}/>:null}
                           </div>)
                         })}
                       </div>)}
@@ -4944,6 +4945,14 @@ return(
           </div>
         </div>
       )}
-      </div>
+      
+      {/* ── Image Lightbox ── */}
+      {lbImg&&<div onClick={()=>setLbImg('')} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',zIndex:99999,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+        <div onClick={e=>e.stopPropagation()} style={{position:'relative',maxWidth:'92vw',maxHeight:'92vh',borderRadius:12,overflow:'hidden',boxShadow:'0 8px 48px rgba(0,0,0,0.6)'}}>
+          <img src={lbImg} alt='preview' style={{maxWidth:'92vw',maxHeight:'88vh',objectFit:'contain',display:'block',borderRadius:12}}/>
+          <button onClick={()=>setLbImg('')} style={{position:'absolute',top:8,right:8,background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.3)',color:'#fff',width:32,height:32,borderRadius:'50%',cursor:'pointer',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}>✕</button>
+        </div>
+      </div>}
+</div>
   )
 }// deploy Sun May 31 01:52:47 AM UTC 2026
