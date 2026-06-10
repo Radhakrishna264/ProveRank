@@ -82,7 +82,7 @@ router.get('/questions/:id/preview', verifyToken, isSuperAdmin, async (req, res)
   try {
     const Question = mongoose.model('Question');
     const q = await Question.findById(req.params.id)
-      .select('questionText options subject chapter difficulty imageUrl explanation');
+      .select('questionText options subject chapter difficulty imageUrl explanation optionImages');
     if (!q) return res.status(404).json({ success: false, message: 'Question not found' });
     res.json({
       success: true,

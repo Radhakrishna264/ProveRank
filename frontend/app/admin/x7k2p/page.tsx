@@ -1532,7 +1532,8 @@ const confirmAndAdd=useCallback(async()=>{
         :[['A','B','C','D'].indexOf((qAns||'').replace('Option ','').trim())].filter(function(x){return x>=0})
     ),
     explanation:qExpR.current||qExp||undefined,
-    image:qImg||qImageR.current||undefined
+    image:qImg||qImageR.current||undefined,
+      optionImages:[optImgsInit.a,optImgsInit.b,optImgsInit.c,optImgsInit.d].filter(x=>!!(x&&x.trim()))
   }
     try{
       const res=await fetch(`${API}/api/questions`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(payload)})
