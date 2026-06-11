@@ -2911,8 +2911,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                   <SInput init='' onSet={v=>{setQSearch(v);setQPage(1)}} ph='🔍 Search questions, chapter, topic…' style={{...inp,marginBottom:8,fontSize:12}}/>
                   <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:7}}>
                     {[{k:'all',l:'All',col:'#A78BFA'},{k:'Physics',l:'⚛️ Phy',col:'#60A5FA'},{k:'Chemistry',l:'🧪 Chem',col:'#F472B6'},{k:'Biology',l:'🧬 Bio',col:'#34D399'},{k:'Math',l:'📐 Math',col:'#FBBF24'},{k:'Other',l:'📚 Other',col:'#94A3B8'}].map(function(x){
-                      const sqBase=(questions||[]).filter(function(q){return !qSearch||(q.text||'').toLowerCase().includes(qSearch.toLowerCase())||(q.subject||'').toLowerCase().includes(qSearch.toLowerCase())||(q.chapter||'').toLowerCase().includes(qSearch.toLowerCase())||(q.topic||'').toLowerCase().includes(qSearch.toLowerCase())})
-                      const cnt=x.k==='all'?sqBase.length:x.k==='Other'?sqBase.filter(function(q){return !['Physics','Chemistry','Biology','Math'].includes(q.subject||'')}).length:sqBase.filter(function(q){return q.subject===x.k}).length
+                      const cnt=x.k==='all'?(questions||[]).length:x.k==='Other'?(questions||[]).filter(function(q){return !['Physics','Chemistry','Biology','Math'].includes(q.subject||'')}).length:(questions||[]).filter(function(q){return q.subject===x.k}).length
                       const isA=qSec===x.k
                       return(<button key={x.k} onClick={function(){setQSec(x.k);setQBioSub('all');setQPage(1)}} style={{padding:'4px 10px',borderRadius:16,border:'1.5px solid '+(isA?x.col:x.col+'22'),background:isA?x.col+'18':'transparent',color:isA?x.col:'#64748B',fontSize:10,fontWeight:isA?700:400,cursor:'pointer'}}>{x.l} ({cnt})</button>)
                     })}
