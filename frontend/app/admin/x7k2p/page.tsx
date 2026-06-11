@@ -3036,7 +3036,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                           <label style={lbl}>📖 Chapter * <span style={{color:'#475569',fontSize:9}}>(select or type)</span></label>
                           <select onChange={function(e){if(e.target.value){aiChR.current=e.target.value;setAiSelChap(e.target.value)}}} style={{...inp,width:'100%',marginBottom:5}}>
                             <option value=''>— Select NCERT Chapter —</option>
-                            {chapters.map(function(c){const dn=c.replace(/^(11th|12th)s*-s*/i,'');return <option key={c} value={c}>{dn}</option>})}
+                            {chapters.map(function(c){const dn=c.includes(' - ')?c.split(' - ').slice(1).join(' - '):c;return <option key={c} value={c}>{dn}</option>})}
                           </select>
                           <input defaultValue='' placeholder='Or type custom chapter…' onChange={function(e){aiChR.current=e.target.value;setAiSelChap(e.target.value)}} style={{...inp,width:'100%',fontSize:11}}/>
                         </div>
