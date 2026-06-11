@@ -1499,30 +1499,11 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
     for(const id of bulkSel){await fetch(API+'/api/questions/'+id,{method:'DELETE',headers:{Authorization:'Bearer '+token}})}
     setQuestions(p=>p.filter(q=>!bulkSel.includes(q._id)));setBulkSel([]);T('Bulk deleted.')
   }
-  const blkApproveQs=async()=>{
-    if(!bulkSel.length||!confirm('Approve '+bulkSel.length+' questions?'))return
-    for(const id of bulkSel){await fetch(API+'/api/questions/'+id,{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({approvalStatus:'approved'})})}
-    setQuestions(function(p){return p.map(function(q){return bulkSel.includes(q._id)?Object.assign({},q,{approvalStatus:'approved'}):q})})
-    setBulkSel([]);T('✅ Bulk approved.')
-  }
   const expQB=()=>{
     const hdr='ID\tText\tSubject\tChapter\tDifficulty\tType'
     const rows=(questions||[]).map(function(q){return[q._id||'',q.text||'',q.subject||'',q.chapter||'',q.difficulty||'',q.type||''].join('\t')})
     const blob=new Blob([hdr+'\n'+rows.join('\n')],{type:'text/csv'})
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='qbank.csv';a.click()
-  }
-  const expQBPdf=()=>{
-    const qs=(questions||[])
-    const w=window.open('','_blank')
-    if(!w)return
-    const rows=qs.map(function(q,i){
-      const opts=(q.options||[]).map(function(o,j){return '<p style="margin:2px 0;font-size:13px">'+String.fromCharCode(65+j)+'. '+o+'</p>'}).join('')
-      const ans=q.correctAnswer?'<p style="color:#059669;font-size:12px;margin-top:4px">✓ Answer: '+q.correctAnswer+'</p>':''
-      const meta='<p style="color:#6B7280;font-size:11px;margin-top:2px">'+(q.subject||'')+(q.chapter?' · '+q.chapter:'')+(q.difficulty?' · '+q.difficulty:'')+'</p>'
-      return '<div style="margin-bottom:18px;padding:12px;border:1px solid #e5e7eb;border-radius:6px;page-break-inside:avoid"><p style="font-weight:600;font-size:14px;margin-bottom:6px">Q'+(i+1)+'. '+q.text+'</p>'+opts+ans+meta+'</div>'
-    }).join('')
-    w.document.write('<!DOCTYPE html><html><head><title>ProveRank QBank</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h2{color:#4F46E5}button{padding:8px 18px;background:#4F46E5;color:#fff;border:none;border-radius:6px;cursor:pointer;margin-bottom:16px;font-size:14px}@media print{button{display:none}}</style></head><body><h2>📚 ProveRank Question Bank</h2><p style="color:#6B7280;margin-bottom:12px">Total: '+qs.length+' Questions · Exported '+new Date().toLocaleDateString()+'</p><button onclick="window.print()">🖨️ Print / Save as PDF</button><hr style="margin:12px 0"/>'+rows+'</body></html>')
-    w.document.close()
   }
     useEffect(()=>{const t=setInterval(()=>{setQTxtVal(qTxtR.current||'');setOptVals({a:qA.current||'',b:qB.current||'',c:qC.current||'',d:qD.current||''})},800);return ()=>clearInterval(t);},[]);
   useEffect(()=>{const timer=setTimeout(()=>{const d={text:qTxtVal,subj:qSubj,diff:qDiff,type:qType,ans:qAns,hindi:qHindi,chap:qChap,topic:qTopic,exp:qExp,img:qImg,optA:qA.current,optB:qB.current,optC:qC.current,optD:qD.current};if(d.text||d.subj||d.hindi||d.optA){try{localStorage.setItem('pr_q_draft',JSON.stringify(d));setDraftSaved(true);setTimeout(()=>setDraftSaved(false),2000)}catch(ex){}}},2000);return ()=>clearTimeout(timer);},[qTxtVal,qSubj,qDiff,qType,qAns,qHindi,qChap,qTopic,qExp,qImg]);
@@ -2926,7 +2907,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                     <button onClick={function(){setQBV('home');setBulkSel([]);try{sessionStorage.setItem('pr_qbv','home')}catch{}}} style={{...bg_,padding:'5px 11px',fontSize:11}}>← Back</button>
                     <div style={{flex:1,minWidth:0,overflow:'hidden'}}><div style={{fontSize:18,fontWeight:800,background:'linear-gradient(90deg,#A78BFA,#60A5FA)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',letterSpacing:0.2,lineHeight:1.2}}>📚 Preview All Questions</div><div style={{display:'flex',alignItems:'center',gap:5,marginTop:3,flexWrap:'wrap'}}><span style={{fontSize:10,color:'#64748B',fontWeight:500}}>Showing</span><span style={{fontSize:11,fontWeight:700,color:'#A78BFA',background:'rgba(167,139,250,0.13)',padding:'1px 9px',borderRadius:8,border:'1px solid rgba(167,139,250,0.28)'}}>{fQs.length}</span><span style={{fontSize:10,color:'#64748B'}}>of {(questions||[]).length} Questions</span></div></div>
                     <button onClick={function(){setStdPrv(function(p){return !p})}} style={{...bg_,fontSize:10,padding:'5px 10px',background:stdPrv?'rgba(0,229,160,0.12)':'rgba(255,255,255,0.05)',color:stdPrv?'#00E5A0':'#94A3B8'}}>{stdPrv?'🎓 ON':'🎓 View'}</button>
-                    <button onClick={expQB} style={{...bg_,fontSize:10,padding:'5px 10px'}} title='Export CSV'>📄 CSV</button><button onClick={expQBPdf} style={{...bg_,fontSize:10,padding:'5px 10px',marginLeft:4}} title='Export PDF'>🖨️ PDF</button>
+                    <button onClick={expQB} style={{...bg_,fontSize:10,padding:'5px 10px'}}>⬇️</button>
                     <button onClick={function(){setQBV('add');try{sessionStorage.setItem('pr_qbv','add')}catch{}}} style={{...bp,fontSize:10,padding:'5px 12px'}}>➕ Add</button>
                   </div>
                   <SInput init='' onSet={v=>{setQSearch(v);setQPage(1)}} ph='🔍 Search questions, chapter, topic…' style={{...inp,marginBottom:8,fontSize:12}}/>
@@ -2990,7 +2971,6 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                   })()}
                   {bulkSel.length>0&&(<div style={{display:'flex',alignItems:'center',gap:8,padding:'7px 12px',background:'rgba(255,60,60,0.07)',border:'1px solid rgba(255,60,60,0.2)',borderRadius:8,marginBottom:8,flexWrap:'wrap'}}>
                     <span style={{fontSize:11,color:'#FC8181',fontWeight:700}}>{bulkSel.length} selected</span>
-                    <button onClick={blkApproveQs} style={{fontSize:10,padding:'3px 12px',borderRadius:6,border:'1px solid rgba(0,200,100,0.35)',background:'rgba(0,200,100,0.1)',color:'#00C864',cursor:'pointer',fontWeight:600}}>✅ Approve</button>
                     <button onClick={blkDelQs} style={{...bd,fontSize:10,padding:'3px 12px'}}>🗑️ Delete</button>
                     <button onClick={function(){setBulkSel([])}} style={{...bg_,fontSize:10,padding:'3px 10px'}}>✕</button>
                   </div>)}
@@ -3000,7 +2980,6 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                     :<div style={{display:'flex',flexDirection:'column',gap:5}}>
                       {pagedQs.map(function(q,qi){
                         const isChk=bulkSel.includes(q._id)
-                        const usedInCount=(allExams||[]).filter(function(e){return (e.questionIds||e.questions||[]).includes(q._id)}).length
                         const sCol=q.subject==='Physics'?'#60A5FA':q.subject==='Chemistry'?'#F472B6':q.subject==='Biology'?'#34D399':q.subject==='Math'?'#FBBF24':'#94A3B8'
                         const dCol=q.difficulty==='hard'?'#FF4D4D':q.difficulty==='easy'?'#00C864':'#FFB300'
                         return(
@@ -3012,7 +2991,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                                   <span style={{fontSize:13,color:'#fff',fontWeight:800,background:'linear-gradient(135deg,#4D9FFF,#a78bfa)',borderRadius:6,padding:'3px 10px',minWidth:30,textAlign:'center',display:'inline-block',flexShrink:0,boxShadow:'0 1px 4px rgba(77,159,255,0.4)'}}>#{_fQsSorted.length-((_qPg-1)*25+qi)}</span>
                                   <span style={{fontSize:9,fontWeight:600,padding:'1px 6px',borderRadius:4,background:sCol+'18',color:sCol,border:'1px solid '+sCol+'30'}}>{q.subject||'General'}</span>
                                   <span style={{fontSize:9,fontWeight:600,padding:'1px 6px',borderRadius:4,background:dCol+'18',color:dCol,border:'1px solid '+dCol+'30'}}>{q.difficulty||'?'}</span>
-                                  <span style={{fontSize:9,padding:'1px 5px',borderRadius:3,background:'rgba(77,159,255,0.08)',color:'#4D9FFF'}}>{q.type||'SCQ'}</span><span style={{fontSize:9,padding:'1px 6px',borderRadius:3,background:usedInCount>0?'rgba(96,165,250,0.1)':'rgba(255,255,255,0.04)',color:usedInCount>0?'#60A5FA':'#475569'}}>{usedInCount>0?'📊 '+usedInCount+' exam'+(usedInCount>1?'s':''):'📊 —'}</span>
+                                  <span style={{fontSize:9,padding:'1px 5px',borderRadius:3,background:'rgba(77,159,255,0.08)',color:'#4D9FFF'}}>{q.type||'SCQ'}</span>
                                 </div>
                                 <div onClick={function(){setSelQId(q._id)}} style={{cursor:'pointer',fontSize:12,color:'#CBD5E1',lineHeight:1.5,marginBottom:3,display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{(q.text||'').slice(0,90)}{(q.text||'').length>90?'…':''}</div>
                                 {q.chapter&&<div style={{fontSize:10,color:'#475569'}}>📖 {q.chapter}{q.topic?' › '+q.topic:''}</div>}
