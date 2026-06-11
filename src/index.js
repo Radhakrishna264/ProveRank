@@ -40,6 +40,7 @@ const adminQuestionMgmtRoutes = require('./routes/adminQuestionMgmtRoutes');
 const adminResultRoutes = require('./routes/adminResultRoutes');
 const adminManagementRoutes  = require('./routes/adminManagement');
 const questionFeaturesRoutes = require('./routes/questionFeatures');
+const materialRoutes = require('./routes/materialRoutes');
 const twoFactorRoutes        = require('./routes/twoFactor');
 
 // ── Optional Routes (load if file exists) ────────────────────
@@ -101,6 +102,7 @@ app.use('/api/admin', adminQuestionMgmtRoutes); // Phase 6.4              // S66
 app.use('/api/admin', adminRoutes);
 
 // ── Question Routes ───────────────────────────────────────────
+app.use('/api/materials', materialRoutes);
 app.use('/api/questions', questionFeaturesRoutes);     // AI-1/AI-2/S33/S35/MCQ/MSQ
 app.use('/api/questions', questionRoutes);
 if (questionAIRoutes)       app.use('/api/questions-advanced', questionAIRoutes);
