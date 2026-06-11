@@ -2659,12 +2659,13 @@ const confirmAndAdd=useCallback(async()=>{
                     <div><div style={pageTitle}>📚 Question Bank</div><div style={pageSub}>{(questions||[]).length} questions · NEET Pattern Ready</div></div>
                     <button onClick={expQB} style={{...bg_,fontSize:11,padding:'6px 12px'}}>⬇️ Export CSV</button>
                   </div>
-                  <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
-                    {[{l:'⚛️ Physics',v:(questions||[]).filter(function(q){return q.subject==='Physics'}).length,c:'#60A5FA'},{l:'🧪 Chemistry',v:(questions||[]).filter(function(q){return q.subject==='Chemistry'}).length,c:'#F472B6'},{l:'🧬 Biology',v:(questions||[]).filter(function(q){return q.subject==='Biology'}).length,c:'#34D399'},{l:'📐 Math',v:(questions||[]).filter(function(q){return q.subject==='Math'}).length,c:'#FBBF24'}].map(function(x){return(
-                      <div key={x.l} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',background:'rgba(255,255,255,0.03)',border:'1px solid '+x.c+'30',borderRadius:20}}>
-                        <span style={{fontSize:11,fontWeight:700,color:x.c}}>{x.v}</span>
-                        <span style={{fontSize:10,color:'#64748B'}}>{x.l}</span>
-                      </div>)})}
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:6,marginBottom:18}}>
+                    {[{l:'Total',v:(questions||[]).length,c:'#A78BFA'},{l:'Physics',v:(questions||[]).filter(function(q){return q.subject==='Physics'}).length,c:'#60A5FA'},{l:'Chemistry',v:(questions||[]).filter(function(q){return q.subject==='Chemistry'}).length,c:'#F472B6'},{l:'Biology',v:(questions||[]).filter(function(q){return q.subject==='Biology'}).length,c:'#34D399'},{l:'Math',v:(questions||[]).filter(function(q){return q.subject==='Math'}).length,c:'#FBBF24'}].map(function(x){return(
+                      <div key={x.l} style={{background:'rgba(255,255,255,0.04)',border:'1px solid '+x.c+'30',borderRadius:10,padding:'10px 6px',textAlign:'center'}}>
+                        <div style={{fontSize:18,fontWeight:800,color:x.c}}>{x.v}</div>
+                        <div style={{fontSize:9,color:'#64748b',marginTop:2}}>{x.l}</div>
+                      </div>
+                    )})}
                   </div>
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,maxWidth:660,margin:'0 auto 18px'}}>
                     <div onClick={function(){setQBV('add');try{sessionStorage.setItem('pr_qbv','add')}catch{}}} style={{cursor:'pointer',background:'linear-gradient(135deg,rgba(77,159,255,0.12),rgba(160,80,255,0.08))',border:'1.5px solid rgba(77,159,255,0.3)',borderRadius:18,padding:'24px 16px',textAlign:'center'}}>
@@ -2685,19 +2686,16 @@ const confirmAndAdd=useCallback(async()=>{
                     const ez=all.filter(function(q){return q.difficulty==='easy'}).length
                     const md=all.filter(function(q){return q.difficulty==='medium'}).length
                     const hd=all.filter(function(q){return q.difficulty==='hard'}).length
-                    const subs=[...new Set(all.map(function(q){return q.subject||'Other'}))].length
-                    return(<div style={{background:'linear-gradient(135deg,rgba(167,139,250,0.07),rgba(96,165,250,0.05))',border:'1px solid rgba(167,139,250,0.18)',borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
-                      <div style={{flex:1,minWidth:180}}>
-                        <div style={{fontSize:12,fontWeight:700,color:'#A78BFA',marginBottom:3}}>🎯 Bank Ready for NEET</div>
-                        <div style={{fontSize:10,color:'#64748B',lineHeight:1.5}}>{all.length} questions across {subs} subjects — fully tagged & categorized</div>
-                      </div>
-                      <div style={{display:'flex',gap:8}}>
-                        {[{l:'Easy',v:ez,c:'#00C864'},{l:'Med',v:md,c:'#FFB300'},{l:'Hard',v:hd,c:'#FF4D4D'}].map(function(x){return(
-                          <div key={x.l} style={{textAlign:'center',padding:'6px 10px',background:'rgba(255,255,255,0.03)',borderRadius:8,border:'1px solid '+x.c+'25'}}>
-                            <div style={{fontSize:13,fontWeight:800,color:x.c}}>{Math.round((x.v/tot)*100)}%</div>
-                            <div style={{fontSize:8,color:'#64748B',marginTop:1}}>{x.l}</div>
-                          </div>)})}
-                      </div>
+                    return(<div style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)',borderRadius:12,padding:'12px 14px'}}>
+                      <div style={{fontSize:11,color:'#94A3B8',fontWeight:600,marginBottom:8}}>📊 Difficulty Distribution</div>
+                      {[{l:'Easy',v:ez,col:'#00C864'},{l:'Medium',v:md,col:'#FFB300'},{l:'Hard',v:hd,col:'#FF4D4D'}].map(function(x){
+                        const pct=Math.round((x.v/tot)*100)
+                        return(<div key={x.l} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                          <div style={{width:48,fontSize:10,color:x.col,fontWeight:600}}>{x.l}</div>
+                          <div style={{flex:1,height:4,background:'rgba(255,255,255,0.06)',borderRadius:2}}><div style={{width:pct+'%',height:'100%',background:x.col,borderRadius:2}}/></div>
+                          <div style={{width:58,fontSize:10,color:'#475569',textAlign:'right'}}>{x.v} ({pct}%)</div>
+                        </div>)
+                      })}
                     </div>)
                   })()}
                 </div>
