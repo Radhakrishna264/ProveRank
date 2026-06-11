@@ -3000,7 +3000,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                     :<div style={{display:'flex',flexDirection:'column',gap:5}}>
                       {pagedQs.map(function(q,qi){
                         const isChk=bulkSel.includes(q._id)
-                        const usedInCount=(allExams||[]).filter(function(e){return (e.questionIds||e.questions||[]).includes(q._id)}).length
+                        const usedInCount=(exams||[]).filter(function(e){return (e.questionIds||e.questions||[]).includes(q._id)}).length
                         const sCol=q.subject==='Physics'?'#60A5FA':q.subject==='Chemistry'?'#F472B6':q.subject==='Biology'?'#34D399':q.subject==='Math'?'#FBBF24':'#94A3B8'
                         const dCol=q.difficulty==='hard'?'#FF4D4D':q.difficulty==='easy'?'#00C864':'#FFB300'
                         return(
