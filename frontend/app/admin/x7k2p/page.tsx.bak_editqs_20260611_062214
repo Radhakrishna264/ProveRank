@@ -1460,17 +1460,10 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
         chapter:data.chapter,topic:data.topic,difficulty:data.difficulty,
         type:data.type,options:data.options,explanation:data.explanation,
         correct:[correctIdx>=0?correctIdx:0],
-        correctAnswer:data.correctLetter||'A',
-        image:data.image||'',
-        optionImages:data.optionImages||['','','','']
+        correctAnswer:data.correctLetter||'A'
       }
       const r=await fetch(API+'/api/questions/'+id,{method:'PUT',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(payload)})
-      if(r.ok){
-        T('✅ Question updated!')
-        setQuestions(function(prev){return prev.map(function(q){return q._id===id?Object.assign({},q,payload,{correctAnswer:payload.correctAnswer,image:payload.image,optionImages:payload.optionImages}):q})})
-        setEditQD(null)
-        setTimeout(function(){fetchAll()},800)
-      }
+      if(r.ok){T('Question updated!');setEditQD(null);setTimeout(()=>fetchAll(),500)}
       else{const e=await r.json().catch(()=>({}));T(e.message||'Update failed','e')}
     }catch(ex){T(ex.message,'e')}
     setSavingEQ(false)
@@ -3280,20 +3273,6 @@ return(
                       <div style={{gridColumn:'1/-1'}}>
                         <label style={lbl}>Explanation</label>
                         <textarea value={editQD.explanation||''} onChange={function(e){setEditQD(function(p){return Object.assign({},p,{explanation:e.target.value})})}} rows={2} style={{...inp,width:'100%',resize:'vertical'}}/>
-                      </div>
-                      <div>
-                        <label style={lbl}>📷 Question Image URL</label>
-                        <input value={editQD.image||''} onChange={function(e){setEditQD(function(p){return Object.assign({},p,{image:e.target.value})})}} placeholder='https://… (leave blank to remove)' style={{...inp,width:'100%'}}/>
-                      </div>
-                      <div>
-                        <label style={lbl}>🖼️ Option Images URL (A/B/C/D)</label>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
-                        {['A','B','C','D'].map(function(l,i){return(
-                          <div key={l}>
-                            <label style={{fontSize:9,color:'#64748B',marginBottom:2,display:'block'}}>Option {l}</label>
-                            <input value={(editQD.optionImages||['','','',''])[i]||''} onChange={function(e){setEditQD(function(p){const imgs=[...((p.optionImages)||['','','',''])];imgs[i]=e.target.value;return Object.assign({},p,{optionImages:imgs})})}} placeholder='https://…' style={{...inp,width:'100%',fontSize:10}}/>
-                          </div>)})}
-                        </div>
                       </div>
                     </div>
                     <div style={{display:'flex',gap:8}}>
