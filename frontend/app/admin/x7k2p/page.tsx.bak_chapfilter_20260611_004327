@@ -1141,7 +1141,6 @@ const [showAddPreview,setShowAddPreview]=useState(false)
   const [optVals,setOptVals]=useState({a:'',b:'',c:'',d:''})
   const [qSec,setQSec]=useState('all')
   const [qBioSub,setQBioSub]=useState('all')
-  const [qChapFilter,setQChapFilter]=useState('all')
   const [aiSelChap,setAiSelChap]=useState('')
   const [bulkSel,setBulkSel]=useState([])
   const [qPage,setQPage]=useState(1)
@@ -1901,8 +1900,7 @@ const confirmAndAdd=useCallback(async()=>{
     const OS=['Physics','Chemistry','Biology','Math']
     const sec=qSec==='all'||(qSec==='Other'?!OS.includes(q.subject||''):q.subject===qSec)
     const bio=qSec!=='Biology'||qBioSub==='all'||(q.chapter||'').toLowerCase().includes(qBioSub.toLowerCase())||(q.topic||'').toLowerCase().includes(qBioSub.toLowerCase())
-    const chap=qChapFilter==='all'||!q.chapter||(q.chapter||'')===(qChapFilter)
-    return mq&&ms&&sec&&bio&&chap
+    return mq&&ms&&sec&&bio
   })
   const _fQsSorted=[...fQs].sort(function(a,b){return new Date(b.createdAt)-new Date(a.createdAt)})
   const _qTP=Math.ceil(_fQsSorted.length/25)||1
@@ -2916,7 +2914,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                       const sqBase=(questions||[]).filter(function(q){return !qSearch||(q.text||'').toLowerCase().includes(qSearch.toLowerCase())||(q.subject||'').toLowerCase().includes(qSearch.toLowerCase())||(q.chapter||'').toLowerCase().includes(qSearch.toLowerCase())||(q.topic||'').toLowerCase().includes(qSearch.toLowerCase())})
                       const cnt=x.k==='all'?sqBase.length:x.k==='Other'?sqBase.filter(function(q){return !['Physics','Chemistry','Biology','Math'].includes(q.subject||'')}).length:sqBase.filter(function(q){return q.subject===x.k}).length
                       const isA=qSec===x.k
-                      return(<button key={x.k} onClick={function(){setQSec(x.k);setQBioSub('all');setQChapFilter('all');setQPage(1)}} style={{padding:'4px 10px',borderRadius:16,border:'1.5px solid '+(isA?x.col:x.col+'22'),background:isA?x.col+'18':'transparent',color:isA?x.col:'#64748B',fontSize:10,fontWeight:isA?700:400,cursor:'pointer'}}>{x.l} ({cnt})</button>)
+                      return(<button key={x.k} onClick={function(){setQSec(x.k);setQBioSub('all');setQPage(1)}} style={{padding:'4px 10px',borderRadius:16,border:'1.5px solid '+(isA?x.col:x.col+'22'),background:isA?x.col+'18':'transparent',color:isA?x.col:'#64748B',fontSize:10,fontWeight:isA?700:400,cursor:'pointer'}}>{x.l} ({cnt})</button>)
                     })}
                   </div>
                   {qSec==='Biology'&&(<div style={{display:'flex',gap:5,marginBottom:7}}>
@@ -2925,26 +2923,6 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                       return(<button key={x.k} onClick={function(){setQBioSub(x.k);setQPage(1)}} style={{padding:'3px 9px',borderRadius:12,border:'1px solid '+(isA?'#34D399':'rgba(52,211,153,0.2)'),background:isA?'rgba(52,211,153,0.12)':'transparent',color:isA?'#34D399':'#64748B',fontSize:10,cursor:'pointer'}}>{x.l}</button>)
                     })}
                   </div>)}
-                  {(function(){
-                    const chapBase=(questions||[]).filter(function(q){
-                      const OS=['Physics','Chemistry','Biology','Math']
-                      return qSec==='all'||(qSec==='Other'?!OS.includes(q.subject||''):q.subject===qSec)
-                    })
-                    const chapOpts=[...new Set(chapBase.map(function(q){return q.chapter||''}).filter(Boolean))].sort()
-                    if(chapOpts.length===0)return null
-                    return(<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:7,flexWrap:'wrap'}}>
-                      <span style={{fontSize:9,color:'#475569',fontWeight:600,flexShrink:0}}>📖 Chapter:</span>
-                      <select value={qChapFilter} onChange={function(e){setQChapFilter(e.target.value);setQPage(1)}} style={{fontSize:10,padding:'3px 8px',borderRadius:8,border:'1px solid rgba(167,139,250,0.3)',background:'rgba(255,255,255,0.04)',color:qChapFilter==='all'?'#64748B':'#A78BFA',cursor:'pointer',maxWidth:220}}>
-                        <option value='all'>All Chapters ({chapBase.length})</option>
-                        {chapOpts.map(function(ch){
-                          const cnt=chapBase.filter(function(q){return q.chapter===ch}).length
-                          const dn=ch.includes(' - ')?ch.split(' - ').slice(1).join(' - '):ch
-                          return(<option key={ch} value={ch}>{dn} ({cnt})</option>)
-                        })}
-                      </select>
-                      {qChapFilter!=='all'&&(<button onClick={function(){setQChapFilter('all');setQPage(1)}} style={{fontSize:9,padding:'2px 7px',borderRadius:6,border:'1px solid rgba(255,100,100,0.3)',background:'transparent',color:'#F87171',cursor:'pointer'}}>✕ Clear</button>)}
-                    </div>)
-                  })()}
                   {(questions||[]).length>0&&(<div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:5,marginBottom:10}}>
                     {[{l:'Total',v:(questions||[]).length,c:'#A78BFA'},{l:'Physics',v:(questions||[]).filter(function(q){return q.subject==='Physics'}).length,c:'#60A5FA'},{l:'Chemistry',v:(questions||[]).filter(function(q){return q.subject==='Chemistry'}).length,c:'#F472B6'},{l:'Biology',v:(questions||[]).filter(function(q){return q.subject==='Biology'}).length,c:'#34D399'},{l:'Math',v:(questions||[]).filter(function(q){return q.subject==='Math'}).length,c:'#FBBF24'}].map(function(x){return(
                       <div key={x.l} style={{background:'rgba(255,255,255,0.03)',border:'1px solid '+x.c+'28',borderRadius:9,padding:'8px 4px',textAlign:'center'}}>
