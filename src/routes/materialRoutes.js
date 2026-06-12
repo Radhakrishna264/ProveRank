@@ -113,43 +113,18 @@ router.post('/generate', async (req, res) => {
     const seed = Date.now() + '-' + Math.floor(Math.random() * 999999);
     const matTitle = (mat.title || '').replace(/'/g, ' ');
 
-    const fmtLow = fmts.map(f => f.toLowerCase());
-    const fmtRules = [];
-    if (fmtLow.some(f => f.includes('match')))
-      fmtRules.push('MATCH COLUMN FORMAT: Question text must present Column I (items A,B,C,D) and Column II (items p,q,r,s). All 4 options must be different mapping combos e.g. "A. A-p,B-q,C-r,D-s". Set type:MCQ.');
-    if (fmtLow.some(f => f.includes('assertion')))
-      fmtRules.push('ASSERTION REASON FORMAT: Assertion(A):... Reason(R):... Options: Both true R explains / Both true R not explains / A true R false / A false. Set type:MCQ.');
-    if (fmtLow.some(f => f.includes('statement')))
-      fmtRules.push('STATEMENT BASED: Present 2-3 numbered statements. Ask which is/are correct. Options like "Only 1 and 2". Set type:MCQ.');
-    if (fmtLow.some(f => f.includes('true')))
-      fmtRules.push('TRUE/FALSE: Options MUST be ONLY "A. True" and "B. False". Set type:MCQ.');
-    if (fmtLow.some(f => f.includes('numerical')))
-      fmtRules.push('NUMERICAL: Answer is a number. Options are 4 different numerical values. Set type:MCQ.');
-    if (fmtLow.some(f => f.includes('sequence')))
-      fmtRules.push('SEQUENCE BASED: Ask to arrange items in correct order. Options are different orderings. Set type:MCQ.');
-    if (fmtLow.some(f => f.includes('passage')))
-      fmtRules.push('PASSAGE BASED: Give a short paragraph then ask about it. Set type:MCQ.');
-
-    const hasMatch = fmtLow.some(f => f.includes('match'));
-    const matchEx = hasMatch
-      ? '{"text":"Match Column I with Column II: ColI: A.Mitosis B.Meiosis C.Amitosis D.Endomitosis | ColII: p.Gamete q.Growth r.Bacteria s.Polyploidy","options":["A. A-q,B-p,C-r,D-s","B. A-p,B-q,C-r,D-s","C. A-q,B-r,C-p,D-s","D. A-r,B-q,C-p,D-s"],"correct":[0],"correctAnswer":"A","type":"MCQ","difficulty":"' + diff + '","chapter":"' + matTitle + '","explanation":"Meiosis forms gametes, mitosis for growth"}'
-      : '';
-
     const lines = [
-      'You are a senior ' + lvl + ' question setter. Generate EXACTLY ' + n + ' questions.',
-      'SEED: ' + seed + ' | Difficulty: ' + diff + ' | Exam: ' + lvl,
-      'FORMATS: ' + fmts.join(', ') + '. Distribute ALL ' + n + ' questions evenly across EVERY listed format. If Match Column is requested at least ' + Math.ceil(n / Math.max(fmts.length, 1)) + ' question(s) MUST be Match Column.',
-      '',
-      ...(fmtRules.length > 0 ? ['FORMAT RULES:', ...fmtRules, ''] : []),
-      'DIVERSITY RULE: Every question MUST start with a DIFFERENT opener. NEVER repeat "Which of the following" more than once. Required variety: What is / Identify / According to / Name the / The correct match for / In which / How does / The main function of / Arrange the.',
+      'You are a senior question setter. Generate EXACTLY ' + n + ' MCQ questions from the content below.',
+      'SEED: ' + seed,
+      'Difficulty: ' + diff + ' | Exam: ' + lvl + ' | Formats: ' + fmts.join(', '),
       '',
       'CONTENT:',
       '---',
       mat.content.substring(0, 5000),
       '---',
-      'RULES: Return ONLY a valid JSON array — no markdown, no text outside array.',
-      'STANDARD SCHEMA: [{"text":"q","options":["A. o1","B. o2","C. o3","D. o4"],"correct":[0],"correctAnswer":"A","type":"SCQ","difficulty":"' + diff + '","chapter":"' + matTitle + '","explanation":"reason"}]',
-      ...(hasMatch ? ['MATCH COLUMN EXAMPLE: ' + matchEx] : []),
+      '',
+      'RULES: Use ONLY the content above. Return ONLY valid JSON array:',
+      '[{"text":"q","options":["A. a","B. b","C. c","D. d"],"correct":[0],"correctAnswer":"A","type":"SCQ","difficulty":"' + diff + '","chapter":"' + matTitle + '","explanation":"reason"}]'
     ];
     const prompt = lines.join('\n');
 
