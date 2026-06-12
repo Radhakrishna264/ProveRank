@@ -77,7 +77,7 @@ app.use('/api/excel', uploadLimiter);
 app.use('/api/upload', uploadLimiter);
 app.use('/api', checkJWTExpiry);
 // ====================================
-app.use(express.json());
+app.use(express.json({limit:'1mb'}));
 
 // ── MongoDB ───────────────────────────────────────────────────
 mongoose.connect(process.env.MONGO_URI)
