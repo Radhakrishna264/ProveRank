@@ -100,40 +100,34 @@ router.post('/extract', async (req, res) => {
 // POST /api/materials/generate — generate questions from material using 20-layer AI
 router.post('/generate', async (req, res) => {
   const user = getAdmin(req);
-  if (!user) return res.status(401).json({ message: 'Unauthorized' });
   try {
     const { materialId, count, difficulty, examLevel, formats } = req.body;
     const mat = await Material.findOne({ _id: materialId, adminId: user.id || user._id });
-    if (!mat) return res.status(404).json({ message: 'Material not found' });
     const { callGroqAI } = require('../utils/groqAI');
-    const n = Math.min(parseInt(count) || 5, 30);
-    const diff = (difficulty || 'medium').toLowerCase();
-    const lvl = examLevel || 'NEET';
-    const fmts = (Array.isArray(formats) && formats.length > 0) ? formats : ['Random'];
-    const seed = Date.now() + '-' + Math.floor(Math.random() * 999999);
-    const matTitle = (mat.title || '').replace(/'/g, ' ');
+    const n = Math.min(parseInt(count)||5, 30);
+    const diff = (difficulty||'medium').toLowerCase();
+    const lvl = examLevel||'NEET';
+    const fmts = (Array.isArray(formats)&&formats.length>0)?formats:['Random'];
+    const seed = Date.now()+'-'+Math.floor(Math.random()*999999);
+    const prompt = 'You are a senior question setter. Generate EXACTLY '+n+' unique MCQ questions based ONLY on the provided educational content.
 
-    const lines = [
-      'You are a senior question setter. Generate EXACTLY ' + n + ' MCQ questions from the content below.',
-      'SEED: ' + seed,
-      'Difficulty: ' + diff + ' | Exam: ' + lvl + ' | Formats: ' + fmts.join(', '),
-      '',
-      'CONTENT:',
-      '---',
-      mat.content.substring(0, 5000),
-      '---',
-      '',
-      'RULES: Use ONLY the content above. Return ONLY valid JSON array:',
-      '[{"text":"q","options":["A. a","B. b","C. c","D. d"],"correct":[0],"correctAnswer":"A","type":"SCQ","difficulty":"' + diff + '","chapter":"' + matTitle + '","explanation":"reason"}]'
-    ];
-    const prompt = lines.join('\n');
+SEED: '+seed+'
+Difficulty: '+diff+'
+Exam Level: '+lvl+'
+Formats: '+fmts.join(', ')+'
 
+EDUCATIONAL CONTENT:
+---
+'+mat.content.substring(0,6000)+'
+---
+
+RULES:
+1. Generate EXACTLY '+n+' questions FROM THE CONTENT ABOVE ONLY
+2. Each question has exactly 4 options (A,B,C,D)
+3. One correct answer (SCQ)
+4. Return ONLY valid JSON array:
+[{"text":"question","options":["A. opt","B. opt","C. opt","D. opt"],"correct":[0],"correctAnswer":"A","type":"SCQ","difficulty":"'+diff+'","chapter":"'+mat.title.replace(/"/g,"'")+'","explanation":"reason"}]';
     const questions = await callGroqAI(prompt);
-    if (!questions || questions.length === 0) {
-      return res.status(500).json({ message: 'AI could not generate questions. Try again.' });
-    }
     res.json(questions);
-  } catch(e) {
-    res.status(500).json({ message: e.message || 'Generation failed' });
-  }
+  } catch(e) { res.status(500).json({message:e.message||'Generation failed'}); }
 });
