@@ -1608,7 +1608,10 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
       const genRes=await fetch(API+'/api/materials/generate',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({materialId:matId,count:parseInt(cnt)||10,difficulty:diff,examLevel:fmExamLevel,formats:fmFormats,subject:fmSubj,questionType:fmType,type:fmType})})
       if(!genRes.ok){T('Generation failed ('+genRes.status+')','e');setMatGenLoading(false);return}
       const qs=await genRes.json()
-      if(Array.isArray(qs)&&qs.length>0){setFmResult(qs);setFmShowPreview(true);T('✅ '+qs.length+' Qs generated!')}
+      if(Array.isArray(qs)&&qs.length>0){
+        const tagged=qs.map(function(q){return Object.assign({},q,{subject:fmSubj,type:q.type||fmType,examLevel:q.examLevel||fmExamLevel})})
+        setFmResult(tagged);setFmShowPreview(true);T('✅ '+tagged.length+' Qs generated!')
+      }
       else T('No questions generated. Try again.','e')
     }catch(e){T(e.message||'Failed','e')}
     setMatGenLoading(false)
@@ -1645,7 +1648,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
   const saveFmQs=async()=>{
     if(!fmResult.length)return
     try{
-      const r=await fetch(API+'/api/questions/bulk-save',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({questions:fmResult})})
+      const r=await fetch(API+'/api/questions/bulk-save',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({questions:fmResult.map(function(q){return Object.assign({},q,{subject:q.subject&&q.subject!=='General'?q.subject:fmSubj,type:q.type||fmType})})})})
       if(r.ok){T(fmResult.length+' questions saved!');setFmResult([]);setFmShowPreview(false);setTimeout(()=>fetchAll(),400)}
       else T('Save failed','e')
     }catch(e){T(e.message||'Error saving','e')}
@@ -3198,7 +3201,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                                     const cIdx=Array.isArray(q.correct)?q.correct:q.correct!==undefined?[q.correct]:[]
                                     const isC=(Array.isArray(cIdx)?cIdx.includes(oi):cIdx===oi)||(q.correctAnswer&&q.correctAnswer===ltr)
                                     return(<div key={oi} style={{padding:'3px 7px',borderRadius:5,fontSize:10,border:'1px solid '+(isC?'rgba(0,200,100,0.4)':'rgba(255,255,255,0.06)'),background:isC?'rgba(0,200,100,0.08)':'rgba(255,255,255,0.02)',color:isC?'#00C864':'#94A3B8'}}>
-                                      <span style={{fontWeight:700,marginRight:4,color:isC?'#00C864':'#4D9FFF'}}>{ltr}.</span>{(opt||'').slice(0,28)}{isC&&' ✓'}
+                                      <span style={{fontWeight:700,marginRight:4,color:isC?'#00C864':'#4D9FFF'}}>{ltr}.</span>{(opt||'').replace(/^[A-Da-d][\.\)\:]s*/,'').trim().slice(0,28)}{isC&&' ✓'}
                                     </div>)
                                   })}
                                 </div>)}
@@ -3582,7 +3585,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                           const isC=(Array.isArray(cIdx)?cIdx.includes(oi):cIdx===oi)||(q.correctAnswer&&q.correctAnswer===ltr)
                           return(<div key={oi} style={{padding:'7px 11px',borderRadius:7,border:'1px solid '+(isC?'rgba(0,200,100,0.4)':'rgba(255,255,255,0.07)'),background:isC?'rgba(0,200,100,0.08)':'rgba(255,255,255,0.02)',display:'flex',alignItems:'flex-start'}}>
                             <span style={{fontWeight:700,color:isC?'#00C864':'#4D9FFF',marginRight:8,flexShrink:0,minWidth:20,paddingTop:1}}>{ltr}.</span>
-                            <div style={{flex:1,minWidth:0}}><span style={{fontSize:12,color:isC?'#E2E8F0':'#94A3B8'}} dangerouslySetInnerHTML={{__html:renderLatex(String(opt||''))}}></span>
+                            <div style={{flex:1,minWidth:0}}><span style={{fontSize:12,color:isC?'#E2E8F0':'#94A3B8'}} dangerouslySetInnerHTML={{__html:renderLatex((opt||'').replace(/^[A-Da-d][\.\)\:]s*/,'').trim())}}></span>
                             {isC&&<span style={{marginLeft:8,fontSize:10,color:'#00C864',fontWeight:700}}>✓ Correct</span>}{(q.optionImages as any)?.[oi]?<img src={(q.optionImages as any)[oi]} alt='' style={{width:'100%',maxHeight:110,objectFit:'contain',borderRadius:8,marginTop:6,cursor:'pointer',border:'1px solid rgba(99,102,241,0.3)',background:'rgba(255,255,255,0.04)',display:'block'}} onClick={()=>setLbImg(String((q.optionImages as any)?.[oi]||''))} onError={(e:any)=>{(e.target as HTMLImageElement).style.display='none'}}/>:null}</div>
                           </div>)
                         })}
