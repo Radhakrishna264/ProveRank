@@ -63,3 +63,36 @@ router.delete('/:id', async (req, res) => {
 });
 
 module.exports = router;
+
+// POST /api/materials/extract — extract text from PDF/DOCX/TXT
+router.post('/extract', async (req, res) => {
+  const user = getAdmin(req);
+  if (!user) return res.status(401).json({ message: 'Unauthorized' });
+  try {
+    const { base64, fileName, isText, textContent } = req.body;
+    if (isText) return res.json({ content: textContent || '' });
+    if (!base64) return res.status(400).json({ message: 'base64 required' });
+
+    const buffer = Buffer.from(base64, 'base64');
+    const ext = (fileName || '').split('.').pop().toLowerCase();
+    let content = '';
+
+    if (ext === 'pdf') {
+      const pdfParse = require('pdf-parse');
+      const data = await pdfParse(buffer);
+      content = data.text || '';
+    } else if (ext === 'docx') {
+      const mammoth = require('mammoth');
+      const result = await mammoth.extractRawText({ buffer });
+      content = result.value || '';
+    } else {
+      // fallback: treat as text
+      content = buffer.toString('utf8');
+    }
+
+    if (!content.trim()) return res.status(422).json({ message: 'No text extracted from file' });
+    res.json({ content: content.trim() });
+  } catch(e) {
+    res.status(500).json({ message: e.message });
+  }
+});

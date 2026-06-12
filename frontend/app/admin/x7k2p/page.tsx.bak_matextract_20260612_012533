@@ -1561,9 +1561,10 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
         content=await new Promise(function(res,rej){const rd=new FileReader();rd.onload=function(e){res(e.target.result)};rd.onerror=rej;rd.readAsText(file)})
       }else{
         const b64=await new Promise(function(res,rej){const rd=new FileReader();rd.onload=function(e){res(e.target.result.split(',')[1])};rd.onerror=rej;rd.readAsDataURL(file)})
-        const extResp=await fetch(API+'/api/materials/extract',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({base64:b64,fileName:file.name,isText:false})})
-        const extData=await extResp.json()
-        content=extData.content||''
+        const mt=ext==='pdf'?'application/pdf':'application/octet-stream'
+        const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4000,messages:[{role:'user',content:[{type:'document',source:{type:'base64',media_type:mt,data:b64}},{type:'text',text:'Extract ALL educational content from this document as clean readable text. Include every concept, definition, formula, theorem, and important point. Do not summarize.'}]}]})})
+        const d=await resp.json()
+        content=d.content?.[0]?.text||''
       }
       if(content.trim())await saveMat(customTitle||file.name,content,ext,file.size)
       else T('No content extracted','e')
