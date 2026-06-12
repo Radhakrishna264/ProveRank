@@ -3252,7 +3252,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                             )})}
                           </div>
                         </div>
-                      </div>
+                      </div>}
                       {aiGResult.length>0&&(<div style={{marginBottom:12}}>
                         <div style={{fontSize:11,fontWeight:700,color:'#00C864',marginBottom:6}}>✅ {aiGResult.length} Questions Generated!</div>
                         <div style={{maxHeight:100,overflowY:'auto',display:'flex',flexDirection:'column',gap:3,marginBottom:8}}>
@@ -3295,7 +3295,6 @@ return(
 <button onClick={aiGF} disabled={aiGLoading} style={{...bp,width:'100%',opacity:aiGLoading?0.7:1}}>
                         {aiGLoading?'⟳ Generating NCERT Questions…':'🤖 Generate Questions'}
                       </button>
-                      </div>}
                       <div style={{fontSize:9,color:'#475569',textAlign:'center',marginTop:6}}>Generates NCERT-based questions with correct answers & explanations</div>
                     </div>
                   </div>
