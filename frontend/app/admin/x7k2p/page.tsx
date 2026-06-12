@@ -3291,9 +3291,9 @@ return(
 <div style={{fontSize:10,color:'#888',marginTop:3}}>Empty = AI writes diagram description. Add URL to attach image to question/options later.</div>
 </div>
 )}
-<button onClick={aiGF} disabled={aiGLoading} style={{...bp,width:'100%',opacity:aiGLoading?0.7:1}}>
+{matMode==='ncert'&&<button onClick={aiGF} disabled={aiGLoading} style={{...bp,width:'100%',opacity:aiGLoading?0.7:1}}>
                         {aiGLoading?'⟳ Generating NCERT Questions…':'🤖 Generate Questions'}
-                      </button>
+                      </button>}
                       <div style={{fontSize:9,color:'#475569',textAlign:'center',marginTop:6}}>Generates NCERT-based questions with correct answers & explanations</div>
                     </div>
                   </div>
