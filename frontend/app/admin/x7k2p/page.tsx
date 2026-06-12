@@ -55,7 +55,55 @@ function formatQText(text) {
           +'</tr></thead><tbody>'+rows+'</tbody></table>'
           +(outro?'<div style="margin-top:8px;color:#e2e8f0">'+outro+'</div>':'');
       }
-    } catch(e) { console.log('table err',e); }
+    
+    // ── Inline format fallback: "Column I (A) text, (B) text... Column II (P) text..." ──
+    if(!/<table/.test(t)) {
+      try {
+        var inlineColMatch = t.match(/^(.*?)\bColumn\s*I(?!I)\b(.+?)\bColumn\s*II\b(.+?)(?=(Correct matching|Which of the following|$))/is);
+        if(inlineColMatch) {
+          var iIntro = inlineColMatch[1].trim();
+          var iCol1raw = inlineColMatch[2].trim();
+          var iCol2raw = inlineColMatch[3].trim();
+          var iOutro = inlineColMatch[4]||'';
+          // Parse "(A) text" or "A. text" or "A) text" format items
+          function parseInlineCol(str) {
+            var items=[];
+            // Try (A) format
+            var re1=/\(([A-S])\)\s*(.*?)(?=\s*\([A-S]\)|\s*[A-S][.)][\s]|$)/gs;
+            var m;
+            while((m=re1.exec(str))!==null){
+              var txt=m[2].replace(/,\s*$/,'').trim();
+              if(txt) items.push(m[1]+'. '+txt);
+            }
+            if(items.length>0) return items;
+            // Try "A. text" or "A) text" format
+            var re2=str.split(/(?<![a-z])(?=[A-S][.)][\s])/g);
+            return re2.map(function(x){return x.replace(/,\s*$/,'').trim();}).filter(function(x){return x.length>2;});
+          }
+          var ic1=parseInlineCol(iCol1raw);
+          var ic2=parseInlineCol(iCol2raw);
+          if(ic1.length>0&&ic2.length>0){
+            var iRows='';
+            var iMax=Math.max(ic1.length,ic2.length);
+            for(var ii=0;ii<iMax;ii++){
+              iRows+='<tr>'
+                +'<td style="padding:4px 8px;border:1px solid rgba(255,255,255,0.15);color:#e2e8f0;font-size:13px">'+(ic1[ii]||'')+'</td>'
+                +'<td style="padding:4px 8px;border:1px solid rgba(255,255,255,0.15);color:#e2e8f0;font-size:13px">'+(ic2[ii]||'')+'</td>'
+                +'</tr>';
+            }
+            t=(iIntro?'<div style="margin-bottom:8px;color:#e2e8f0">'+iIntro+'</div>':'')
+              +'<table style="width:100%;border-collapse:collapse;margin:6px 0">'
+              +'<thead><tr>'
+              +'<th style="padding:5px 8px;background:rgba(251,191,36,0.2);border:1px solid rgba(255,255,255,0.2);color:#fbbf24;text-align:left;font-size:13px">Column I</th>'
+              +'<th style="padding:5px 8px;background:rgba(251,191,36,0.2);border:1px solid rgba(255,255,255,0.2);color:#fbbf24;text-align:left;font-size:13px">Column II</th>'
+              +'</tr></thead><tbody>'+iRows+'</tbody></table>'
+              +(iOutro?'<div style="margin-top:8px;color:#e2e8f0">'+iOutro+'</div>':'');
+          }
+        }
+      } catch(ie){ console.log('inline table err',ie); }
+    }
+
+  } catch(e) { console.log('table err',e); }
   }
 
   // ── Assertion / Reason ──
