@@ -126,7 +126,8 @@ router.post('/generate', async (req, res) => {
       'RULES: Use ONLY the content above. Return ONLY valid JSON array:',
       '[{"text":"q","options":["A. a","B. b","C. c","D. d"],"correct":[0],"correctAnswer":"A","type":"SCQ","difficulty":"' + diff + '","chapter":"' + matTitle + '","explanation":"reason"}]'
     ];
-    const prompt = lines.join('\n');
+    const prompt = lines.join('
+');
 
     const questions = await callGroqAI(prompt);
     if (!questions || questions.length === 0) {
