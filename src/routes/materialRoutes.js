@@ -97,42 +97,37 @@ router.post('/extract', async (req, res) => {
   }
 });
 
-// POST /api/materials/generate — generate questions from material using Groq
+// POST /api/materials/generate — generate questions from material using 20-layer AI
 router.post('/generate', async (req, res) => {
   const user = getAdmin(req);
-  if (!user) return res.status(401).json({ message: 'Unauthorized' });
   try {
     const { materialId, count, difficulty, examLevel, formats } = req.body;
     const mat = await Material.findOne({ _id: materialId, adminId: user.id || user._id });
-    if (!mat) return res.status(404).json({ message: 'Material not found' });
+    const { callGroqAI } = require('../utils/groqAI');
+    const n = Math.min(parseInt(count)||5, 30);
+    const diff = (difficulty||'medium').toLowerCase();
+    const lvl = examLevel||'NEET';
+    const fmts = (Array.isArray(formats)&&formats.length>0)?formats:['Random'];
+    const seed = Date.now()+'-'+Math.floor(Math.random()*999999);
+    const prompt = 'You are a senior question setter. Generate EXACTLY '+n+' unique MCQ questions based ONLY on the provided educational content.
 
-    const fmt = (formats && formats.length) ? 'Format types: ' + formats.join(', ') + '.' : '';
-    const lvl = examLevel ? 'Exam level: ' + examLevel + '.' : '';
-    const prompt = `You are an expert NEET question generator. Based ONLY on the following educational content, generate ${count || 5} high-quality multiple choice questions.\n\n${lvl} ${fmt}\nDifficulty: ${difficulty || 'medium'}.\n\nEDUCATIONAL CONTENT:\n${mat.content.substring(0, 6000)}\n\nRULES:\n- Generate exactly ${count || 5} questions\n- Each question must have exactly 4 options (A, B, C, D)\n- Only use information from the provided content\n- Return ONLY a valid JSON array, no other text, no markdown:\n[{"text":"question","options":["option A","option B","option C","option D"],"correctAnswer":"A","explanation":"brief reason","difficulty":"${difficulty || 'medium'}","type":"SCQ","chapter":"${mat.title}"}]`;
+SEED: '+seed+'
+Difficulty: '+diff+'
+Exam Level: '+lvl+'
+Formats: '+fmts.join(', ')+'
 
-    // Try Groq API
-    const groqKey = process.env.GROQ_API_KEY;
-    if (!groqKey) return res.status(500).json({ message: 'AI API key not configured' });
+EDUCATIONAL CONTENT:
+---
+'+mat.content.substring(0,6000)+'
+---
 
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + groqKey },
-      body: JSON.stringify({
-        model: 'llama3-8b-8192',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 4000,
-        temperature: 0.7
-      })
-    });
-
-    const data = await groqRes.json();
-    const text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
-    const match = text.match(/\[[\s\S]*\]/);
-    if (!match) return res.status(500).json({ message: 'AI could not generate questions. Try again.' });
-
-    const questions = JSON.parse(match[0]);
+RULES:
+1. Generate EXACTLY '+n+' questions FROM THE CONTENT ABOVE ONLY
+2. Each question has exactly 4 options (A,B,C,D)
+3. One correct answer (SCQ)
+4. Return ONLY valid JSON array:
+[{"text":"question","options":["A. opt","B. opt","C. opt","D. opt"],"correct":[0],"correctAnswer":"A","type":"SCQ","difficulty":"'+diff+'","chapter":"'+mat.title.replace(/"/g,"'")+'","explanation":"reason"}]';
+    const questions = await callGroqAI(prompt);
     res.json(questions);
-  } catch(e) {
-    res.status(500).json({ message: e.message || 'Generation failed' });
-  }
+  } catch(e) { res.status(500).json({message:e.message||'Generation failed'}); }
 });
