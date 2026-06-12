@@ -1539,10 +1539,15 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
   const generateFromMat=async(matId,cnt,diff)=>{
     setMatGenLoading(true)
     try{
-      const genRes=await fetch(API+'/api/materials/generate',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({materialId:matId,count:cnt,difficulty:diff,examLevel:aiExamLevel,formats:aiFormats})})
-      const qs=await genRes.json()
-      if(Array.isArray(qs)&&qs.length>0){setAiGResult(qs);setAiGO(false);setShowAiPreview(true);T('✅ '+qs.length+' Qs from material!')}
-      else T('Could not generate questions. Try again.','e')
+      const mr=await fetch(API+'/api/materials/'+matId,{headers:{Authorization:'Bearer '+token}})
+      const mat=await mr.json()
+      const prompt='You are a NEET question generator. Based on the following educational content, generate '+cnt+' high-quality NEET-style multiple choice questions.\n\nEDUCATIONAL CONTENT:\n'+mat.content.substring(0,8000)+'\n\nINSTRUCTIONS:\n- Generate exactly '+cnt+' questions\n- Difficulty: '+diff+'\n- Each question has exactly 4 options (A,B,C,D)\n- Return ONLY valid JSON array:\n[{"text":"question","options":["A","B","C","D"],"correctAnswer":"A","explanation":"reason","difficulty":"'+diff+'","type":"SCQ","chapter":"'+mat.title+'"}]'
+      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4000,messages:[{role:'user',content:prompt}]})})
+      const data=await res.json()
+      const txt=data.content?.[0]?.text||''
+      const m=txt.match(/\[[\s\S]*\]/)
+      if(m){const qs=JSON.parse(m[0]);setAiGResult(qs);setAiGO(false);setShowAiPreview(true);T('✅ '+qs.length+' Qs from material!')}
+      else T('Could not parse questions','e')
     }catch(e){T(e.message||'Failed','e')}
     setMatGenLoading(false)
   }
