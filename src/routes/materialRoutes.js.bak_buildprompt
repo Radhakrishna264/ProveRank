@@ -105,7 +105,7 @@ router.post('/generate', async (req, res) => {
     const { materialId, count, difficulty, examLevel, formats, subject, type, questionType } = req.body;
     const mat = await Material.findOne({ _id: materialId, adminId: user.id || user._id });
     if (!mat) return res.status(404).json({ message: 'Material not found' });
-    const { callGroqAI, buildPrompt } = require('../utils/groqAI');
+    const { callGroqAI } = require('../utils/groqAI');
 
     const n      = Math.min(parseInt(count) || 5, 30);
     const diff   = (difficulty || 'medium').toLowerCase();
@@ -146,7 +146,19 @@ router.post('/generate', async (req, res) => {
       ? '{"text":"...","options":[],"correct":[0],"correctAnswer":"5","type":"Integer","subject":"' + qSubj + '","difficulty":"' + diff + '","examLevel":"' + lvl + '","chapter":"' + matTitle + '","explanation":"..."}'
       : '{"text":"...","options":["option1 text","option2 text","option3 text","option4 text"],"correct":[0],"correctAnswer":"A","type":"' + qType + '","subject":"' + qSubj + '","difficulty":"' + diff + '","examLevel":"' + lvl + '","chapter":"' + matTitle + '","explanation":"..."}';
 
-    const prompt = buildPrompt({ subject:qSubj, chapter:matTitle, topic:matTitle, count:n, difficulty:diff, type:qType, examLevel:lvl, formats:fmts, imageUrl:'' }) + '\n\n=== GENERATE FROM THIS CONTENT ONLY ===\n' + mat.content.substring(0,5000) + '\n=====================================\n';
+    const prompt = [
+      'Generate EXACTLY ' + n + ' questions. SEED:' + seed,
+      'Subject:' + qSubj + ' | Exam:' + lvl + ' | Difficulty:' + diff,
+      'TYPE RULE: ' + typeInstr,
+      'FORMAT RULE: ' + fmtInstr,
+      'CONTENT:',
+      mat.content.substring(0, 5000),
+      'OUTPUT RULES:',
+      '1. Return ONLY a JSON array. No markdown. No extra text.',
+      '2. Options must be plain text only — NO "A." "B." prefix inside option text.',
+      '3. subject must be "' + qSubj + '", type must be "' + qType + '".',
+      'TEMPLATE: [' + tpl + ']'
+    ].join('\n');
 
     const questions = await callGroqAI(prompt);
     if (!questions || questions.length === 0) {
