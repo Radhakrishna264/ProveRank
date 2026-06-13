@@ -1195,6 +1195,8 @@ const [fmDupMap,setFmDupMap]=useState<Record<number,any>>({})
   const [qChapFilter,setQChapFilter]=useState('all')
   const [aiSelChap,setAiSelChap]=useState('')
   const [bulkSel,setBulkSel]=useState([])
+  const longPressTimerRef=useRef(null)
+  const longPressFiredRef=useRef(false)
   // ── QsBank Smart Filters (Feature 3) ──
   const [qfOpen,setQfOpen]=useState(false)
   const [qfApproval,setQfApproval]=useState('all')
@@ -3373,7 +3375,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                                   <span style={{fontSize:9,fontWeight:600,padding:'1px 6px',borderRadius:4,background:dCol+'18',color:dCol,border:'1px solid '+dCol+'30'}}>{q.difficulty||'?'}</span>
                                   <span style={{fontSize:9,padding:'1px 5px',borderRadius:3,background:'rgba(77,159,255,0.08)',color:'#4D9FFF'}}>{q.type||'SCQ'}</span><span style={{fontSize:9,padding:'1px 6px',borderRadius:3,background:usedInCount>0?'rgba(96,165,250,0.1)':'rgba(255,255,255,0.04)',color:usedInCount>0?'#60A5FA':'#475569'}}>{usedInCount>0?'📊 '+usedInCount+' exam'+(usedInCount>1?'s':''):'📊 —'}</span>
                                 </div>
-                                <div onClick={function(){setSelQId(q._id)}} style={{cursor:'pointer',fontSize:12,color:'#CBD5E1',lineHeight:1.5,marginBottom:3,display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',overflow:'hidden'}}>
+                                <div onClick={function(){if(longPressFiredRef.current){longPressFiredRef.current=false;return}setSelQId(q._id)}} onTouchStart={function(){longPressFiredRef.current=false;longPressTimerRef.current=setTimeout(function(){longPressFiredRef.current=true;setBulkSel(function(p){return p.includes(q._id)?p.filter(function(x){return x!==q._id}):[...p,q._id]});if(navigator.vibrate)navigator.vibrate(30)},500)}} onTouchEnd={function(){clearTimeout(longPressTimerRef.current)}} onTouchMove={function(){clearTimeout(longPressTimerRef.current)}} onContextMenu={function(e){e.preventDefault();setBulkSel(function(p){return p.includes(q._id)?p.filter(function(x){return x!==q._id}):[...p,q._id]})}} style={{cursor:'pointer',fontSize:12,color:'#CBD5E1',lineHeight:1.5,marginBottom:3,display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',overflow:'hidden',WebkitTouchCallout:'none',WebkitUserSelect:'none',userSelect:'none'}}>
 {(qLang==='hi'&&q.hindiText?q.hindiText:q.text||'').slice(0,90)}{(qLang==='hi'&&q.hindiText?q.hindiText:q.text||'').length>90?'…':''}
 </div>
 {qLang==='hi'&&!q.hindiText&&<div style={{fontSize:9,color:'#6366f1',marginTop:2,display:'flex',alignItems:'center',gap:3}}><span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',background:'#6366f1',animation:'pulse 1.5s infinite'}}></span>हिंदी अनुवाद प्रतीक्षा में...</div>}
