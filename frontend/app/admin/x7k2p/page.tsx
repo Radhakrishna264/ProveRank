@@ -3545,7 +3545,23 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                             <div style={{fontSize:10,color:'#475569'}}>
                               {!matViewLoading&&matViewContent&&matViewContent.length>4000?'⚠️ Large content — AI uses first 5000 chars for generation':''}
                             </div>
-                            <button onClick={function(){setMatViewId('')}} style={{padding:'8px 20px',borderRadius:8,background:'rgba(96,165,250,0.12)',border:'1px solid rgba(96,165,250,0.3)',color:'#60A5FA',cursor:'pointer',fontSize:12,fontWeight:600}}>Close</button>
+                            <div style={{display:'flex',gap:6}}>
+                              <button onClick={function(){
+                                const blob=new Blob([matViewContent],{type:'text/plain'});
+                                const a=document.createElement('a');
+                                a.href=URL.createObjectURL(blob);
+                                a.download=(matViewTitle||'extracted')+'.txt';
+                                a.click();URL.revokeObjectURL(a.href);
+                              }} style={{padding:'8px 14px',borderRadius:8,background:'rgba(0,200,100,0.1)',border:'1px solid rgba(0,200,100,0.3)',color:'#00C864',cursor:'pointer',fontSize:12,fontWeight:600}}>⬇️ TXT</button>
+                              <button onClick={function(){
+                                const w=window.open('','_blank');
+                                if(!w)return;
+                                w.document.write('<html><head><title>'+(matViewTitle||'Content')+'</title><style>body{font-family:Arial,sans-serif;font-size:13px;line-height:1.8;padding:40px;max-width:800px;margin:0 auto;white-space:pre-wrap;word-break:break-word;}h2{color:#333;border-bottom:1px solid #ddd;padding-bottom:8px;}@media print{body{padding:20px}}</style></head><body><h2>'+matViewTitle+'</h2><pre>'+matViewContent.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</pre></body></html>');
+                                w.document.close();
+                                setTimeout(function(){w.print();},400);
+                              }} style={{padding:'8px 14px',borderRadius:8,background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.3)',color:'#f87171',cursor:'pointer',fontSize:12,fontWeight:600}}>⬇️ PDF</button>
+                              <button onClick={function(){setMatViewId('')}} style={{padding:'8px 20px',borderRadius:8,background:'rgba(96,165,250,0.12)',border:'1px solid rgba(96,165,250,0.3)',color:'#60A5FA',cursor:'pointer',fontSize:12,fontWeight:600}}>Close</button>
+                            </div>
                           </div>
                         </div>
                       </div>
