@@ -1226,10 +1226,6 @@ const [aiEditQ,setAiEditQ]=useState<any>(null)
   const [fmExamLevel,setFmExamLevel]=useState('NEET')
   const [fmFormats,setFmFormats]=useState(['Random'])
   const [matTitle,setMatTitle]=useState('')
-  const [matViewId,setMatViewId]=useState('')
-  const [matViewTitle,setMatViewTitle]=useState('')
-  const [matViewContent,setMatViewContent]=useState('')
-  const [matViewLoading,setMatViewLoading]=useState(false)
   const aiChR=useRef('');const aiTopR=useRef('');const qImageR=useRef('')
 
   // Student management refs
@@ -1597,18 +1593,6 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
       if(r.ok){await fetchMats();T('📚 Material saved!')}
       else T('Save failed','e')
     }catch(e){T(e.message||'Error','e')}
-  }
-  const fetchMatContent=async(id,title)=>{
-    setMatViewId(id)
-    setMatViewTitle(title||'')
-    setMatViewContent('')
-    setMatViewLoading(true)
-    try{
-      const r=await fetch(API+'/api/materials/'+id,{headers:{Authorization:'Bearer '+token}})
-      if(r.ok){const d=await r.json();setMatViewContent(d.content||'No content found')}
-      else setMatViewContent('Failed to load content ('+r.status+')')
-    }catch(e){setMatViewContent('Network error: '+e.message)}
-    setMatViewLoading(false)
   }
   const deleteMat=async(id)=>{
     if(!window.confirm('Delete this material?'))return
@@ -3420,10 +3404,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                                     <div style={{fontSize:9,color:'#475569',marginTop:1}}>{m.fileType.toUpperCase()} · {m.fileSize>1024?(Math.round(m.fileSize/1024)+'KB'):(m.fileSize+'B')} · {new Date(m.createdAt).toLocaleDateString()}</div>
                                   </div>
                                 </div>
-                                <div style={{display:'flex',gap:4,flexShrink:0,marginLeft:6}}>
-                                    <button onClick={function(e){e.stopPropagation();fetchMatContent(m._id,m.title)}} title='View extracted content' style={{...bg_,fontSize:10,padding:'2px 7px',color:'#60A5FA',border:'1px solid rgba(96,165,250,0.3)',borderRadius:5}}>👁️</button>
-                                    <button onClick={function(e){e.stopPropagation();deleteMat(m._id)}} style={{...bg_,fontSize:10,padding:'2px 7px',color:'#F87171',border:'1px solid rgba(248,113,113,0.3)',borderRadius:5}}>🗑️</button>
-                                  </div>
+                                <button onClick={function(e){e.stopPropagation();deleteMat(m._id)}} style={{...bg_,fontSize:10,padding:'2px 6px',color:'#F87171',flexShrink:0,marginLeft:6}}>🗑️</button>
                               </div>
                               {isS&&<div style={{fontSize:9,color:'#00C864',marginTop:4}}>✓ Selected — configure below ↓</div>}
                             </div>
@@ -3501,56 +3482,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                         </div>
                       )}
                     </div>
-                    {/* Material Content Viewer Modal */}
-                    {matViewId&&(
-                      <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',zIndex:10002,display:'flex',alignItems:'center',justifyContent:'center',padding:14}} onClick={function(){setMatViewId('')}}>
-                        <div style={{background:'#0d1117',border:'1px solid rgba(96,165,250,0.4)',borderRadius:16,padding:20,width:'100%',maxWidth:640,maxHeight:'90vh',display:'flex',flexDirection:'column'}} onClick={function(e){e.stopPropagation()}}>
-                          {/* Header */}
-                          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14,gap:10}}>
-                            <div style={{flex:1,minWidth:0}}>
-                              <div style={{fontSize:13,fontWeight:800,color:'#60A5FA',marginBottom:3}}>👁️ Extracted Content</div>
-                              <div style={{fontSize:11,color:'#94A3B8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{matViewTitle}</div>
-                            </div>
-                            <button onClick={function(){setMatViewId('')}} style={{background:'none',border:'none',color:'#666',fontSize:22,cursor:'pointer',flexShrink:0}}>✕</button>
-                          </div>
-                          {/* Stats bar */}
-                          {!matViewLoading&&matViewContent&&matViewContent.length>10&&(
-                            <div style={{display:'flex',gap:10,marginBottom:10,flexWrap:'wrap'}}>
-                              <div style={{padding:'3px 10px',borderRadius:6,background:'rgba(96,165,250,0.1)',border:'1px solid rgba(96,165,250,0.2)',fontSize:10,color:'#60A5FA'}}>
-                                📝 {matViewContent.length.toLocaleString()} chars
-                              </div>
-                              <div style={{padding:'3px 10px',borderRadius:6,background:'rgba(96,165,250,0.1)',border:'1px solid rgba(96,165,250,0.2)',fontSize:10,color:'#60A5FA'}}>
-                                📄 ~{Math.round(matViewContent.split(/s+/).filter(Boolean).length)} words
-                              </div>
-                              <div style={{padding:'3px 10px',borderRadius:6,background:'rgba(0,200,100,0.08)',border:'1px solid rgba(0,200,100,0.2)',fontSize:10,color:'#00C864'}}>
-                                ✅ Extraction successful
-                              </div>
-                            </div>
-                          )}
-                          {/* Content area */}
-                          <div style={{flex:1,overflowY:'auto',background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:10,padding:14,minHeight:200,maxHeight:'60vh'}}>
-                            {matViewLoading?(
-                              <div style={{textAlign:'center',padding:'40px 0',color:'#475569'}}>
-                                <div style={{fontSize:24,marginBottom:8}}>⟳</div>
-                                <div style={{fontSize:12}}>Loading extracted content…</div>
-                              </div>
-                            ):matViewContent?(
-                              <pre style={{fontSize:11,color:'#CBD5E1',lineHeight:1.7,whiteSpace:'pre-wrap',wordBreak:'break-word',margin:0,fontFamily:'inherit'}}>{matViewContent}</pre>
-                            ):(
-                              <div style={{textAlign:'center',padding:'40px 0',color:'#475569',fontSize:12}}>No content available</div>
-                            )}
-                          </div>
-                          {/* Footer */}
-                          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12,gap:10}}>
-                            <div style={{fontSize:10,color:'#475569'}}>
-                              {!matViewLoading&&matViewContent&&matViewContent.length>4000?'⚠️ Large content — AI uses first 5000 chars for generation':''}
-                            </div>
-                            <button onClick={function(){setMatViewId('')}} style={{padding:'8px 20px',borderRadius:8,background:'rgba(96,165,250,0.12)',border:'1px solid rgba(96,165,250,0.3)',color:'#60A5FA',cursor:'pointer',fontSize:12,fontWeight:600}}>Close</button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-    {/* Files Mode — Question Preview Modal (Full) */}
+                    {/* Files Mode — Question Preview Modal (Full) */}
                     {fmShowPreview&&(
                       <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',zIndex:10000,display:'flex',alignItems:'center',justifyContent:'center',padding:'12px'}} onClick={function(){setFmShowPreview(false)}}>
                         <div style={{background:'#0d1117',border:'1px solid rgba(0,200,100,0.4)',borderRadius:16,padding:'20px',maxWidth:660,width:'100%',maxHeight:'92vh',overflowY:'auto'}} onClick={function(e){e.stopPropagation()}}>
