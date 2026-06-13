@@ -155,7 +155,9 @@ router.post('/generate', async (req, res) => {
     // Safety tag
     const tagged = questions.map(q => {
       const base = Object.assign({}, q, { subject: q.subject||qSubj, type: q.type||qType, examLevel: q.examLevel||lvl, difficulty: q.difficulty||diff });
-      if(qType==='MSQ'){ base.type='MSQ'; if(!Array.isArray(base.correct)||base.correct.length<2){ const f=Array.isArray(base.correct)?base.correct[0]:0; const s=f===2?1:2; base.correct=[f,s].sort((a,b)=>a-b); } }
+      const matchFmts=['Match_Column','Passage_Based','Sequence_Based'];
+      const isMatchFmt = fmts.some(f=>matchFmts.includes(f));
+      if(qType==='MSQ'&&!isMatchFmt){ base.type='MSQ'; if(!Array.isArray(base.correct)||base.correct.length<2){ const f=Array.isArray(base.correct)?base.correct[0]:0; const s=f===2?1:2; base.correct=[f,s].sort((a,b)=>a-b); } }
       if(qType==='Integer'){ base.type='Integer'; base.options=[]; }
       return base;
     });
