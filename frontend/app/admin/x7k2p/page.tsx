@@ -2920,6 +2920,7 @@ const confirmAndAdd=useCallback(async()=>{
                   <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
                     <button onClick={function(){setQBV('home');try{sessionStorage.setItem('pr_qbv','home')}catch{}}} style={{...bg_,padding:'6px 12px',fontSize:12}}>← Back</button>
                     <div><div style={pageTitle}>➕ Add Question to Bank</div><div style={pageSub}>Fill all details — saves instantly</div></div>
+                    <button onClick={function(){setQBV('preview');setQSec('all');try{sessionStorage.setItem('pr_qbv','preview')}catch{}}} style={{...bp,padding:'6px 14px',fontSize:11,marginLeft:'auto',whiteSpace:'nowrap'}}>📚 Preview All →</button>
                   </div>
                   <div key={formKey} style={cs}>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:11}}>
