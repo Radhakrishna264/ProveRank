@@ -1166,6 +1166,9 @@ const [topStudents,setTopStudents]=useState<{rank:number,name:string,bestScore:n
   const [savingQ,setSavingQ]=useState(false)
   const [qPreview,setQPreview]=useState(false)
 const [showAddPreview,setShowAddPreview]=useState(false)
+const [dupFound,setDupFound]=useState<any[]>([])
+const [aiDupMap,setAiDupMap]=useState<Record<number,any>>({})
+const [fmDupMap,setFmDupMap]=useState<Record<number,any>>({})
   const [qBV,setQBV]=useState(()=>{try{return sessionStorage.getItem('pr_qbv')||'home'}catch{return 'home'}})
   // FIX_PREVIEW_AUTOFETCH
   useEffect(()=>{
@@ -1626,7 +1629,7 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
       const qs=await genRes.json()
       if(Array.isArray(qs)&&qs.length>0){
         const tagged=qs.map(function(q){return Object.assign({},q,{subject:fmSubj,type:q.type||fmType,examLevel:q.examLevel||fmExamLevel})})
-        setFmResult(tagged);setFmShowPreview(true);T('✅ '+tagged.length+' Qs generated!')
+        setFmResult(tagged);const fmp:Record<number,any>={};tagged.forEach((q:any,j:number)=>{const d=findDups(q.text||'',q.options||[],questions);if(d.length)fmp[j]=d[0]});setFmDupMap(fmp);setFmShowPreview(true);T('✅ '+tagged.length+' Qs generated!')
       }
       else T('No questions generated. Try again.','e')
     }catch(e){T(e.message||'Failed','e')}
@@ -1702,11 +1705,23 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
     useEffect(()=>{const t=setInterval(()=>{setQTxtVal(qTxtR.current||'');setOptVals({a:qA.current||'',b:qB.current||'',c:qC.current||'',d:qD.current||''})},800);return ()=>clearInterval(t);},[]);
   useEffect(()=>{const timer=setTimeout(()=>{const d={text:qTxtVal,subj:qSubj,diff:qDiff,type:qType,ans:qAns,hindi:qHindi,chap:qChap,topic:qTopic,exp:qExp,img:qImg,optA:qA.current,optB:qB.current,optC:qC.current,optD:qD.current};if(d.text||d.subj||d.hindi||d.optA){try{localStorage.setItem('pr_q_draft',JSON.stringify(d));setDraftSaved(true);setTimeout(()=>setDraftSaved(false),2000)}catch(ex){}}},2000);return ()=>clearTimeout(timer);},[qTxtVal,qSubj,qDiff,qType,qAns,qHindi,qChap,qTopic,qExp,qImg]);
   useEffect(()=>{try{const d=JSON.parse(localStorage.getItem('pr_q_draft')||'{}');if(d.text||d.subj||d.hindi||d.optA){if(d.text){qTxtR.current=d.text;setQTxtVal(d.text);setQTxtInit(d.text)}if(d.subj)setQSubj(d.subj);if(d.diff)setQDiff(d.diff);if(d.type)setQType(d.type);if(d.ans)setQAns(d.ans);if(d.hindi){qHindiR.current=d.hindi;setQHindi(d.hindi)}if(d.chap){qChapR.current=d.chap;setQChap(d.chap)}if(d.topic){qTopicR.current=d.topic;setQTopic(d.topic)}if(d.exp){qExpR.current=d.exp;setQExp(d.exp)}if(d.img)setQImg(d.img);if(d.optA||d.optB||d.optC||d.optD){qA.current=d.optA||'';qB.current=d.optB||'';qC.current=d.optC||'';qD.current=d.optD||'';qA.current=d.optA||'';qB.current=d.optB||'';qC.current=d.optC||'';qD.current=d.optD||'';setOptInit({a:d.optA||'',b:d.optB||'',c:d.optC||'',d:d.optD||''});setOptImgsInit({a:(d.optionImages&&d.optionImages[0])||'',b:(d.optionImages&&d.optionImages[1])||'',c:(d.optionImages&&d.optionImages[2])||'',d:(d.optionImages&&d.optionImages[3])||''});setDraftKey(k=>k+1)}setFormKey(function(k){return k+1});setDraftRestored(true);setTimeout(()=>setDraftRestored(false),3000)}}catch(e){}},[]);
+  const findDups=useCallback((newText:string,opts:string[],bank:any[])=>{
+    const nt=(newText||'').toLowerCase().trim()
+    if(nt.length<10)return[]
+    return bank.filter((q:any)=>{
+      if((q.text||'').toLowerCase().trim()!==nt)return false
+      const eo=(q.options||[]).map((o:string)=>(o||'').toLowerCase().trim()).sort().join('|')
+      const no=opts.map((o:string)=>(o||'').toLowerCase().trim()).filter(Boolean).sort().join('|')
+      return !no||eo===no
+    })
+  },[])
   const addQ=useCallback(()=>{
 const text=qTxtR.current
 if(!text){T('Question text is required.','e');return}
+const dups=findDups(text,[qA.current,qB.current,qC.current,qD.current],questions)
+setDupFound(dups)
 setShowAddPreview(true)
-},[qSubj,qDiff,qType,qAns,T])
+},[qSubj,qDiff,qType,qAns,T,questions,findDups])
 const confirmAndAdd=useCallback(async()=>{
     const text=qTxtR.current
     if(!text){T('Question text is required.','e');return}
@@ -2973,7 +2988,7 @@ const confirmAndAdd=useCallback(async()=>{
                       </div>
                     </div>
                     <div style={{display:'flex',gap:10,marginTop:14,flexWrap:'wrap'}}>
-                      <button onClick={()=>setShowAddPreview(true)} disabled={savingQ} style={{...bp,flex:2,minWidth:150,opacity:savingQ?0.7:1}}>{savingQ?'⟳ Saving…':'✅ Add to Question Bank'}</button>
+                      <button onClick={()=>{const dups=findDups(qTxtR.current,[qA.current,qB.current,qC.current,qD.current],questions);setDupFound(dups);setShowAddPreview(true)}} disabled={savingQ} style={{...bp,flex:2,minWidth:150,opacity:savingQ?0.7:1}}>{savingQ?'⧐ Saving…':'✅ Add to Question Bank'}</button>
                       <button onClick={function(){
                         qTxtR.current='';qHindiR.current='';qA.current='';qB.current='';qC.current='';qD.current='';
                         qChapR.current='';qTopicR.current='';qExpR.current='';qImageR.current='';
@@ -3043,6 +3058,7 @@ return <div key={i} style={{padding:'8px 12px',borderRadius:8,marginBottom:6,bac
 {qDiff&&<span style={{background:'rgba(245,158,11,0.2)',color:'#fbbf24',padding:'3px 10px',borderRadius:20,fontSize:11}}>{qDiff}</span>}
 {qType&&<span style={{background:'rgba(99,102,241,0.2)',color:'#818cf8',padding:'3px 10px',borderRadius:20,fontSize:11}}>{qType}</span>}
 </div>
+{dupFound.length>0&&(<div style={{background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.45)',borderRadius:10,padding:'11px 14px',marginBottom:12,marginTop:10}}><div style={{color:'#f87171',fontWeight:700,fontSize:12,marginBottom:5}}>⚠️ Duplicate Detected — {dupFound.length} similar question{dupFound.length>1?'s are':' is'} already in the bank</div>{dupFound.slice(0,2).map((dq:any,di:number)=>(<div key={di} style={{fontSize:11,color:'#94a3b8',padding:'4px 8px',background:'rgba(239,68,68,0.07)',borderRadius:6,marginBottom:3}}>🔴 {(dq.text||'').slice(0,80)}{(dq.text||'').length>80?'…':''}</div>))}<div style={{fontSize:10,color:'#f87171',marginTop:5,opacity:0.8}}>You can still save — but duplicate questions reduce paper quality.</div></div>)}
 <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
 <button onClick={()=>setShowAddPreview(false)} style={{padding:'10px 20px',borderRadius:8,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.15)',color:'#94a3b8',cursor:'pointer',fontSize:13}}>✏️ Edit</button>
 <button onClick={()=>{setShowAddPreview(false);confirmAndAdd()}} disabled={savingQ} style={{padding:'10px 24px',borderRadius:8,background:'linear-gradient(135deg,#7c3aed,#4f46e5)',border:'none',color:'#fff',cursor:'pointer',fontSize:13,fontWeight:700}}>{savingQ?'Adding...':'✅ Confirm & Add'}</button>
@@ -3061,7 +3077,7 @@ return <div key={i} style={{padding:'8px 12px',borderRadius:8,marginBottom:6,bac
 {aiGResult.map((q:any,i:number)=>(
 <div key={i} style={{background:'rgba(168,85,247,0.06)',border:'1px solid rgba(168,85,247,0.2)',borderRadius:10,padding:'12px',marginBottom:10,position:'relative'}}>
 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
-<span style={{color:'#c084fc',fontSize:11,fontWeight:700}}>Q{i+1}</span>
+<span style={{color:'#c084fc',fontSize:11,fontWeight:700}}>Q{i+1}</span>{aiDupMap[i]&&<span style={{background:'rgba(239,68,68,0.22)',color:'#f87171',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:10,marginLeft:6,border:'1px solid rgba(239,68,68,0.5)'}}>⚠️ Duplicate in Bank</span>}
 <div style={{display:'flex',gap:6}}>
 <button onClick={()=>{setAiEditIdx(i);setAiEditQ({...q})}} style={{background:'rgba(59,130,246,0.2)',border:'1px solid rgba(59,130,246,0.4)',color:'#60a5fa',borderRadius:6,padding:'3px 10px',fontSize:11,cursor:'pointer'}}>✏️ Edit</button>
 <button onClick={()=>setAiGResult((p:any[])=>p.filter((_:any,j:number)=>j!==i))} style={{background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',color:'#f87171',borderRadius:6,padding:'3px 10px',fontSize:11,cursor:'pointer'}}>🗑️ Delete</button>
@@ -3076,6 +3092,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 </div>
 })}
 {(q.explanation||q.exp)&&<div style={{fontSize:11,color:'#fcd34d',marginTop:6,padding:'4px 8px',background:'rgba(252,211,77,0.07)',borderRadius:6}}>💡 <span dangerouslySetInnerHTML={{__html:renderLatex(formatQText(q.explanation||q.exp||''))}}/></div>}
+{aiDupMap[i]&&<div style={{background:'rgba(239,68,68,0.09)',border:'1px solid rgba(239,68,68,0.35)',borderRadius:7,padding:'7px 10px',marginTop:6,fontSize:11,color:'#f87171'}}>⚠️ Already in bank: <span style={{color:'#94a3b8'}}>{(aiDupMap[i].text||'').slice(0,70)}{(aiDupMap[i].text||'').length>70?'…':''}</span></div>}
 </div>
 ))}
 </div>
@@ -3348,7 +3365,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                           <div style={{maxHeight:100,overflowY:'auto',display:'flex',flexDirection:'column',gap:3,marginBottom:8}}>
                             {aiGResult.map(function(q:any,i:number){return(<div key={i} style={{padding:'4px 8px',background:'rgba(0,200,100,0.05)',borderRadius:5,fontSize:10,color:'#CBD5E1'}}>Q{i+1}: {(q.text||'').slice(0,65)}…</div>)})}
                           </div>
-                          <button onClick={()=>setShowAiPreview(true)} style={{...bp,width:'100%',fontSize:11,marginBottom:8}}>💾 Review & Save All {aiGResult.length} Questions</button>
+                          <button onClick={()=>{const m:Record<number,any>={};aiGResult.forEach((q:any,i:number)=>{const d=findDups(q.text||q.question||'',q.options||[],questions);if(d.length)m[i]=d[0]});setAiDupMap(m);setShowAiPreview(true)}} style={{...bp,width:'100%',fontSize:11,marginBottom:8}}>💾 Review & Save All {aiGResult.length} Questions</button>
                         </div>
                       )}
                       {/* Generate Button */}
@@ -3579,7 +3596,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                               return(
                                 <div key={i} style={{background:'rgba(0,200,100,0.06)',border:'1px solid rgba(0,200,100,0.2)',borderRadius:10,padding:'12px',marginBottom:10,position:'relative'}}>
                                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
-                                    <span style={{color:'#00C864',fontSize:11,fontWeight:700}}>Q{i+1}</span>
+                                    <span style={{color:'#00C864',fontSize:11,fontWeight:700}}>Q{i+1}</span>{fmDupMap[i]&&<span style={{background:'rgba(239,68,68,0.22)',color:'#f87171',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:10,marginLeft:6,border:'1px solid rgba(239,68,68,0.5)'}}>⚠️ Duplicate in Bank</span>}
                                     <div style={{display:'flex',gap:6}}>
                                       <button onClick={function(){setFmEditIdx(i);setFmEditQ(Object.assign({},q))}} style={{background:'rgba(59,130,246,0.2)',border:'1px solid rgba(59,130,246,0.4)',color:'#60a5fa',borderRadius:6,padding:'3px 10px',fontSize:11,cursor:'pointer'}}>✏️ Edit</button>
                                       <button onClick={function(){setFmResult(function(p:any[]){return p.filter(function(_:any,j:number){return j!==i})})}} style={{background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',color:'#f87171',borderRadius:6,padding:'3px 10px',fontSize:11,cursor:'pointer'}}>🗑️ Delete</button>
@@ -3595,6 +3612,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                                     </div>
                                   })}
                                   {(q.explanation||q.exp)&&<div style={{fontSize:11,color:'#fcd34d',marginTop:6,padding:'4px 8px',background:'rgba(252,211,77,0.07)',borderRadius:6}}>💡 <span dangerouslySetInnerHTML={{__html:renderLatex(formatQText(q.explanation||q.exp||''))}}/></div>}
+                                  {fmDupMap[i]&&<div style={{background:'rgba(239,68,68,0.09)',border:'1px solid rgba(239,68,68,0.35)',borderRadius:7,padding:'7px 10px',marginTop:6,fontSize:11,color:'#f87171'}}>⚠️ Already in bank: <span style={{color:'#94a3b8'}}>{(fmDupMap[i].text||'').slice(0,70)}{(fmDupMap[i].text||'').length>70?'…':''}</span></div>}
                                 </div>
                               )
                             })}
