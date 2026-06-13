@@ -93,45 +93,54 @@ router.get('/pyq', verifyToken, async (req, res) => {
 // ── AI-8: AUTO TRANSLATOR ────────────────────────────────────
 router.post('/ai/translate', verifyToken, isAdmin, async (req, res) => {
   try {
-    const { questionId, targetLang, questionText } = req.body;
-    const text = questionText || (questionId ? (await Question.findById(questionId).select('text'))?.text : null);
-    if (!text) return res.status(400).json({ message: 'questionId ya questionText required hai' });
-    // ✅ Real AI Translation via aiTranslationService
+    const { questionId, questionText } = req.body;
     const question = questionId ? await Question.findById(questionId) : null;
-    const optionsArr = question?.options || [];
-    const explanation = question?.explanation || '';
+    const text = questionText || question?.text || '';
+    if (!text) return res.status(400).json({ message: 'questionId ya questionText required hai' });
 
-    const { translateQuestionToHindi } = require('../services/aiTranslationService');
-    const result = await translateQuestionToHindi(text, optionsArr, explanation);
+    const { translateQuestion } = require('../services/translationService');
+    const result = await translateQuestion(
+      text,
+      Array.isArray(question?.options) ? question.options : [],
+      question?.explanation || ''
+    );
 
     // Save to DB if questionId provided
     if (question) {
-      question.hindiText        = result.hindiText        || '';
-      question.hindiOptions     = result.hindiOptions     || [];
-      question.hindiExplanation = result.hindiExplanation || '';
-      question.translatedBy     = 'AI-8-Groq';
+      question.hindiText        = result.hindiText;
+      question.hindiOptions     = result.hindiOptions;
+      question.hindiExplanation = result.hindiExplanation;
+      question.translatedBy     = 'MyMemory-Free';
       question.translatedAt     = new Date();
       await question.save();
     }
 
     res.json({
       success:          true,
-      original:         text.slice(0, 100),
-      translated:       result.hindiText || '',
-      hindiText:        result.hindiText || '',
-      hindiOptions:     result.hindiOptions || [],
-      hindiExplanation: result.hindiExplanation || '',
-      targetLanguage:   targetLang || 'hindi',
+      hindiText:        result.hindiText,
+      hindiOptions:     result.hindiOptions,
+      hindiExplanation: result.hindiExplanation,
+      translated:       result.hindiText,
+      targetLanguage:   'hindi',
     });
   } catch(err) { res.status(500).json({ message: err.message }); }
 });
 
-
-// ── AI-8b: Per-Question Translate (/api/questions/:id/translate) ──
 router.post('/:id/translate', verifyToken, isAdmin, async (req, res) => {
   try {
     const question = await Question.findById(req.params.id);
-    if (!question) return res.status(404).json({ success: false, message: 'Question not found' });
+    if (!question) return res.status(404).json({ success: false, message: 'Not found' });
+    const { translateQuestion } = require('../services/translationService');
+    const result = await translateQuestion(question.text || '', question.options || [], question.explanation || '');
+    question.hindiText        = result.hindiText;
+    question.hindiOptions     = result.hindiOptions;
+    question.hindiExplanation = result.hindiExplanation;
+    question.translatedBy     = 'MyMemory-Free';
+    question.translatedAt     = new Date();
+    await question.save();
+    res.json({ success: true, message: 'Hindi translation done!', ...result, question });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
     const { translateQuestionToHindi } = require('../services/aiTranslationService');
     const result = await translateQuestionToHindi(
       question.text || '',
