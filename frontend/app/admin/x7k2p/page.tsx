@@ -1200,6 +1200,7 @@ const [fmDupMap,setFmDupMap]=useState<Record<number,any>>({})
   const [editQD,setEditQD]=useState(null)
   const [savingEQ,setSavingEQ]=useState(false)
   const [stdPrv,setStdPrv]=useState(false)
+  const [qLang,setQLang]=useState(function(){try{return localStorage.getItem('pr_qb_lang')||'en'}catch(e){return 'en'}})
   const [aiGO,setAiGO]=useState(false)
 const [showAiPreview,setShowAiPreview]=useState(false)
 const [aiEditIdx,setAiEditIdx]=useState<number|null>(null)
@@ -3138,7 +3139,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
                     <button onClick={function(){setQBV('home');setBulkSel([]);try{sessionStorage.setItem('pr_qbv','home')}catch{}}} style={{...bg_,padding:'5px 11px',fontSize:11}}>← Back</button>
                     <div style={{flex:1,minWidth:0,overflow:'hidden'}}><div style={{fontSize:18,fontWeight:800,background:'linear-gradient(90deg,#A78BFA,#60A5FA)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',letterSpacing:0.2,lineHeight:1.2}}>📚 Preview All Questions</div><div style={{display:'flex',alignItems:'center',gap:5,marginTop:3,flexWrap:'wrap'}}><span style={{fontSize:10,color:'#64748B',fontWeight:500}}>Showing</span><span style={{fontSize:11,fontWeight:700,color:'#A78BFA',background:'rgba(167,139,250,0.13)',padding:'1px 9px',borderRadius:8,border:'1px solid rgba(167,139,250,0.28)'}}>{fQs.length}</span><span style={{fontSize:10,color:'#64748B'}}>of {(questions||[]).length} Questions</span></div></div>
-                    <button onClick={function(){setStdPrv(function(p){return !p})}} style={{...bg_,fontSize:10,padding:'5px 10px',background:stdPrv?'rgba(0,229,160,0.12)':'rgba(255,255,255,0.05)',color:stdPrv?'#00E5A0':'#94A3B8'}}>{stdPrv?'🎓 ON':'🎓 View'}</button>
+                    <button onClick={function(){setStdPrv(function(p){return !p})}} style={{...bg_,fontSize:10,padding:'5px 10px',background:stdPrv?'rgba(0,229,160,0.12)':'rgba(255,255,255,0.05)',color:stdPrv?'#00E5A0':'#94A3B8'}}>{stdPrv?'🎓 ON':'🎓 View'}</button><button onClick={function(){var nl=qLang==='en'?'hi':'en';setQLang(nl);try{localStorage.setItem('pr_qb_lang',nl)}catch{}}} style={{padding:'5px 10px',borderRadius:7,fontSize:10,fontWeight:700,cursor:'pointer',transition:'all 0.2s',background:qLang==='hi'?'rgba(251,146,60,0.18)':'rgba(255,255,255,0.05)',color:qLang==='hi'?'#FB923C':'#94A3B8',border:'1px solid '+(qLang==='hi'?'rgba(251,146,60,0.45)':'rgba(255,255,255,0.1)')}} title={qLang==='hi'?'Switch to English':'Switch to Hindi'}>{qLang==='hi'?'🇮🇳 हिंदी ✓':'🌐 EN | हिंदी'}</button>
                     <button onClick={expQB} style={{...bg_,fontSize:10,padding:'5px 10px'}} title='Export CSV'>📄 CSV</button><button onClick={expQBPdf} style={{...bg_,fontSize:10,padding:'5px 10px',marginLeft:4}} title='Export PDF'>🖨️ PDF</button>
                     <button onClick={function(){setQBV('add');try{sessionStorage.setItem('pr_qbv','add')}catch{}}} style={{...bp,fontSize:10,padding:'5px 12px'}}>➕ Add</button>
                   </div>
@@ -3227,7 +3228,10 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                                   <span style={{fontSize:9,fontWeight:600,padding:'1px 6px',borderRadius:4,background:dCol+'18',color:dCol,border:'1px solid '+dCol+'30'}}>{q.difficulty||'?'}</span>
                                   <span style={{fontSize:9,padding:'1px 5px',borderRadius:3,background:'rgba(77,159,255,0.08)',color:'#4D9FFF'}}>{q.type||'SCQ'}</span><span style={{fontSize:9,padding:'1px 6px',borderRadius:3,background:usedInCount>0?'rgba(96,165,250,0.1)':'rgba(255,255,255,0.04)',color:usedInCount>0?'#60A5FA':'#475569'}}>{usedInCount>0?'📊 '+usedInCount+' exam'+(usedInCount>1?'s':''):'📊 —'}</span>
                                 </div>
-                                <div onClick={function(){setSelQId(q._id)}} style={{cursor:'pointer',fontSize:12,color:'#CBD5E1',lineHeight:1.5,marginBottom:3,display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{(q.text||'').slice(0,90)}{(q.text||'').length>90?'…':''}</div>
+                                <div onClick={function(){setSelQId(q._id)}} style={{cursor:'pointer',fontSize:12,color:'#CBD5E1',lineHeight:1.5,marginBottom:3,display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',overflow:'hidden'}}>
+{(qLang==='hi'&&q.hindiText?q.hindiText:q.text||'').slice(0,90)}{(qLang==='hi'&&q.hindiText?q.hindiText:q.text||'').length>90?'…':''}
+</div>
+{qLang==='hi'&&!q.hindiText&&<div style={{fontSize:9,color:'#6366f1',marginTop:2,display:'flex',alignItems:'center',gap:3}}><span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',background:'#6366f1',animation:'pulse 1.5s infinite'}}></span>हिंदी अनुवाद प्रतीक्षा में...</div>}
                                 {q.chapter&&<div style={{fontSize:10,color:'#475569'}}>📖 {q.chapter}{q.topic?' › '+q.topic:''}</div>}
                                 {stdPrv&&(q.options||[]).length>0&&(<div style={{marginTop:6,display:'grid',gridTemplateColumns:'1fr 1fr',gap:3}}>
                                   {(q.options||[]).map(function(opt,oi){
@@ -3235,7 +3239,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                                     const cIdx=Array.isArray(q.correct)?q.correct:q.correct!==undefined?[q.correct]:[]
                                     const isC=(Array.isArray(cIdx)?cIdx.includes(oi):cIdx===oi)||(q.correctAnswer&&q.correctAnswer===ltr)
                                     return(<div key={oi} style={{padding:'3px 7px',borderRadius:5,fontSize:10,border:'1px solid '+(isC?'rgba(0,200,100,0.4)':'rgba(255,255,255,0.06)'),background:isC?'rgba(0,200,100,0.08)':'rgba(255,255,255,0.02)',color:isC?'#00C864':'#94A3B8'}}>
-                                      <span style={{fontWeight:700,marginRight:4,color:isC?'#00C864':'#4D9FFF'}}>{ltr}.</span>{(opt||'').replace(/^[A-Da-d][\.\)\:]s*/,'').trim().slice(0,28)}{isC&&' ✓'}
+                                      <span style={{fontWeight:700,marginRight:4,color:isC?'#00C864':'#4D9FFF'}}>{ltr}.</span>{((qLang==='hi'&&(q.hindiOptions||[])[oi])?q.hindiOptions[oi]:opt||'').replace(/^[A-Da-d][\.\)\:]s*/,'').trim().slice(0,28)}{isC&&' ✓'}
                                     </div>)
                                   })}
                                 </div>)}
@@ -3679,8 +3683,15 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                         </div>
                         <button onClick={function(){setSelQId(null)}} style={{...bg_,padding:'3px 8px',fontSize:11}}>✕</button>
                       </div>
-                      <div style={{fontSize:13,color:'#E2E8F0',lineHeight:1.7,marginBottom:10,padding:'11px 13px',background:'rgba(255,255,255,0.03)',borderRadius:10,border:'1px solid rgba(255,255,255,0.06)'}} dangerouslySetInnerHTML={{__html:renderLatex(formatQText(q.text||''))}}/>
-                      {q.hindiText&&<div style={{fontSize:11,color:'#94A3B8',marginBottom:10,fontStyle:'italic',padding:'6px 11px',background:'rgba(255,255,255,0.02)',borderRadius:8}} dangerouslySetInnerHTML={{__html:renderLatex(q.hindiText||'')}}/>}{q.image&&<div style={{margin:'8px 0',borderRadius:8,background:'rgba(255,255,255,0.03)',padding:6}}><img src={q.image} alt='' onError={function(e){e.currentTarget.style.display='none';var fb=document.getElementById('imgfb_'+q._id);if(fb)fb.style.display='flex'}} style={{width:'100%',maxHeight:160,objectFit:'contain',borderRadius:8,marginBottom:8,cursor:'pointer',background:'rgba(255,255,255,0.03)',display:'block'}} onClick={()=>setLbImg(q.image||'')}/><div id={'imgfb_'+q._id} style={{display:'none',alignItems:'center',gap:6,padding:'4px 0'}}><span style={{fontSize:10,color:'#94A3B8'}}>🖼️ Image URL:</span><a href={q.image} target='_blank' style={{fontSize:10,color:'#60A5FA',wordBreak:'break-all'}}>{q.image.length>50?q.image.substring(0,50)+'...':q.image}</a></div></div>}
+                      {/* Language Toggle */}
+                      <div style={{display:'flex',gap:6,marginBottom:10}}>
+                        <button onClick={function(){setQLang('en');try{localStorage.setItem('pr_qb_lang','en')}catch{}}} style={{padding:'4px 12px',borderRadius:6,fontSize:10,fontWeight:700,cursor:'pointer',background:qLang==='en'?'rgba(77,159,255,0.22)':'rgba(255,255,255,0.04)',color:qLang==='en'?'#4D9FFF':'#64748B',border:'1px solid '+(qLang==='en'?'rgba(77,159,255,0.5)':'rgba(255,255,255,0.1)')}}>🇺🇸 English</button>
+                        {q.hindiText
+                          ?<button onClick={function(){setQLang('hi');try{localStorage.setItem('pr_qb_lang','hi')}catch{}}} style={{padding:'4px 12px',borderRadius:6,fontSize:10,fontWeight:700,cursor:'pointer',background:qLang==='hi'?'rgba(251,146,60,0.22)':'rgba(255,255,255,0.04)',color:qLang==='hi'?'#FB923C':'#64748B',border:'1px solid '+(qLang==='hi'?'rgba(251,146,60,0.5)':'rgba(255,255,255,0.1)')}}>🇮🇳 हिंदी</button>
+                          :<span style={{fontSize:9,color:'#6366f1',display:'flex',alignItems:'center',gap:4,padding:'4px 10px',borderRadius:6,border:'1px solid rgba(99,102,241,0.25)',background:'rgba(99,102,241,0.06)'}}><span style={{width:6,height:6,borderRadius:'50%',background:'#6366f1',display:'inline-block'}}></span>हिंदी अनुवाद हो रहा है...</span>
+                        }
+                      </div>
+                      <div style={{fontSize:13,color:'#E2E8F0',lineHeight:1.7,marginBottom:10,padding:'11px 13px',background:'rgba(255,255,255,0.03)',borderRadius:10,border:'1px solid rgba(255,255,255,0.06)'}} dangerouslySetInnerHTML={{__html:renderLatex(formatQText(qLang==='hi'&&q.hindiText?q.hindiText:q.text||''))}}/>{q.image&&<div style={{margin:'8px 0',borderRadius:8,background:'rgba(255,255,255,0.03)',padding:6}}><img src={q.image} alt='' onError={function(e){e.currentTarget.style.display='none';var fb=document.getElementById('imgfb_'+q._id);if(fb)fb.style.display='flex'}} style={{width:'100%',maxHeight:160,objectFit:'contain',borderRadius:8,marginBottom:8,cursor:'pointer',background:'rgba(255,255,255,0.03)',display:'block'}} onClick={()=>setLbImg(q.image||'')}/><div id={'imgfb_'+q._id} style={{display:'none',alignItems:'center',gap:6,padding:'4px 0'}}><span style={{fontSize:10,color:'#94A3B8'}}>🖼️ Image URL:</span><a href={q.image} target='_blank' style={{fontSize:10,color:'#60A5FA',wordBreak:'break-all'}}>{q.image.length>50?q.image.substring(0,50)+'...':q.image}</a></div></div>}
                       {(q.options||[]).length>0&&(<div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:10}}>
                         {(q.options||[]).map(function(opt,oi){
                           const ltr=String.fromCharCode(65+oi)
@@ -3688,14 +3699,14 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                           const isC=(Array.isArray(cIdx)?cIdx.includes(oi):cIdx===oi)||(q.correctAnswer&&q.correctAnswer===ltr)
                           return(<div key={oi} style={{padding:'7px 11px',borderRadius:7,border:'1px solid '+(isC?'rgba(0,200,100,0.4)':'rgba(255,255,255,0.07)'),background:isC?'rgba(0,200,100,0.08)':'rgba(255,255,255,0.02)',display:'flex',alignItems:'flex-start'}}>
                             <span style={{fontWeight:700,color:isC?'#00C864':'#4D9FFF',marginRight:8,flexShrink:0,minWidth:20,paddingTop:1}}>{ltr}.</span>
-                            <div style={{flex:1,minWidth:0}}><span style={{fontSize:12,color:isC?'#E2E8F0':'#94A3B8'}} dangerouslySetInnerHTML={{__html:renderLatex((opt||'').replace(/^[A-Da-d][\.\)\:]s*/,'').trim())}}></span>
+                            <div style={{flex:1,minWidth:0}}><span style={{fontSize:12,color:isC?'#E2E8F0':'#94A3B8'}} dangerouslySetInnerHTML={{__html:renderLatex(((qLang==='hi'&&(q.hindiOptions||[])[oi]?q.hindiOptions[oi]:opt)||'').replace(/^[A-Da-d][\.\)\:]s*/,'').trim())}}></span>
                             {isC&&<span style={{marginLeft:8,fontSize:10,color:'#00C864',fontWeight:700}}>✓ Correct</span>}{(q.optionImages as any)?.[oi]?<img src={(q.optionImages as any)[oi]} alt='' style={{width:'100%',maxHeight:110,objectFit:'contain',borderRadius:8,marginTop:6,cursor:'pointer',border:'1px solid rgba(99,102,241,0.3)',background:'rgba(255,255,255,0.04)',display:'block'}} onClick={()=>setLbImg(String((q.optionImages as any)?.[oi]||''))} onError={(e:any)=>{(e.target as HTMLImageElement).style.display='none'}}/>:null}</div>
                           </div>)
                         })}
                       </div>)}
                       {(q.chapter||q.topic||q.explanation)&&(<div style={{fontSize:11,color:'#64748B',marginBottom:10,lineHeight:1.6}}>
                         {q.chapter&&<div>📖 {q.chapter}{q.topic?' › '+q.topic:''}</div>}
-                        {q.explanation&&<div style={{color:'#94A3B8',marginTop:4}} dangerouslySetInnerHTML={{__html:'💡 '+renderLatex(formatQText(q.explanation||''))}}/>}
+                        {(q.explanation||q.hindiExplanation)&&<div style={{color:'#94A3B8',marginTop:4}} dangerouslySetInnerHTML={{__html:'💡 '+renderLatex(formatQText(qLang==='hi'&&q.hindiExplanation?q.hindiExplanation:q.explanation||''))}}/>}
                       </div>)}
                       <div style={{display:'flex',gap:7}}>
                         <button onClick={function(){if(qi>0)setSelQId((questions||[])[qi-1]._id)}} disabled={qi===0} style={{...bg_,flex:1,opacity:qi===0?0.35:1,fontSize:11}}>← Prev</button>

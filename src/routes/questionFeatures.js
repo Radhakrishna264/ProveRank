@@ -96,15 +96,61 @@ router.post('/ai/translate', verifyToken, isAdmin, async (req, res) => {
     const { questionId, targetLang, questionText } = req.body;
     const text = questionText || (questionId ? (await Question.findById(questionId).select('text'))?.text : null);
     if (!text) return res.status(400).json({ message: 'questionId ya questionText required hai' });
-    // Simulation — real mein LibreTranslate/Google API lagega
+    // ✅ Real AI Translation via aiTranslationService
+    const question = questionId ? await Question.findById(questionId) : null;
+    const optionsArr = question?.options || [];
+    const explanation = question?.explanation || '';
+
+    const { translateQuestionToHindi } = require('../services/aiTranslationService');
+    const result = await translateQuestionToHindi(text, optionsArr, explanation);
+
+    // Save to DB if questionId provided
+    if (question) {
+      question.hindiText        = result.hindiText        || '';
+      question.hindiOptions     = result.hindiOptions     || [];
+      question.hindiExplanation = result.hindiExplanation || '';
+      question.translatedBy     = 'AI-8-Groq';
+      question.translatedAt     = new Date();
+      await question.save();
+    }
+
     res.json({
-      success: true,
-      original: text.slice(0, 100),
-      translated: `[${targetLang?.toUpperCase() || 'HINDI'} TRANSLATION] ${text.slice(0, 100)}`,
-      targetLanguage: targetLang || 'hindi',
-      note: 'Translation API integrate karo — LibreTranslate ya Google Translate'
+      success:          true,
+      original:         text.slice(0, 100),
+      translated:       result.hindiText || '',
+      hindiText:        result.hindiText || '',
+      hindiOptions:     result.hindiOptions || [],
+      hindiExplanation: result.hindiExplanation || '',
+      targetLanguage:   targetLang || 'hindi',
     });
   } catch(err) { res.status(500).json({ message: err.message }); }
+});
+
+
+// ── AI-8b: Per-Question Translate (/api/questions/:id/translate) ──
+router.post('/:id/translate', verifyToken, isAdmin, async (req, res) => {
+  try {
+    const question = await Question.findById(req.params.id);
+    if (!question) return res.status(404).json({ success: false, message: 'Question not found' });
+    const { translateQuestionToHindi } = require('../services/aiTranslationService');
+    const result = await translateQuestionToHindi(
+      question.text || '',
+      Array.isArray(question.options) ? question.options : [],
+      question.explanation || ''
+    );
+    question.hindiText        = result.hindiText        || question.hindiText || '';
+    question.hindiOptions     = result.hindiOptions     || question.hindiOptions || [];
+    question.hindiExplanation = result.hindiExplanation || question.hindiExplanation || '';
+    question.translatedBy     = 'AI-8-Groq-Mistral';
+    question.translatedAt     = new Date();
+    await question.save();
+    res.json({
+      success: true, message: 'AI Hindi translation complete!',
+      hindiText: question.hindiText,
+      hindiOptions: question.hindiOptions,
+      hindiExplanation: question.hindiExplanation, question
+    });
+  } catch (err) { res.status(500).json({ success: false, message: 'Translation failed: ' + err.message }); }
 });
 
 // ── AI-10: AUTO EXPLANATION GENERATOR ───────────────────────
