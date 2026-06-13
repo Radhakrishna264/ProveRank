@@ -1195,6 +1195,32 @@ const [fmDupMap,setFmDupMap]=useState<Record<number,any>>({})
   const [qChapFilter,setQChapFilter]=useState('all')
   const [aiSelChap,setAiSelChap]=useState('')
   const [bulkSel,setBulkSel]=useState([])
+  // ── QsBank Smart Filters (Feature 3) ──
+  const [qfOpen,setQfOpen]=useState(false)
+  const [qfApproval,setQfApproval]=useState('all')
+  const [qfDiff2,setQfDiff2]=useState('all')
+  const [qfType,setQfType]=useState('all')
+  const [qfUsage,setQfUsage]=useState('all')
+  const [qfLevel,setQfLevel]=useState('all')
+  const [qfFormat,setQfFormat]=useState('all')
+  const [qfDate,setQfDate]=useState('all')
+  // ── QsBank -> Exam Integration (Feature 1) ──
+  const [showA2E,setShowA2E]=useState(false)
+  const [a2eTab,setA2eTab]=useState('existing')
+  const [a2eExamId,setA2eExamId]=useState('')
+  const [a2eTitle,setA2eTitle]=useState('')
+  const [a2eDuration,setA2eDuration]=useState('180')
+  const [a2eMarks,setA2eMarks]=useState('720')
+  const [a2eExamsList,setA2eExamsList]=useState([])
+  const [a2eSaving,setA2eSaving]=useState(false)
+  // ── Bulk Edit (Feature 4) ──
+  const [showBulkEdit,setShowBulkEdit]=useState(false)
+  const [beFields,setBeFields]=useState({subject:'',difficulty:'',type:'',chapter:'',examLevel:''})
+  const [beSaving,setBeSaving]=useState(false)
+  // ── Per-Question Usage Stats (Feature 2) ──
+  const [usageStatsQ,setUsageStatsQ]=useState(null)
+  const [usageStatsData,setUsageStatsData]=useState(null)
+  const [usageStatsLoading,setUsageStatsLoading]=useState(false)
   const [qPage,setQPage]=useState(1)
   const [selQId,setSelQId]=useState(null)
   const [editQD,setEditQD]=useState(null)
@@ -1684,6 +1710,70 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
     setQuestions(function(p){return p.map(function(q){return bulkSel.includes(q._id)?Object.assign({},q,{approvalStatus:'approved'}):q})})
     setBulkSel([]);T('✅ Bulk approved.')
   }
+  // ── Feature 1: QsBank -> Exam Integration ──
+  const fetchExamsForA2E=async()=>{
+    try{
+      const r=await fetch(API+'/api/exams',{headers:{Authorization:'Bearer '+token}})
+      const d=await r.json()
+      const list=Array.isArray(d)?d:(d.exams||[])
+      setA2eExamsList(list)
+    }catch(e){setA2eExamsList([])}
+  }
+  const openA2E=()=>{
+    if(!bulkSel.length)return
+    setA2eTab('existing');setA2eExamId('');setA2eTitle('');setA2eDuration('180');setA2eMarks('720')
+    fetchExamsForA2E();setShowA2E(true)
+  }
+  const submitA2EExisting=async()=>{
+    if(!a2eExamId)return T('Select an exam','e')
+    setA2eSaving(true)
+    try{
+      const r=await fetch(API+'/api/exams/'+a2eExamId+'/questions',{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({questionIds:bulkSel})})
+      if(r.ok){T(bulkSel.length+' questions added to exam!');setBulkSel([]);setShowA2E(false);setTimeout(function(){fetchAll()},500)}
+      else{const d=await r.json().catch(function(){return{}});T(d.message||'Failed to add questions','e')}
+    }catch(e){T('Failed: '+e.message,'e')}
+    setA2eSaving(false)
+  }
+  const submitA2ENew=async()=>{
+    if(!a2eTitle.trim())return T('Exam title required','e')
+    if(!a2eDuration||Number(a2eDuration)<=0)return T('Valid duration required','e')
+    setA2eSaving(true)
+    try{
+      const r=await fetch(API+'/api/exams',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({title:a2eTitle,duration:Number(a2eDuration),totalMarks:Number(a2eMarks)||720,questions:bulkSel})})
+      const d=await r.json().catch(function(){return{}})
+      if(r.ok){T('New exam created with '+bulkSel.length+' questions!');setBulkSel([]);setShowA2E(false);setTimeout(function(){fetchAll()},500)}
+      else T(d.message||'Failed to create exam','e')
+    }catch(e){T('Failed: '+e.message,'e')}
+    setA2eSaving(false)
+  }
+  // ── Feature 4: Bulk Edit ──
+  const openBulkEdit=()=>{
+    if(!bulkSel.length)return
+    setBeFields({subject:'',difficulty:'',type:'',chapter:'',examLevel:''});setShowBulkEdit(true)
+  }
+  const submitBulkEdit=async()=>{
+    const fields={}
+    Object.keys(beFields).forEach(function(k){if(beFields[k])fields[k]=beFields[k]})
+    if(Object.keys(fields).length===0)return T('Fill at least 1 field','e')
+    setBeSaving(true)
+    try{
+      const r=await fetch(API+'/api/questions/bulk-update',{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({ids:bulkSel,fields:fields})})
+      const d=await r.json().catch(function(){return{}})
+      if(r.ok){T(bulkSel.length+' questions updated!');setBulkSel([]);setShowBulkEdit(false);setTimeout(function(){fetchAll()},500)}
+      else T(d.message||'Bulk edit failed','e')
+    }catch(e){T('Failed: '+e.message,'e')}
+    setBeSaving(false)
+  }
+  // ── Feature 2: Per-Question Usage Stats ──
+  const fetchUsageStats=async(q)=>{
+    setUsageStatsQ(q);setUsageStatsData(null);setUsageStatsLoading(true)
+    try{
+      const r=await fetch(API+'/api/questions/'+q._id+'/usage-stats',{headers:{Authorization:'Bearer '+token}})
+      const d=await r.json()
+      setUsageStatsData(d)
+    }catch(e){setUsageStatsData({success:false,message:'Failed to load'})}
+    setUsageStatsLoading(false)
+  }
   const expQB=()=>{
     const hdr='ID\tText\tSubject\tChapter\tDifficulty\tType'
     const rows=(questions||[]).map(function(q){return[q._id||'',q.text||'',q.subject||'',q.chapter||'',q.difficulty||'',q.type||''].join('\t')})
@@ -2112,7 +2202,21 @@ const confirmAndAdd=useCallback(async()=>{
     const sec=qSec==='all'||(qSec==='Other'?!OS.includes(q.subject||''):q.subject===qSec)
     const bio=qSec!=='Biology'||qBioSub==='all'||(q.chapter||'').toLowerCase().includes(qBioSub.toLowerCase())||(q.topic||'').toLowerCase().includes(qBioSub.toLowerCase())
     const chap=qChapFilter==='all'||!q.chapter||(q.chapter||'')===(qChapFilter)
-    return mq&&ms&&sec&&bio&&chap
+    // ── Smart Filters (Feature 3) ──
+    const fApp=qfApproval==='all'||(q.approvalStatus||'approved')===qfApproval
+    const fDiff=qfDiff2==='all'||(q.difficulty||'').toLowerCase()===qfDiff2.toLowerCase()
+    const fType=qfType==='all'||q.type===qfType
+    const uc=q.usageCount||0
+    const fUsage=qfUsage==='all'||(qfUsage==='never'?uc===0:qfUsage==='1-5'?(uc>=1&&uc<=5):qfUsage==='5+'?uc>5:true)
+    const fLevel=qfLevel==='all'||q.examLevel===qfLevel
+    const fFormat=qfFormat==='all'||q.format===qfFormat
+    const fDate=(function(){
+      if(qfDate==='all')return true
+      if(!q.createdAt)return false
+      const days=qfDate==='7d'?7:30
+      return (Date.now()-new Date(q.createdAt).getTime())<=days*24*60*60*1000
+    })()
+    return mq&&ms&&sec&&bio&&chap&&fApp&&fDiff&&fType&&fUsage&&fLevel&&fFormat&&fDate
   })
   const _fQsSorted=[...fQs].sort(function(a,b){return new Date(b.createdAt)-new Date(a.createdAt)})
   const _qTP=Math.ceil(_fQsSorted.length/25)||1
@@ -3144,6 +3248,46 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                     <button onClick={function(){setQBV('add');try{sessionStorage.setItem('pr_qbv','add')}catch{}}} style={{...bp,fontSize:10,padding:'5px 12px'}}>➕ Add</button>
                   </div>
                   <SInput init='' onSet={v=>{setQSearch(v);setQPage(1)}} ph='🔍 Search questions, chapter, topic…' style={{...inp,marginBottom:8,fontSize:12}}/>
+                  {(function(){
+                    const activeCnt=[qfApproval,qfDiff2,qfType,qfUsage,qfLevel,qfFormat,qfDate].filter(function(v){return v!=='all'}).length
+                    return(<div style={{marginBottom:8}}>
+                      <button onClick={function(){setQfOpen(function(p){return !p})}} style={{...bg_,fontSize:11,padding:'6px 14px',display:'flex',alignItems:'center',gap:6,width:'100%',justifyContent:'space-between'}}>
+                        <span>🧰 Smart Filters{activeCnt>0?' ('+activeCnt+' active)':''}</span>
+                        <span>{qfOpen?'▲':'▼'}</span>
+                      </button>
+                      {qfOpen&&(<div style={{marginTop:8,padding:10,background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:10,display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
+                        <div><label style={{...lbl,fontSize:9}}>Approval Status</label>
+                          <select value={qfApproval} onChange={function(e){setQfApproval(e.target.value);setQPage(1)}} style={{...inp,width:'100%',fontSize:11,padding:'6px 8px'}}>
+                            <option value='all'>All</option><option value='approved'>Approved</option><option value='pending'>Pending</option><option value='rejected'>Rejected</option>
+                          </select></div>
+                        <div><label style={{...lbl,fontSize:9}}>Difficulty</label>
+                          <select value={qfDiff2} onChange={function(e){setQfDiff2(e.target.value);setQPage(1)}} style={{...inp,width:'100%',fontSize:11,padding:'6px 8px'}}>
+                            <option value='all'>All</option><option value='easy'>Easy</option><option value='medium'>Medium</option><option value='hard'>Hard</option>
+                          </select></div>
+                        <div><label style={{...lbl,fontSize:9}}>Type</label>
+                          <select value={qfType} onChange={function(e){setQfType(e.target.value);setQPage(1)}} style={{...inp,width:'100%',fontSize:11,padding:'6px 8px'}}>
+                            <option value='all'>All</option><option value='SCQ'>SCQ</option><option value='MSQ'>MSQ</option><option value='Integer'>Integer</option>
+                          </select></div>
+                        <div><label style={{...lbl,fontSize:9}}>Usage</label>
+                          <select value={qfUsage} onChange={function(e){setQfUsage(e.target.value);setQPage(1)}} style={{...inp,width:'100%',fontSize:11,padding:'6px 8px'}}>
+                            <option value='all'>All</option><option value='never'>Never Used</option><option value='1-5'>Used 1-5x</option><option value='5+'>Used 5x+</option>
+                          </select></div>
+                        <div><label style={{...lbl,fontSize:9}}>Exam Level</label>
+                          <select value={qfLevel} onChange={function(e){setQfLevel(e.target.value);setQPage(1)}} style={{...inp,width:'100%',fontSize:11,padding:'6px 8px'}}>
+                            <option value='all'>All</option><option value='NEET'>NEET</option><option value='JEE_MAINS'>JEE_MAINS</option><option value='JEE_ADVANCED'>JEE_ADVANCED</option><option value='CUET'>CUET</option><option value='BOARD'>BOARD</option>
+                          </select></div>
+                        <div><label style={{...lbl,fontSize:9}}>Format</label>
+                          <select value={qfFormat} onChange={function(e){setQfFormat(e.target.value);setQPage(1)}} style={{...inp,width:'100%',fontSize:11,padding:'6px 8px'}}>
+                            <option value='all'>All</option><option value='Random'>Random</option><option value='Match_Column'>Match Column</option><option value='Assertion_Reason'>Assertion-Reason</option><option value='Numerical'>Numerical</option><option value='Diagram_Based'>Diagram Based</option>
+                          </select></div>
+                        <div style={{gridColumn:'span 2'}}><label style={{...lbl,fontSize:9}}>Date Added</label>
+                          <select value={qfDate} onChange={function(e){setQfDate(e.target.value);setQPage(1)}} style={{...inp,width:'100%',fontSize:11,padding:'6px 8px'}}>
+                            <option value='all'>All Time</option><option value='7d'>Last 7 Days</option><option value='30d'>Last 30 Days</option>
+                          </select></div>
+                        {activeCnt>0&&(<div style={{gridColumn:'span 2'}}><button onClick={function(){setQfApproval('all');setQfDiff2('all');setQfType('all');setQfUsage('all');setQfLevel('all');setQfFormat('all');setQfDate('all');setQPage(1)}} style={{...bd,fontSize:10,padding:'5px 12px',width:'100%'}}>✕ Clear All Filters</button></div>)}
+                      </div>)}
+                    </div>)
+                  })()}
                   <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:7}}>
                     {[{k:'all',l:'All',col:'#A78BFA'},{k:'Physics',l:'⚛️ Phy',col:'#60A5FA'},{k:'Chemistry',l:'🧪 Chem',col:'#F472B6'},{k:'Biology',l:'🧬 Bio',col:'#34D399'},{k:'Math',l:'📐 Math',col:'#FBBF24'},{k:'Other',l:'📚 Other',col:'#94A3B8'}].map(function(x){
                       const sqBase=(questions||[]).filter(function(q){return !qSearch||(q.text||'').toLowerCase().includes(qSearch.toLowerCase())||(q.subject||'').toLowerCase().includes(qSearch.toLowerCase())||(q.chapter||'').toLowerCase().includes(qSearch.toLowerCase())||(q.topic||'').toLowerCase().includes(qSearch.toLowerCase())})
@@ -3205,6 +3349,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                   {bulkSel.length>0&&(<div style={{display:'flex',alignItems:'center',gap:8,padding:'7px 12px',background:'rgba(255,60,60,0.07)',border:'1px solid rgba(255,60,60,0.2)',borderRadius:8,marginBottom:8,flexWrap:'wrap'}}>
                     <span style={{fontSize:11,color:'#FC8181',fontWeight:700}}>{bulkSel.length} selected</span>
                     <button onClick={blkApproveQs} style={{fontSize:10,padding:'3px 12px',borderRadius:6,border:'1px solid rgba(0,200,100,0.35)',background:'rgba(0,200,100,0.1)',color:'#00C864',cursor:'pointer',fontWeight:600}}>✅ Approve</button>
+                    <button onClick={openBulkEdit} style={{fontSize:10,padding:'3px 12px',borderRadius:6,border:'1px solid rgba(167,139,250,0.35)',background:'rgba(167,139,250,0.1)',color:'#A78BFA',cursor:'pointer',fontWeight:600}}>✏️ Bulk Edit</button>
                     <button onClick={blkDelQs} style={{...bd,fontSize:10,padding:'3px 12px'}}>🗑️ Delete</button>
                     <button onClick={function(){setBulkSel([])}} style={{...bg_,fontSize:10,padding:'3px 10px'}}>✕</button>
                   </div>)}
@@ -3247,6 +3392,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                               {/* HORIZONTAL action buttons */}
                               <div style={{display:'flex',gap:2,flexShrink:0,flexWrap:'nowrap'}}>
                                 <button onClick={function(){setSelQId(q._id)}} style={{...bg_,padding:'2px',fontSize:10,borderRadius:5,width:30,height:28,display:'flex',alignItems:'center',justifyContent:'center'}} title='Preview'>👁️</button>
+                                <button onClick={function(){fetchUsageStats(q)}} style={{...bg_,padding:'2px',fontSize:10,borderRadius:5,width:30,height:28,display:'flex',alignItems:'center',justifyContent:'center'}} title='Usage Stats'>📊</button>
                                 <button onClick={function(){
                                   const ltrs=['A','B','C','D']
                                   const cIdx=Array.isArray(q.correct)&&q.correct.length>0?q.correct[0]:(q.correctAnswer?ltrs.indexOf(q.correctAnswer):0)
@@ -3267,6 +3413,116 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
               {/* ════════════════════════════════════════════════════ */}
               {/* NCERT MODE MODAL — Fully Independent               */}
               {/* ════════════════════════════════════════════════════ */}
+              {/* ── Feature 1.2: Floating Bottom Bar ── */}
+              {bulkSel.length>0&&(
+                <div style={{position:'fixed',bottom:0,left:0,right:0,zIndex:998,background:'linear-gradient(135deg,#0D1B2A,#142840)',borderTop:'1.5px solid rgba(77,159,255,0.35)',padding:'10px 16px',display:'flex',alignItems:'center',justifyContent:'center',gap:12,boxShadow:'0 -4px 20px rgba(0,0,0,0.4)',flexWrap:'wrap'}}>
+                  <span style={{fontSize:12,color:'#E8F4FF',fontWeight:700}}>{bulkSel.length} Questions Selected</span>
+                  <button onClick={openA2E} style={{...bp,fontSize:12,padding:'8px 18px'}}>➕ Add to Exam →</button>
+                </div>
+              )}
+
+              {/* ── Feature 1.3: Add to Exam Modal ── */}
+              {showA2E&&(
+                <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',zIndex:1001,display:'flex',alignItems:'center',justifyContent:'center',padding:14}}>
+                  <div style={{background:'linear-gradient(160deg,#0D1B2A,#0F1E30)',border:'1px solid rgba(77,159,255,0.35)',borderRadius:18,padding:18,width:'100%',maxWidth:440,maxHeight:'90vh',overflowY:'auto'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+                      <div style={{fontSize:14,fontWeight:800,color:'#E2E8F0'}}>➕ Add {bulkSel.length} Question(s) to Exam</div>
+                      <button onClick={function(){setShowA2E(false)}} style={{...bg_,padding:'4px 10px',fontSize:12}}>✕</button>
+                    </div>
+                    <div style={{display:'flex',gap:6,marginBottom:14}}>
+                      <button onClick={function(){setA2eTab('existing')}} style={{...(a2eTab==='existing'?bp:bg_),flex:1,fontSize:11,padding:'8px 6px'}}>📋 Existing Exam</button>
+                      <button onClick={function(){setA2eTab('new')}} style={{...(a2eTab==='new'?bp:bg_),flex:1,fontSize:11,padding:'8px 6px'}}>🆕 New Exam</button>
+                    </div>
+                    {a2eTab==='existing'?(
+                      <div>
+                        <label style={lbl}>Select Exam</label>
+                        <select value={a2eExamId} onChange={function(e){setA2eExamId(e.target.value)}} style={{...inp,width:'100%',marginBottom:12}}>
+                          <option value=''>— Select Exam —</option>
+                          {(a2eExamsList||[]).map(function(e){return <option key={e._id} value={e._id}>{e.title}{e.questions?' ('+e.questions.length+' Qs)':''}</option>})}
+                        </select>
+                        {a2eExamsList.length===0&&<div style={{fontSize:10,color:'#64748B',marginBottom:10}}>No exams found — create a new one in the other tab.</div>}
+                        <button onClick={submitA2EExisting} disabled={a2eSaving||!a2eExamId} style={{...bp,width:'100%',opacity:(a2eSaving||!a2eExamId)?0.6:1}}>{a2eSaving?'⧐ Adding…':'✅ Add to Selected Exam'}</button>
+                      </div>
+                    ):(
+                      <div>
+                        <label style={lbl}>Exam Title *</label>
+                        <input value={a2eTitle} onChange={function(e){setA2eTitle(e.target.value)}} placeholder='e.g. NEET Mock Test 12' style={{...inp,width:'100%',marginBottom:10}}/>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+                          <div><label style={lbl}>Duration (min) *</label><input type='number' value={a2eDuration} onChange={function(e){setA2eDuration(e.target.value)}} style={{...inp,width:'100%'}}/></div>
+                          <div><label style={lbl}>Total Marks</label><input type='number' value={a2eMarks} onChange={function(e){setA2eMarks(e.target.value)}} style={{...inp,width:'100%'}}/></div>
+                        </div>
+                        <button onClick={submitA2ENew} disabled={a2eSaving} style={{...bp,width:'100%',opacity:a2eSaving?0.6:1}}>{a2eSaving?'⧐ Creating…':'✅ Create Exam with '+bulkSel.length+' Questions'}</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Feature 4: Bulk Edit Modal ── */}
+              {showBulkEdit&&(
+                <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',zIndex:1001,display:'flex',alignItems:'center',justifyContent:'center',padding:14}}>
+                  <div style={{background:'linear-gradient(160deg,#0D1B2A,#0F1E30)',border:'1px solid rgba(167,139,250,0.35)',borderRadius:18,padding:18,width:'100%',maxWidth:440,maxHeight:'90vh',overflowY:'auto'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+                      <div style={{fontSize:14,fontWeight:800,color:'#E2E8F0'}}>✏️ Bulk Edit {bulkSel.length} Question(s)</div>
+                      <button onClick={function(){setShowBulkEdit(false)}} style={{...bg_,padding:'4px 10px',fontSize:12}}>✕</button>
+                    </div>
+                    <div style={{fontSize:10,color:'#64748B',marginBottom:10}}>Only filled fields will be applied. Leave blank to skip.</div>
+                    <div style={{marginBottom:10}}><label style={lbl}>Subject</label>
+                      <select value={beFields.subject} onChange={function(e){setBeFields(function(p){return Object.assign({},p,{subject:e.target.value})})}} style={{...inp,width:'100%'}}>
+                        <option value=''>— Skip —</option><option value='Physics'>Physics</option><option value='Chemistry'>Chemistry</option><option value='Biology'>Biology</option><option value='Math'>Math</option>
+                      </select></div>
+                    <div style={{marginBottom:10}}><label style={lbl}>Difficulty</label>
+                      <select value={beFields.difficulty} onChange={function(e){setBeFields(function(p){return Object.assign({},p,{difficulty:e.target.value})})}} style={{...inp,width:'100%'}}>
+                        <option value=''>— Skip —</option><option value='Easy'>Easy</option><option value='Medium'>Medium</option><option value='Hard'>Hard</option>
+                      </select></div>
+                    <div style={{marginBottom:10}}><label style={lbl}>Type</label>
+                      <select value={beFields.type} onChange={function(e){setBeFields(function(p){return Object.assign({},p,{type:e.target.value})})}} style={{...inp,width:'100%'}}>
+                        <option value=''>— Skip —</option><option value='SCQ'>SCQ</option><option value='MSQ'>MSQ</option><option value='Integer'>Integer</option>
+                      </select></div>
+                    <div style={{marginBottom:10}}><label style={lbl}>Chapter</label>
+                      <input value={beFields.chapter} onChange={function(e){setBeFields(function(p){return Object.assign({},p,{chapter:e.target.value})})}} placeholder='— Skip —' style={{...inp,width:'100%'}}/></div>
+                    <div style={{marginBottom:14}}><label style={lbl}>Exam Level</label>
+                      <select value={beFields.examLevel} onChange={function(e){setBeFields(function(p){return Object.assign({},p,{examLevel:e.target.value})})}} style={{...inp,width:'100%'}}>
+                        <option value=''>— Skip —</option><option value='NEET'>NEET</option><option value='JEE_MAINS'>JEE_MAINS</option><option value='JEE_ADVANCED'>JEE_ADVANCED</option><option value='CUET'>CUET</option><option value='BOARD'>BOARD</option>
+                      </select></div>
+                    <button onClick={submitBulkEdit} disabled={beSaving} style={{...bp,width:'100%',opacity:beSaving?0.6:1}}>{beSaving?'⧐ Applying…':'✅ Apply to '+bulkSel.length+' Questions'}</button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Feature 2: Usage Stats Modal ── */}
+              {usageStatsQ&&(
+                <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',zIndex:1001,display:'flex',alignItems:'center',justifyContent:'center',padding:14}}>
+                  <div style={{background:'linear-gradient(160deg,#0D1B2A,#0F1E30)',border:'1px solid rgba(96,165,250,0.35)',borderRadius:18,padding:18,width:'100%',maxWidth:400}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+                      <div style={{fontSize:14,fontWeight:800,color:'#E2E8F0'}}>📊 Question Usage Stats</div>
+                      <button onClick={function(){setUsageStatsQ(null);setUsageStatsData(null)}} style={{...bg_,padding:'4px 10px',fontSize:12}}>✕</button>
+                    </div>
+                    <div style={{fontSize:11,color:'#94A3B8',marginBottom:12,lineHeight:1.5}}>{(usageStatsQ.text||'').slice(0,100)}{(usageStatsQ.text||'').length>100?'…':''}</div>
+                    {usageStatsLoading?(
+                      <div style={{textAlign:'center',padding:20,fontSize:12,color:'#64748B'}}>⧐ Loading stats…</div>
+                    ):usageStatsData&&usageStatsData.success?(
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+                        <div style={{background:'rgba(96,165,250,0.08)',border:'1px solid rgba(96,165,250,0.25)',borderRadius:10,padding:'12px 6px',textAlign:'center'}}>
+                          <div style={{fontSize:20,fontWeight:800,color:'#60A5FA'}}>{usageStatsData.examsUsedIn}</div>
+                          <div style={{fontSize:9,color:'#64748B',marginTop:2}}>Exams Used In</div>
+                        </div>
+                        <div style={{background:'rgba(167,139,250,0.08)',border:'1px solid rgba(167,139,250,0.25)',borderRadius:10,padding:'12px 6px',textAlign:'center'}}>
+                          <div style={{fontSize:20,fontWeight:800,color:'#A78BFA'}}>{usageStatsData.timesAttempted}</div>
+                          <div style={{fontSize:9,color:'#64748B',marginTop:2}}>Times Attempted</div>
+                        </div>
+                        <div style={{background:'rgba(0,200,100,0.08)',border:'1px solid rgba(0,200,100,0.25)',borderRadius:10,padding:'12px 6px',textAlign:'center'}}>
+                          <div style={{fontSize:20,fontWeight:800,color:'#00C864'}}>{usageStatsData.successRate}%</div>
+                          <div style={{fontSize:9,color:'#64748B',marginTop:2}}>Success Rate</div>
+                        </div>
+                      </div>
+                    ):(
+                      <div style={{textAlign:'center',padding:20,fontSize:12,color:'#F87171'}}>Failed to load stats</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {aiGO_ncert&&(function(){
                 const NCERT={"Physics":{"11th - Physical World":["Nature of Physical Laws","Fundamental Forces"],"11th - Units & Measurements":["SI Units","Significant Figures","Errors in Measurement","Dimensional Analysis"],"11th - Motion in Straight Line":["Distance & Displacement","Velocity & Acceleration","Equations of Motion","Relative Motion"],"11th - Motion in a Plane":["Vectors","Projectile Motion","Circular Motion","Relative Velocity"],"11th - Laws of Motion":["Newtons Laws","Friction","Inertia","Momentum","Conservation of Momentum"],"11th - Work Energy Power":["Work Done","Kinetic Energy","Potential Energy","Conservation of Energy","Power"],"11th - System of Particles":["Centre of Mass","Angular Momentum","Torque","Rotational Motion"],"11th - Gravitation":["Keplers Laws","Universal Gravitation","Gravitational Potential Energy","Satellites","Escape Velocity"],"11th - Mechanical Properties Solids":["Stress & Strain","Youngs Modulus","Bulk Modulus","Shear Modulus"],"11th - Mechanical Properties Fluids":["Pressure","Archimedes Principle","Bernoullis Theorem","Viscosity","Surface Tension"],"11th - Thermal Properties":["Temperature","Thermal Expansion","Calorimetry","Heat Transfer","Radiation"],"11th - Thermodynamics":["Zeroth Law","First Law","Second Law","Carnot Engine","Entropy"],"11th - Kinetic Theory":["Kinetic Theory of Gases","Mean Free Path","Degrees of Freedom","Specific Heat Capacity"],"11th - Oscillations":["Simple Harmonic Motion","Time Period","Amplitude","Damped Oscillations","Resonance"],"11th - Waves":["Wave Motion","Speed of Sound","Superposition","Stationary Waves","Doppler Effect"],"12th - Electric Charges & Fields":["Coulombs Law","Electric Field","Gauss Law","Electric Dipole","Electric Flux"],"12th - Electrostatic Potential":["Electric Potential","Potential Energy","Capacitance","Dielectrics","Van de Graaff"],"12th - Current Electricity":["Ohms Law","Kirchhoffs Laws","Wheatstone Bridge","Potentiometer","EMF & Internal Resistance"],"12th - Moving Charges & Magnetism":["Biot Savart Law","Amperes Law","Cyclotron","Magnetic Force on Current"],"12th - Magnetism & Matter":["Magnetic Dipole","Earths Magnetism","Diamagnetic Paramagnetic Ferromagnetic","Hysteresis"],"12th - Electromagnetic Induction":["Faradays Law","Lenzs Law","Mutual Inductance","Self Inductance","Eddy Currents"],"12th - Alternating Current":["AC Generator","RMS Values","Impedance","Resonance","Power Factor","Transformer"],"12th - Electromagnetic Waves":["Displacement Current","EM Spectrum","Properties of EM Waves"],"12th - Ray Optics":["Reflection","Refraction","Total Internal Reflection","Lenses","Optical Instruments","Prism"],"12th - Wave Optics":["Huygens Principle","Interference","Diffraction","Polarisation","Youngs Double Slit"],"12th - Dual Nature of Radiation":["Photoelectric Effect","De Broglie Wavelength","Davisson Germer"],"12th - Atoms":["Bohr Model","Hydrogen Spectrum","Atomic Spectra"],"12th - Nuclei":["Nuclear Binding Energy","Radioactivity","Nuclear Fission & Fusion","Half Life"],"12th - Semiconductor Electronics":["P-N Junction","Diode","Transistor","Logic Gates","Rectification"]},"Chemistry":{"11th - Basic Concepts":["Mole Concept","Stoichiometry","Limiting Reagent","Atomic Mass","Molecular Formula"],"11th - Structure of Atom":["Bohr Model","Quantum Numbers","Orbitals","Electronic Configuration","Aufbau Principle"],"11th - Classification of Elements":["Modern Periodic Table","Periodicity","Atomic Radius","Ionisation Enthalpy","Electronegativity"],"11th - Chemical Bonding":["Ionic Bond","Covalent Bond","VSEPR Theory","Hybridisation","Hydrogen Bond","Molecular Orbital Theory"],"11th - States of Matter":["Ideal Gas Equation","Kinetic Molecular Theory","Real Gases","Van der Waals"],"11th - Thermodynamics":["Enthalpy","Entropy","Gibbs Energy","Hess Law","Bond Enthalpy"],"11th - Equilibrium":["Law of Mass Action","Kp Kc","Le Chateliers Principle","Buffer Solution","pH & Ionic Equilibrium"],"11th - Redox Reactions":["Oxidation Reduction","Oxidation Number","Balancing Redox","Electrochemical Series"],"11th - Hydrogen":["Hydrogen Bonding","Water","Heavy Water","Hydrogen Peroxide"],"11th - s-Block Elements":["Alkali Metals","Alkaline Earth Metals","Sodium Potassium Compounds","Calcium Compounds"],"11th - p-Block Elements":["Group 13 14","Borax","Carbon Allotropes","Nitrogen Compounds","Phosphorus"],"11th - Organic Chemistry Basics":["Hybridisation","Functional Groups","Homologous Series","IUPAC Nomenclature","Isomerism"],"11th - Hydrocarbons":["Alkanes","Alkenes","Alkynes","Benzene","Aromaticity","Conformations"],"11th - Environmental Chemistry":["Air Pollution","Water Pollution","Greenhouse Effect","Ozone Depletion"],"12th - Solid State":["Crystal Systems","Packing Efficiency","Defects in Crystals","Magnetic Properties"],"12th - Solutions":["Molarity Molality","Raoults Law","Colligative Properties","Osmosis","Van t Hoff Factor"],"12th - Electrochemistry":["Galvanic Cells","Electrode Potential","Nernst Equation","Electrolysis","Faradays Laws"],"12th - Chemical Kinetics":["Rate of Reaction","Order of Reaction","Arrhenius Equation","Activation Energy","Collision Theory"],"12th - Surface Chemistry":["Adsorption","Catalysis","Colloids","Emulsions","Micelles"],"12th - General Principles Isolation":["Thermodynamics of Extraction","Ellingham Diagram","Refining Methods"],"12th - p-Block 15to18":["Nitrogen Family","Oxygen & Sulphur","Halogens","Noble Gases","Interhalogen Compounds"],"12th - d-Block Elements":["Transition Metals","Properties","Potassium Dichromate","Potassium Permanganate"],"12th - Coordination Compounds":["Ligands","CFSE","Crystal Field Theory","Isomerism","Bonding"],"12th - Haloalkanes Haloarenes":["Nomenclature","SN1 SN2","Elimination","Aryl Halides"],"12th - Alcohols Phenols Ethers":["Preparation","Properties","Reactions","Lucas Test","Victor Meyer"],"12th - Aldehydes & Ketones":["Nucleophilic Addition","Aldol Condensation","Cannizzaro","Tollens Fehlings"],"12th - Carboxylic Acids":["Acidity","Esterification","Hell Volhard Zelinsky","Derivatives"],"12th - Amines":["Basicity","Diazonium Salts","Coupling Reactions","Hoffmann Bromamide"],"12th - Biomolecules":["Carbohydrates","Proteins","Nucleic Acids","Vitamins","Enzymes"],"12th - Polymers":["Addition Polymerisation","Condensation","Rubber","Plastics","Biodegradable"],"12th - Chemistry Everyday Life":["Drugs","Food Preservatives","Cleansing Agents","Antimicrobials"]},"Biology":{"11th - The Living World":["Characteristics of Living Organisms","Biodiversity","Taxonomy","Nomenclature","Keys"],"11th - Biological Classification":["Five Kingdom Classification","Monera","Protista","Fungi","Viruses","Lichens"],"11th - Plant Kingdom":["Algae","Bryophyta","Pteridophyta","Gymnosperms","Angiosperms","Alternation of Generations"],"11th - Animal Kingdom":["Basis of Classification","Porifera","Coelenterata","Platyhelminthes","Annelida","Arthropoda","Chordata"],"11th - Morphology of Flowering Plants":["Root Modifications","Stem Modifications","Leaf Modifications","Inflorescence","Flower","Fruit & Seed"],"11th - Anatomy of Flowering Plants":["Meristematic Tissue","Permanent Tissue","Anatomy of Root Stem Leaf"],"11th - Structural Organisation Animals":["Epithelial Tissue","Connective Tissue","Muscle Tissue","Neural Tissue","Frog Anatomy"],"11th - Cell Unit of Life":["Cell Theory","Prokaryotic Cell","Eukaryotic Cell","Cell Organelles","Nucleus"],"11th - Biomolecules":["Carbohydrates","Proteins","Lipids","Nucleic Acids","Enzymes","Metabolism"],"11th - Cell Cycle & Division":["Cell Cycle","Mitosis","Meiosis","Significance"],"11th - Transport in Plants":["Absorption","Apoplast Symplast","Transpiration","Ascent of Sap","Translocation"],"11th - Mineral Nutrition":["Essential Elements","Mineral Deficiency","Nitrogen Fixation","Hydroponics"],"11th - Photosynthesis":["Light Reaction","Calvin Cycle","C4 Pathway","CAM","Photorespiration"],"11th - Respiration in Plants":["Glycolysis","Krebs Cycle","Electron Transport Chain","Fermentation"],"11th - Plant Growth":["Phases of Growth","Plant Hormones","Auxin Gibberellin Cytokinin","Photoperiodism"],"11th - Digestion & Absorption":["Human Digestive System","Digestion Process","Absorption","Disorders"],"11th - Breathing & Exchange":["Respiratory System","Mechanism of Breathing","Gas Exchange","Respiratory Disorders"],"11th - Body Fluids":["Blood Composition","Blood Groups","Coagulation","Lymph","Circulatory System","ECG"],"11th - Locomotion & Movement":["Types of Movement","Muscle Contraction","Skeletal System","Joints","Disorders"],"11th - Neural Control":["Neuron Structure","Nerve Impulse","Synapse","Human Brain","Spinal Cord","Sense Organs"],"11th - Chemical Coordination":["Endocrine Glands","Hormones","Feedback Mechanism","Disorders"],"12th - Reproduction in Organisms":["Modes of Reproduction","Vegetative Propagation","Asexual Reproduction"],"12th - Sexual Reproduction Plants":["Flower Structure","Microsporogenesis","Megasporogenesis","Fertilisation","Embryo Development"],"12th - Human Reproduction":["Male Reproductive System","Female Reproductive System","Gametogenesis","Menstrual Cycle","Fertilisation"],"12th - Reproductive Health":["Contraception","Infertility","STDs","Amniocentesis"],"12th - Principles of Inheritance":["Mendels Laws","Chromosomal Theory","Linkage","Mutation","Sex Determination"],"12th - Molecular Basis of Inheritance":["DNA Structure","Replication","Transcription","Translation","Genetic Code","Regulation"],"12th - Evolution":["Origin of Life","Darwins Theory","Natural Selection","Speciation","Human Evolution"],"12th - Human Health Disease":["Immunity","Vaccines","Common Diseases","Cancer","Drugs & Alcohol"],"12th - Strategies Enhancement":["Animal Breeding","Plant Breeding","Biofortification","SCP","Tissue Culture"],"12th - Microbes Human Welfare":["Biogas","Biocontrol","Biofertilisers","Industrial Microbiology"],"12th - Biotechnology Principles":["Recombinant DNA","Restriction Enzymes","Vectors","PCR","Gel Electrophoresis"],"12th - Biotechnology Applications":["Transgenic Organisms","GM Crops","Gene Therapy","Molecular Diagnosis"],"12th - Organisms & Populations":["Habitat & Niche","Population Interactions","Adaptations","Population Attributes"],"12th - Ecosystem":["Ecosystem Structure","Food Chain","Energy Flow","Nutrient Cycling","Ecological Succession"],"12th - Biodiversity":["Levels of Biodiversity","Loss of Biodiversity","Conservation Strategies","Hotspots"],"12th - Environmental Issues":["Air Pollution","Water Pollution","Solid Waste","Greenhouse Effect","Ozone Depletion"]},"Math":{"11th - Sets":["Types of Sets","Set Operations","Venn Diagrams","De Morgans Laws"],"11th - Relations & Functions":["Types of Relations","Types of Functions","Composition","Domain Range"],"11th - Trigonometric Functions":["Angles","Basic Identities","Values of Standard Angles","Graphs","Equations"],"11th - Mathematical Induction":["Principle of Induction","Problems on Induction"],"11th - Complex Numbers":["Algebra of Complex Numbers","Modulus Argument","Polar Form","De Moivres Theorem"],"11th - Linear Inequalities":["Algebraic Solutions","Graphical Solutions","System of Inequalities"],"11th - Permutations & Combinations":["Fundamental Principle","Permutations","Combinations","Applications"],"11th - Binomial Theorem":["Binomial Expansion","General Term","Middle Term","Properties"],"11th - Sequences & Series":["AP","GP","HP","Sum of Series","AM GM Inequality"],"11th - Straight Lines":["Slope","Forms of Line Equation","Distance","Family of Lines"],"11th - Conic Sections":["Circle","Parabola","Ellipse","Hyperbola","Standard Equations"],"11th - 3D Geometry Intro":["Coordinates","Distance","Section Formula","Locus"],"11th - Limits & Derivatives":["Limit of Function","Standard Limits","Derivatives","Differentiation Rules"],"11th - Statistics":["Mean Median Mode","Variance","Standard Deviation","Coefficient of Variation"],"11th - Probability":["Random Experiments","Events","Axiomatic Approach","Addition Theorem"],"12th - Relations & Functions":["Binary Operations","Inverse Functions","Composition"],"12th - Inverse Trigonometry":["Inverse Trig Functions","Properties","Equations"],"12th - Matrices":["Matrix Operations","Types","Transpose","Adjoint","Inverse"],"12th - Determinants":["Properties","Minors Cofactors","Area of Triangle","Cramers Rule"],"12th - Continuity & Differentiability":["Continuity","Differentiability","Rolle Mean Value Theorem","Logarithmic Differentiation"],"12th - Applications of Derivatives":["Rate of Change","Increasing Decreasing","Tangent Normal","Maxima Minima"],"12th - Integrals":["Indefinite Integrals","Methods of Integration","Definite Integrals","Properties"],"12th - Applications of Integrals":["Area Under Curves","Area Between Curves"],"12th - Differential Equations":["Order & Degree","Formation","Variable Separable","Linear Equations"],"12th - Vector Algebra":["Vectors","Addition","Dot Product","Cross Product","Scalar Triple Product"],"12th - 3D Geometry":["Direction Cosines","Lines in Space","Planes","Angle Between"],"12th - Linear Programming":["LPP","Graphical Method","Corner Point","Optimal Solution"],"12th - Probability":["Conditional Probability","Bayes Theorem","Random Variables","Binomial Distribution"]}}
 

@@ -5,6 +5,7 @@ const examSchema = new mongoose.Schema({
   subject:      { type: String, default: 'NEET' },
   duration:     { type: Number, required: true },
   totalMarks:   { type: Number, default: 720 },
+  questions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }], // QsBank Integration
 
   sections: [{
     name:          String,

@@ -80,7 +80,7 @@ router.put('/:id', verifyToken, isAdmin, async (req, res) => {
     const allowedFields = [
       'text', 'hindiText', 'options', 'hindiOptions', 'correct',
       'subject', 'chapter', 'topic', 'difficulty', 'type', 'image',
-      'explanation', 'hindiExplanation', 'videoLink', 'tags', 'approvalStatus'
+      'explanation', 'hindiExplanation', 'videoLink', 'tags', 'approvalStatus', 'examLevel', 'format'
     ];
     allowedFields.forEach(field => {
       if (req.body[field] !== undefined) question[field] = req.body[field];
@@ -203,6 +203,29 @@ router.post('/:id/ai-classify', verifyToken, isAdmin, async (req, res) => {
     question.aiClassified = true;
     await question.save();
     res.json({ success: true, message: 'AI classification complete!', detectedSubject: maxScore > 0 ? detectedSubject : 'Could not detect', subjectConfidence: maxScore });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+// ── QsBank Bulk Edit: update subject/difficulty/type/chapter/examLevel for multiple questions (Feature 4) ──
+router.patch('/bulk-update', verifyToken, isAdmin, async (req, res) => {
+  try {
+    const { ids, fields } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'ids array required' });
+    }
+    const allowed = ['subject','difficulty','type','chapter','examLevel'];
+    const update = {};
+    allowed.forEach(k => {
+      if (fields && fields[k] !== undefined && fields[k] !== '') update[k] = fields[k];
+    });
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({ success: false, message: 'No fields to update' });
+    }
+    const result = await Question.updateMany({ _id: { $in: ids } }, { $set: update });
+    res.json({ success: true, message: result.modifiedCount + ' questions updated', modifiedCount: result.modifiedCount });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

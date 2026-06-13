@@ -370,6 +370,45 @@ if (!subject || !topic) {
 
 
 
+// ── Per-Question Usage Stats: exams used in, attempts, success rate (Feature 2) ──
+router.get('/:id/usage-stats', verifyToken, async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    const Exam = require('../models/Exam');
+    const Attempt = require('../models/Attempt');
+    const qId = new mongoose.Types.ObjectId(req.params.id);
+    const question = await Question.findById(qId).select('text usageCount correct type');
+    if (!question) return res.status(404).json({ success: false, message: 'Question not found' });
+
+    const examsUsedIn = await Exam.countDocuments({ questions: qId });
+
+    const attempts = await Attempt.find({ 'answers.questionId': qId }).select('answers');
+    let timesAttempted = 0, correctCount = 0;
+    attempts.forEach(a => {
+      (a.answers || []).forEach(ans => {
+        if (String(ans.questionId) === String(qId) && ans.selectedOption !== null && ans.selectedOption !== undefined) {
+          timesAttempted++;
+          const correct = Array.isArray(question.correct) ? question.correct : [question.correct];
+          const sel = ans.selectedOption;
+          const selArr = Array.isArray(sel) ? sel : [sel];
+          const isCorrect = correct.length === selArr.length && correct.every(cv => selArr.includes(cv));
+          if (isCorrect) correctCount++;
+        }
+      });
+    });
+    const successRate = timesAttempted > 0 ? Math.round((correctCount / timesAttempted) * 100) : 0;
+
+    res.json({
+      success: true,
+      questionId: req.params.id,
+      usageCount: question.usageCount || 0,
+      examsUsedIn,
+      timesAttempted,
+      successRate
+    });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
 // ── BULK SAVE QUESTIONS ────────────────────────────────────
 router.post('/bulk-save', verifyToken, isAdmin, async (req, res) => {
   try {

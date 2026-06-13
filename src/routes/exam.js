@@ -10,6 +10,10 @@ const { verifyToken, isAdmin } = require('../middleware/auth');
 router.post('/', verifyToken, isAdmin, async (req, res) => {
   try {
     const exam = await Exam.create({ ...req.body, createdBy: req.user.id });
+    if (Array.isArray(exam.questions) && exam.questions.length > 0) {
+      const Question = require('../models/Question');
+      await Question.updateMany({ _id: { $in: exam.questions } }, { $inc: { usageCount: 1 } }); // QsBank: increment usageCount on create
+    }
     res.status(201).json({ message: 'Exam created', exam });
   } catch (err) {
     res.status(500).json({ message: 'Error', error: err.message });
@@ -77,6 +81,29 @@ router.get('/attempt/:attemptId', verifyToken, async (req, res) => {
     });
   } catch (err) {
     return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+
+// ── QsBank -> Exam Integration: Add multiple questions to existing exam (Feature 1.3a) ──
+router.patch('/:id/questions', verifyToken, isAdmin, async (req, res) => {
+  try {
+    const { questionIds } = req.body;
+    if (!Array.isArray(questionIds) || questionIds.length === 0) {
+      return res.status(400).json({ message: 'questionIds array required' });
+    }
+    const objIds = questionIds.map(id => new mongoose.Types.ObjectId(id));
+    const exam = await Exam.findByIdAndUpdate(
+      req.params.id,
+      { $addToSet: { questions: { $each: objIds } } },
+      { new: true }
+    );
+    if (!exam) return res.status(404).json({ message: 'Exam not found' });
+    const Question = require('../models/Question');
+    await Question.updateMany({ _id: { $in: objIds } }, { $inc: { usageCount: 1 } });
+    res.json({ success: true, message: questionIds.length + ' questions added to exam', exam });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
