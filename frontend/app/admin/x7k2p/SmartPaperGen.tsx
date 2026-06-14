@@ -824,7 +824,7 @@ export default function SmartPaperGen({ API, token }: { API: string; token: stri
         </div>
       )}
 
-      // 17.14: answerKey + explanation stored in DB — result system uses these
+      {/* 17.14: answerKey + explanation stored in DB — result system uses these */}
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
