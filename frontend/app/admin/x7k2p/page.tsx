@@ -1,4 +1,5 @@
 'use client'
+import SmartPaperGen from './SmartPaperGen';
 import StoreAdminTab from './StoreAdminTab';
 import AdminWelcomeBanner from './AdminWelcomeBanner';
 import AdminProfilePage from './AdminProfilePage';
@@ -4069,49 +4070,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 
           {/* ══ SMART GENERATOR ══ */}
           {tab==='smart_gen'&&(
-            <div>
-              <div style={pageTitle}>🤖 Smart Question Generator (S101 + AI-1/AI-2/AI-10)</div>
-              <div style={pageSub}>AI generates NEET-pattern questions automatically — specify topic, count, and difficulty</div>
-              <PageHero icon="🤖" title="AI-Powered Question Generation" subtitle="Enter a topic and our AI will generate high-quality NEET-pattern questions with options, correct answers, and detailed explanations. Powered by TensorFlow.js and Hugging Face."/>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
-                <div style={{gridColumn:'1/-1'}}><label style={lbl}>Topic *</label><SInput init='' onSet={v=>{aiTopicR.current=v}} ph='e.g. Electromagnetic Induction, Cell Biology, Chemical Bonding…' style={inp}/></div>
-                <div><label style={lbl}>Chapter (optional)</label><SInput init='' onSet={v=>{aiChapR.current=v}} ph='e.g. Electrostatics' style={inp}/></div>
-                <div><label style={lbl}>Subject</label><SSelect val={aiSubj} onChange={setAiSubj} opts={[{v:'Physics',l:'⚛️ Physics'},{v:'Chemistry',l:'🧪 Chemistry'},{v:'Biology',l:'🧬 Biology'}]} style={{...inp}}/></div>
-                <div><label style={lbl}>Difficulty</label><SSelect val={aiDiff} onChange={setAiDiff} opts={[{v:'easy',l:'🟢 Easy'},{v:'medium',l:'🟡 Medium'},{v:'hard',l:'🔴 Hard'},{v:'mixed',l:'🎲 Mixed'}]} style={{...inp}}/></div>
-                <div><label style={lbl}>Number of Questions</label><SSelect val={aiCount} onChange={setAiCount} opts={[{v:'5',l:'5 Questions'},{v:'10',l:'10 Questions'},{v:'15',l:'15 Questions'},{v:'20',l:'20 Questions'},{v:'30',l:'30 Questions'}]} style={{...inp}}/></div>
-              </div>
-              <div style={{display:'flex',gap:8,marginBottom:20}}>
-                <button onClick={aiGen} disabled={aiLoading} style={{...bp,flex:1,opacity:aiLoading?0.7:1}}>
-                  {aiLoading?'⟳ Generating…':'🤖 Generate Questions'}
-                </button>
-                {aiResult.length>0&&<button onClick={aiSaveAll} disabled={aiSaving} style={{...bs,opacity:aiSaving?0.7:1}}>
-                  {aiSaving?'⟳ Saving…':`💾 Save All (${aiResult.length})`}
-                </button>}
-              </div>
-              {aiResult.length>0&&(
-                <div>
-                  <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>Generated Questions ({aiResult.length})</div>
-                  {aiResult.map((q:any,i:number)=>(
-                    <div key={i} style={{...cs,marginBottom:8}}>
-                      <div style={{fontSize:12,fontWeight:600,color:TS,marginBottom:6}}>Q{i+1}. {q.text||q.question||'—'}</div>
-                      {q.options&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginBottom:6}}>
-                        {(Array.isArray(q.options)?q.options:[q.optionA,q.optionB,q.optionC,q.optionD].filter(Boolean)).map((o:string,j:number)=>{const _hasT=!!(o&&o.trim()),_hasI=!!(q.optionImages&&q.optionImages[j]&&String(q.optionImages[j]).trim());if(!_hasT&&!_hasI)return null;return(
-                          <div key={j} style={{padding:'6px',borderRadius:6,background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.06)',overflow:'hidden'}}><span style={{fontSize:11,color:'#6EE7B7',fontWeight:600}}>{String.fromCharCode(65+j)})</span>{o&&<span style={{fontSize:11,color:DIM,marginLeft:3}}>{o}</span>}{q.optionImages?.[j]&&<img src={q.optionImages[j] as string} alt='' style={{height:64,width:64,minWidth:64,objectFit:'cover',borderRadius:6,marginTop:4,cursor:'pointer',border:'1px solid rgba(99,102,241,0.4)',display:'block',flexShrink:0}} onClick={()=>setLbImg(String(q.optionImages?.[j]||''))} onError={(e:any)=>{e.currentTarget.style.display='none'}}/>}{q.optionImages?.[j]&&<img src={q.optionImages[j] as string} alt='' style={{display:'block',maxWidth:'100%',maxHeight:60,borderRadius:3,marginTop:o?3:0,border:'1px solid rgba(255,255,255,0.1)'}} onError={(e:any)=>{e.currentTarget.style.display='none'}}/>}</div>
-                        )
-            })}
-                      </div>}
-                      {(q.correctAnswer||q.answer)&&<div style={{fontSize:11,color:SUC,fontWeight:600}}>✅ Answer: {q.correctAnswer||q.answer}</div>}
-                      {q.explanation&&<div style={{fontSize:10,color:DIM,marginTop:4,lineHeight:1.5}}>💡 {q.explanation?.slice(0,100)}…</div>}<div style={{marginTop:8,padding:'8px 10px',background:'rgba(99,102,241,0.08)',borderRadius:8,border:'1px solid rgba(99,102,241,0.15)'}}>
-<div style={{fontSize:10,fontWeight:700,color:'#818CF8',marginBottom:5}}>📷 ATTACH IMAGES (Optional)</div>
-<div style={{marginBottom:5}}><div style={{fontSize:10,color:'#9CA3AF',marginBottom:2}}>Question Image URL:</div>
-<input value={(aiQImgs[i]&&aiQImgs[i].qImg)||''} onChange={function(e){setAiQImgs(function(p){var n=Object.assign({},p);if(!n[i])n[i]={qImg:'',optImgs:['','','','']};n[i]=Object.assign({},n[i],{qImg:e.target.value});return n;})}} placeholder="https://... (diagram/image for this question)" style={{width:'100%',padding:'4px 8px',background:'rgba(255,255,255,0.05)',border:'1px solid rgba(99,102,241,0.3)',borderRadius:5,color:'#fff',fontSize:11,outline:'none',boxSizing:'border-box'}}/></div>
-{q.options&&q.options.length>0&&(<div><div style={{fontSize:10,color:'#9CA3AF',marginBottom:3}}>Option Image URLs:</div>
-{q.options.map(function(_,oi){return(<div key={oi} style={{display:'flex',alignItems:'center',gap:5,marginBottom:3}}><span style={{fontSize:10,color:'#6EE7B7',fontWeight:700,minWidth:18}}>{['A','B','C','D'][oi]}.</span><input value={(aiQImgs[i]&&aiQImgs[i].optImgs&&aiQImgs[i].optImgs[oi])||''} onChange={function(e){setAiQImgs(function(p){var n=Object.assign({},p);if(!n[i])n[i]={qImg:'',optImgs:['','','','']};var opts=(n[i].optImgs||['','','','']).slice();opts[oi]=e.target.value;n[i]=Object.assign({},n[i],{optImgs:opts});return n;})}} placeholder={'Image for option '+['A','B','C','D'][oi]} style={{flex:1,padding:'3px 6px',background:'rgba(255,255,255,0.04)',border:'1px solid rgba(99,102,241,0.2)',borderRadius:4,color:'#fff',fontSize:10,outline:'none'}}/></div>);})}</div>)}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <SmartPaperGen API={API} token={typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''} />
           )}
 
           {/* ══ PYQ BANK ══ */}

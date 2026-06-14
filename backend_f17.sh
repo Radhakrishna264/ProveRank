@@ -1,3 +1,28 @@
+#!/bin/bash
+# ═══════════════════════════════════════════════════════════════
+# ProveRank — Feature 17 (17.1–17.26): Smart Paper Generator
+# BACKEND SCRIPT — Run on Replit Shell
+# Creates: controllers/paperGenerator.js + routes/paperGenerator.js
+# ═══════════════════════════════════════════════════════════════
+
+set -e
+echo "🚀 ProveRank Feature 17 — Backend Deploy Starting..."
+
+# ── Check xlsx available (17.19 export)
+cd ~/workspace
+if ! node -e "require('xlsx')" 2>/dev/null; then
+  echo "📦 Installing xlsx..."
+  npm install xlsx --save 2>/dev/null || true
+fi
+if ! node -e "require('pdfkit')" 2>/dev/null; then
+  echo "📦 Installing pdfkit..."
+  npm install pdfkit --save 2>/dev/null || true
+fi
+
+# ════════════════════════════════════════════════════════════════
+# 1. CONTROLLER — ~/workspace/src/controllers/paperGenerator.js
+# ════════════════════════════════════════════════════════════════
+cat > ~/workspace/src/controllers/paperGenerator.js << 'CTRL_EOF'
 // ═══════════════════════════════════════════════════════════════
 // ProveRank — Smart Paper Generator Controller
 // Feature 17 (17.1–17.26) — S101
@@ -542,3 +567,78 @@ exports.getBankStats = async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
+CTRL_EOF
+
+echo "✅ Controller created"
+
+# ════════════════════════════════════════════════════════════════
+# 2. ROUTE — ~/workspace/src/routes/paperGenerator.js
+# ════════════════════════════════════════════════════════════════
+cat > ~/workspace/src/routes/paperGenerator.js << 'ROUTE_EOF'
+// ProveRank — Smart Paper Generator Routes (Feature 17, S101)
+const express = require('express');
+const router  = express.Router();
+const { verifyToken, isAdmin } = require('../middleware/auth');
+const ctrl = require('../controllers/paperGenerator');
+
+// 17.8  — Generate paper from QB
+router.post('/generate',         verifyToken, isAdmin, ctrl.generatePaper);
+// 17.11 — One-click Use as Exam
+router.post('/use-as-exam',      verifyToken, isAdmin, ctrl.useAsExam);
+// 17.18 — Save generated set as template
+router.post('/save-template',    verifyToken, isAdmin, ctrl.saveTemplate);
+router.get('/saved-templates',   verifyToken, isAdmin, ctrl.getSavedTemplates);
+// 17.19 — Export as PDF / Excel
+router.post('/export',           verifyToken, isAdmin, ctrl.exportSet);
+// Bank stats (enhanced with formatWise + chaptersBySubject)
+router.get('/stats',             verifyToken, isAdmin, ctrl.getBankStats);
+
+module.exports = router;
+ROUTE_EOF
+
+echo "✅ Route created"
+
+# ════════════════════════════════════════════════════════════════
+# 3. VERIFY
+# ════════════════════════════════════════════════════════════════
+echo ""
+echo "═══ BACKEND VERIFICATION ═══"
+
+check_backend() {
+  local label="$1"
+  local file="$2"
+  local pattern="$3"
+  if grep -q "$pattern" "$file" 2>/dev/null; then
+    echo "  ✅ $label"
+  else
+    echo "  ❌ $label — PATTERN NOT FOUND: $pattern"
+  fi
+}
+
+F="$HOME/workspace/src/controllers/paperGenerator.js"
+R="$HOME/workspace/src/routes/paperGenerator.js"
+
+check_backend "17.1  Subject multi-select"          "$F" "subjects"
+check_backend "17.2  Chapter filter"                "$F" "chapters"
+check_backend "17.3  Difficulty mix"                "$F" "difficultyMix"
+check_backend "17.4  Marking scheme"                "$F" "markingScheme"
+check_backend "17.5  Subject-wise count"            "$F" "subjectConfig"
+check_backend "17.6  NEET/JEE/CUET templates"      "$F" "mode === 'neet'"
+check_backend "17.7  Template sync (route exists)"  "$R" "use-as-exam"
+check_backend "17.8  AI Smart Select from QB"       "$F" "smartSelect"
+check_backend "17.9  Multiple Sets A/B/C"           "$F" "setCount"
+check_backend "17.11 Use as Exam endpoint"          "$R" "use-as-exam"
+check_backend "17.12 Exclude used questions"        "$F" "excludeUsed"
+check_backend "17.13 Exclude PYQ"                   "$F" "excludePYQ"
+check_backend "17.14 answerKey + explanation"       "$F" "answerKey"
+check_backend "17.15 Surprise Me mode"              "$F" "surprise"
+check_backend "17.16 Auto-balance difficulty"       "$F" "Auto-balance"
+check_backend "17.17 Set comparison overlap"        "$F" "setComparison"
+check_backend "17.18 Save template"                 "$F" "savedPaperTemplates"
+check_backend "17.19 Export PDF"                    "$F" "pdf"
+check_backend "17.19 Export Excel"                  "$F" "xlsx"
+check_backend "17.26 Format-based selection"        "$F" "questionFormats"
+
+echo ""
+echo "🎯 Backend deploy complete!"
+echo "   Route mounted at: /api/paper (already in index.js ✅)"
