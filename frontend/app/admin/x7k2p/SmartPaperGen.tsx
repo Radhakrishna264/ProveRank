@@ -758,12 +758,22 @@ export default function SmartPaperGen({ API, token }: { API: string; token: stri
                   </div>
                   <div style={{ fontSize:12, color:'#E2E8F0', lineHeight:1.6, marginBottom:8 }}>{q.text?.slice(0, 180)}{q.text?.length > 180 ? '...' : ''}</div>
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:4 }}>
-                    {(q.options || []).slice(0,4).map((opt: string, j: number) => (
-                      <div key={j} style={{ fontSize:11, padding:'4px 8px', borderRadius:6, background:'rgba(255,255,255,0.03)', color:'#94A3B8' }}>
-                        <span style={{ color:'#6EE7B7', fontWeight:700, marginRight:4 }}>{String.fromCharCode(65+j)})</span>{opt?.slice(0,60)}
-                      </div>
-                    ))}
+                    {(q.options || []).slice(0,4).map((opt: string, j: number) => {
+                      const isCorrect = (q.correct || []).includes(j);
+                      return (
+                        <div key={j} style={{ fontSize:11, padding:'5px 8px', borderRadius:6, background: isCorrect ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.03)', border: isCorrect ? '1px solid rgba(16,185,129,0.5)' : '1px solid transparent', color: isCorrect ? '#6EE7B7' : '#94A3B8' }}>
+                          <span style={{ fontWeight:700, marginRight:4 }}>{String.fromCharCode(65+j)})</span>
+                          {opt?.slice(0,80)}
+                          {isCorrect && <span style={{ marginLeft:4, fontSize:10 }}>✅</span>}
+                        </div>
+                      );
+                    })}
                   </div>
+                  {q.explanation && (
+                    <div style={{ marginTop:6, padding:'6px 10px', borderRadius:8, background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.2)', fontSize:11, color:'#A5B4FC' }}>
+                      <span style={{ fontWeight:700, color:'#6366F1' }}>💡 Explanation: </span>{q.explanation}
+                    </div>
+                  )}
                 </div>
               ))}
               {activeSetData.questions.length > 20 && (
