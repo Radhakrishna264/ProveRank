@@ -1,4 +1,5 @@
 'use client'
+import AIExplainTab from './AIExplainTab';
 import SmartPaperGen from './SmartPaperGen';
 import StoreAdminTab from './StoreAdminTab';
 import AdminWelcomeBanner from './AdminWelcomeBanner';
@@ -2238,6 +2239,7 @@ const confirmAndAdd=useCallback(async()=>{
     {id:'bulk_creator',ico:'⚡',lbl:'Bulk Creator',grp:'Exams'},
     {id:'questions',ico:'❓',lbl:'Question Bank',grp:'Questions'},
     {id:'smart_gen',ico:'🤖',lbl:'Smart Generator',grp:'Questions'},
+    {id:'ai_explain',ico:'💡',lbl:'AI Explanation',grp:'Questions'},
     {id:'pyq_bank',ico:'📚',lbl:'PYQ Bank',grp:'Questions'},
     {id:'students',ico:'👥',lbl:'Students',grp:'Students'},
     {id:'batches',ico:'📦',lbl:'Batches',grp:'Students'},
@@ -4071,6 +4073,11 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
           {/* ══ SMART GENERATOR ══ */}
           {tab==='smart_gen'&&(
             <SmartPaperGen API={API} token={typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''} />
+          )}
+
+          {/* ══ AI EXPLANATION GENERATOR ══ */}
+          {tab==='ai_explain'&&(
+            <AIExplainTab API={API} token={typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''} />
           )}
 
           {/* ══ PYQ BANK ══ */}

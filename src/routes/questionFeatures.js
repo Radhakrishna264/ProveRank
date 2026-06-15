@@ -153,21 +153,111 @@ router.post('/:id/translate', verifyToken, isAdmin, async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: 'Translation failed: ' + err.message }); }
 });
 
-// ── AI-10: AUTO EXPLANATION GENERATOR ───────────────────────
-router.post('/ai/explanation', verifyToken, isAdmin, async (req, res) => {
+
+// ── AI-10: AUTO EXPLANATION GENERATOR (Feature 18 — Real groqAI) ──────────────
+const { callGroqAI } = require('../utils/groqAI');
+
+function buildExplPrompt(opts) {
+  var text = opts.text, options = opts.options||[], correctIdx = opts.correctIdx||0, mode = opts.mode||'paragraph', lang = opts.lang||'english';
+  var correctLetter = ['A','B','C','D'][correctIdx] || 'A';
+  var optText = options.map(function(o,i){ return ['A','B','C','D'][i]+') '+o; }).join('\n');
+  var langNote = lang === 'hindi' ? 'IMPORTANT: Write the explanation in Hindi (Devanagari script).' : 'Write explanation in English.';
+  var modeNote = mode === 'steps'
+    ? 'Give explanation as numbered step-by-step points. Each step on a new line starting with Step N:'
+    : 'Give a clear, concise explanation in paragraph form.';
+  return 'You are an expert NEET/JEE exam tutor. Generate a high-quality explanation for this question.\n\nQuestion: '+text+'\n\nOptions:\n'+optText+'\n\nCorrect Answer: Option '+correctLetter+'\n\n'+modeNote+'\n'+langNote+'\nAlso self-rate the quality of your explanation from 1-5 (5=best).\n\nRespond ONLY in this JSON format (no markdown, no code blocks):\n{"explanation":"your explanation here","qualityScore":4,"steps":["step1","step2"]}';
+}
+
+// ── 18.1 Single question explanation
+router.post('/ai/explanation', verifyToken, isAdmin, async function(req, res) {
   try {
-    const { questionId, questionText, correctAnswer } = req.body;
-    const question = questionId ? await Question.findById(questionId) : null;
-    const text = questionText || question?.text;
-    if (!text) return res.status(400).json({ message: 'questionId ya questionText required' });
-    res.json({
-      success: true,
-      questionText: text.slice(0, 100),
-      generatedExplanation: `Explanation for: "${text.slice(0,80)}..." — The correct answer is based on the fundamental concept. [Connect Hugging Face API for real AI explanation]`,
-      note: 'Hugging Face free API se connect karo for real explanations'
-    });
-  } catch(err) { res.status(500).json({ message: err.message }); }
+    var questionId = req.body.questionId, mode = req.body.mode||'paragraph', lang = req.body.lang||'english';
+    if (!questionId) return res.status(400).json({ success:false, message:'questionId required' });
+    var question = await Question.findById(questionId);
+    if (!question) return res.status(404).json({ success:false, message:'Question not found' });
+    var correctIdx = Array.isArray(question.correct) && question.correct.length > 0 ? question.correct[0] : 0;
+    var prompt = buildExplPrompt({ text:question.text, options:question.options||[], correctIdx:correctIdx, mode:mode, lang:lang });
+    var raw = await callGroqAI(prompt);
+    var parsed = { explanation:raw, qualityScore:3, steps:[] };
+    try {
+      var clean = raw.replace(/```json/g,'').replace(/```/g,'').trim();
+      var j = JSON.parse(clean);
+      parsed = { explanation:j.explanation||raw, qualityScore:j.qualityScore||3, steps:j.steps||[] };
+    } catch(_) {}
+    return res.json({ success:true, questionId:questionId, questionText:question.text.slice(0,120), explanation:parsed.explanation, qualityScore:parsed.qualityScore, steps:parsed.steps, mode:mode, lang:lang });
+  } catch(err) { return res.status(500).json({ success:false, message:err.message }); }
 });
+
+// ── 18.2 Bulk explanation generate
+router.post('/ai/explanation/bulk', verifyToken, isAdmin, async function(req, res) {
+  try {
+    var questionIds = req.body.questionIds, mode = req.body.mode||'paragraph', lang = req.body.lang||'english', autoSave = req.body.autoSave||false;
+    if (!questionIds || questionIds.length === 0) return res.status(400).json({ success:false, message:'questionIds array required' });
+    var results = [];
+    for (var k=0; k<questionIds.length; k++) {
+      var qId = questionIds[k];
+      try {
+        var question = await Question.findById(qId);
+        if (!question) { results.push({ questionId:qId, success:false, message:'Not found' }); continue; }
+        var correctIdx = Array.isArray(question.correct)&&question.correct.length>0 ? question.correct[0] : 0;
+        var prompt = buildExplPrompt({ text:question.text, options:question.options||[], correctIdx:correctIdx, mode:mode, lang:lang });
+        var raw = await callGroqAI(prompt);
+        var parsed = { explanation:raw, qualityScore:3, steps:[] };
+        try { var clean=raw.replace(/```json/g,'').replace(/```/g,'').trim(); var j=JSON.parse(clean); parsed={explanation:j.explanation||raw,qualityScore:j.qualityScore||3,steps:j.steps||[]}; } catch(_){}
+        if (autoSave) {
+          var upd = lang==='hindi' ? { hindiExplanation:parsed.explanation } : { explanation:parsed.explanation };
+          await Question.findByIdAndUpdate(qId, upd);
+        }
+        results.push({ questionId:qId, success:true, explanation:parsed.explanation, qualityScore:parsed.qualityScore, steps:parsed.steps, questionText:question.text.slice(0,80) });
+      } catch(e) { results.push({ questionId:qId, success:false, message:e.message }); }
+    }
+    var done = results.filter(function(r){return r.success;}).length;
+    return res.json({ success:true, message:done+'/'+questionIds.length+' explanations generated', results:results, done:done, total:questionIds.length });
+  } catch(err) { return res.status(500).json({ success:false, message:err.message }); }
+});
+
+// ── 18.6 Hindi explanation generate
+router.post('/ai/explanation/hindi', verifyToken, isAdmin, async function(req, res) {
+  try {
+    var questionId = req.body.questionId, mode = req.body.mode||'paragraph';
+    if (!questionId) return res.status(400).json({ success:false, message:'questionId required' });
+    var question = await Question.findById(questionId);
+    if (!question) return res.status(404).json({ success:false, message:'Not found' });
+    var correctIdx = Array.isArray(question.correct)&&question.correct.length>0 ? question.correct[0] : 0;
+    var prompt = buildExplPrompt({ text:question.text, options:question.options||[], correctIdx:correctIdx, mode:mode, lang:'hindi' });
+    var raw = await callGroqAI(prompt);
+    var parsed = { explanation:raw, qualityScore:3, steps:[] };
+    try { var clean=raw.replace(/```json/g,'').replace(/```/g,'').trim(); var j=JSON.parse(clean); parsed={explanation:j.explanation||raw,qualityScore:j.qualityScore||3,steps:j.steps||[]}; } catch(_){}
+    return res.json({ success:true, questionId:questionId, hindiExplanation:parsed.explanation, qualityScore:parsed.qualityScore, steps:parsed.steps });
+  } catch(err) { return res.status(500).json({ success:false, message:err.message }); }
+});
+
+// ── 18.9 Save / Approve explanation
+router.put('/:id/explanation/save', verifyToken, isAdmin, async function(req, res) {
+  try {
+    var explanation = req.body.explanation, hindiExplanation = req.body.hindiExplanation, action = req.body.action;
+    if (action === 'reject') return res.json({ success:true, message:'Explanation rejected' });
+    var update = {};
+    if (explanation)      update.explanation      = explanation;
+    if (hindiExplanation) update.hindiExplanation = hindiExplanation;
+    await Question.findByIdAndUpdate(req.params.id, update);
+    return res.json({ success:true, message:'Explanation saved!' });
+  } catch(err) { return res.status(500).json({ success:false, message:err.message }); }
+});
+
+// ── 18.12 Pending explanations queue
+router.get('/ai/explanation/queue', verifyToken, isAdmin, async function(req, res) {
+  try {
+    var subject = req.query.subject, limit = parseInt(req.query.limit)||50;
+    var filter = { $or:[{explanation:{$exists:false}},{explanation:''},{explanation:null}] };
+    if (subject && subject !== 'all') filter.subject = subject;
+    var questions = await Question.find(filter).select('text subject chapter difficulty type options correct explanation hindiExplanation').limit(limit).sort({ createdAt:-1 });
+    var totalNoExp = await Question.countDocuments(filter);
+    var totalAll   = await Question.countDocuments({});
+    return res.json({ success:true, questions:questions, totalNoExp:totalNoExp, totalAll:totalAll, withExp:totalAll-totalNoExp });
+  } catch(err) { return res.status(500).json({ success:false, message:err.message }); }
+});
+
 
 // ── N7: QUESTION APPROVAL WORKFLOW ───────────────────────────
 router.get('/pending-approval', verifyToken, isAdmin, async (req, res) => {
