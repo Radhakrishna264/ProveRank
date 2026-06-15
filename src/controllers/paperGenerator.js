@@ -23,7 +23,7 @@ async function smartSelect({ subject, count, chapters, difficultyMix, formats, e
 
   const usedPct = excludeUsedPct != null ? excludeUsedPct : 100;
 
-  const proj = { text:1, hindiText:1, options:1, hindiOptions:1, correct:1, subject:1, chapter:1, topic:1, difficulty:1, type:1, explanation:1, format:1, isPYQ:1, usageCount:1 };
+  const proj = { text:1, hindiText:1, options:1, hindiOptions:1, hindiExplanation:1, correct:1, subject:1, chapter:1, topic:1, difficulty:1, type:1, explanation:1, format:1, isPYQ:1, usageCount:1, image:1, imageUrl:1, optionImages:1 };
 
   let selected = [];
   const alreadyIds = () => selected.map(q => q._id);
@@ -230,20 +230,24 @@ exports.generatePaper = async (req, res) => {
         setLabel:       setLabels[i],
         totalQuestions: shuffled.length,
         questions: shuffled.map((q, idx) => ({
-          serialNo:    idx + 1,
-          questionId:  q._id,
-          text:        q.text,
-          hindiText:   q.hindiText || '',
-          options:     q.options,
-          correct:     q.correct,          // 17.14 — for result system
-          explanation: q.explanation || '', // 17.14
-          subject:     q.subject,
-          chapter:     q.chapter  || '',
-          topic:       q.topic    || '',
-          difficulty:  q.difficulty,
-          type:        q.type     || 'SCQ',
-          format:      q.format   || '',
-          isPYQ:       q.isPYQ    || false
+          serialNo:       idx + 1,
+          questionId:     q._id,
+          text:           q.text,
+          hindiText:      q.hindiText        || '',  // 17.27
+          options:        q.options,
+          hindiOptions:   q.hindiOptions     || [],  // 17.28
+          optionImages:   q.optionImages     || [],  // 17.28
+          imageUrl:       q.imageUrl || q.image || '', // 17.27
+          correct:        q.correct,
+          explanation:    q.explanation      || '',
+          hindiExplanation: q.hindiExplanation || '', // 17.30
+          subject:        q.subject,
+          chapter:        q.chapter          || '',
+          topic:          q.topic            || '',
+          difficulty:     q.difficulty,
+          type:           q.type             || 'SCQ',
+          format:         q.format           || '',
+          isPYQ:          q.isPYQ            || false
         }))
       });
     }
@@ -321,20 +325,24 @@ exports.useAsExam = async (req, res) => {
 
     // 17.14 — questionSnapshot includes correct answers (server-side only, never sent to students via attempt API)
     const questionSnapshot = primarySet.questions.map(q => ({
-      questionId:  q.questionId,
-      set:         primarySet.setLabel,
-      serialNo:    q.serialNo,
-      text:        q.text,
-      hindiText:   q.hindiText || '',
-      options:     q.options,
-      correct:     q.correct,          // stored in DB — result calculator uses this
-      explanation: q.explanation || '',
-      subject:     q.subject,
-      chapter:     q.chapter    || '',
-      difficulty:  q.difficulty,
-      type:        q.type       || 'SCQ',
-      format:      q.format     || '',
-      isPYQ:       q.isPYQ      || false
+      questionId:      q.questionId,
+      set:             primarySet.setLabel,
+      serialNo:        q.serialNo,
+      text:            q.text,
+      hindiText:       q.hindiText        || '', // 17.27
+      options:         q.options,
+      hindiOptions:    q.hindiOptions     || [], // 17.28
+      optionImages:    q.optionImages     || [], // 17.28
+      imageUrl:        q.imageUrl         || '', // 17.27
+      correct:         q.correct,
+      explanation:     q.explanation      || '',
+      hindiExplanation: q.hindiExplanation || '', // 17.30
+      subject:         q.subject,
+      chapter:         q.chapter          || '',
+      difficulty:      q.difficulty,
+      type:            q.type             || 'SCQ',
+      format:          q.format           || '',
+      isPYQ:           q.isPYQ            || false
     }));
 
     // Build sections from subject distribution
@@ -366,6 +374,7 @@ exports.useAsExam = async (req, res) => {
       category:   type     || 'Full Mock',
       type:       (meta.mode || 'Custom').toUpperCase(),
       status:     'draft',
+      medium:     req.body.medium || 'bilingual', // 17.30
       createdBy:  req.user.id
     });
 
@@ -540,5 +549,40 @@ exports.getBankStats = async (req, res) => {
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+// ─────────────────────────────────────────────────────────────
+// REPLACE QUESTION (17.29) — reject one, get another from QB
+// POST /api/paper/replace-question
+// ─────────────────────────────────────────────────────────────
+exports.replaceQuestion = async (req, res) => {
+  try {
+    const { questionId, subject, chapter, difficulty, excludeIds } = req.body;
+    const filter = {
+      subject,
+      _id: { $nin: [...(excludeIds || []), questionId].filter(Boolean) }
+    };
+    if (chapter)    filter.chapter    = chapter;
+    if (difficulty) filter.difficulty = difficulty;
+
+    const [replacement] = await Question.aggregate([
+      { $match: filter },
+      { $sample: { size: 1 } },
+      { $project: {
+        text:1, hindiText:1, options:1, hindiOptions:1, hindiExplanation:1,
+        correct:1, subject:1, chapter:1, topic:1, difficulty:1, type:1,
+        explanation:1, format:1, isPYQ:1, usageCount:1,
+        image:1, imageUrl:1, optionImages:1
+      }}
+    ]);
+
+    if (!replacement)
+      return res.status(404).json({ success:false, message:'No replacement question found in QB' });
+
+    return res.json({ success:true, question: replacement });
+  } catch (err) {
+    return res.status(500).json({ success:false, message: err.message });
   }
 };

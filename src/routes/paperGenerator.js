@@ -14,6 +14,7 @@ router.get('/saved-templates',   verifyToken, isAdmin, ctrl.getSavedTemplates);
 // 17.19 — Export as PDF / Excel
 router.post('/export',           verifyToken, isAdmin, ctrl.exportSet);
 // Bank stats (enhanced with formatWise + chaptersBySubject)
+router.post('/replace-question', verifyToken, isAdmin, ctrl.replaceQuestion); // 17.29
 router.get('/stats',             verifyToken, isAdmin, ctrl.getBankStats);
 
 module.exports = router;

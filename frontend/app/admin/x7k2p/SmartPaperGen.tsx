@@ -106,6 +106,13 @@ export default function SmartPaperGen({ API, token }: { API: string; token: stri
   const [savedTmpls,  setSavedTmpls]   = useState<any[]>([]);
   // ── Bank stats
   const [bankStats,   setBankStats]     = useState<any>(null);
+  // ── 17.30 Language medium
+  const [langMode,    setLangMode]      = useState<'english'|'hindi'|'bilingual'>('bilingual');
+  const [examMedium,  setExamMedium]    = useState<'english'|'hindi'|'bilingual'>('bilingual');
+  // ── 17.29 Completeness + edit/replace
+  const [showReport,  setShowReport]    = useState(false);
+  const [editingQ,    setEditingQ]      = useState<Record<string,any>>({});
+  const [replacing,   setReplacing]     = useState<string|null>(null);
   // ── Exam title
   const [examTitle,   setExamTitle]     = useState('');
 
@@ -256,7 +263,8 @@ export default function SmartPaperGen({ API, token }: { API: string; token: stri
           examTitle:        uaeTitle || paper.meta.examTitle,
           batch:            uaeBatch,
           type:             uaeType,
-          selectedSetLabel: uaeSet
+          selectedSetLabel: uaeSet,
+          medium:           examMedium
         })
       });
       const data = await res.json();
@@ -299,6 +307,73 @@ export default function SmartPaperGen({ API, token }: { API: string; token: stri
     a.download = `Paper_Set${activeSet}.${fmt === 'pdf' ? 'pdf' : 'xlsx'}`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // ── 17.29 Replace question
+  const replaceQuestion = async (q: any, setLabel: string) => {
+    if (!paper) return;
+    setReplacing(q.questionId);
+    try {
+      const tok = getToken();
+      const allIds = paper.sets.flatMap(s => s.questions.map((qq:any) => qq.questionId));
+      const res = await fetch(`${API}/api/paper/replace-question`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json', Authorization:`Bearer ${tok}`},
+        body: JSON.stringify({ questionId: q.questionId, subject: q.subject, chapter: q.chapter, difficulty: q.difficulty, excludeIds: allIds })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message);
+      const newQ = { ...data.question, questionId: data.question._id, serialNo: q.serialNo };
+      setPaper(prev => {
+        if (!prev) return prev;
+        const updSets = prev.sets.map(s => ({
+          ...s,
+          questions: s.questions.map((qq:any) => qq.questionId === q.questionId && s.setLabel === setLabel ? newQ : qq)
+        }));
+        const newKey: Record<string,any> = { ...prev.answerKey };
+        delete newKey[String(q.questionId)];
+        newKey[String(data.question._id)] = { correct: data.question.correct, explanation: data.question.explanation || '' };
+        return { ...prev, sets: updSets, answerKey: newKey };
+      });
+    } catch(e:any) { alert('Replace failed: ' + e.message); }
+    finally { setReplacing(null); }
+  };
+
+  // ── 17.29 Completeness check
+  const checkQ = (q: any) => ({
+    engText:     !!q.text,
+    hindiText:   !!q.hindiText,
+    mainImage:   !!(q.imageUrl),
+    engOptions:  (q.options||[]).length >= 2,
+    hindiOptions:(q.hindiOptions||[]).some((o:string)=>!!o),
+    optionImages:(q.optionImages||[]).some((o:string)=>!!o),
+    explanation: !!q.explanation,
+    correctAns:  (q.correct||[]).length > 0
+  });
+  const qScore = (chk: any) => {
+    const required = [chk.engText, chk.engOptions, chk.correctAns];
+    const optional = [chk.hindiText, chk.hindiOptions, chk.explanation];
+    const reqOk = required.every(Boolean);
+    const optCount = optional.filter(Boolean).length;
+    return { reqOk, optCount, total: optional.length };
+  };
+
+  // ── 17.30 Get display text based on langMode
+  const getQText = (q: any) => {
+    if (langMode === 'hindi' && q.hindiText) return q.hindiText;
+    if (langMode === 'bilingual' && q.hindiText) return q.text + '\n' + q.hindiText;
+    return q.text;
+  };
+  const getOptText = (q: any, j: number) => {
+    const eng  = (q.options||[])[j] || '';
+    const hind = (q.hindiOptions||[])[j] || '';
+    if (langMode === 'hindi' && hind) return hind;
+    if (langMode === 'bilingual' && hind) return eng + ' / ' + hind;
+    return eng;
+  };
+  const getExplanation = (q: any) => {
+    if (langMode === 'hindi' && q.hindiExplanation) return q.hindiExplanation;
+    return q.explanation || '';
   };
 
   // ── Total count for right panel preview
@@ -740,7 +815,88 @@ export default function SmartPaperGen({ API, token }: { API: string; token: stri
             ))}
           </div>
 
-          {/* Questions list — active set */}
+          {/* ── 17.30 Language Medium Toggle ── */}
+          {paper && (
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12, padding:'10px 14px', background:'rgba(99,102,241,0.06)', border:'1px solid rgba(99,102,241,0.2)', borderRadius:12 }}>
+              <span style={{ fontSize:11, color:'#94A3B8', fontWeight:700 }}>🌐 PREVIEW LANGUAGE (17.30):</span>
+              {(['english','hindi','bilingual'] as const).map(m => (
+                <button key={m} onClick={() => setLangMode(m)} style={{ fontSize:11, padding:'5px 12px', borderRadius:16, border:`1px solid ${langMode===m?'#6366F1':'rgba(255,255,255,0.12)'}`, background: langMode===m?'rgba(99,102,241,0.25)':'rgba(255,255,255,0.04)', color: langMode===m?'#A5B4FC':'#64748B', cursor:'pointer', fontWeight: langMode===m?700:400 }}>
+                  {m==='english'?'🇬🇧 English':m==='hindi'?'🇮🇳 Hindi':'🌐 Bilingual'}
+                </button>
+              ))}
+              <button onClick={() => setShowReport(p=>!p)} style={{ marginLeft:'auto', fontSize:11, padding:'5px 12px', borderRadius:16, border:'1px solid rgba(245,158,11,0.3)', background:'rgba(245,158,11,0.08)', color:'#FCD34D', cursor:'pointer' }}>
+                📊 {showReport ? 'Hide' : 'Show'} Completeness Report (17.29)
+              </button>
+            </div>
+          )}
+
+          {/* ── 17.29 Data Completeness Report ── */}
+          {paper && showReport && activeSetData && (
+            <div style={{ marginBottom:16, background:'rgba(15,17,32,0.95)', border:'1px solid rgba(99,102,241,0.25)', borderRadius:14, overflow:'hidden' }}>
+              <div style={{ padding:'12px 16px', background:'rgba(99,102,241,0.1)', borderBottom:'1px solid rgba(99,102,241,0.2)' }}>
+                <span style={{ fontSize:13, fontWeight:700, color:'#A5B4FC' }}>📊 Data Completeness Report — Set {activeSet}</span>
+                <span style={{ fontSize:11, color:'#64748B', marginLeft:8 }}>Required: EngText+Options+CorrectAns | Optional: Hindi+Explanation+Images</span>
+              </div>
+              <div style={{ overflowX:'auto' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:10 }}>
+                  <thead>
+                    <tr style={{ background:'rgba(255,255,255,0.03)' }}>
+                      {['#','Subject','Eng✏️','Hindi✏️','Img🖼️','EngOpts','HindiOpts','OptImgs','Exp💡','Ans✅','Status','Action'].map(h=>(
+                        <th key={h} style={{ padding:'7px 8px', color:'#94A3B8', fontWeight:700, textAlign:'left', borderBottom:'1px solid rgba(255,255,255,0.06)', whiteSpace:'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeSetData.questions.map((q:any) => {
+                      const chk = checkQ(q);
+                      const sc  = qScore(chk);
+                      return (
+                        <tr key={q.questionId} style={{ borderBottom:'1px solid rgba(255,255,255,0.04)', background: !sc.reqOk ? 'rgba(239,68,68,0.05)' : sc.optCount < 2 ? 'rgba(245,158,11,0.03)' : 'transparent' }}>
+                          <td style={{ padding:'6px 8px', color:'#64748B' }}>{q.serialNo}</td>
+                          <td style={{ padding:'6px 8px', color: SUBJ_COLOR[q.subject]||'#A5B4FC', fontWeight:600 }}>{q.subject?.slice(0,4)}</td>
+                          <td style={{ padding:'6px 8px' }}>{chk.engText?'✅':'❌'}</td>
+                          <td style={{ padding:'6px 8px' }}>{chk.hindiText?'✅':'⚠️'}</td>
+                          <td style={{ padding:'6px 8px' }}>{chk.mainImage?'✅':'—'}</td>
+                          <td style={{ padding:'6px 8px' }}>{chk.engOptions?'✅':'❌'}</td>
+                          <td style={{ padding:'6px 8px' }}>{chk.hindiOptions?'✅':'⚠️'}</td>
+                          <td style={{ padding:'6px 8px' }}>{chk.optionImages?'✅':'—'}</td>
+                          <td style={{ padding:'6px 8px' }}>{chk.explanation?'✅':'⚠️'}</td>
+                          <td style={{ padding:'6px 8px' }}>{chk.correctAns?'✅':'❌'}</td>
+                          <td style={{ padding:'6px 8px' }}>
+                            <span style={{ fontSize:10, padding:'2px 7px', borderRadius:10, background: !sc.reqOk?'rgba(239,68,68,0.15)':sc.optCount>=2?'rgba(16,185,129,0.15)':'rgba(245,158,11,0.15)', color: !sc.reqOk?'#FCA5A5':sc.optCount>=2?'#6EE7B7':'#FCD34D', fontWeight:700 }}>
+                              {!sc.reqOk?'❌ Missing':sc.optCount>=2?'✅ Good':'⚠️ Partial'}
+                            </span>
+                          </td>
+                          <td style={{ padding:'6px 8px', whiteSpace:'nowrap' }}>
+                            <button onClick={() => replaceQuestion(q, activeSet)} disabled={replacing===q.questionId} style={{ fontSize:9, padding:'3px 8px', borderRadius:8, border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.1)', color:'#FCA5A5', cursor:'pointer', marginRight:4 }}>
+                              {replacing===q.questionId?'⟳':'🔄 Replace'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ padding:'10px 16px', borderTop:'1px solid rgba(255,255,255,0.06)', display:'flex', gap:16, fontSize:11 }}>
+                {[
+                  { label:'Total', val: activeSetData.questions.length, color:'#E2E8F0' },
+                  { label:'✅ Complete', val: activeSetData.questions.filter((q:any)=>qScore(checkQ(q)).reqOk&&qScore(checkQ(q)).optCount>=2).length, color:'#6EE7B7' },
+                  { label:'⚠️ Partial', val: activeSetData.questions.filter((q:any)=>qScore(checkQ(q)).reqOk&&qScore(checkQ(q)).optCount<2).length, color:'#FCD34D' },
+                  { label:'❌ Issues', val: activeSetData.questions.filter((q:any)=>!qScore(checkQ(q)).reqOk).length, color:'#FCA5A5' },
+                  { label:'Hindi✅', val: activeSetData.questions.filter((q:any)=>checkQ(q).hindiText).length, color:'#A5B4FC' },
+                  { label:'Images✅', val: activeSetData.questions.filter((q:any)=>checkQ(q).mainImage).length, color:'#67E8F9' },
+                ].map(s=>(
+                  <div key={s.label} style={{ textAlign:'center' }}>
+                    <div style={{ fontSize:16, fontWeight:800, color:s.color }}>{s.val}</div>
+                    <div style={{ color:'#64748B' }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Questions list — active set */}
           {activeSetData && (
             <div>
               <div style={{ fontSize:12, color:'#64748B', marginBottom:10 }}>
@@ -756,22 +912,54 @@ export default function SmartPaperGen({ API, token }: { API: string; token: stri
                     {q.isPYQ && <span style={{ fontSize:10, padding:'2px 8px', borderRadius:12, background:'rgba(245,158,11,0.1)', color:'#FCD34D' }}>📚 PYQ</span>}
                     <span style={{ fontSize:10, padding:'2px 8px', borderRadius:12, background:'rgba(255,255,255,0.05)', color:'#64748B' }}>{q.type}</span>
                   </div>
-                  <div style={{ fontSize:12, color:'#E2E8F0', lineHeight:1.6, marginBottom:8 }}>{q.text?.slice(0, 180)}{q.text?.length > 180 ? '...' : ''}</div>
+                  {/* 17.27 — Main image */}
+                  {q.imageUrl && (
+                    <img src={q.imageUrl} alt="Q img" style={{ maxWidth:'100%', maxHeight:180, borderRadius:8, marginBottom:6, objectFit:'contain', background:'rgba(255,255,255,0.04)' }} onError={e=>(e.currentTarget.style.display='none')} />
+                  )}
+                  {/* 17.27 — English + Hindi text */}
+                  <div style={{ fontSize:12, color:'#E2E8F0', lineHeight:1.7, marginBottom: langMode!=='english'&&q.hindiText?4:8 }}>
+                    {langMode !== 'hindi' && (q.text?.slice(0,200) || '')}
+                    {q.text?.length > 200 && langMode !== 'hindi' ? '...' : ''}
+                  </div>
+                  {(langMode === 'hindi' || langMode === 'bilingual') && q.hindiText && (
+                    <div style={{ fontSize:12, color:'#C4B5FD', lineHeight:1.7, marginBottom:8, fontFamily:'serif', borderLeft:'2px solid #6366F1', paddingLeft:8 }}>
+                      {q.hindiText.slice(0,200)}{q.hindiText.length>200?'...':''}
+                    </div>
+                  )}
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:4 }}>
                     {(q.options || []).slice(0,4).map((opt: string, j: number) => {
-                      const isCorrect = (q.correct || []).includes(j);
+                      const isCorrect   = (q.correct || []).includes(j);
+                      const hindiOpt    = (q.hindiOptions||[])[j] || '';
+                      const optImg      = (q.optionImages||[])[j] || '';
                       return (
-                        <div key={j} style={{ fontSize:11, padding:'5px 8px', borderRadius:6, background: isCorrect ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.03)', border: isCorrect ? '1px solid rgba(16,185,129,0.5)' : '1px solid transparent', color: isCorrect ? '#6EE7B7' : '#94A3B8' }}>
-                          <span style={{ fontWeight:700, marginRight:4 }}>{String.fromCharCode(65+j)})</span>
-                          {opt?.slice(0,80)}
-                          {isCorrect && <span style={{ marginLeft:4, fontSize:10 }}>✅</span>}
+                        <div key={j} style={{ fontSize:11, padding:'6px 8px', borderRadius:6, background: isCorrect ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.03)', border: isCorrect ? '1px solid rgba(16,185,129,0.5)' : '1px solid transparent', color: isCorrect ? '#6EE7B7' : '#94A3B8' }}>
+                          <div style={{ display:'flex', alignItems:'flex-start', gap:4 }}>
+                            <span style={{ fontWeight:700, flexShrink:0 }}>{String.fromCharCode(65+j)})</span>
+                            <div style={{ flex:1 }}>
+                              {/* 17.28 — Option image */}
+                              {optImg && <img src={optImg} alt="" style={{ maxWidth:'100%', maxHeight:60, borderRadius:4, marginBottom:3, display:'block' }} onError={e=>(e.currentTarget.style.display='none')} />}
+                              {/* English option */}
+                              {langMode !== 'hindi' && <div>{opt?.slice(0,70)}</div>}
+                              {/* 17.28 — Hindi option */}
+                              {(langMode === 'hindi' || langMode === 'bilingual') && hindiOpt && (
+                                <div style={{ color: isCorrect?'#86EFAC':'#C4B5FD', fontSize:10, fontFamily:'serif', marginTop:2 }}>{hindiOpt.slice(0,70)}</div>
+                              )}
+                              {langMode === 'hindi' && !hindiOpt && <div style={{ color:'rgba(148,163,184,0.4)', fontSize:9 }}>{opt?.slice(0,70)}</div>}
+                            </div>
+                            {isCorrect && <span style={{ fontSize:10, flexShrink:0 }}>✅</span>}
+                          </div>
                         </div>
                       );
                     })}
                   </div>
-                  {q.explanation && (
+                  {(q.explanation || q.hindiExplanation) && (
                     <div style={{ marginTop:6, padding:'6px 10px', borderRadius:8, background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.2)', fontSize:11, color:'#A5B4FC' }}>
-                      <span style={{ fontWeight:700, color:'#6366F1' }}>💡 Explanation: </span>{q.explanation}
+                      <span style={{ fontWeight:700, color:'#6366F1' }}>💡 Explanation: </span>
+                      {/* 17.30 — show hindi explanation if hindi mode, else English */}
+                      {langMode === 'hindi' && q.hindiExplanation ? q.hindiExplanation : q.explanation}
+                      {langMode === 'bilingual' && q.hindiExplanation && q.explanation !== q.hindiExplanation && (
+                        <div style={{ color:'#C4B5FD', fontFamily:'serif', marginTop:4, borderTop:'1px solid rgba(99,102,241,0.2)', paddingTop:4 }}>{q.hindiExplanation}</div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -811,7 +999,16 @@ export default function SmartPaperGen({ API, token }: { API: string; token: stri
             </select>
 
             <label style={S.label}>Assign to Batch (optional, 17.11)</label>
-            <input value={uaeBatch} onChange={e => setUaeBatch(e.target.value)} placeholder="e.g. Batch A, NEET 2025..." style={{ ...S.inp, marginBottom:20 }} />
+            <input value={uaeBatch} onChange={e => setUaeBatch(e.target.value)} placeholder="e.g. Batch A, NEET 2025..." style={{ ...S.inp, marginBottom:12 }} />
+
+            <label style={S.label}>Default Language Medium (17.30)</label>
+            <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+              {(['english','hindi','bilingual'] as const).map(m => (
+                <button key={m} onClick={() => setExamMedium(m)} style={{ flex:1, padding:'8px', borderRadius:8, border:`1px solid ${examMedium===m?'#6366F1':'rgba(255,255,255,0.1)'}`, background: examMedium===m?'rgba(99,102,241,0.2)':'rgba(255,255,255,0.04)', color: examMedium===m?'#A5B4FC':'#64748B', cursor:'pointer', fontWeight: examMedium===m?700:400, fontSize:11 }}>
+                  {m==='english'?'🇬🇧 English':m==='hindi'?'🇮🇳 Hindi':'🌐 Both'}
+                </button>
+              ))}
+            </div>
 
             <div style={{ display:'flex', gap:10 }}>
               <button onClick={handleUseAsExam} disabled={uaeSaving} style={{ ...S.bs, flex:2, opacity: uaeSaving ? 0.7 : 1, fontSize:14 }}>
