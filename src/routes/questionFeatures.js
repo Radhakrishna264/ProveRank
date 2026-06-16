@@ -597,7 +597,8 @@ router.post('/bulk-paste-save', verifyToken, isAdmin, async function(req, res) {
           format:           q.format           || '',
           isPYQ:            target === 'pyq_bank',
           source:           'paste',
-          usageCount:       0
+          usageCount:       0,
+          createdBy:        req.user.id
         });
         await doc.save();
         saved.push(doc._id);
