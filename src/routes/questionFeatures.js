@@ -563,4 +563,69 @@ router.post('/:id/report', verifyToken, async (req, res) => {
   }
 });
 
+
+// ══ Feature 19 — Bulk Paste Save ════════════════════════════════
+// POST /api/questions/bulk-paste-save
+router.post('/bulk-paste-save', verifyToken, isAdmin, async function(req, res) {
+  try {
+    var questions = req.body.questions;
+    var target    = req.body.target || 'qs_bank'; // 'qs_bank' | 'pyq_bank'
+    var defaultSubject    = req.body.subject    || 'General';
+    var defaultChapter    = req.body.chapter    || '';
+    var defaultDifficulty = req.body.difficulty || 'Medium';
+    var defaultType       = req.body.type       || 'SCQ';
+
+    if (!questions || !questions.length)
+      return res.status(400).json({ success:false, message:'No questions provided' });
+
+    var saved = [], errors = [];
+
+    for (var i=0; i<questions.length; i++) {
+      try {
+        var q = questions[i];
+        var doc = new Question({
+          text:             q.text             || '',
+          hindiText:        q.hindiText        || '',
+          options:          q.options          || [],
+          hindiOptions:     q.hindiOptions     || [],
+          correct:          q.correct          || [0],
+          explanation:      q.explanation      || '',
+          hindiExplanation: q.hindiExplanation || '',
+          subject:          q.subject          || defaultSubject,
+          chapter:          q.chapter          || defaultChapter,
+          difficulty:       q.difficulty       || defaultDifficulty,
+          type:             q.type             || defaultType,
+          format:           q.format           || '',
+          isPYQ:            target === 'pyq_bank',
+          source:           'paste',
+          usageCount:       0
+        });
+        await doc.save();
+        saved.push(doc._id);
+      } catch(e) {
+        errors.push({ index:i, message:e.message });
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: saved.length+' questions saved to '+(target==='pyq_bank'?'PYQ Bank':'Question Bank'),
+      saved:   saved.length,
+      errors:  errors,
+      target:  target
+    });
+  } catch(err) { return res.status(500).json({ success:false, message:err.message }); }
+});
+
+// ── Feature 19 — Parse Preview (server-side validation only)
+router.post('/bulk-paste-validate', verifyToken, isAdmin, async function(req, res) {
+  try {
+    var questions = req.body.questions || [];
+    var valid   = questions.filter(function(q){return q.text&&q.options&&q.options.length>=2&&q.correct&&q.correct.length>0;}).length;
+    var invalid = questions.length - valid;
+    return res.json({ success:true, total:questions.length, valid:valid, invalid:invalid });
+  } catch(err) { return res.status(500).json({ success:false, message:err.message }); }
+});
+
+
 module.exports = router;

@@ -1,4 +1,5 @@
 'use client'
+import ContentForge from './ContentForge';
 import AIExplainTab from './AIExplainTab';
 import SmartPaperGen from './SmartPaperGen';
 import StoreAdminTab from './StoreAdminTab';
@@ -2240,6 +2241,7 @@ const confirmAndAdd=useCallback(async()=>{
     {id:'questions',ico:'❓',lbl:'Question Bank',grp:'Questions'},
     {id:'smart_gen',ico:'🤖',lbl:'Smart Generator',grp:'Questions'},
     {id:'ai_explain',ico:'💡',lbl:'AI Explanation',grp:'Questions'},
+    {id:'creation_studio',ico:'⚡',lbl:'Creation Studio',grp:'Questions'},
     {id:'pyq_bank',ico:'📚',lbl:'PYQ Bank',grp:'Questions'},
     {id:'students',ico:'👥',lbl:'Students',grp:'Students'},
     {id:'batches',ico:'📦',lbl:'Batches',grp:'Students'},
@@ -4078,6 +4080,11 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
           {/* ══ AI EXPLANATION GENERATOR ══ */}
           {tab==='ai_explain'&&(
             <AIExplainTab API={API} token={typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''} />
+          )}
+
+          {/* ══ CREATION STUDIO ══ */}
+          {tab==='creation_studio'&&(
+            <ContentForge API={API} token={typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''} />
           )}
 
           {/* ══ PYQ BANK ══ */}
