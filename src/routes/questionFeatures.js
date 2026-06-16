@@ -155,7 +155,6 @@ router.post('/:id/translate', verifyToken, isAdmin, async (req, res) => {
 
 
 // ── AI-10: AUTO EXPLANATION GENERATOR (Feature 18 — Real groqAI) ──────────────
-const { callGroqAI } = require('../utils/groqAI');
 
 function buildExplPrompt(opts) {
   var text = opts.text, options = opts.options||[], correctIdx = opts.correctIdx||0, mode = opts.mode||'paragraph', lang = opts.lang||'english';
