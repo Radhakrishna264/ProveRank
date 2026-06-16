@@ -93,15 +93,20 @@ function parseAnswerKey(text: string): Record<number, string> {
   return map;
 }
 
-function parseExplanations(text: string): Record<number, string> {
+function parseExplanations(text: string): { map: Record<number, string>; arr: string[] } {
   const map: Record<number, string> = {};
-  if (!text.trim()) return map;
+  var arr: string[] = [];
+  if (!text.trim()) return { map, arr };
   const blocks = text.split(/(?=(?:^|\n)\s*Q?\d+[\.\)\:\-\s])/im);
+  var foundAny = false;
   blocks.forEach(block => {
     const m = block.trim().match(/^Q?\s*(\d+)[\.\)\:\-\s]+(.+)/is);
-    if (m) map[parseInt(m[1])] = m[2].trim();
+    if (m) { map[parseInt(m[1])] = m[2].trim(); foundAny = true; }
   });
-  return map;
+  if (!foundAny) {
+    arr = text.split(/\n{2,}/).map(s => s.trim()).filter(Boolean);
+  }
+  return { map, arr };
 }
 
 function detectDelimiter(text: string): string | null {
@@ -160,15 +165,18 @@ function parseOneBlock(block: string, idx: number): Omit<ParsedQ, 'id'|'hindiTex
   return { num: qNum, text: qText.trim(), options, subject:undefined, chapter:undefined, difficulty:undefined, type:undefined };
 }
 
-function parseHindiBlocks(hindiText: string, customDelim?: string): Record<number, { text:string; options:string[] }> {
+function parseHindiBlocks(hindiText: string, customDelim?: string): { map: Record<number, { text:string; options:string[] }>; arr: { text:string; options:string[] }[] } {
   const map: Record<number, { text:string; options:string[] }> = {};
-  if (!hindiText.trim()) return map;
+  const arr: { text:string; options:string[] }[] = [];
+  if (!hindiText.trim()) return { map, arr };
   const blocks = splitIntoBlocks(hindiText, customDelim);
   blocks.forEach((block, idx) => {
     const parsed = parseOneBlock(block, idx);
-    map[parsed.num] = { text: parsed.text, options: parsed.options };
+    const entry = { text: parsed.text, options: parsed.options };
+    map[parsed.num] = entry;
+    arr.push(entry);
   });
-  return map;
+  return { map, arr };
 }
 
 function parseAll(engText: string, hindiText: string, ansKeyText: string, explText: string, customDelim: string): ParsedQ[] {
@@ -176,12 +184,16 @@ function parseAll(engText: string, hindiText: string, ansKeyText: string, explTe
   const delim = customDelim || detectDelimiter(engText) || undefined;
   const blocks = splitIntoBlocks(engText, delim);
   const ansMap  = parseAnswerKey(ansKeyText);
-  const explMap = parseExplanations(explText);
-  const hindiMap = parseHindiBlocks(hindiText, delim);
+  const explResult = parseExplanations(explText);
+  const explMap = explResult.map;
+  const explArr = explResult.arr;
+  const hindiResult = parseHindiBlocks(hindiText, delim);
+  const hindiMap = hindiResult.map;
+  const hindiArr = hindiResult.arr;
 
   return blocks.map((block, idx) => {
     const base = parseOneBlock(block, idx);
-    const hindi = hindiMap[base.num] || { text:'', options:[] };
+    const hindi = hindiMap[base.num] || hindiArr[idx] || { text:'', options:[] };
     const ansLetter = ansMap[base.num] || '';
     const correctIdx = ansLetter ? ['A','B','C','D'].indexOf(ansLetter) : -1;
     const correct = correctIdx >= 0 ? [correctIdx] : [];
@@ -200,7 +212,7 @@ function parseAll(engText: string, hindiText: string, ansKeyText: string, explTe
       hindiOptions: hindi.options,
       correct,
       correctLetter: ansLetter,
-      explanation:  explMap[base.num] || '',
+      explanation:  explMap[base.num] || explArr[idx] || '',
       hasError:     errors.length > 0,
       error:        errors.join('; '),
     };
@@ -222,7 +234,7 @@ function HomeView({ onNav }: { onNav:(v:View)=>void }) {
     <div style={{ maxWidth:900, margin:'0 auto' }}>
       <div style={{ textAlign:'center', marginBottom:36 }}>
         <div style={{ fontSize:28, fontWeight:800, background:'linear-gradient(135deg,#4D9FFF,#A78BFA)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', marginBottom:8 }}>
-          ⚡ Creation Studio
+          ⚡ Content Forge
         </div>
         <div style={{ fontSize:14, color:C.dim }}>Choose your preferred method to create questions at scale</div>
       </div>
@@ -583,7 +595,12 @@ function CopyPasteQBView({ API, token, onNav }: { API:string; token:string; onNa
 
                 {/* 19.18 Color-coded: Q text white */}
                 <div style={{ fontSize:11, color:'#E8F4FF', lineHeight:1.6, marginBottom:q.options.length?6:0 }}>{q.text?.slice(0,150)}{q.text?.length>150?'...':''}</div>
-                {q.hindiText && <div style={{ fontSize:10, color:'#C4B5FD', lineHeight:1.5, marginBottom:4, fontFamily:'serif' }}>{q.hindiText?.slice(0,100)}</div>}
+                {q.hindiText && <div style={{ fontSize:10, color:'#C4B5FD', lineHeight:1.6, marginBottom:6, fontFamily:'serif', wordBreak:'break-word' as const, whiteSpace:'pre-wrap' as const }}>{q.hindiText}</div>}
+                {q.explanation && (
+                  <div style={{ fontSize:10, color:'#F9A8D4', lineHeight:1.6, marginTop:2, marginBottom:6, padding:'6px 9px', background:'rgba(249,168,212,0.06)', border:'1px solid rgba(249,168,212,0.18)', borderRadius:7, wordBreak:'break-word' as const, whiteSpace:'pre-wrap' as const }}>
+                    💡 {q.explanation}
+                  </div>
+                )}
 
                 {/* 19.18 Options: blue */}
                 {q.options.length > 0 && (

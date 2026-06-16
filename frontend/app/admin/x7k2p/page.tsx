@@ -2241,7 +2241,7 @@ const confirmAndAdd=useCallback(async()=>{
     {id:'questions',ico:'❓',lbl:'Question Bank',grp:'Questions'},
     {id:'smart_gen',ico:'🤖',lbl:'Smart Generator',grp:'Questions'},
     {id:'ai_explain',ico:'💡',lbl:'AI Explanation',grp:'Questions'},
-    {id:'creation_studio',ico:'⚡',lbl:'Creation Studio',grp:'Questions'},
+    {id:'creation_studio',ico:'⚡',lbl:'Content Forge',grp:'Questions'},
     {id:'pyq_bank',ico:'📚',lbl:'PYQ Bank',grp:'Questions'},
     {id:'students',ico:'👥',lbl:'Students',grp:'Students'},
     {id:'batches',ico:'📦',lbl:'Batches',grp:'Students'},
