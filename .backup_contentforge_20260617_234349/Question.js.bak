@@ -10,7 +10,7 @@ const questionSchema = new mongoose.Schema({
     type: [String],
     required: true,
     validate: {
-      validator: function(v) { return this.type === 'Integer' || v.length >= 2; }, // FIX: Integer-type Qs legitimately have 0 options (19B.2.5/20.1.2.11/21B.5.5) — pre-existing bug, was blocking ALL Integer question creation system-wide
+      validator: function(v) { return v.length >= 2; },
       message: 'At least 2 options required'
     }
   },
@@ -113,4 +113,3 @@ questionSchema.pre('save', async function () {
 });
 
 module.exports = mongoose.model('Question', questionSchema);
-

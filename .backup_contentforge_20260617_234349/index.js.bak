@@ -197,7 +197,3 @@ app.use('/api/admin/email', require('./routes/emailSend'))
 app.use('/api/admin/store',  adminStoreRoutes);
 app.use('/api/store/payment', paymentRoutes);
 app.use('/api/store',        studentStoreRoutes);
-
-// -- Content Forge Routes (Features 19B / 20 / 20B / 21 / 21B)
-const contentForgeRoutes = require('./routes/contentForge');
-app.use('/api/content-forge', contentForgeRoutes);
