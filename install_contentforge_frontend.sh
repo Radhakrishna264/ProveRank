@@ -1,3 +1,20 @@
+#!/bin/bash
+set -e
+echo "=================================================="
+echo "ProveRank Frontend Installer — ContentForge.tsx"
+echo "Features 19B / 20 / 20B / 21 / 21B"
+echo "=================================================="
+
+cd ~/workspace || { echo "ERROR: ~/workspace not found"; exit 1; }
+
+echo "[1/2] Backing up existing ContentForge.tsx..."
+mkdir -p .backup_contentforge_frontend_$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR=$(ls -d .backup_contentforge_frontend_* | tail -1)
+cp frontend/app/admin/x7k2p/ContentForge.tsx "$BACKUP_DIR/ContentForge.tsx.bak" 2>/dev/null && echo "  -> backed up to $BACKUP_DIR" || echo "  -> no existing file found, skipping backup"
+
+echo "[2/2] Writing new ContentForge.tsx..."
+mkdir -p frontend/app/admin/x7k2p
+cat > "frontend/app/admin/x7k2p/ContentForge.tsx" << 'CONTENTFORGE_FRONTEND_EOF_MARKER'
 'use client';
 import * as React from 'react';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -2302,3 +2319,16 @@ export default function ContentForge({ API, token }: { API:string; token:string 
   );
 }
 
+CONTENTFORGE_FRONTEND_EOF_MARKER
+echo "  -> wrote frontend/app/admin/x7k2p/ContentForge.tsx"
+
+echo ""
+echo "--- Syntax check ---"
+node --check "frontend/app/admin/x7k2p/ContentForge.tsx" 2>/dev/null && echo "  [OK] basic JS syntax valid" || echo "  [skip] node --check cannot fully validate JSX/TSX — this is expected, use your Next.js dev server / build to confirm"
+
+echo ""
+echo "=================================================="
+echo "✅ FRONTEND FILE WRITTEN"
+echo "=================================================="
+echo "Restart your Next.js dev server to see changes."
+echo "(Sub-feature verification checklist will be a separate script, as requested.)"

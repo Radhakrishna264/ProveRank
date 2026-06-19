@@ -1446,8 +1446,6 @@ function CopyPasteCreateExamView({ API, token, onNav }: { API:string; token:stri
 // ═══════════════════════════════════════════════════════
 // SHARED — Excel/CSV Upload + Parse widget (F20.1-20.13 / F20B.1-20B.9)
 // ═══════════════════════════════════════════════════════
-const CANONICAL_FIELDS = ['Q_No','Question_Text','Hindi_Text','Option_A','Option_B','Option_C','Option_D','Hindi_A','Hindi_B','Hindi_C','Hindi_D','Correct_Answer','Subject','Chapter','Topic','Difficulty','Type','Explanation','Image_URL','OptionsImage_URL','Tags','Ignore'];
-
 function ExcelUploadZone({ API, token, onParsed }: { API:string; token:string; onParsed:(qs:ParsedQ[], summary:any)=>void }) {
   const [file, setFile] = useState<File|null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -1456,32 +1454,8 @@ function ExcelUploadZone({ API, token, onParsed }: { API:string; token:string; o
   const [gsheetUrl, setGsheetUrl] = useState(''); // F20.12
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // F20.17 — Column mapping UI state
-  const [rawHeaders, setRawHeaders] = useState<string[]>([]);
-  const [columnMap, setColumnMap] = useState<Record<string,string>>({});
-  const [showMapping, setShowMapping] = useState(false);
-
-  // F20.14 — Re-upload to fix errors, matched by row number
-  const [prevErrorRows, setPrevErrorRows] = useState<Set<number>>(new Set());
-  const [reuploadDiff, setReuploadDiff] = useState<{fixed:number[]; stillErroring:number[]}|null>(null);
-
-  // F20.15 — Import history panel
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyLogs, setHistoryLogs] = useState<any[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-
   const downloadTemplate = () => { // F20.2
     window.open(`${API}/api/content-forge/excel/template`, '_blank');
-  };
-
-  const loadHistory = async () => { // F20.15
-    setHistoryOpen(true); setHistoryLoading(true);
-    try {
-      const res = await fetch(`${API}/api/content-forge/import-history`, { headers:{ Authorization:`Bearer ${token}` } });
-      const d = await res.json();
-      setHistoryLogs(d.logs || []);
-    } catch (e) { setHistoryLogs([]); }
-    setHistoryLoading(false);
   };
 
   const toParsedQ = (rows:any[]): ParsedQ[] => rows.map((q,i) => ({
@@ -1496,30 +1470,16 @@ function ExcelUploadZone({ API, token, onParsed }: { API:string; token:string; o
     isDuplicateInDB:q.isDuplicateInDB, isDuplicateInFile:q.isDuplicateInFile,
   }));
 
-  const parseFile = async (f:File, opts?: { isReupload?: boolean; map?: Record<string,string> }) => { // F20.3 parse & validate
+  const parseFile = async (f:File) => { // F20.3 parse & validate
     setParsing(true); setError('');
     try {
       const fd = new FormData();
       fd.append('file', f);
-      const mapToUse = opts?.map || columnMap;
-      if (Object.keys(mapToUse).length > 0) fd.append('columnMap', JSON.stringify(mapToUse)); // F20.17
       const res = await fetch(`${API}/api/content-forge/excel/parse`, { method:'POST', headers:{ Authorization:`Bearer ${token}` }, body:fd });
       const d = await res.json();
       if (!d.success) { setError(d.message); setParsing(false); return; }
-
-      if (d.rawHeaders) setRawHeaders(d.rawHeaders); // F20.17 — store for mapping UI
-
-      const newErrorRows: number[] = (d.errors||[]).map((er:any)=>er.row).filter((r:any)=>typeof r === 'number');
-      if (opts?.isReupload) { // F20.14 — compare against previous error rows
-        const fixed = [...prevErrorRows].filter(r => !newErrorRows.includes(r));
-        const stillErroring = [...prevErrorRows].filter(r => newErrorRows.includes(r));
-        setReuploadDiff({ fixed, stillErroring });
-      } else {
-        setReuploadDiff(null);
-      }
-      setPrevErrorRows(new Set(newErrorRows));
-
       const parsedRows = toParsedQ(d.questions);
+      // attach row-level errors (F20.5) as additional pseudo-rows shown in error list
       const errorRows: ParsedQ[] = (d.errors||[]).map((er:any,i:number)=>({
         id:'err_'+i, num: er.row||0, text:`[Row ${er.row}] ${er.message}`, hindiText:'', options:[], hindiOptions:[],
         correct:[], correctLetter:'', explanation:'', hasError:true, error:er.message,
@@ -1544,88 +1504,30 @@ function ExcelUploadZone({ API, token, onParsed }: { API:string; token:string; o
     setParsing(false);
   };
 
-  // F20.17 — detect headers that didn't auto-map to a canonical name (best-effort: just list raw headers for manual override)
-  const applyMapping = () => {
-    if (file) parseFile(file, { map: columnMap });
-    setShowMapping(false);
-  };
-
   return (
     <div style={{ ...S.card }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
         <div style={{ fontSize:13, fontWeight:800 }}>📊 Step 1-2 — Upload Excel / CSV</div>
-        <div style={{ display:'flex', gap:8 }}>
-          <button onClick={loadHistory} style={{ ...S.bg, fontSize:11 }}>🕘 Import History</button>
-          <button onClick={downloadTemplate} style={{ ...S.bg, fontSize:11 }}>📥 Download Template</button>
-        </div>
+        <button onClick={downloadTemplate} style={{ ...S.bg, fontSize:11 }}>📥 Download Template</button>
       </div>
-
-      {/* F20.15 — Import History panel */}
-      {historyOpen && (
-        <div style={{ marginBottom:10, padding:10, background:'rgba(0,22,40,0.5)', borderRadius:10, border:`1px solid ${C.bor}` }}>
-          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
-            <span style={{ fontSize:11, fontWeight:700, color:C.ts }}>Recent Imports</span>
-            <button onClick={()=>setHistoryOpen(false)} style={{ fontSize:10, color:C.dim, background:'transparent', border:'none', cursor:'pointer' }}>✕</button>
-          </div>
-          {historyLoading && <div style={{ fontSize:10, color:C.dim }}>Loading...</div>}
-          {!historyLoading && historyLogs.length===0 && <div style={{ fontSize:10, color:C.dim }}>No imports yet.</div>}
-          {historyLogs.map((log,i)=>(
-            <div key={i} style={{ fontSize:10, color:C.dim, padding:'4px 0', borderBottom:`1px solid ${C.bor}` }}>
-              {log.sourceType==='excel'?'📊':'📄'} {log.target} — ✅{log.imported} imported, ⚠️{log.skipped} skipped, ❌{log.errorCount} errors — {new Date(log.createdAt).toLocaleString()}
-            </div>
-          ))}
-        </div>
-      )}
 
       <div
         onDragOver={e=>{e.preventDefault();setDragOver(true);}}
         onDragLeave={()=>setDragOver(false)}
-        onDrop={e=>{e.preventDefault();setDragOver(false);const f=e.dataTransfer.files[0];if(f){const isReupload=!!file;setFile(f);parseFile(f,{isReupload});}}}
+        onDrop={e=>{e.preventDefault();setDragOver(false);const f=e.dataTransfer.files[0];if(f){setFile(f);parseFile(f);}}}
         onClick={()=>fileRef.current?.click()}
         style={{ border:`2px dashed ${dragOver?C.suc:C.bor}`, borderRadius:14, padding:'30px 16px', textAlign:'center', cursor:'pointer', background:dragOver?'rgba(0,196,140,0.06)':'rgba(0,22,40,0.4)', transition:'all 0.2s', marginBottom:10 }}>
-        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display:'none' }} onChange={e=>{const f=e.target.files?.[0];if(f){const isReupload=!!file;setFile(f);parseFile(f,{isReupload});}}} />
+        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display:'none' }} onChange={e=>{const f=e.target.files?.[0];if(f){setFile(f);parseFile(f);}}} />
         <div style={{ fontSize:32, marginBottom:8 }}>📊</div>
         {!file && <div style={{ fontSize:12, color:C.dim }}>Drag & drop .xlsx / .xls / .csv here, or click to browse (max 10MB)</div>}
         {file && (
           <div style={{ fontSize:12, color:C.ts }}>
             📄 {file.name} <span style={{ color:C.dim }}>({(file.size/1024).toFixed(1)} KB)</span>
-            <button onClick={(e)=>{e.stopPropagation();setFile(null);setPrevErrorRows(new Set());setReuploadDiff(null);}} style={{ marginLeft:8, color:C.err, background:'transparent', border:'none', cursor:'pointer' }}>✕ Remove</button>
-            {prevErrorRows.size > 0 && <div style={{ fontSize:10, color:C.gold, marginTop:4 }}>💡 Fixed the file? Click/drop again above to re-upload — we'll tell you which error rows got fixed.</div>}
+            <button onClick={(e)=>{e.stopPropagation();setFile(null);}} style={{ marginLeft:8, color:C.err, background:'transparent', border:'none', cursor:'pointer' }}>✕ Remove</button>
           </div>
         )}
         {parsing && <div style={{ fontSize:11, color:C.acc, marginTop:8 }}>⟳ Parsing rows...</div>}
       </div>
-
-      {/* F20.14 — Re-upload comparison result */}
-      {reuploadDiff && (
-        <div style={{ marginBottom:10, padding:10, borderRadius:8, background:'rgba(0,196,140,0.06)', border:'1px solid rgba(0,196,140,0.25)' }}>
-          {reuploadDiff.fixed.length > 0 && <div style={{ fontSize:11, color:C.suc }}>✅ Fixed rows: {reuploadDiff.fixed.join(', ')}</div>}
-          {reuploadDiff.stillErroring.length > 0 && <div style={{ fontSize:11, color:C.err, marginTop:4 }}>❌ Still erroring rows: {reuploadDiff.stillErroring.join(', ')}</div>}
-          {reuploadDiff.fixed.length===0 && reuploadDiff.stillErroring.length===0 && <div style={{ fontSize:11, color:C.suc }}>✅ No errors remaining</div>}
-        </div>
-      )}
-
-      {/* F20.17 — Column mapping UI */}
-      {rawHeaders.length > 0 && (
-        <div style={{ marginBottom:10 }}>
-          <button onClick={()=>setShowMapping(!showMapping)} style={{ ...S.bg, fontSize:11 }}>🔧 {showMapping?'Hide':'Adjust'} Column Mapping ({rawHeaders.length} columns detected)</button>
-          {showMapping && (
-            <div style={{ marginTop:8, padding:10, background:'rgba(0,22,40,0.5)', borderRadius:10, border:`1px solid ${C.bor}` }}>
-              {rawHeaders.map(h=>(
-                <div key={h} style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6 }}>
-                  <span style={{ fontSize:11, color:C.ts, flex:1 }}>{h}</span>
-                  <span style={{ color:C.dim }}>→</span>
-                  <select value={columnMap[h]||''} onChange={e=>setColumnMap(prev=>({...prev,[h]:e.target.value}))} style={{ ...S.inp, flex:1 }}>
-                    <option value="">(auto-detect)</option>
-                    {CANONICAL_FIELDS.map(f=><option key={f} value={f}>{f}</option>)}
-                  </select>
-                </div>
-              ))}
-              <button onClick={applyMapping} style={{ ...S.bs, marginTop:6, fontSize:11 }}>Apply Mapping & Re-parse</button>
-            </div>
-          )}
-        </div>
-      )}
 
       <div style={{ display:'flex', gap:8, alignItems:'center' }}>
         <input value={gsheetUrl} onChange={e=>setGsheetUrl(e.target.value)} placeholder="Or paste Google Sheets public link..." style={{ ...S.inp, flex:1 }} />

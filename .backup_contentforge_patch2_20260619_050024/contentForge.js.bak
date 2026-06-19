@@ -7,7 +7,6 @@ const { verifyToken, isAdmin } = require('../middleware/auth');
 
 const Question = require('../models/Question');
 const Exam = require('../models/Exam');
-const ContentForgeImportLog = require('../models/ContentForgeImportLog'); // F20.15 import history
 
 const { parseQuestionExcel, parseQuestionCSVString, generateTemplateBuffer } = require('../utils/excelParser');
 const { buildQuestionsFromPDFs } = require('../utils/pdfQuestionParser');
@@ -129,7 +128,6 @@ router.post('/excel/save-to-bank', verifyToken, isAdmin, async (req, res) => {
       } catch (e) { skipped++; reportErrors.push({ text: q.text?.slice(0, 40), message: e.message }); }
     }
     res.json({ success: true, imported, skipped, errors: reportErrors }); // F20.9
-    ContentForgeImportLog.create({ sourceType: 'excel', target, fileName: req.body.fileName || '', imported, skipped, errorCount: reportErrors.length, errorDetails: reportErrors.slice(0, 20), createdBy: req.user.id }).catch(() => {}); // F20.15
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
@@ -217,7 +215,6 @@ router.post('/pdf/save-to-bank', verifyToken, isAdmin, async (req, res) => {
       } catch (e) { skipped++; reportErrors.push({ text: q.text?.slice(0, 40), message: e.message }); }
     }
     res.json({ success: true, imported, skipped, errors: reportErrors });
-    ContentForgeImportLog.create({ sourceType: 'pdf', target, fileName: sourceMeta?.fileName || '', imported, skipped, errorCount: reportErrors.length, errorDetails: reportErrors.slice(0, 20), createdBy: req.user.id }).catch(() => {}); // F20.15 (also covers PDF flow)
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
@@ -282,14 +279,6 @@ router.get('/templates', verifyToken, isAdmin, async (req, res) => {
   try {
     const templates = await Exam.find({ isTemplate: true }).select('title subject category duration totalMarks markingScheme type customInstructions watermark reviewWindow waitingRoomEnabled waitingRoomMinutes').sort({ createdAt: -1 }).limit(50);
     res.json({ success: true, templates });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
-});
-
-// F20.15 — Import history log (new upgraded flow)
-router.get('/import-history', verifyToken, isAdmin, async (req, res) => {
-  try {
-    const logs = await ContentForgeImportLog.find({}).sort({ createdAt: -1 }).limit(30);
-    res.json({ success: true, logs });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
