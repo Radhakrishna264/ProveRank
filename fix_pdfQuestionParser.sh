@@ -1,3 +1,40 @@
+#!/bin/bash
+set -e
+
+# ── Locate the file ──────────────────────────────────────────
+POSSIBLE_PATHS=(
+  "$HOME/workspace/src/utils/pdfQuestionParser.js"
+  "$HOME/workspace/utils/pdfQuestionParser.js"
+  "$HOME/workspace/backend/src/utils/pdfQuestionParser.js"
+  "$HOME/workspace/backend/utils/pdfQuestionParser.js"
+)
+
+TARGET=""
+for P in "${POSSIBLE_PATHS[@]}"; do
+  if [ -f "$P" ]; then TARGET="$P"; break; fi
+done
+
+if [ -z "$TARGET" ]; then
+  echo "❌  pdfQuestionParser.js not found in expected locations."
+  echo "    Common paths checked:"
+  for P in "${POSSIBLE_PATHS[@]}"; do echo "      $P"; done
+  echo ""
+  echo "    Run:  find ~/workspace -name 'pdfQuestionParser.js' 2>/dev/null"
+  echo "    Then re-run this script with:"
+  echo "      TARGET=/your/actual/path bash fix_pdfQuestionParser.sh"
+  exit 1
+fi
+
+# Allow override via env
+TARGET="${TARGET_OVERRIDE:-$TARGET}"
+echo "✅  Found: $TARGET"
+
+# ── Backup ───────────────────────────────────────────────────
+cp "$TARGET" "${TARGET}.bak_$(date +%Y%m%d_%H%M%S)"
+echo "✅  Backup created"
+
+# ── Write fixed file ─────────────────────────────────────────
+cat > "$TARGET" << 'ENDOFFILE'
 const fs = require('fs');
 const pdfParse = require('pdf-parse');
 
@@ -462,3 +499,22 @@ module.exports = {
   buildQuestionsFromPDFs,
   ocrFallback,
 };
+ENDOFFILE
+
+echo "✅  pdfQuestionParser.js updated at: $TARGET"
+echo ""
+echo "━━ Changes applied ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Fix 1 — stripRepeatingLines: (1)/(2)/(3)/(4) options"
+echo "           no longer stripped as repeating lines"
+echo "  Fix 2 — splitIntoBlocks: 'Question : N' AAKASH pattern added"
+echo "  Fix 3 — parseOneBlock: (1)/(2)/(3)/(4) numeric options detected"
+echo "           + 'Options:' header support (AAKASH)"
+echo "           + 'You scored N of N' metadata lines skipped"
+echo "  Fix 4 — parseAnswerKey: 'Answer (2)' AAKASH format supported"
+echo "           + '1. (3)' numeric option answer supported"
+echo "  Fix 5 — parseExplanations: 'Question : N / Solution :' blocks"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "🔄  Restart your server after applying:"
+echo "    cd ~/workspace && pm2 restart all"
+echo "    OR: npm run dev"
