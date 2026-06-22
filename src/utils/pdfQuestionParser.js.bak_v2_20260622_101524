@@ -2,14 +2,17 @@ const fs = require('fs');
 const pdfParse = require('pdf-parse');
 
 // ══════════════════════════════════════════════════════════════
-// Feature 21 / 21B — PDF Question Parsing Engine v3
-// Supports: ALLEN, CLC, AAKASH, Standard ABCD formats
+// Feature 21 / 21B — PDF Question Parsing Engine
+// Supports: ALLEN (N) opts), CLC (N. opts), AAKASH (Question:N),
+//           Standard (Q. N / A-D opts)
 // ══════════════════════════════════════════════════════════════
 
+// ── Numeric option helper ──────────────────────────────────
+// Maps option number 1-4 → letter A-D
 const NUM_TO_LETTER = { '1': 'A', '2': 'B', '3': 'C', '4': 'D' };
 function numOptToLetter(n) { return NUM_TO_LETTER[String(n)] || null; }
 
-// ── Page-by-page text extraction ──────────────────────────────
+// F21.2.1 — Extract text page-by-page
 async function extractPagesText(filePath) {
   const buffer = fs.readFileSync(filePath);
   const pages = [];
@@ -30,20 +33,21 @@ async function extractPagesText(filePath) {
       }
     });
     if (pages.length > 0) return pages;
-  } catch (e) { /* fallback */ }
+  } catch (e) { /* fall through */ }
   const data = await pdfParse(buffer);
   return [data.text || ''];
 }
 
-// ── Strip repeating headers/footers ───────────────────────────
-// FIX: optionLikePattern includes 1-4 so numeric options never stripped
+// F21.2.1 — Strip repeating headers/footers
+// FIX: optionLikePattern now includes (1)/(2)/(3)/(4) so numeric options
+//      are never mistaken for repeating lines.
 function stripRepeatingLines(pages) {
-  const optionLikePattern  = /^[\(\[]?[A-Da-d1-4][\)\]\.:\-]/i;
+  const optionLikePattern = /^[\(\[]?[A-Da-d1-4][\)\]\.:\-]/i;
   const commonOptionPhrase = /^(true|false|yes|no|none of (the )?above|all of (the )?above|cannot be determined|none of these|both \w+ and \w+)\.?$/i;
   const questionLikePattern = /^Q?\s*\d+[\.)\:\-]/i;
 
   const lineTotalCounts = {};
-  const linePageCounts  = {};
+  const linePageCounts = {};
   pages.forEach(p => {
     const lines = p.split('\n').map(l => l.trim()).filter(Boolean);
     lines.forEach(l => { lineTotalCounts[l] = (lineTotalCounts[l] || 0) + 1; });
@@ -65,6 +69,7 @@ function stripRepeatingLines(pages) {
   };
 }
 
+// F21.3.8 — Language detection
 function detectLanguage(text) {
   const hindiChars = (text.match(/[\u0900-\u097F]/g) || []).length;
   const engChars   = (text.match(/[A-Za-z]/g) || []).length;
@@ -73,6 +78,7 @@ function detectLanguage(text) {
   return 'English';
 }
 
+// F21.1.7 — Subject range map parser
 function parseSubjectRangeMap(mapText) {
   const perQuestion = {};
   const ranges = [];
@@ -108,48 +114,22 @@ function extractExplanationSection(text) {
   return m ? m[1] : text;
 }
 
-// ══════════════════════════════════════════════════════════════
-// CRITICAL FIX: ALLEN Inline Question Number Preprocessor
-// ALLEN PDFs have format: "...PHYSICS 1) question text..."
-// Question number is MID-LINE after subject name.
-// This function moves each "N)" to its own line so
-// splitIntoBlocks can correctly identify question boundaries.
-// ══════════════════════════════════════════════════════════════
-function preprocessAllenFormat(text) {
-  // Pattern: subject keyword followed by question number mid-line
-  // e.g. "PHYSICS 1)" or "CHEMISTRY 23)" or "MD PHYSICS 1)"
-  const subjectInlineRe = /\b(PHYSICS|CHEMISTRY|BIOLOGY|BOTANY|ZOOLOGY|MATHEMATICS?|MATH|ENGLISH|HINDI|MD)\s+(\d{1,3})\)/gi;
-  let processed = text.replace(subjectInlineRe, (match, subj, num) => {
-    return '\n' + num + ')';
-  });
-
-  // Also handle lines like "0999DMD... 22-06-2025 MD PHYSICS 1) text"
-  // where the whole header line contains a question number mid-line
-  // Split such lines at the question number
-  processed = processed.replace(/^(.{10,}?)\s+(\d{1,3})\)\s+(.{10,})/gm, (match, pre, num, qtext) => {
-    // Only split if pre-part looks like a header code (has digits/dates, no option markers)
-    if (/\d{4,}|\d{2}-\d{2}-\d{4}/.test(pre) && !/^[\(\[]?[A-Da-d1-4]/.test(pre.trim())) {
-      return '\n' + num + ') ' + qtext;
-    }
-    return match;
-  });
-
-  return processed;
-}
-
 // ── Answer Key Parser ──────────────────────────────────────
-// Pass 1: AAKASH "Question : N ... Answer (M)"
-// Pass 2: Standalone sequential "Answer (N)"
-// Pass 3: Standard + numeric option "1. (3)"
+// FIX: Now handles 4 formats:
+//  1) AAKASH style  — "Question : N ... Answer (M)" where M = option 1-4
+//  2) Standalone    — sequential "Answer (N)" blocks in solution PDFs
+//  3) Numeric opt   — "1. (3)" or "1) 3" where 3 = 1-based option index
+//  4) Standard      — "Q1 - B", "1. A", "1) D"  (original logic, kept intact)
 function parseAnswerKey(text) {
   const map = {};
   if (!text || !text.trim()) return map;
 
-  // Pass 1: AAKASH style
+  // ── Pass 1: AAKASH style "Question : N ... Answer (M)" ──────
+  // Each question block ends at next "Question :" or end of string.
   if (/Question\s*[:\s]+\d+/im.test(text)) {
-    const re = /Question\s*[:\s]+(\d+)[\s\S]{0,2000}?Answer\s*\(\s*([1-4A-Da-d])\s*\)/gim;
+    const aakashRe = /Question\s*[:\s]+(\d+)[\s\S]{0,2000}?Answer\s*\(\s*([1-4A-Da-d])\s*\)/gim;
     let found = false;
-    for (const m of text.matchAll(re)) {
+    for (const m of text.matchAll(aakashRe)) {
       const qNum = parseInt(m[1]);
       const raw  = m[2].trim().toUpperCase();
       const letter = /^[1-4]$/.test(raw) ? numOptToLetter(raw) : raw;
@@ -158,26 +138,29 @@ function parseAnswerKey(text) {
     if (found) return map;
   }
 
-  // Pass 2: Standalone "Answer (N)"
+  // ── Pass 2: Standalone sequential "Answer (N)" in solution PDFs ──
   const standaloneList = [...text.matchAll(/(?:^|\n)\s*Answer\s*\(\s*([1-4A-Da-d])\s*\)/gim)];
   if (standaloneList.length > 0) {
     standaloneList.forEach((m, idx) => {
+      // Try to find question number in preceding 500 chars
       const pre = text.slice(Math.max(0, m.index - 500), m.index);
       const qMatch = pre.match(/(?:^|\n)\s*Q?\s*(\d+)\s*[.)\-:\s]/im);
       const qNum = qMatch ? parseInt(qMatch[1]) : idx + 1;
       const raw  = m[1].trim().toUpperCase();
       const letter = /^[1-4]$/.test(raw) ? numOptToLetter(raw) : raw;
-      if (letter && /^[A-D]$/.test(letter)) map[qNum] = { letters: [letter] };
+      if (letter && /^[A-D]$/.test(letter)) { map[qNum] = { letters: [letter] }; }
     });
     if (Object.keys(map).length > 0) return map;
   }
 
-  // Pass 3: Standard formats
+  // ── Pass 3: Standard & numeric-option formats ────────────────
   const cleaned = extractAnswerKeySection(text);
   const lines   = cleaned.trim().split('\n').map(l => l.trim()).filter(Boolean);
   let foundAny  = false;
 
-  for (const m of cleaned.matchAll(/Q?\s*(\d+)\s*[\-\.)\:]\s*\(?([A-Da-d,\s]+|\-?\d+\.?\d*)\)?/g)) {
+  // "Q?N - X"  where X = letter(s), numeric answer, or option number 1-4
+  const matches = cleaned.matchAll(/Q?\s*(\d+)\s*[\-\.)\:]\s*\(?([A-Da-d,\s]+|\-?\d+\.?\d*)\)?/g);
+  for (const m of matches) {
     foundAny = true;
     const qNum = parseInt(m[1]);
     const raw  = m[2].trim();
@@ -185,6 +168,7 @@ function parseAnswerKey(text) {
       const letters = [...new Set((raw.toUpperCase().match(/[A-D]/g) || []))];
       if (letters.length > 0) map[qNum] = { letters };
     } else if (/^[1-4]$/.test(raw)) {
+      // FIX: single digit 1-4 = numeric option index → convert to letter
       const letter = numOptToLetter(raw);
       if (letter) map[qNum] = { letters: [letter] };
     } else {
@@ -194,10 +178,12 @@ function parseAnswerKey(text) {
   }
   if (foundAny) return map;
 
+  // Single-char-per-line  A / B / C / D
   if (lines.length > 0 && lines.every(l => /^[A-Da-d]$/.test(l))) {
     lines.forEach((l, i) => { map[i + 1] = { letters: [l.toUpperCase()] }; });
     return map;
   }
+  // All on one line  "ADBC..."
   if (lines.length === 1 && /^[A-Da-d]+$/.test(lines[0])) {
     lines[0].split('').forEach((ch, i) => { map[i + 1] = { letters: [ch.toUpperCase()] }; });
   }
@@ -205,26 +191,30 @@ function parseAnswerKey(text) {
 }
 
 // ── Explanation Parser ─────────────────────────────────────
+// FIX: Now handles AAKASH "Question : N" blocks with "Solution :" section,
+//      CLC "N." blocks, and original standard format.
 function parseExplanations(text) {
   const map = {};
   if (!text || !text.trim()) return map;
 
-  // AAKASH: "Question : N ... Solution : ... Answer (M) ..."
+  // AAKASH format: "Question : N ... Solution : ... Answer (M) ... explanation"
   if (/Question\s*[:\s]+\d+/im.test(text)) {
     const blocks = text.split(/(?=(?:^|\n)\s*Question\s*[:\s]+\d+)/im);
     blocks.forEach(block => {
-      const qMatch  = block.match(/Question\s*[:\s]+(\d+)/i);
+      const qMatch = block.match(/Question\s*[:\s]+(\d+)/i);
       if (!qMatch) return;
+      const qNum = parseInt(qMatch[1]);
       const solMatch = block.match(/Solution\s*:?\s*([\s\S]+)/i);
       if (solMatch) {
+        // Remove the "Answer (N)" line from explanation, keep the rest
         const raw = solMatch[1].replace(/^\s*Answer\s*\([1-4A-Da-d]\)\s*/i, '').trim();
-        if (raw) map[parseInt(qMatch[1])] = raw;
+        if (raw) map[qNum] = raw;
       }
     });
     if (Object.keys(map).length > 0) return map;
   }
 
-  // Standard / CLC
+  // Standard / CLC: split on "Q?N." or "N)" at line start
   const cleaned = extractExplanationSection(text);
   const blocks  = cleaned.split(/(?=(?:^|\n)\s*Q?\d+[\.)\:\-\s])/im);
   blocks.forEach(block => {
@@ -235,16 +225,15 @@ function parseExplanations(text) {
 }
 
 // ── Block Splitter ─────────────────────────────────────────
-// NOTE: preprocessAllenFormat() is called BEFORE this
-//       so ALLEN "N)" always appears at line start by now.
+// FIX: Added "Question : N" pattern (AAKASH) as highest priority.
 function splitIntoBlocks(text, customDelim) {
   if (customDelim && text.includes(customDelim)) {
     return text.split(customDelim).map(s => s.trim()).filter(Boolean);
   }
   const patterns = [
-    { re: /(?=(?:^|\n)\s*Question\s*[:\s]+\s*\d+)/im, name: 'question-label' },
-    { re: /(?=(?:^|\n)\s*Q\s*\.?\s*\d+[\s\.)\:\-])/im, name: 'Q-number' },
-    { re: /(?=(?:^|\n)\s*\d+[\.)\:\-\s])/m,            name: 'numbered' },
+    { re: /(?=(?:^|\n)\s*Question\s*[:\s]+\s*\d+)/im, name: 'question-label' }, // AAKASH
+    { re: /(?=(?:^|\n)\s*Q\s*\.?\s*\d+[\s\.)\:\-])/im, name: 'Q-number' },       // Q1. / Q1)
+    { re: /(?=(?:^|\n)\s*\d+[\.)\:\-\s])/m,            name: 'numbered' },        // 1. / 1) ALLEN
     { re: /(?=(?:^|\n)\s*[IVXLC]+[\.)\:\-\s])/m,       name: 'roman' },
   ];
   for (const p of patterns) {
@@ -257,35 +246,43 @@ function splitIntoBlocks(text, customDelim) {
 }
 
 // ── Single Block Parser ────────────────────────────────────
-// Supports: ALLEN (1)/(2)/(3)/(4), AAKASH Options: header,
-//           CLC (1)/(2)/(3)/(4), Standard (A)/(B)/(C)/(D)
+// FIX: Now supports three option formats:
+//   A) ALLEN / CLC  — (1) opt1 / (2) opt2 / (3) opt3 / (4) opt4
+//   B) AAKASH       — "Options:\n" header then plain-text lines
+//   C) Standard     — (A) opt1 / (B) opt2  [original logic, kept]
+// Also handles "Question : N" prefix and skips AAKASH metadata lines.
 function parseOneBlock(block, idx, pageHint) {
   const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
   if (lines.length === 0) return { num: idx + 1, text: '', options: [], hasParseError: true, parseError: 'Empty block' };
 
+  // ── Detect question number ──
   let qNum = idx + 1;
-  const aakashNumMatch  = lines[0].match(/^Question\s*[:\s]+(\d+)/i);
+  const aakashNumMatch = lines[0].match(/^Question\s*[:\s]+(\d+)/i);
   const standardNumMatch = lines[0].match(/^Q?\s*(\d+)[\s\.)\:\-]/i);
-  if (aakashNumMatch)    qNum = parseInt(aakashNumMatch[1]);
+  if (aakashNumMatch)  qNum = parseInt(aakashNumMatch[1]);
   else if (standardNumMatch) qNum = parseInt(standardNumMatch[1]);
 
+  // ── Strip question number prefix, start collecting question text ──
   let qText = '';
   let i = 0;
   if (aakashNumMatch) {
     qText = lines[0].replace(/^Question\s*[:\s]+\d+\s*/i, '').trim();
     i = 1;
+    // Skip AAKASH metadata: "You scored 4 of 4", "Time:", etc.
     while (i < lines.length && /^(You scored|Score:|Time\s*:|Marks?\s*:)/i.test(lines[i])) i++;
   } else {
     qText = lines[0].replace(/^Q?\s*\d+[\s\.)\:\-]\s*/i, '').trim();
     i = 1;
   }
 
-  const optAlpha   = /^(?:Option\s*)?[\(\[]?\s*([A-Da-d])\s*[\)\]\.:\-\s]+(.+)/i;
-  const optNumeric = /^[\(\[]\s*([1-4])\s*[\)\]\.:\-]\s*(.+)/;
-  const optHeader  = /^Options?\s*:?\s*$/i;
+  // Option line regexes — all three formats
+  const optAlpha   = /^(?:Option\s*)?[\(\[]?\s*([A-Da-d])\s*[\)\]\.:\-\s]+(.+)/i; // (A) / A) / A.
+  const optNumeric = /^[\(\[]\s*([1-4])\s*[\)\]\.:\-]\s*(.+)/;                     // (1) / [1] / (1).
+  const optHeader  = /^Options?\s*:?\s*$/i;                                          // "Options:" header
   const solMarker  = /^Solution\s*:?\s*$/i;
   const secHeader  = /^(PHYSICS|CHEMISTRY|BIOLOGY|MATHEMATICS|MATH|SECTION[\s\-]\w)/i;
 
+  // ── Accumulate question text lines until options start ──
   while (i < lines.length) {
     const l = lines[i];
     if (optAlpha.test(l) || optNumeric.test(l) || optHeader.test(l)) break;
@@ -295,15 +292,18 @@ function parseOneBlock(block, idx, pageHint) {
     i++;
   }
 
+  // ── Skip "Options:" header if present (AAKASH) ──
   let afterOptionsHeader = false;
   if (i < lines.length && optHeader.test(lines[i])) { i++; afterOptionsHeader = true; }
 
+  // ── Parse options ──
   const options = [];
   let isNumericOptions = false;
 
   while (i < lines.length) {
     const l = lines[i];
     if (solMarker.test(l)) break;
+
     const mAlpha   = l.match(optAlpha);
     const mNumeric = l.match(optNumeric);
 
@@ -317,6 +317,7 @@ function parseOneBlock(block, idx, pageHint) {
       afterOptionsHeader = false;
       i++;
     } else if (afterOptionsHeader && options.length < 4 && l.length > 0) {
+      // AAKASH plain-text options after "Options:" header
       options.push(l);
       i++;
     } else {
@@ -328,7 +329,14 @@ function parseOneBlock(block, idx, pageHint) {
   if (!qText.trim()) errors.push('Question text empty');
   if (options.length < 2) errors.push('Options not detected (<2) — Page ' + (pageHint || '?'));
 
-  return { num: qNum, text: qText.trim(), options, isNumericOptions, hasParseError: errors.length > 0, parseError: errors.join('; ') };
+  return {
+    num: qNum,
+    text: qText.trim(),
+    options,
+    isNumericOptions,
+    hasParseError: errors.length > 0,
+    parseError: errors.join('; '),
+  };
 }
 
 // ── Main Orchestrator ──────────────────────────────────────
@@ -348,10 +356,7 @@ async function buildQuestionsFromPDFs(args) {
   let pageBoundaries = [];
   let cum = 0;
   selectedPages.forEach(p => { cum += p.length + 1; pageBoundaries.push(cum); });
-
-  // CRITICAL FIX: preprocess ALLEN inline question number format
-  const rawJoined = selectedPages.join('\n');
-  const fullQuestionText = preprocessAllenFormat(rawJoined);
+  const fullQuestionText = selectedPages.join('\n');
 
   const language = detectLanguage(fullQuestionText);
 
@@ -364,6 +369,7 @@ async function buildQuestionsFromPDFs(args) {
     const explPages = await extractPagesText(explanationPdfPath);
     explanationMap = parseExplanations(explPages.join('\n'));
   }
+  // If answer key PDF is AAKASH solution style, also extract explanations from it
   if (Object.keys(explanationMap).length === 0) {
     explanationMap = parseExplanations(fullAnswerText);
   }
@@ -432,6 +438,7 @@ async function buildQuestionsFromPDFs(args) {
   };
 }
 
+// F21.16 — OCR fallback (optional, graceful fail)
 async function ocrFallback(filePath) {
   try {
     const Tesseract = require('tesseract.js');
@@ -452,7 +459,6 @@ module.exports = {
   parseExplanations,
   splitIntoBlocks,
   parseOneBlock,
-  preprocessAllenFormat,
   buildQuestionsFromPDFs,
   ocrFallback,
 };

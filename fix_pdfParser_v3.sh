@@ -1,3 +1,23 @@
+#!/bin/bash
+set -e
+
+POSSIBLE_PATHS=(
+  "$HOME/workspace/src/utils/pdfQuestionParser.js"
+  "$HOME/workspace/utils/pdfQuestionParser.js"
+  "$HOME/workspace/backend/src/utils/pdfQuestionParser.js"
+  "$HOME/workspace/backend/utils/pdfQuestionParser.js"
+)
+TARGET=""
+for P in "${POSSIBLE_PATHS[@]}"; do
+  if [ -f "$P" ]; then TARGET="$P"; break; fi
+done
+[ -z "$TARGET" ] && { echo "❌ pdfQuestionParser.js not found. Run: find ~/workspace -name 'pdfQuestionParser.js'"; exit 1; }
+TARGET="${TARGET_OVERRIDE:-$TARGET}"
+echo "✅ Found: $TARGET"
+cp "$TARGET" "${TARGET}.bak_v2_$(date +%Y%m%d_%H%M%S)"
+echo "✅ Backup created"
+
+cat > "$TARGET" << 'ENDOFFILE'
 const fs = require('fs');
 const pdfParse = require('pdf-parse');
 
@@ -456,3 +476,15 @@ module.exports = {
   buildQuestionsFromPDFs,
   ocrFallback,
 };
+ENDOFFILE
+
+echo "✅  pdfQuestionParser.js (v3) updated at: $TARGET"
+echo ""
+echo "━━ New Fix in v3 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  preprocessAllenFormat() — ALLEN/CLC PDFs mein question"
+echo "  number mid-line hota hai (e.g. 'PHYSICS 1) text')"
+echo "  ye function use N) ko line-start pe le aata hai"
+echo "  taaki splitIntoBlocks sahi se kaam kare"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "🔄  Restart: pm2 restart all  OR  npm run dev"
