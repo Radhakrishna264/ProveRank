@@ -49,7 +49,7 @@ function cleanupFiles(files) {
 // ══════════════════════════════════════════════════════════════
 
 // F20.2 — Download Excel Template
-router.get('/excel/template', (req, res) => { // public: window.open() can't send auth headers; template has no sensitive data
+router.get('/excel/template', verifyToken, isAdmin, (req, res) => {
   try {
     const buf = generateTemplateBuffer();
     res.setHeader('Content-Disposition', 'attachment; filename=ProveRank_Question_Template.xlsx');

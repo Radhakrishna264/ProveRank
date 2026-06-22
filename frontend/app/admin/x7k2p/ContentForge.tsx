@@ -40,7 +40,7 @@ interface SubjectCount { subject: string; count: number; }
 
 interface ExamDetailsState {
   title: string;
-  subject: string;
+  subjects: string[];     // multi-select (was single string) — admin can run multi-subject tests
   category: string;       // Full Mock / Chapter Test / Part Test / Grand Test / Mini Test
   examType: string;       // NEET / JEE / Custom
   duration: number;       // minutes — field name MUST be "duration"
@@ -49,17 +49,15 @@ interface ExamDetailsState {
   negativeMarks: number;
   startTime: string;
   endTime: string;
+  resultDateTime: string; // when result/scorecard becomes visible to students
   customInstructions: string;
   passwordEnabled: boolean;
   password: string;
-  whitelistEnabled: boolean;
   waitingRoomEnabled: boolean;
   waitingRoomMinutes: number;
   reattemptCount: 'best' | 'last';
   unlimitedAttempts: boolean;
   maxAttempts: number;
-  reviewWindowEnabled: boolean;
-  reviewWindowMinutes: number;
   sectionWiseEnabled: boolean;
   watermark: boolean;
   totalQuestionsRequested: number;
@@ -84,13 +82,12 @@ interface PostCreateState {
 
 function defaultExamDetails(): ExamDetailsState {
   return {
-    title: '', subject: 'Physics', category: 'Full Mock', examType: 'NEET',
+    title: '', subjects: [], category: 'Full Mock', examType: 'NEET',
     duration: 180, totalMarks: 720, correctMarks: 4, negativeMarks: -1,
-    startTime: '', endTime: '', customInstructions: '',
-    passwordEnabled: false, password: '', whitelistEnabled: false,
+    startTime: '', endTime: '', resultDateTime: '', customInstructions: '',
+    passwordEnabled: false, password: '',
     waitingRoomEnabled: false, waitingRoomMinutes: 10,
-    reattemptCount: 'last', unlimitedAttempts: false, maxAttempts: 1,
-    reviewWindowEnabled: false, reviewWindowMinutes: 0,
+    reattemptCount: 'last', unlimitedAttempts: true, maxAttempts: 1, // unlimited attempts ON by default
     sectionWiseEnabled: true, watermark: true,
     totalQuestionsRequested: 0, subjectWiseCount: [],
   };
@@ -398,18 +395,32 @@ function parseAll(engText: string, hindiText: string, ansKeyText: string, explTe
 // ═══════════════════════════════════════════════════════
 // SHARED — Exam Details Form (Step used by 19B.5 / 20B.5 / 21B.8)
 // ═══════════════════════════════════════════════════════
-function ExamDetailsForm({ d, setD, totalParsed }: { d:ExamDetailsState; setD:React.Dispatch<React.SetStateAction<ExamDetailsState>>; totalParsed:number }) {
+function ExamDetailsForm({ d, setD, totalParsed, detectedSubjects }: { d:ExamDetailsState; setD:React.Dispatch<React.SetStateAction<ExamDetailsState>>; totalParsed:number; detectedSubjects:string[] }) {
   const upd = (patch: Partial<ExamDetailsState>) => setD(prev => ({ ...prev, ...patch }));
-  const subjects = ['Physics','Chemistry','Biology','Math','Zoology','Botany','General Knowledge','English','Full Mock'];
-
-  const addSubjectRow = () => upd({ subjectWiseCount: [...d.subjectWiseCount, { subject:'Physics', count:0 }] });
-  const updSubjectRow = (i:number, patch: Partial<SubjectCount>) => {
-    const arr = [...d.subjectWiseCount]; arr[i] = { ...arr[i], ...patch }; upd({ subjectWiseCount: arr });
-  };
-  const delSubjectRow = (i:number) => upd({ subjectWiseCount: d.subjectWiseCount.filter((_,idx)=>idx!==i) });
 
   // F19B.5.29 / F20B.5.37 — subject color bars
   const subjectColor = (s:string) => ({ Physics:'#4D9FFF', Chemistry:'#F472B6', Biology:'#00C48C', Math:'#A78BFA', Zoology:'#22D3EE', Botany:'#84CC16' } as Record<string,string>)[s] || '#94A3B8';
+
+  // Multi-select subject: list = whatever was actually detected/allotted in the parsed content
+  // (paste subject-allotment text / Excel Subject column / PDF subject-range map) — NOT a static list.
+  const availableSubjects = detectedSubjects.length > 0 ? detectedSubjects : ['Physics','Chemistry','Biology','Math'];
+  const toggleSubject = (s:string) => {
+    const next = d.subjects.includes(s) ? d.subjects.filter(x=>x!==s) : [...d.subjects, s];
+    syncDistribution(next);
+  };
+
+  // Subject-wise distribution is COMPULSORY once subjects are chosen — rows are
+  // auto-synced to exactly match the selected subjects (admin only edits counts).
+  const syncDistribution = (subjList: string[]) => {
+    const existing: Record<string,number> = {};
+    d.subjectWiseCount.forEach(r => { existing[r.subject] = r.count; });
+    const newRows = subjList.map(s => ({ subject: s, count: existing[s] ?? 0 }));
+    upd({ subjects: subjList, subjectWiseCount: newRows });
+  };
+  const updSubjectRowCount = (i:number, count:number) => {
+    const arr = [...d.subjectWiseCount]; arr[i] = { ...arr[i], count }; upd({ subjectWiseCount: arr });
+  };
+  const distributedTotal = d.subjectWiseCount.reduce((s,r)=>s+(r.count||0),0);
 
   return (
     <div style={{ ...S.card }}>
@@ -420,13 +431,23 @@ function ExamDetailsForm({ d, setD, totalParsed }: { d:ExamDetailsState; setD:Re
         <input value={d.title} onChange={e=>upd({title:e.target.value})} placeholder="e.g. NEET Weekly Grand Test #12" style={S.inp} />
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:10 }}>
-        <div>
-          <label style={S.lbl}>Subject</label>
-          <select value={d.subject} onChange={e=>upd({subject:e.target.value})} style={S.inp}>
-            {subjects.map(s=><option key={s} value={s}>{s}</option>)}
-          </select>
+      {/* Multi-select subject chips — populated from detected/allotted subjects only */}
+      <div style={{ marginBottom:10 }}>
+        <label style={S.lbl}>Subject(s) * — tap to select one or more</label>
+        <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+          {availableSubjects.map(s=>(
+            <span key={s} onClick={()=>toggleSubject(s)} style={{
+              padding:'6px 12px', borderRadius:20, cursor:'pointer', fontSize:11, fontWeight:700,
+              border:`1.5px solid ${d.subjects.includes(s)?subjectColor(s):C.bor}`,
+              background:d.subjects.includes(s)?`${subjectColor(s)}22`:'rgba(0,22,40,0.5)',
+              color:d.subjects.includes(s)?subjectColor(s):C.dim,
+            }}>{d.subjects.includes(s)?'✓ ':''}{s}</span>
+          ))}
         </div>
+        {detectedSubjects.length === 0 && <div style={{ fontSize:10, color:C.dim, marginTop:4 }}>Paste/upload questions first — subjects will appear here automatically.</div>}
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10 }}>
         <div>
           <label style={S.lbl}>Category</label>
           <select value={d.category} onChange={e=>upd({category:e.target.value})} style={S.inp}>
@@ -455,23 +476,20 @@ function ExamDetailsForm({ d, setD, totalParsed }: { d:ExamDetailsState; setD:Re
         </div>
       </div>
 
-      {/* Subject-wise Qs count */}
-      <div style={{ marginBottom:10, padding:'10px 12px', background:'rgba(0,22,40,0.5)', borderRadius:10, border:`1px solid ${C.bor}` }}>
+      {/* Subject-wise Qs count — COMPULSORY, auto-synced from selected subjects above */}
+      <div style={{ marginBottom:10, padding:'10px 12px', background:'rgba(0,22,40,0.5)', borderRadius:10, border:`1px solid ${d.subjects.length===0?'rgba(255,77,77,0.4)':C.bor}` }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-          <label style={{ ...S.lbl, marginBottom:0 }}>Subject-wise Question Distribution (optional)</label>
-          <button onClick={addSubjectRow} style={{ ...S.bg, fontSize:10, padding:'4px 10px' }}>+ Add Subject</button>
+          <label style={{ ...S.lbl, marginBottom:0 }}>Subject-wise Question Distribution * (required)</label>
+          <span style={{ fontSize:10, color:distributedTotal===(d.totalQuestionsRequested||totalParsed)?C.suc:C.gold }}>{distributedTotal} / {d.totalQuestionsRequested||totalParsed} allocated</span>
         </div>
+        {d.subjects.length === 0 && <div style={{ fontSize:11, color:C.err }}>⚠️ Select at least one subject above first</div>}
         {d.subjectWiseCount.map((row,i)=>(
-          <div key={i} style={{ display:'flex', gap:6, marginBottom:6, alignItems:'center' }}>
+          <div key={row.subject} style={{ display:'flex', gap:6, marginBottom:6, alignItems:'center' }}>
             <span style={{ width:6, height:18, borderRadius:3, background:subjectColor(row.subject), flexShrink:0 }} />
-            <select value={row.subject} onChange={e=>updSubjectRow(i,{subject:e.target.value})} style={{ ...S.inp, flex:2 }}>
-              {subjects.map(s=><option key={s} value={s}>{s}</option>)}
-            </select>
-            <input type="number" value={row.count} onChange={e=>updSubjectRow(i,{count:parseInt(e.target.value)||0})} placeholder="Qs count" style={{ ...S.inp, flex:1 }} />
-            <button onClick={()=>delSubjectRow(i)} style={{ color:C.err, background:'transparent', border:'none', cursor:'pointer', fontSize:14 }}>✕</button>
+            <span style={{ fontSize:11, color:C.ts, flex:2 }}>{row.subject}</span>
+            <input type="number" value={row.count} onChange={e=>updSubjectRowCount(i,parseInt(e.target.value)||0)} placeholder="Qs count" style={{ ...S.inp, flex:1 }} />
           </div>
         ))}
-        {d.subjectWiseCount.length===0 && <div style={{ fontSize:11, color:C.dim }}>No split set — questions kept in original order.</div>}
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10 }}>
@@ -502,6 +520,10 @@ function ExamDetailsForm({ d, setD, totalParsed }: { d:ExamDetailsState; setD:Re
           <label style={S.lbl}>End Date & Time</label>
           <input type="datetime-local" value={d.endTime} onChange={e=>upd({endTime:e.target.value})} style={S.inp} />
         </div>
+        <div>
+          <label style={S.lbl}>Result Date & Time</label>
+          <input type="datetime-local" value={d.resultDateTime} onChange={e=>upd({resultDateTime:e.target.value})} style={S.inp} />
+        </div>
       </div>
 
       <div style={{ marginBottom:10 }}>
@@ -509,18 +531,13 @@ function ExamDetailsForm({ d, setD, totalParsed }: { d:ExamDetailsState; setD:Re
         <textarea value={d.customInstructions} onChange={e=>upd({customInstructions:e.target.value})} rows={2} style={S.inp} />
       </div>
 
-      {/* Toggles grid */}
+      {/* Toggles grid (Whitelist & Review Window removed — handled by a separate dedicated feature later) */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <span style={{ fontSize:11, color:C.dim }}>🔒 Password Protect</span>
           <Toggle on={d.passwordEnabled} onClick={()=>upd({passwordEnabled:!d.passwordEnabled})} />
         </div>
         {d.passwordEnabled && <input value={d.password} onChange={e=>upd({password:e.target.value})} placeholder="Exam password" style={S.inp} />}
-
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <span style={{ fontSize:11, color:C.dim }}>📋 Whitelist Students</span>
-          <Toggle on={d.whitelistEnabled} onClick={()=>upd({whitelistEnabled:!d.whitelistEnabled})} />
-        </div>
 
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <span style={{ fontSize:11, color:C.dim }}>⏳ Waiting Room</span>
@@ -533,12 +550,6 @@ function ExamDetailsForm({ d, setD, totalParsed }: { d:ExamDetailsState; setD:Re
           <Toggle on={d.unlimitedAttempts} onClick={()=>upd({unlimitedAttempts:!d.unlimitedAttempts})} />
         </div>
         {!d.unlimitedAttempts && <input type="number" value={d.maxAttempts} onChange={e=>upd({maxAttempts:parseInt(e.target.value)||1})} placeholder="Max attempts" style={S.inp} />}
-
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <span style={{ fontSize:11, color:C.dim }}>👁️ Review Window</span>
-          <Toggle on={d.reviewWindowEnabled} onClick={()=>upd({reviewWindowEnabled:!d.reviewWindowEnabled})} />
-        </div>
-        {d.reviewWindowEnabled && <input type="number" value={d.reviewWindowMinutes} onChange={e=>upd({reviewWindowMinutes:parseInt(e.target.value)||0})} placeholder="Minutes" style={S.inp} />}
 
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <span style={{ fontSize:11, color:C.dim }}>📑 Section-wise Display</span>
@@ -667,6 +678,67 @@ function PostCreateActions({ p, setP }: { p:PostCreateState; setP:React.Dispatch
         <span style={{ fontSize:11, color:C.dim }}>📤 Publish Now (instead of saving as Draft)</span>
         <Toggle on={p.publishNow} onClick={()=>upd({publishNow:!p.publishNow})} />
       </div>
+    </div>
+  );
+}
+
+// BUGFIX: shared rich preview card — full text (no .slice truncation), Hindi
+// text/options shown when present, explanation shown when present, image
+// shown when present. Used by ALL preview lists (19B/20B/21B parsed+exam
+// modes, and Feature 20/21 QB-upload previews) so this fixes the
+// "Qs/options/Hindi/explanation not showing properly" bug everywhere at once.
+function QuestionPreviewCard({ q, index, accent, onEdit, onDelete, onMoveUp, onMoveDown }: {
+  q: ParsedQ; index?: number; accent?: string;
+  onEdit?: () => void; onDelete?: () => void; onMoveUp?: () => void; onMoveDown?: () => void;
+}) {
+  const acc = accent || C.acc;
+  const status = q.hasError ? 'error' : (q.isDuplicateInDB || q.isDuplicateInFile || q.isDuplicate) ? 'duplicate' : (q.needsReview ? 'review' : 'valid');
+  const borderColor = status==='error' ? 'rgba(255,77,77,0.4)' : status==='duplicate' ? 'rgba(255,184,77,0.4)' : status==='review' ? 'rgba(245,158,11,0.4)' : C.bor;
+  const bgColor = status==='error' ? 'rgba(255,77,77,0.05)' : 'rgba(0,22,40,0.7)';
+
+  return (
+    <div style={{ border:`1px solid ${borderColor}`, borderLeft:`3px solid ${borderColor}`, borderRadius:10, padding:12, marginBottom:8, background:bgColor }}>
+      <div style={{ display:'flex', gap:6, marginBottom:8, flexWrap:'wrap', alignItems:'center' }}>
+        <span style={{ fontSize:10, color:acc, fontWeight:800 }}>{index!==undefined ? `${index+1}.` : `Q${q.num}`}</span>
+        {q.subject && <span style={{ fontSize:9, padding:'2px 6px', borderRadius:6, background:`${acc}1A`, color:acc }}>{q.subject}</span>}
+        {q.type && <span style={{ fontSize:9, padding:'2px 6px', borderRadius:6, background:'rgba(0,22,40,0.5)', color:C.dim }}>{q.type}</span>}
+        {q.page && <span style={{ fontSize:9, color:C.dim }}>· Page {q.page}</span>}
+        {q.confidencePct !== undefined && <span style={{ fontSize:9, color:C.dim }}>· {q.confidencePct}% confident</span>}
+        {q.hasError && <span style={{ fontSize:9, color:C.err }}>⚠️ {q.error}</span>}
+        {status==='duplicate' && <span style={{ fontSize:9, color:C.wrn }}>⚠️ Duplicate</span>}
+        {status==='review' && <span style={{ fontSize:9, color:C.gold }}>🔶 Needs Review</span>}
+        {(onMoveUp || onMoveDown || onEdit || onDelete) && (
+          <div style={{ display:'flex', gap:4, marginLeft:'auto' }}>
+            {onMoveUp && <button onClick={onMoveUp} style={{ fontSize:9, padding:'2px 6px', borderRadius:6, border:`1px solid ${C.bor}`, background:'transparent', color:C.dim, cursor:'pointer' }}>↑</button>}
+            {onMoveDown && <button onClick={onMoveDown} style={{ fontSize:9, padding:'2px 6px', borderRadius:6, border:`1px solid ${C.bor}`, background:'transparent', color:C.dim, cursor:'pointer' }}>↓</button>}
+            {onEdit && <button onClick={onEdit} style={{ fontSize:9, padding:'2px 8px', borderRadius:6, border:`1px solid ${C.bor}`, background:'transparent', color:acc, cursor:'pointer' }}>✏️</button>}
+            {onDelete && <button onClick={onDelete} style={{ fontSize:9, padding:'2px 8px', borderRadius:6, border:'1px solid rgba(255,77,77,0.3)', background:'transparent', color:C.err, cursor:'pointer' }}>✕</button>}
+          </div>
+        )}
+      </div>
+
+      <div style={{ fontSize:12, color:C.ts, marginBottom:4, lineHeight:1.5 }}><MathText text={q.text} /></div>
+      {q.hindiText && <div style={{ fontSize:11, color:'#B8C7D9', marginBottom:6, lineHeight:1.5, fontStyle:'italic' }}><MathText text={q.hindiText} /></div>}
+      {q.imageUrl && <img src={q.imageUrl} alt="question" style={{ maxWidth:'100%', borderRadius:8, marginBottom:6 }} />}
+
+      {q.options.length > 0 && (
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:4, marginBottom:6 }}>
+          {q.options.map((opt,j)=>(
+            <div key={j} style={{ fontSize:10, padding:'4px 7px', borderRadius:6, background:q.correct.includes(j)?'rgba(0,196,140,0.12)':'rgba(77,159,255,0.06)', color:q.correct.includes(j)?C.suc:'#93C5FD' }}>
+              {String.fromCharCode(65+j)}) <MathText text={opt} /> {q.correct.includes(j)&&'✅'}
+              {q.hindiOptions?.[j] && <div style={{ fontSize:9, color:'#7C93AD', fontStyle:'italic' }}>{q.hindiOptions[j]}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+      {q.type==='Integer' && <div style={{ fontSize:11, color:C.suc, marginBottom:6, fontWeight:700 }}>✅ Answer: {q.correct[0]}</div>}
+
+      {q.explanation && (
+        <div style={{ marginTop:6, padding:'6px 10px', borderRadius:8, background:'rgba(167,139,250,0.08)', border:'1px solid rgba(167,139,250,0.2)' }}>
+          <div style={{ fontSize:9, color:C.purple, fontWeight:700, marginBottom:2 }}>💡 EXPLANATION</div>
+          <div style={{ fontSize:10, color:'#D8D2F5' }}><MathText text={q.explanation} /></div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1233,12 +1305,16 @@ function CopyPasteCreateExamView({ API, token, onNav }: { API:string; token:stri
     const t = setTimeout(() => {
       const result = parseAll(engText, hindiText, ansKey, explText, customDelim);
       const sMap = parseSubjectMap(subjectMapText);
-      const withSubj = result.map(q => ({ ...q, subject: sMap[q.num] || q.subject || examD.subject }));
+      const withSubj = result.map(q => ({ ...q, subject: sMap[q.num] || q.subject || 'General' }));
       setParsedQs(withSubj);
       setIsParsing(false);
     }, 400);
     return () => clearTimeout(t);
   }, [engText, hindiText, ansKey, explText, customDelim, subjectMapText]);
+
+  // BUGFIX: subject dropdown must be populated from what was actually detected/allotted
+  // in the pasted content — not a hardcoded static list.
+  const detectedSubjects = [...new Set(parsedQs.map(q => q.subject).filter(Boolean))] as string[];
 
   const goodQs = parsedQs.filter(q => !q.hasError);
   const errQs = parsedQs.filter(q => q.hasError);
@@ -1257,16 +1333,14 @@ function CopyPasteCreateExamView({ API, token, onNav }: { API:string; token:stri
       const payload = {
         questions: goodQs,
         examDetails: {
-          title: examD.title, subject: examD.subject, category: examD.category, type: examD.examType,
+          title: examD.title, subject: examD.subjects.join(', '), category: examD.category, type: examD.examType,
           duration: examD.duration, totalMarks: examD.totalMarks,
           markingScheme: { correct: examD.correctMarks, incorrect: examD.negativeMarks, unattempted: 0 },
-          schedule: { startTime: examD.startTime||undefined, endTime: examD.endTime||undefined },
+          schedule: { startTime: examD.startTime||undefined, endTime: examD.endTime||undefined, resultTime: examD.resultDateTime||undefined },
           customInstructions: examD.customInstructions,
           password: examD.passwordEnabled ? examD.password : '',
-          whitelistEnabled: examD.whitelistEnabled,
           waitingRoomEnabled: examD.waitingRoomEnabled, waitingRoomMinutes: examD.waitingRoomMinutes,
           reattemptCount: examD.reattemptCount, unlimitedAttempts: examD.unlimitedAttempts, maxAttempts: examD.maxAttempts,
-          reviewWindow: { enabled: examD.reviewWindowEnabled, durationMinutes: examD.reviewWindowMinutes },
           watermark: examD.watermark,
           totalQuestionsRequested: examD.totalQuestionsRequested, subjectWiseCount: examD.subjectWiseCount,
         },
@@ -1345,7 +1419,7 @@ function CopyPasteCreateExamView({ API, token, onNav }: { API:string; token:stri
           </div>
 
 
-          <ExamDetailsForm d={examD} setD={setExamD} totalParsed={parsedQs.length} />
+          <ExamDetailsForm d={examD} setD={setExamD} totalParsed={parsedQs.length} detectedSubjects={detectedSubjects} />
           <AssignmentSelector a={assign} setA={setAssign} API={API} token={getToken()} />
           <PostCreateActions p={postC} setP={setPostC} />
 
@@ -1372,29 +1446,12 @@ function CopyPasteCreateExamView({ API, token, onNav }: { API:string; token:stri
           <div style={{ height:isMobile?420:'calc(100vh - 320px)', overflowY:'auto' }}>
             {parsedQs.length===0 && <div style={{ textAlign:'center', padding:40, color:C.dim }}>Paste questions on the left to see live preview</div>}
             {previewMode==='parsed' && parsedQs.map((q,i)=>(
-              <div key={q.id} style={{ border:`1px solid ${q.hasError?'rgba(255,77,77,0.4)':C.bor}`, borderRadius:10, padding:10, marginBottom:8, background:q.hasError?'rgba(255,77,77,0.05)':'rgba(0,22,40,0.7)' }}>
-                <div style={{ display:'flex', gap:6, marginBottom:6, flexWrap:'wrap', alignItems:'center' }}>
-                  <span style={{ fontSize:10, color:C.acc, fontWeight:800 }}>Q{q.num}</span>
-                  <span style={{ fontSize:9, padding:'2px 6px', borderRadius:6, background:'rgba(77,159,255,0.1)', color:C.acc }}>{q.subject}</span>
-                  <span style={{ fontSize:9, padding:'2px 6px', borderRadius:6, background:'rgba(0,22,40,0.5)', color:C.dim }}>{q.type}</span>
-                  {q.hasError && <span style={{ fontSize:9, color:C.err }}>⚠️ {q.error}</span>}
-                  <button onClick={()=>setParsedQs(prev=>moveQuestion(prev,i,'up'))} style={{ marginLeft:'auto', fontSize:9, padding:'2px 6px', borderRadius:6, border:`1px solid ${C.bor}`, background:'transparent', color:C.dim, cursor:'pointer' }}>↑</button>
-                  <button onClick={()=>setParsedQs(prev=>moveQuestion(prev,i,'down'))} style={{ fontSize:9, padding:'2px 6px', borderRadius:6, border:`1px solid ${C.bor}`, background:'transparent', color:C.dim, cursor:'pointer' }}>↓</button>
-                  <button onClick={()=>{setEditingQ(q);setEditDraft({...q});}} style={{ fontSize:9, padding:'2px 8px', borderRadius:6, border:`1px solid ${C.bor}`, background:'transparent', color:C.acc, cursor:'pointer' }}>✏️</button>
-                  <button onClick={()=>setParsedQs(prev=>prev.filter(x=>x.id!==q.id))} style={{ fontSize:9, padding:'2px 8px', borderRadius:6, border:'1px solid rgba(255,77,77,0.3)', background:'transparent', color:C.err, cursor:'pointer' }}>✕</button>
-                </div>
-                <div style={{ fontSize:11, color:C.ts, marginBottom:4 }}><MathText text={q.text.slice(0,120)} /></div>
-                {q.options.length>0 && (
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:3 }}>
-                    {q.options.map((opt,j)=>(
-                      <div key={j} style={{ fontSize:9, padding:'2px 6px', borderRadius:5, background:q.correct.includes(j)?'rgba(0,196,140,0.12)':'rgba(77,159,255,0.06)', color:q.correct.includes(j)?C.suc:'#93C5FD' }}>
-                        {String.fromCharCode(65+j)}) {opt.slice(0,30)} {q.correct.includes(j)&&'✅'}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {q.type==='Integer' && <div style={{ fontSize:10, color:C.suc, marginTop:4 }}>Answer: {q.correct[0]}</div>}
-              </div>
+              <QuestionPreviewCard key={q.id} q={q} accent={C.acc}
+                onMoveUp={()=>setParsedQs(prev=>moveQuestion(prev,i,'up'))}
+                onMoveDown={()=>setParsedQs(prev=>moveQuestion(prev,i,'down'))}
+                onEdit={()=>{setEditingQ(q);setEditDraft({...q});}}
+                onDelete={()=>setParsedQs(prev=>prev.filter(x=>x.id!==q.id))}
+              />
             ))}
             {previewMode==='exam' && (
               <div>
@@ -1402,11 +1459,7 @@ function CopyPasteCreateExamView({ API, token, onNav }: { API:string; token:stri
                   <div style={{ fontSize:13, fontWeight:800, color:C.ts }}>{examD.title || 'Untitled Exam'}</div>
                   <div style={{ fontSize:10, color:C.dim, marginTop:4 }}>{examD.examType} · {examD.duration} mins · {examD.totalMarks} marks · {goodQs.length} Qs</div>
                 </div>
-                {goodQs.slice(0,30).map((q,i)=>(
-                  <div key={q.id} style={{ borderBottom:`1px solid ${C.bor}`, padding:'8px 4px', fontSize:11 }}>
-                    <b style={{ color:C.acc }}>{i+1}.</b> <MathText text={q.text.slice(0,100)} />
-                  </div>
-                ))}
+                {goodQs.map((q,i)=> <QuestionPreviewCard key={q.id} q={q} index={i} accent={C.acc} />)}
               </div>
             )}
           </div>
@@ -1692,25 +1745,12 @@ function ExcelQBUploadView({ API, token, onNav }: { API:string; token:string; on
           </div>
 
           <div style={{ maxHeight:500, overflowY:'auto', marginBottom:14 }}>
-            {parsedQs.map(q=>{
-              const status = rowStatus(q);
-              const bg = status==='error'?'rgba(255,77,77,0.06)':status==='duplicate'?'rgba(255,184,77,0.06)':'rgba(0,196,140,0.04)';
-              const bor = status==='error'?'rgba(255,77,77,0.4)':status==='duplicate'?'rgba(255,184,77,0.4)':'rgba(0,196,140,0.25)';
-              return (
-                <div key={q.id} style={{ border:`1px solid ${bor}`, borderLeft:`3px solid ${bor}`, borderRadius:8, padding:10, marginBottom:6, background:bg }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
-                    <span style={{ fontSize:11, fontWeight:700 }}>Q{q.num} {q.subject && <span style={{ color:C.dim, fontWeight:400 }}>· {q.subject}</span>}</span>
-                    <div style={{ display:'flex', gap:6 }}>
-                      {status==='valid' && !q.error && <button onClick={()=>{setEditingQ(q);setEditDraft({...q});}} style={{ fontSize:9, color:C.acc, background:'transparent', border:'none', cursor:'pointer' }}>✏️ Edit</button>}
-                      <button onClick={()=>setParsedQs(prev=>prev.filter(x=>x.id!==q.id))} style={{ fontSize:9, color:C.err, background:'transparent', border:'none', cursor:'pointer' }}>✕</button>
-                    </div>
-                  </div>
-                  <div style={{ fontSize:11 }}><MathText text={q.text} /></div>
-                  {q.error && <div style={{ fontSize:10, color:C.err, marginTop:4 }}>⚠️ {q.error}</div>}
-                  {status==='duplicate' && <div style={{ fontSize:10, color:C.wrn, marginTop:4 }}>⚠️ Duplicate question detected</div>}
-                </div>
-              );
-            })}
+            {parsedQs.map(q=>(
+              <QuestionPreviewCard key={q.id} q={q} accent={C.green}
+                onEdit={()=>{setEditingQ(q);setEditDraft({...q});}}
+                onDelete={()=>setParsedQs(prev=>prev.filter(x=>x.id!==q.id))}
+              />
+            ))}
           </div>
 
           <button onClick={handleImport} disabled={saving||validCount===0} style={{ ...S.bp, width:'100%', padding:14, opacity:saving||validCount===0?0.6:1 }}>
@@ -1755,6 +1795,8 @@ function ExcelCreateExamView({ API, token, onNav }: { API:string; token:string; 
 
   const goodQs = parsedQs.filter(q => !q.hasError && !q.isDuplicateInDB && !q.isDuplicateInFile);
   const errQs = parsedQs.filter(q => q.hasError);
+  // BUGFIX: subject dropdown populated from subjects actually present in the uploaded sheet
+  const detectedSubjects = [...new Set(parsedQs.map(q => q.subject).filter(Boolean))] as string[];
 
   const saveEdit = () => { if(!editDraft) return; setParsedQs(prev=>prev.map(q=>q.id===editDraft.id?editDraft:q)); setEditingQ(null); setEditDraft(null); };
 
@@ -1766,16 +1808,14 @@ function ExcelCreateExamView({ API, token, onNav }: { API:string; token:string; 
       const payload = {
         questions: goodQs,
         examDetails: {
-          title: examD.title, subject: examD.subject, category: examD.category, type: examD.examType,
+          title: examD.title, subject: examD.subjects.join(', '), category: examD.category, type: examD.examType,
           duration: examD.duration, totalMarks: examD.totalMarks,
           markingScheme: { correct: examD.correctMarks, incorrect: examD.negativeMarks, unattempted: 0 },
-          schedule: { startTime: examD.startTime||undefined, endTime: examD.endTime||undefined },
+          schedule: { startTime: examD.startTime||undefined, endTime: examD.endTime||undefined, resultTime: examD.resultDateTime||undefined },
           customInstructions: examD.customInstructions,
           password: examD.passwordEnabled ? examD.password : '',
-          whitelistEnabled: examD.whitelistEnabled,
           waitingRoomEnabled: examD.waitingRoomEnabled, waitingRoomMinutes: examD.waitingRoomMinutes,
           reattemptCount: examD.reattemptCount, unlimitedAttempts: examD.unlimitedAttempts, maxAttempts: examD.maxAttempts,
-          reviewWindow: { enabled: examD.reviewWindowEnabled, durationMinutes: examD.reviewWindowMinutes },
           watermark: examD.watermark,
           totalQuestionsRequested: examD.totalQuestionsRequested, subjectWiseCount: examD.subjectWiseCount,
         },
@@ -1831,7 +1871,7 @@ function ExcelCreateExamView({ API, token, onNav }: { API:string; token:string; 
       <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'65% 35%', gap:16 }}>
         <div>
           <ExcelUploadZone API={API} token={getToken()} onParsed={(qs)=>setParsedQs(qs)} />
-          <ExamDetailsForm d={examD} setD={setExamD} totalParsed={goodQs.length} />
+          <ExamDetailsForm d={examD} setD={setExamD} totalParsed={goodQs.length} detectedSubjects={detectedSubjects} />
           <AssignmentSelector a={assign} setA={setAssign} API={API} token={getToken()} />
           <PostCreateActions p={postC} setP={setPostC} />
           <DuplicateCheckPanel texts={goodQs.map(q=>q.text)} batch={assign.batch} API={API} token={getToken()} />
@@ -1853,27 +1893,15 @@ function ExcelCreateExamView({ API, token, onNav }: { API:string; token:string; 
           </div>
           <div style={{ height:isMobile?420:'calc(100vh - 320px)', overflowY:'auto' }}>
             {parsedQs.length===0 && <div style={{ textAlign:'center', padding:40, color:C.dim }}>Upload a file on the left to preview</div>}
-            {previewMode==='parsed' && parsedQs.map((q,i)=>{
-              const status = q.hasError?'error':(q.isDuplicateInDB||q.isDuplicateInFile)?'duplicate':'valid';
-              const bor = status==='error'?'rgba(255,77,77,0.4)':status==='duplicate'?'rgba(255,184,77,0.4)':'rgba(0,196,140,0.25)';
-              return (
-                <div key={q.id} style={{ border:`1px solid ${bor}`, borderLeft:`3px solid ${bor}`, borderRadius:8, padding:10, marginBottom:6 }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontSize:10, fontWeight:700 }}>Q{q.num} · {q.subject}</span>
-                    <div style={{ display:'flex', gap:4 }}>
-                      <button onClick={()=>setParsedQs(prev=>moveQuestion(prev,i,'up'))} style={{ fontSize:9, color:C.dim, background:'transparent', border:'none', cursor:'pointer' }}>↑</button>
-                      <button onClick={()=>setParsedQs(prev=>moveQuestion(prev,i,'down'))} style={{ fontSize:9, color:C.dim, background:'transparent', border:'none', cursor:'pointer' }}>↓</button>
-                      <button onClick={()=>{setEditingQ(q);setEditDraft({...q});}} style={{ fontSize:9, color:C.acc, background:'transparent', border:'none', cursor:'pointer' }}>✏️</button>
-                    </div>
-                  </div>
-                  <div style={{ fontSize:11, marginTop:4 }}><MathText text={q.text.slice(0,100)} /></div>
-                  {q.error && <div style={{ fontSize:10, color:C.err, marginTop:4 }}>⚠️ {q.error}</div>}
-                </div>
-              );
-            })}
-            {previewMode==='exam' && goodQs.slice(0,30).map((q,i)=>(
-              <div key={q.id} style={{ borderBottom:`1px solid ${C.bor}`, padding:'8px 4px', fontSize:11 }}><b style={{color:C.green}}>{i+1}.</b> <MathText text={q.text.slice(0,100)} /></div>
+            {previewMode==='parsed' && parsedQs.map((q,i)=>(
+              <QuestionPreviewCard key={q.id} q={q} accent={C.green}
+                onMoveUp={()=>setParsedQs(prev=>moveQuestion(prev,i,'up'))}
+                onMoveDown={()=>setParsedQs(prev=>moveQuestion(prev,i,'down'))}
+                onEdit={()=>{setEditingQ(q);setEditDraft({...q});}}
+                onDelete={()=>setParsedQs(prev=>prev.filter(x=>x.id!==q.id))}
+              />
             ))}
+            {previewMode==='exam' && goodQs.map((q,i)=> <QuestionPreviewCard key={q.id} q={q} index={i} accent={C.green} />)}
           </div>
         </div>
       </div>
@@ -1906,6 +1934,25 @@ function ExcelCreateExamView({ API, token, onNav }: { API:string; token:string; 
 // ═══════════════════════════════════════════════════════
 // SHARED — PDF Upload + Parse widget (F21.1-21.20 / F21B.1-21B.7)
 // ═══════════════════════════════════════════════════════
+
+// BUGFIX: FileSlot must be defined at module scope, NOT inside PDFUploadZone's
+// render body. Redefining a component function on every render makes React
+// treat it as a different component type each time, forcing it to unmount &
+// remount the underlying <input type=file> on every keystroke/state-change —
+// this was the root cause of "choose file → nothing happens". Also broadened
+// `accept` to include the MIME type (some Android file pickers hide files
+// that aren't extension-AND-mimetype tagged when only ".pdf" is given).
+function FileSlot({ label, file, setFile, inputRef, required }: { label:string; file:File|null; setFile:(f:File|null)=>void; inputRef:React.RefObject<HTMLInputElement>; required?:boolean }) {
+  return (
+    <div onClick={()=>inputRef.current?.click()} style={{ border:`2px dashed ${file?C.gold:C.bor}`, borderRadius:12, padding:'16px 10px', textAlign:'center', cursor:'pointer', background:file?'rgba(245,158,11,0.06)':'rgba(0,22,40,0.4)' }}>
+      <input ref={inputRef} type="file" accept=".pdf,application/pdf" style={{ display:'none' }} onChange={e=>{ const f=e.target.files?.[0]; setFile(f||null); e.target.value=''; }} />
+      <div style={{ fontSize:22, marginBottom:4 }}>📄</div>
+      <div style={{ fontSize:10, color:C.dim, marginBottom:2 }}>{label} {required && <span style={{color:C.err}}>*</span>}</div>
+      {file ? <div style={{ fontSize:10, color:C.gold }}>{file.name} <span onClick={(e)=>{e.stopPropagation();setFile(null);}} style={{color:C.err,cursor:'pointer'}}>✕</span></div> : <div style={{ fontSize:9, color:C.dim }}>Drop / click (max 10MB)</div>}
+    </div>
+  );
+}
+
 function PDFUploadZone({ API, token, onParsed }: { API:string; token:string; onParsed:(qs:ParsedQ[], meta:any)=>void }) {
   const [qFile, setQFile] = useState<File|null>(null);     // F21.1.6
   const [aFile, setAFile] = useState<File|null>(null);
@@ -1953,15 +2000,6 @@ function PDFUploadZone({ API, token, onParsed }: { API:string; token:string; onP
     } catch(e:any) { setError(e.message); }
     setParsing(false);
   };
-
-  const FileSlot = ({ label, file, setFile, inputRef, required }: { label:string; file:File|null; setFile:(f:File|null)=>void; inputRef:React.RefObject<HTMLInputElement>; required?:boolean }) => (
-    <div onClick={()=>inputRef.current?.click()} style={{ border:`2px dashed ${file?C.gold:C.bor}`, borderRadius:12, padding:'16px 10px', textAlign:'center', cursor:'pointer', background:file?'rgba(245,158,11,0.06)':'rgba(0,22,40,0.4)' }}>
-      <input ref={inputRef} type="file" accept=".pdf" style={{ display:'none' }} onChange={e=>setFile(e.target.files?.[0]||null)} />
-      <div style={{ fontSize:22, marginBottom:4 }}>📄</div>
-      <div style={{ fontSize:10, color:C.dim, marginBottom:2 }}>{label} {required && <span style={{color:C.err}}>*</span>}</div>
-      {file ? <div style={{ fontSize:10, color:C.gold }}>{file.name} <span onClick={(e)=>{e.stopPropagation();setFile(null);}} style={{color:C.err,cursor:'pointer'}}>✕</span></div> : <div style={{ fontSize:9, color:C.dim }}>Drop / click (max 10MB)</div>}
-    </div>
-  );
 
   return (
     <div style={{ ...S.card }}>
@@ -2061,25 +2099,12 @@ function PDFQBUploadView({ API, token, onNav }: { API:string; token:string; onNa
           </div>
 
           <div style={{ maxHeight:500, overflowY:'auto', marginBottom:14 }}>
-            {parsedQs.map(q=>{
-              const status = rowStatus(q);
-              const bor = status==='error'?'rgba(255,77,77,0.4)':status==='duplicate'?'rgba(255,184,77,0.4)':status==='review'?'rgba(245,158,11,0.4)':'rgba(0,196,140,0.25)';
-              return (
-                <div key={q.id} style={{ border:`1px solid ${bor}`, borderLeft:`3px solid ${bor}`, borderRadius:8, padding:10, marginBottom:6 }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontSize:10, fontWeight:700 }}>Q{q.num} {q.page && <span style={{color:C.dim}}>· Page {q.page}</span>} {q.confidencePct && <span style={{color:C.dim}}>· {q.confidencePct}% confident</span>}</span>
-                    <div style={{ display:'flex', gap:6 }}>
-                      <button onClick={()=>{setEditingQ(q);setEditDraft({...q});}} style={{ fontSize:9, color:C.acc, background:'transparent', border:'none', cursor:'pointer' }}>✏️</button>
-                      <button onClick={()=>setParsedQs(prev=>prev.filter(x=>x.id!==q.id))} style={{ fontSize:9, color:C.err, background:'transparent', border:'none', cursor:'pointer' }}>✕</button>
-                    </div>
-                  </div>
-                  <div style={{ fontSize:11, marginTop:4 }}><MathText text={q.text} /></div>
-                  {q.options.length>0 && <div style={{ fontSize:10, color:C.dim, marginTop:4 }}>{q.options.map((o,j)=>`${String.fromCharCode(65+j)}) ${o}`).join('  ')}</div>}
-                  {q.error && <div style={{ fontSize:10, color:C.err, marginTop:4 }}>⚠️ {q.error}</div>}
-                  {status==='review' && <div style={{ fontSize:10, color:C.gold, marginTop:4 }}>🔶 Needs manual review (auto-parsed)</div>}
-                </div>
-              );
-            })}
+            {parsedQs.map(q=>(
+              <QuestionPreviewCard key={q.id} q={q} accent={C.gold}
+                onEdit={()=>{setEditingQ(q);setEditDraft({...q});}}
+                onDelete={()=>setParsedQs(prev=>prev.filter(x=>x.id!==q.id))}
+              />
+            ))}
           </div>
 
           <button onClick={handleImport} disabled={saving||validCount===0} style={{ ...S.bp, width:'100%', padding:14, opacity:saving||validCount===0?0.6:1 }}>
@@ -2134,6 +2159,8 @@ function PDFCreateExamView({ API, token, onNav }: { API:string; token:string; on
   const [editDraft, setEditDraft] = useState<ParsedQ|null>(null);
 
   const goodQs = parsedQs.filter(q => !q.hasError);
+  // BUGFIX: subject dropdown populated from subjects actually detected in the PDF (subjectMapText / per-Q)
+  const detectedSubjects = [...new Set(parsedQs.map(q => q.subject).filter(Boolean))] as string[];
   const errQs = parsedQs.filter(q => q.hasError);
 
   const saveEdit = () => { if(!editDraft) return; setParsedQs(prev=>prev.map(q=>q.id===editDraft.id?editDraft:q)); setEditingQ(null); setEditDraft(null); };
@@ -2146,16 +2173,14 @@ function PDFCreateExamView({ API, token, onNav }: { API:string; token:string; on
       const payload = {
         questions: goodQs,
         examDetails: {
-          title: examD.title, subject: examD.subject, category: examD.category, type: examD.examType,
+          title: examD.title, subject: examD.subjects.join(', '), category: examD.category, type: examD.examType,
           duration: examD.duration, totalMarks: examD.totalMarks,
           markingScheme: { correct: examD.correctMarks, incorrect: examD.negativeMarks, unattempted: 0 },
-          schedule: { startTime: examD.startTime||undefined, endTime: examD.endTime||undefined },
+          schedule: { startTime: examD.startTime||undefined, endTime: examD.endTime||undefined, resultTime: examD.resultDateTime||undefined },
           customInstructions: examD.customInstructions,
           password: examD.passwordEnabled ? examD.password : '',
-          whitelistEnabled: examD.whitelistEnabled,
           waitingRoomEnabled: examD.waitingRoomEnabled, waitingRoomMinutes: examD.waitingRoomMinutes,
           reattemptCount: examD.reattemptCount, unlimitedAttempts: examD.unlimitedAttempts, maxAttempts: examD.maxAttempts,
-          reviewWindow: { enabled: examD.reviewWindowEnabled, durationMinutes: examD.reviewWindowMinutes },
           watermark: examD.watermark,
           totalQuestionsRequested: examD.totalQuestionsRequested, subjectWiseCount: examD.subjectWiseCount,
         },
@@ -2211,7 +2236,7 @@ function PDFCreateExamView({ API, token, onNav }: { API:string; token:string; on
       <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'65% 35%', gap:16 }}>
         <div>
           <PDFUploadZone API={API} token={getToken()} onParsed={(qs,meta)=>{setParsedQs(qs);setPdfMeta(meta);}} />
-          <ExamDetailsForm d={examD} setD={setExamD} totalParsed={goodQs.length} />
+          <ExamDetailsForm d={examD} setD={setExamD} totalParsed={goodQs.length} detectedSubjects={detectedSubjects} />
           <AssignmentSelector a={assign} setA={setAssign} API={API} token={getToken()} />
           <PostCreateActions p={postC} setP={setPostC} />
           <DuplicateCheckPanel texts={goodQs.map(q=>q.text)} batch={assign.batch} API={API} token={getToken()} />
@@ -2234,22 +2259,14 @@ function PDFCreateExamView({ API, token, onNav }: { API:string; token:string; on
           <div style={{ height:isMobile?420:'calc(100vh - 320px)', overflowY:'auto' }}>
             {parsedQs.length===0 && <div style={{ textAlign:'center', padding:40, color:C.dim }}>Upload PDFs on the left to preview</div>}
             {previewMode==='parsed' && parsedQs.map((q,i)=>(
-              <div key={q.id} style={{ border:`1px solid ${q.hasError?'rgba(255,77,77,0.4)':'rgba(245,158,11,0.25)'}`, borderLeft:`3px solid ${q.hasError?'rgba(255,77,77,0.4)':'rgba(245,158,11,0.4)'}`, borderRadius:8, padding:10, marginBottom:6 }}>
-                <div style={{ display:'flex', justifyContent:'space-between' }}>
-                  <span style={{ fontSize:10, fontWeight:700 }}>Q{q.num} · {q.subject}</span>
-                  <div style={{ display:'flex', gap:4 }}>
-                    <button onClick={()=>setParsedQs(prev=>moveQuestion(prev,i,'up'))} style={{ fontSize:9, color:C.dim, background:'transparent', border:'none', cursor:'pointer' }}>↑</button>
-                    <button onClick={()=>setParsedQs(prev=>moveQuestion(prev,i,'down'))} style={{ fontSize:9, color:C.dim, background:'transparent', border:'none', cursor:'pointer' }}>↓</button>
-                    <button onClick={()=>{setEditingQ(q);setEditDraft({...q});}} style={{ fontSize:9, color:C.acc, background:'transparent', border:'none', cursor:'pointer' }}>✏️</button>
-                  </div>
-                </div>
-                <div style={{ fontSize:11, marginTop:4 }}><MathText text={q.text.slice(0,100)} /></div>
-                {q.error && <div style={{ fontSize:10, color:C.err, marginTop:4 }}>⚠️ {q.error}</div>}
-              </div>
+              <QuestionPreviewCard key={q.id} q={q} accent={C.gold}
+                onMoveUp={()=>setParsedQs(prev=>moveQuestion(prev,i,'up'))}
+                onMoveDown={()=>setParsedQs(prev=>moveQuestion(prev,i,'down'))}
+                onEdit={()=>{setEditingQ(q);setEditDraft({...q});}}
+                onDelete={()=>setParsedQs(prev=>prev.filter(x=>x.id!==q.id))}
+              />
             ))}
-            {previewMode==='exam' && goodQs.slice(0,30).map((q,i)=>(
-              <div key={q.id} style={{ borderBottom:`1px solid ${C.bor}`, padding:'8px 4px', fontSize:11 }}><b style={{color:C.gold}}>{i+1}.</b> <MathText text={q.text.slice(0,100)} /></div>
-            ))}
+            {previewMode==='exam' && goodQs.map((q,i)=> <QuestionPreviewCard key={q.id} q={q} index={i} accent={C.gold} />)}
           </div>
         </div>
       </div>
@@ -2282,8 +2299,24 @@ function PDFCreateExamView({ API, token, onNav }: { API:string; token:string; on
 // ═══════════════════════════════════════════════════════
 // MAIN EXPORT — view router
 // ═══════════════════════════════════════════════════════
+
+// BUGFIX: refreshing the page was always resetting back to Home because
+// React state doesn't survive a full page reload. We now persist the
+// current view in sessionStorage so a refresh keeps the admin on the
+// exact page they were on (clears automatically when the tab is closed).
+function getInitialView(): View {
+  if (typeof window === 'undefined') return 'home';
+  const saved = window.sessionStorage.getItem('cf_view');
+  const validViews: View[] = ['home','cp_home','cp_qs','cp_exam','ex_home','ex_qs','ex_exam','pdf_home','pdf_qs','pdf_exam'];
+  return (saved && validViews.includes(saved as View)) ? (saved as View) : 'home';
+}
+
 export default function ContentForge({ API, token }: { API:string; token:string }) {
-  const [view, setView] = useState<View>('home');
+  const [view, setViewRaw] = useState<View>(getInitialView);
+  const setView = (v: View) => {
+    setViewRaw(v);
+    if (typeof window !== 'undefined') window.sessionStorage.setItem('cf_view', v);
+  };
 
   return (
     <div style={{ minHeight:'100vh', padding:'20px 16px', background:'radial-gradient(ellipse at top,#041427,#000814)' }}>

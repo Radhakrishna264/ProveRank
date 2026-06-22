@@ -1,3 +1,133 @@
+#!/bin/bash
+set -e
+echo "=================================================="
+echo "ProveRank Backend Patch — Bug fixes (resultTime + template auth)"
+echo "=================================================="
+cd ~/workspace || { echo "ERROR: ~/workspace not found"; exit 1; }
+mkdir -p .backup_bugfix1_$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR=$(ls -d .backup_bugfix1_* | tail -1)
+cp "src/models/Exam.js" "$BACKUP_DIR/$(basename src/models/Exam.js).bak" 2>/dev/null || true
+cp "src/routes/contentForge.js" "$BACKUP_DIR/$(basename src/routes/contentForge.js).bak" 2>/dev/null || true
+echo "Backup: $BACKUP_DIR"
+mkdir -p $(dirname "src/models/Exam.js")
+cat > "src/models/Exam.js" << 'BUGFIX_EOF'
+const mongoose = require('mongoose');
+
+const examSchema = new mongoose.Schema({
+  title:        { type: String, required: true, trim: true },
+  subject:      { type: String, default: 'NEET' },
+  duration:     { type: Number, required: true },
+  totalMarks:   { type: Number, default: 720 },
+  questions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }], // QsBank Integration
+
+  sections: [{
+    name:          String,
+    subject:       String,
+    questionCount: Number,
+    timeLimit:     Number,
+    marks:         Number,
+    fromQNo:       Number, // F19B.5.21 / F20B.5.21 / F21B.8.21 — subject Q-no range start
+    toQNo:         Number  // F19B.5.21 / F20B.5.21 / F21B.8.21 — subject Q-no range end
+  }],
+
+  markingScheme: {
+    correct:     { type: Number, default: 4 },
+    incorrect:   { type: Number, default: -1 },
+    unattempted: { type: Number, default: 0 },
+    msqMode:     { type: String, enum: ['ALL_OR_NOTHING', 'PARTIAL_NEGATIVE'], default: 'ALL_OR_NOTHING' }
+  },
+
+  password:   { type: String, default: '' },
+
+  schedule: {
+    startTime:  Date,
+    endTime:    Date,
+    resultTime: Date  // when result/scorecard becomes visible to students
+  },
+
+  audioMonitoringEnabled: { type: Boolean, default: false },
+  status: { type: String, enum: ['draft', 'scheduled', 'live', 'ended'], default: 'draft' },
+
+  batch:    { type: String, default: '' },
+
+  // F19B.6.8 / F20B.6.8 / F21B.9.7 — Multi-batch assign toggle (additional batch IDs besides primary `batch`)
+  multiBatch: [{ type: String, default: [] }],
+
+  // F19B.6 / F20B.6 / F21B.9 — Assignment Type selector
+  assignmentType: { type: String, enum: ['batch', 'series', 'mini_test', 'individual'], default: 'individual' },
+
+  // F19B.6.2/6.3 / F20B.6.2/6.3 / F21B.9.2/9.3 — Test Series / Mini Test Series label (grouping, also used for Step-8 "exam series/group")
+  seriesName: { type: String, default: '' },
+
+  category: { type: String, enum: ['Full Mock', 'Chapter Test', 'Part Test', 'Grand Test', 'Mini Test'], default: 'Full Mock' },
+
+  whitelist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+
+  watermark:          { type: Boolean, default: true },
+  customInstructions: { type: String, default: '' },
+
+  reviewWindow: {
+    enabled:         { type: Boolean, default: false },
+    durationMinutes: { type: Number, default: 0 },
+  fullscreenForce: { type: Boolean, default: false },
+  fullscreenWarnings: { type: Number, default: 0 }
+  },
+
+  template:   { type: String, default: '' },
+  difficulty: { type: String, default: 'Mixed' },
+  type:       { type: String, default: 'NEET' },
+
+  waitingRoomEnabled: { type: Boolean, default: false },
+  waitingRoomMinutes: { type: Number, default: 10 },
+
+  maxAttempts:    { type: Number, default: 1 },
+  reattemptCount: { type: String, enum: ['best', 'last'], default: 'last' },
+  // F19B.5.16 / F20B.5.16 / F21B.8.16 — Unlimited attempt option (maxAttempts auto-set to a large number when true)
+  unlimitedAttempts: { type: Boolean, default: false },
+  questionSnapshot:  { type: Array, default: [] },
+  snapshotLocked:    { type: Boolean, default: false },
+  snapshotLockedAt:  { type: Date, default: null },
+
+  whitelistEnabled:    { type: Boolean, default: false },
+  whitelistedStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  whitelistedGroups:   [{ type: String }],
+
+  // F19B.5.5 / F20B.5.5 / F21B.8.5 — Subject wise Qs count input
+  subjectWiseCount: [{ subject: String, count: Number }],
+  // F19B.5.4 / F20B.5.4 / F21B.8.4 — Total Questions requested (auto-select N out of M parsed)
+  totalQuestionsRequested: { type: Number, default: 0 },
+
+  // F19B.8.1 / F20B.8.1 / F21B.11.1 — Scheduled auto-publish
+  scheduledPublish: {
+    enabled:   { type: Boolean, default: false },
+    publishAt: { type: Date, default: null }
+  },
+  // F19B.8.6 / F20B.8.6 / F21B.11.6 — Notify Students toggle
+  notifyStudents: { type: Boolean, default: false },
+  // F19B.8.4 / F20B.8.4 / F21B.11.4 — Save as Template
+  isTemplate: { type: Boolean, default: false },
+
+  // F19B.7 / F20B / F21B — source tracking (which method created this exam + parse stats)
+  sourceMeta: {
+    sourceType:     { type: String, enum: ['paste', 'excel', 'pdf', 'manual', ''], default: '' },
+    fileName:        { type: String, default: '' },
+    uploadedAt:      { type: Date, default: null },
+    pageCount:       { type: Number, default: 0 },
+    totalParsed:     { type: Number, default: 0 },
+    totalErrors:     { type: Number, default: 0 },
+    totalDuplicates: { type: Number, default: 0 }
+  },
+
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+
+}, { timestamps: true });
+
+module.exports = mongoose.model('Exam', examSchema);
+
+BUGFIX_EOF
+echo "  -> wrote src/models/Exam.js"
+mkdir -p $(dirname "src/routes/contentForge.js")
+cat > "src/routes/contentForge.js" << 'BUGFIX_EOF'
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -307,3 +437,10 @@ router.post('/exam/:id/publish', verifyToken, isAdmin, async (req, res) => {
 
 module.exports = router;
 
+BUGFIX_EOF
+echo "  -> wrote src/routes/contentForge.js"
+ALL_OK=1
+node --check "src/models/Exam.js" && echo "  [OK] src/models/Exam.js" || { echo "  [FAIL] src/models/Exam.js"; ALL_OK=0; }
+node --check "src/routes/contentForge.js" && echo "  [OK] src/routes/contentForge.js" || { echo "  [FAIL] src/routes/contentForge.js"; ALL_OK=0; }
+if [ $ALL_OK -eq 1 ]; then echo "✅ BACKEND BUGFIX PATCH COMPLETE"; else echo "⚠️ SYNTAX CHECK FAILED"; fi
+echo "Restart server to apply."

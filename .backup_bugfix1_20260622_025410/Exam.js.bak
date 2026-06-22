@@ -27,9 +27,8 @@ const examSchema = new mongoose.Schema({
   password:   { type: String, default: '' },
 
   schedule: {
-    startTime:  Date,
-    endTime:    Date,
-    resultTime: Date  // when result/scorecard becomes visible to students
+    startTime: Date,
+    endTime:   Date
   },
 
   audioMonitoringEnabled: { type: Boolean, default: false },
