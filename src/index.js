@@ -27,6 +27,7 @@ const pdfRoutes              = require('./routes/pdfRoutes');
 // ── New Feature Routes (load BEFORE conflicting base routes) ──
 const examFeaturesRoutes     = require('./routes/examFeatures');
 const examPaperRoutes = require('./routes/examPaper');
+const pyqBankAdminRoutes = require('./routes/pyqBankAdmin');
 const adminSystemRoutes      = require('./routes/adminSystem');
 const adminMonitoringRoutes = require('./routes/adminMonitoringRoutes');
 require('./models/AdminNotification');
@@ -200,4 +201,6 @@ app.use('/api/store',        studentStoreRoutes);
 
 // -- Content Forge Routes (Features 19B / 20 / 20B / 21 / 21B)
 const contentForgeRoutes = require('./routes/contentForge');
-app.use('/api/content-forge', contentForgeRoutes);
+app.use('/api/content-forge', contentForgeRoutes)
+app.use('/api/pyq-bank', pyqBankAdminRoutes);
+;

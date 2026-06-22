@@ -4,6 +4,7 @@ import AIExplainTab from './AIExplainTab';
 import SmartPaperGen from './SmartPaperGen';
 import StoreAdminTab from './StoreAdminTab';
 import AdminWelcomeBanner from './AdminWelcomeBanner';
+import AdminPYQBankTab from './AdminPYQBankTab';
 import AdminProfilePage from './AdminProfilePage';
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import katex from 'katex'
@@ -4089,42 +4090,11 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 
           {/* ══ PYQ BANK ══ */}
           {tab==='pyq_bank'&&(
-            <div>
-              <div style={pageTitle}>📚 PYQ Bank (S104)</div>
-              <div style={pageSub}>NEET Previous Year Questions 2015–2024 — filter by year and subject</div>
-              <PageHero icon="📚" title="10 Years of NEET Questions" subtitle="Access all NEET PYQs from 2015 to 2024. Filter by year and subject. Most repeated topics are highlighted. Use for quick exam creation."/>
-              <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}}>
-                <SSelect val={pyqYear} onChange={setPyqYear} opts={[{v:'all',l:'All Years'},...['2024','2023','2022','2021','2020','2019','2018','2017','2016','2015'].map(y=>({v:y,l:`NEET ${y}`}))]} style={{...inp,width:'auto'}}/>
-                <SSelect val={pyqSubj} onChange={setPyqSubj} opts={[{v:'all',l:'All Subjects'},{v:'Physics',l:'⚛️ Physics'},{v:'Chemistry',l:'🧪 Chemistry'},{v:'Biology',l:'🧬 Biology'}]} style={{...inp,width:'auto'}}/>
-                <button onClick={loadPyq} disabled={pyqLoading} style={{...bp,opacity:pyqLoading?0.7:1}}>
-                  {pyqLoading?'⟳ Loading…':'🔍 Load PYQs'}
-                </button>
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:10,marginBottom:16}}>
-                {[{y:'2024',q:'180'},{y:'2023',q:'180'},{y:'2022',q:'180'},{y:'2021',q:'180'},{y:'2020',q:'180'}].map(d=>(
-                  <div key={d.y} style={{...cs,textAlign:'center',padding:'14px 10px',cursor:'pointer'}} onClick={()=>{setPyqYear(d.y);loadPyq()}}>
-                    <div style={{fontWeight:700,color:ACC,fontSize:14}}>NEET {d.y}</div>
-                    <div style={{fontSize:11,color:DIM,marginTop:2}}>{d.q} Questions</div>
-                  </div>
-                ))}
-              </div>
-              {pyqData.length>0
-                ?<div>{pyqData.slice(0,10).map((q:any,i:number)=>(
-                    <div key={i} style={{...cs,marginBottom:8}}>
-                      <div style={{display:'flex',gap:6,marginBottom:6}}>
-                        <Badge label={q.year||'—'} col={GOLD}/>
-                        <Badge label={q.subject||'—'} col={ACC}/>
-                        <Badge label={q.difficulty||'—'} col={DIM}/>
-                      </div>
-                      <div style={{fontSize:12,color:TS}}>{q.text||q.question||'—'}</div>
-                    </div>
-                  ))}</div>
-                :<div style={{textAlign:'center',padding:'30px',color:DIM}}>
-                  <div style={{fontSize:36,marginBottom:8}}>📚</div>
-                  <div style={{fontSize:13}}>Select year and subject, then click Load PYQs</div>
-                </div>
-              }
-            </div>
+            <AdminPYQBankTab
+              token={typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''}
+              API={API}
+              toast={T}
+            />
           )}
 
           {/* ══ STUDENTS ══ */}

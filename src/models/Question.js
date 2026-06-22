@@ -49,6 +49,8 @@ const questionSchema = new mongoose.Schema({
 
   isPYQ: { type: Boolean, default: false },
   pyqYear: { type: Number, default: null },
+  pyqExam: { type: String, default: 'NEET' },
+  pyqYearCardId: { type: mongoose.Schema.Types.ObjectId, ref: 'PYQYearCard', default: null },
 
   approvalStatus: {
     type: String,
