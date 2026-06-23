@@ -52,6 +52,16 @@ const questionSchema = new mongoose.Schema({
   pyqExam: { type: String, default: 'NEET' },
   pyqYearCardId: { type: mongoose.Schema.Types.ObjectId, ref: 'PYQYearCard', default: null },
 
+
+  // ── Soft Delete / Recycle Bin (Feature 24) ──────────────────────────────────
+  isDeleted:    { type: Boolean,  default: false },
+  deletedAt:    { type: Date,     default: null },
+  deletedBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  deleteReason: { type: String,   default: '' },
+  archivedAt:   { type: Date,     default: null },
+  archivedBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  isArchived:   { type: Boolean,  default: false },
+
   approvalStatus: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],

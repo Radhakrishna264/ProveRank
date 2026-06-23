@@ -1,4 +1,5 @@
 'use client'
+import { DeleteBtn, DeleteConfirmModal, RecycleBinModal, ArchivedModal, UndoToast, useDeleteQuestion } from './DeleteQuestionSystem'
 import ContentForge from './ContentForge';
 import AIExplainTab from './AIExplainTab';
 import SmartPaperGen from './SmartPaperGen';
@@ -2981,6 +2982,8 @@ const confirmAndAdd=useCallback(async()=>{
                 <div>
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:10}}>
                     <div><div style={pageTitle}>📚 Question Bank</div><div style={pageSub}>{(questions||[]).length} questions · NEET Pattern Ready</div></div>
+                    <button onClick={()=>setShowBin(true)} style={{background:'rgba(255,77,77,0.1)',border:'1px solid rgba(255,77,77,0.3)',color:'#FF4D4D',borderRadius:8,fontSize:11,padding:'6px 12px',cursor:'pointer',fontWeight:600}}>🗑️ Recycle Bin</button>
+                    <button onClick={()=>setShowArchived(true)} style={{background:'rgba(255,184,77,0.1)',border:'1px solid rgba(255,184,77,0.3)',color:'#FFB84D',borderRadius:8,fontSize:11,padding:'6px 12px',cursor:'pointer',fontWeight:600}}>🗂️ Archived</button>
                     <button onClick={expQB} style={{...bg_,fontSize:11,padding:'6px 12px'}}>⬇️ Export CSV</button>
                   </div>
                   <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
@@ -3358,7 +3361,8 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                     <span style={{fontSize:11,color:'#FC8181',fontWeight:700}}>{bulkSel.length} selected</span>
                     <button onClick={blkApproveQs} style={{fontSize:10,padding:'3px 12px',borderRadius:6,border:'1px solid rgba(0,200,100,0.35)',background:'rgba(0,200,100,0.1)',color:'#00C864',cursor:'pointer',fontWeight:600}}>✅ Approve</button>
                     <button onClick={openBulkEdit} style={{fontSize:10,padding:'3px 12px',borderRadius:6,border:'1px solid rgba(167,139,250,0.35)',background:'rgba(167,139,250,0.1)',color:'#A78BFA',cursor:'pointer',fontWeight:600}}>✏️ Bulk Edit</button>
-                    <button onClick={blkDelQs} style={{...bd,fontSize:10,padding:'3px 12px'}}>🗑️ Delete</button>
+                    <button onClick={async()=>{if(confirm('Move '+bulkSel.length+' questions to Recycle Bin?')){const ok=await bulkDelete(bulkSel);if(ok)setBulkSel([])}}} style={{background:'rgba(255,77,77,0.1)',border:'1px solid rgba(255,77,77,0.35)',color:'#FF4D4D',borderRadius:6,fontSize:10,padding:'3px 12px',cursor:'pointer',fontWeight:600}}>🗑️ Delete</button>
+                    <button onClick={async()=>{if(confirm('Archive '+bulkSel.length+' questions?')){const ok=await bulkArchive(bulkSel);if(ok)setBulkSel([])}}} style={{background:'rgba(255,184,77,0.1)',border:'1px solid rgba(255,184,77,0.35)',color:'#FFB84D',borderRadius:6,fontSize:10,padding:'3px 12px',cursor:'pointer',fontWeight:600}}>🗂️ Archive</button>
                     <button onClick={function(){setBulkSel([])}} style={{...bg_,fontSize:10,padding:'3px 10px'}}>✕</button>
                   </div>)}
 <div style={{padding:'10px 0 14px',marginBottom:8,borderBottom:'1px solid rgba(255,255,255,0.08)'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,flexWrap:'wrap',gap:4}}><span style={{fontSize:11,color:'#94a3b8',fontWeight:500,letterSpacing:0.2}}>{_fQsSorted.length>0?((_qPg-1)*25+1)+'-'+Math.min(_qPg*25,_fQsSorted.length)+' of '+_fQsSorted.length+' Questions':''}</span><span style={{fontSize:11,color:'#4D9FFF',fontWeight:700,background:'rgba(77,159,255,0.1)',padding:'2px 8px',borderRadius:10}}>{'Page '+_qPg+' / '+_qTP}</span></div><div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:2,flexWrap:'nowrap',overflowX:'auto'}}><button onClick={()=>setQPage(p=>Math.max(1,p-1))} disabled={_qPg<=1} style={{fontSize:11,color:'#4D9FFF',background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:6,padding:'5px 11px',cursor:'pointer',opacity:_qPg<=1?0.3:1,fontWeight:600}}>{'← Prev'}</button>{Array.from({length:_qTP},function(_el,i){return i+1}).filter(function(p){return p===1||p===_qTP||Math.abs(p-_qPg)<=1}).reduce(function(acc,p,i,arr){if(i>0&&p-arr[i-1]>1)acc.push('…');acc.push(p);return acc;},[]).map(function(p,idx){return typeof p==='string'?<span key={'d'+idx} style={{color:'#475569',fontSize:12,padding:'0 2px',fontWeight:500}}>{'…'}</span>:<button key={p} onClick={function(){setQPage(p)}} style={{fontSize:12,color:_qPg===p?'#fff':'#4D9FFF',background:_qPg===p?'linear-gradient(135deg,#4D9FFF,#a78bfa)':'rgba(77,159,255,0.08)',border:'1px solid '+(_qPg===p?'transparent':'rgba(77,159,255,0.25)'),borderRadius:6,padding:'5px 8px',cursor:'pointer',fontWeight:_qPg===p?800:500,minWidth:32,textAlign:'center',boxShadow:_qPg===p?'0 2px 10px rgba(77,159,255,0.5)':'none'}}>{p}</button>})}<button onClick={()=>setQPage(p=>Math.min(_qTP,p+1))} disabled={_qPg>=_qTP} style={{fontSize:11,color:'#4D9FFF',background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:6,padding:'5px 11px',cursor:'pointer',opacity:_qPg>=_qTP?0.3:1,fontWeight:600}}>{'Next →'}</button></div></div>
@@ -3407,7 +3411,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                                   setEditQD(Object.assign({},q,{correctLetter:ltrs[cIdx>=0?cIdx:0]||'A'}))
                                 }} style={{...bg_,padding:'2px',fontSize:10,borderRadius:5,width:30,height:28,display:'flex',alignItems:'center',justifyContent:'center'}} title='Edit'>✏️</button>
                                 <button onClick={function(){copyToAddForm(q)}} style={{...bg_,padding:'2px',fontSize:10,borderRadius:5,width:30,height:28,display:'flex',alignItems:'center',justifyContent:'center'}} title='Copy to Add Form'>📋</button>
-                                <button onClick={async function(){if(confirm('Delete?')){const r=await fetch(API+'/api/questions/'+q._id,{method:'DELETE',headers:{Authorization:'Bearer '+token}});if(r.ok){setQuestions(function(p){return p.filter(function(x){return x._id!==q._id})});T('Deleted.')}else T('Failed','e')}}} style={{...bd,padding:'2px',fontSize:10,borderRadius:5,width:30,height:28,display:'flex',alignItems:'center',justifyContent:'center'}} title='Delete'>🗑️</button>
+                                <DeleteBtn onClick={()=>openDeleteModal(q)}/>
                               </div>
                             </div>
                           </div>

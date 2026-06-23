@@ -8,7 +8,7 @@ router.get('/questions', verifyToken, isSuperAdmin, async (req, res) => {
   try {
     const Question = mongoose.model('Question');
     const { subject, chapter, difficulty, search, page = 1, limit = 20 } = req.query;
-    const filter = {};
+    const filter = { isDeleted: { $ne: true }, isArchived: { $ne: true } };
     if (subject) filter.subject = subject;
     if (chapter) filter.chapter = { $regex: chapter, $options: 'i' };
     if (difficulty) filter.difficulty = difficulty;
