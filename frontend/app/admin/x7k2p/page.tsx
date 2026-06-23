@@ -3329,8 +3329,6 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                 />
               )}
 
-                            )}
-
               {/* ════════════════════════════════════════════════════ */}
               {/* NCERT MODE MODAL — Fully Independent               */}
               {/* ════════════════════════════════════════════════════ */}
