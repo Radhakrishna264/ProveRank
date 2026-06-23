@@ -1706,6 +1706,48 @@ else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifica
       else T('Save failed','e')
     }catch(e){T(e.message||'Error saving','e')}
   }
+
+  // ── F24: Delete/Archive/Undo/Bulk functions ───────────────────────────────
+  const [delModal,setDelModal]=useState<any|null>(null)
+  const [delImpact,setDelImpact]=useState<any|null>(null)
+  const [delLoading,setDelLoading]=useState(false)
+  const [undoToast,setUndoToast]=useState<{msg:string;id:string}|null>(null)
+  const [showBin,setShowBin]=useState(false)
+  const [showArchived,setShowArchived]=useState(false)
+
+  const openDeleteModal=async(q:any)=>{
+    setDelModal(q);setDelImpact(null);
+    try{const r=await fetch(API+'/api/questions/'+q._id+'/delete-impact',{headers:{Authorization:'Bearer '+token}});const d=await r.json();if(d.success)setDelImpact(d);}catch{}
+  }
+  const confirmDelete=async(reason:string)=>{
+    if(!delModal)return;setDelLoading(true);
+    try{const r=await fetch(API+'/api/questions/'+delModal._id+'/permanent',{method:'DELETE',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({reason})});const d=await r.json();
+    if(d.success){T('Moved to Recycle Bin 🗑️','w');setUndoToast({msg:'Question deleted',id:delModal._id});setDelModal(null);setTimeout(()=>fetchAll(),400);}
+    else T(d.message||'Delete failed','e');}catch{T('Error','e');}setDelLoading(false);
+  }
+  const confirmArchive=async(reason:string)=>{
+    if(!delModal)return;setDelLoading(true);
+    try{const r=await fetch(API+'/api/questions/'+delModal._id+'/archive',{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({reason})});const d=await r.json();
+    if(d.success){T('Archived 🗂️','w');setUndoToast({msg:'Question archived',id:delModal._id});setDelModal(null);setTimeout(()=>fetchAll(),400);}
+    else T(d.message||'Archive failed','e');}catch{T('Error','e');}setDelLoading(false);
+  }
+  const undoDeleteFn=async()=>{
+    if(!undoToast)return;
+    try{const r=await fetch(API+'/api/questions/'+undoToast.id+'/restore',{method:'PATCH',headers:{Authorization:'Bearer '+token}});const d=await r.json();
+    if(d.success){T('↩️ Restored!','s');setUndoToast(null);setTimeout(()=>fetchAll(),400);}
+    else T(d.message||'Undo failed','e');}catch{T('Error','e');}
+  }
+  const bulkDeleteFn=async(ids:string[],reason='')=>{
+    try{const r=await fetch(API+'/api/questions/bulk/delete',{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({ids,reason})});const d=await r.json();
+    if(d.success){T(d.modifiedCount+' Qs → Recycle Bin','w');setTimeout(()=>fetchAll(),400);return true;}
+    else{T(d.message||'Failed','e');return false;}}catch{T('Error','e');return false;}
+  }
+  const bulkArchiveFn=async(ids:string[],reason='')=>{
+    try{const r=await fetch(API+'/api/questions/bulk/archive',{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({ids,reason})});const d=await r.json();
+    if(d.success){T(d.modifiedCount+' Qs archived 🗂️','w');setTimeout(()=>fetchAll(),400);return true;}
+    else{T(d.message||'Failed','e');return false;}}catch{T('Error','e');return false;}
+  }
+
   const blkDelQs=async()=>{
     if(!bulkSel.length||!confirm('Delete '+bulkSel.length+' questions?'))return
     for(const id of bulkSel){await fetch(API+'/api/questions/'+id,{method:'DELETE',headers:{Authorization:'Bearer '+token}})}
@@ -3361,8 +3403,8 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                     <span style={{fontSize:11,color:'#FC8181',fontWeight:700}}>{bulkSel.length} selected</span>
                     <button onClick={blkApproveQs} style={{fontSize:10,padding:'3px 12px',borderRadius:6,border:'1px solid rgba(0,200,100,0.35)',background:'rgba(0,200,100,0.1)',color:'#00C864',cursor:'pointer',fontWeight:600}}>✅ Approve</button>
                     <button onClick={openBulkEdit} style={{fontSize:10,padding:'3px 12px',borderRadius:6,border:'1px solid rgba(167,139,250,0.35)',background:'rgba(167,139,250,0.1)',color:'#A78BFA',cursor:'pointer',fontWeight:600}}>✏️ Bulk Edit</button>
-                    <button onClick={async()=>{if(confirm('Move '+bulkSel.length+' questions to Recycle Bin?')){const ok=await bulkDelete(bulkSel);if(ok)setBulkSel([])}}} style={{background:'rgba(255,77,77,0.1)',border:'1px solid rgba(255,77,77,0.35)',color:'#FF4D4D',borderRadius:6,fontSize:10,padding:'3px 12px',cursor:'pointer',fontWeight:600}}>🗑️ Delete</button>
-                    <button onClick={async()=>{if(confirm('Archive '+bulkSel.length+' questions?')){const ok=await bulkArchive(bulkSel);if(ok)setBulkSel([])}}} style={{background:'rgba(255,184,77,0.1)',border:'1px solid rgba(255,184,77,0.35)',color:'#FFB84D',borderRadius:6,fontSize:10,padding:'3px 12px',cursor:'pointer',fontWeight:600}}>🗂️ Archive</button>
+                    <button onClick={async()=>{if(confirm('Move '+bulkSel.length+' questions to Recycle Bin?')){const ok=await bulkDeleteFn(bulkSel);if(ok)setBulkSel([])}}} style={{background:'rgba(255,77,77,0.1)',border:'1px solid rgba(255,77,77,0.35)',color:'#FF4D4D',borderRadius:6,fontSize:10,padding:'3px 12px',cursor:'pointer',fontWeight:600}}>🗑️ Delete</button>
+                    <button onClick={async()=>{if(confirm('Archive '+bulkSel.length+' questions?')){const ok=await bulkArchiveFn(bulkSel);if(ok)setBulkSel([])}}} style={{background:'rgba(255,184,77,0.1)',border:'1px solid rgba(255,184,77,0.35)',color:'#FFB84D',borderRadius:6,fontSize:10,padding:'3px 12px',cursor:'pointer',fontWeight:600}}>🗂️ Archive</button>
                     <button onClick={function(){setBulkSel([])}} style={{...bg_,fontSize:10,padding:'3px 10px'}}>✕</button>
                   </div>)}
 <div style={{padding:'10px 0 14px',marginBottom:8,borderBottom:'1px solid rgba(255,255,255,0.08)'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,flexWrap:'wrap',gap:4}}><span style={{fontSize:11,color:'#94a3b8',fontWeight:500,letterSpacing:0.2}}>{_fQsSorted.length>0?((_qPg-1)*25+1)+'-'+Math.min(_qPg*25,_fQsSorted.length)+' of '+_fQsSorted.length+' Questions':''}</span><span style={{fontSize:11,color:'#4D9FFF',fontWeight:700,background:'rgba(77,159,255,0.1)',padding:'2px 8px',borderRadius:10}}>{'Page '+_qPg+' / '+_qTP}</span></div><div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:2,flexWrap:'nowrap',overflowX:'auto'}}><button onClick={()=>setQPage(p=>Math.max(1,p-1))} disabled={_qPg<=1} style={{fontSize:11,color:'#4D9FFF',background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:6,padding:'5px 11px',cursor:'pointer',opacity:_qPg<=1?0.3:1,fontWeight:600}}>{'← Prev'}</button>{Array.from({length:_qTP},function(_el,i){return i+1}).filter(function(p){return p===1||p===_qTP||Math.abs(p-_qPg)<=1}).reduce(function(acc,p,i,arr){if(i>0&&p-arr[i-1]>1)acc.push('…');acc.push(p);return acc;},[]).map(function(p,idx){return typeof p==='string'?<span key={'d'+idx} style={{color:'#475569',fontSize:12,padding:'0 2px',fontWeight:500}}>{'…'}</span>:<button key={p} onClick={function(){setQPage(p)}} style={{fontSize:12,color:_qPg===p?'#fff':'#4D9FFF',background:_qPg===p?'linear-gradient(135deg,#4D9FFF,#a78bfa)':'rgba(77,159,255,0.08)',border:'1px solid '+(_qPg===p?'transparent':'rgba(77,159,255,0.25)'),borderRadius:6,padding:'5px 8px',cursor:'pointer',fontWeight:_qPg===p?800:500,minWidth:32,textAlign:'center',boxShadow:_qPg===p?'0 2px 10px rgba(77,159,255,0.5)':'none'}}>{p}</button>})}<button onClick={()=>setQPage(p=>Math.min(_qTP,p+1))} disabled={_qPg>=_qTP} style={{fontSize:11,color:'#4D9FFF',background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:6,padding:'5px 11px',cursor:'pointer',opacity:_qPg>=_qTP?0.3:1,fontWeight:600}}>{'Next →'}</button></div></div>
