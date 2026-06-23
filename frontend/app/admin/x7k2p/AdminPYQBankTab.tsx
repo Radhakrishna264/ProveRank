@@ -17,6 +17,51 @@ const lbl:any={display:'block',fontSize:11,color:DIM,marginBottom:5,fontWeight:6
 const pt:any={fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:700,color:TS,margin:'0 0 4px',background:`linear-gradient(90deg,${ACC},#fff)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}
 const ps:any={fontSize:12,color:DIM,marginBottom:20,fontFamily:'Inter,sans-serif'}
 
+
+// ── Emoji options for exam cards ─────────────────────────────────────────────
+const EMOJI_OPTIONS = [
+  { v:'🩺', l:'🩺 Medical/NEET' },
+  { v:'⚙️', l:'⚙️ Engineering/JEE' },
+  { v:'🚀', l:'🚀 Advanced/Space' },
+  { v:'🎓', l:'🎓 University/CUET' },
+  { v:'🏛️', l:'🏛️ Government/RPSC' },
+  { v:'🏫', l:'🏫 School/Board' },
+  { v:'📗', l:'📗 Class 10' },
+  { v:'📘', l:'📘 Class 11-12' },
+  { v:'📕', l:'📕 CBSE' },
+  { v:'📚', l:'📚 General' },
+  { v:'⚖️', l:'⚖️ Law/Legal' },
+  { v:'💼', l:'💼 Management/MBA' },
+  { v:'🏥', l:'🏥 Pharmacy' },
+  { v:'🔬', l:'🔬 Science' },
+  { v:'🧮', l:'🧮 Mathematics' },
+  { v:'💻', l:'💻 Computer/IT' },
+  { v:'🌍', l:'🌍 Geography/UPSC' },
+  { v:'📐', l:'📐 Architecture' },
+  { v:'🎨', l:'🎨 Arts' },
+  { v:'⭐', l:'⭐ Custom/Other' },
+];
+
+// ── Color options for exam cards ──────────────────────────────────────────────
+const COLOR_OPTIONS = [
+  { v:'#00C48C', l:'Emerald Green',  bg:'#00C48C' },
+  { v:'#4D9FFF', l:'Sky Blue',       bg:'#4D9FFF' },
+  { v:'#A78BFA', l:'Purple',         bg:'#A78BFA' },
+  { v:'#FFD700', l:'Golden',         bg:'#FFD700' },
+  { v:'#FF6B6B', l:'Coral Red',      bg:'#FF6B6B' },
+  { v:'#FF9F43', l:'Orange',         bg:'#FF9F43' },
+  { v:'#00D2D3', l:'Teal Cyan',      bg:'#00D2D3' },
+  { v:'#5F27CD', l:'Deep Purple',    bg:'#5F27CD' },
+  { v:'#ee5a24', l:'Burnt Orange',   bg:'#ee5a24' },
+  { v:'#0abde3', l:'Light Blue',     bg:'#0abde3' },
+  { v:'#10ac84', l:'Jade Green',     bg:'#10ac84' },
+  { v:'#ff9ff3', l:'Pink',           bg:'#ff9ff3' },
+  { v:'#ffeaa7', l:'Lemon',          bg:'#ffeaa7' },
+  { v:'#fd79a8', l:'Rose',           bg:'#fd79a8' },
+  { v:'#6c5ce7', l:'Violet',         bg:'#6c5ce7' },
+  { v:'#e17055', l:'Terracotta',     bg:'#e17055' },
+];
+
 interface Props { token:string; API:string; toast:(m:string,t?:'s'|'e'|'w')=>void }
 interface ExamCard { _id?:string; name:string; icon:string; color:string; desc:string; isDefault?:boolean; stats?:{totalYears:number;totalQuestions:number;lastUpdated:string|null} }
 interface YearCard { _id:string; year:number; examName:string; paperCount:number; status:string; updatedAt:string; questionCount?:number; notes?:string }
@@ -686,7 +731,7 @@ export default function AdminPYQBankTab({token,API:_API,toast}:Props){
             <div style={{display:'grid',gap:12}}>
               <div><label style={lbl}>Exam Name *</label><input value={neName} onChange={e=>setNeName(e.target.value)} placeholder="e.g. NEET PG, AIIMS, SSC CGL..." style={inp}/></div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-                <div><label style={lbl}>Icon (emoji)</label><input value={neIcon} onChange={e=>setNeIcon(e.target.value)} placeholder="📚" style={inp}/></div>
+                <div><label style={lbl}>Icon / Emoji</label><div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}}>{EMOJI_OPTIONS.map(o=>(<button key={o.v} type="button" onClick={()=>setNeIcon(o.v)} title={o.l} style={{padding:"8px 4px",background:neIcon===o.v?"rgba(77,159,255,0.25)":"rgba(0,22,40,0.6)",border:`1.5px solid ${neIcon===o.v?ACC:BOR}`,borderRadius:8,cursor:"pointer",fontSize:20}}>{o.v}</button>))}</div><div style={{fontSize:11,color:DIM,marginTop:4}}>Selected: <span style={{color:ACC}}>{neIcon}</span></div></div>
                 <div><label style={lbl}>Color (hex)</label><div style={{display:'flex',gap:6}}><input value={neColor} onChange={e=>setNeColor(e.target.value)} placeholder="#4D9FFF" style={{...inp,flex:1}}/><div style={{width:40,borderRadius:8,background:neColor,border:`1px solid ${BOR}`}}/></div></div>
               </div>
               <div><label style={lbl}>Description</label><input value={neDesc} onChange={e=>setNeDesc(e.target.value)} placeholder="Short description..." style={inp}/></div>
@@ -707,8 +752,21 @@ export default function AdminPYQBankTab({token,API:_API,toast}:Props){
             <div style={{display:'grid',gap:12}}>
               <div><label style={lbl}>Exam Name</label><input value={editExam.name} onChange={e=>setEditExam(p=>p?{...p,name:e.target.value}:null)} style={inp}/></div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-                <div><label style={lbl}>Icon</label><input value={editExam.icon} onChange={e=>setEditExam(p=>p?{...p,icon:e.target.value}:null)} style={inp}/></div>
-                <div><label style={lbl}>Color</label><div style={{display:'flex',gap:6}}><input value={editExam.color} onChange={e=>setEditExam(p=>p?{...p,color:e.target.value}:null)} style={{...inp,flex:1}}/><div style={{width:40,borderRadius:8,background:editExam.color,border:`1px solid ${BOR}`}}/></div></div>
+                <div><label style={lbl}>Icon / Emoji</label>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:5,marginBottom:6}}>
+                  {EMOJI_OPTIONS.map(o=>(
+                    <button key={o.v} type="button" onClick={()=>setEditExam(p=>p?{...p,icon:o.v}:null)} title={o.l} style={{padding:'7px 3px',background:editExam.icon===o.v?'rgba(77,159,255,0.25)':'rgba(0,22,40,0.6)',border:`1.5px solid ${editExam.icon===o.v?ACC:BOR}`,borderRadius:7,cursor:'pointer',fontSize:18,transition:'all 0.15s'}}>{o.v}</button>
+                  ))}
+                </div>
+              </div>
+                <div><label style={lbl}>Card Color</label>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(8,1fr)',gap:5,marginBottom:6}}>
+                  {COLOR_OPTIONS.map(o=>(
+                    <button key={o.v} type="button" onClick={()=>setEditExam(p=>p?{...p,color:o.v}:null)} title={o.l} style={{width:'100%',aspectRatio:'1',background:o.bg,borderRadius:7,border:editExam.color===o.v?'3px solid #fff':'2px solid transparent',cursor:'pointer',boxShadow:editExam.color===o.v?`0 0 10px ${o.bg}88`:''}}/>
+                  ))}
+                </div>
+                <div style={{display:'flex',gap:6}}><input value={editExam.color} onChange={e=>setEditExam(p=>p?{...p,color:e.target.value}:null)} style={{...inp,flex:1,padding:'8px 12px'}}/><div style={{width:34,height:34,borderRadius:7,background:editExam.color,border:`2px solid ${BOR}`}}/></div>
+              </div>
               </div>
               <div><label style={lbl}>Description</label><input value={editExam.desc} onChange={e=>setEditExam(p=>p?{...p,desc:e.target.value}:null)} style={inp}/></div>
             </div>

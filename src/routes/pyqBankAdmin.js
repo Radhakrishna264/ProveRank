@@ -5,6 +5,11 @@ const multer  = require('multer');
 const XLSX    = require('xlsx');
 const pdfParse = require('pdf-parse');
 const { verifyToken, isAdmin } = require('../middleware/auth');
+// ── Model requires (must be at top so mongoose registers schemas) ────────────
+const PYQExamCard = require('../models/PYQExamCard');
+const PYQYearCard = require('../models/PYQYearCard');
+const Question    = require('../models/Question');
+
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
@@ -23,8 +28,8 @@ const DEFAULT_CARDS = [
 
 // ── Helper: get stats for an exam name ──────────────────────────────────────────
 async function getExamStats(examName) {
-  const Question    = mongoose.model('Question');
-  const PYQYearCard = mongoose.model('PYQYearCard');
+  
+  
   const years  = await PYQYearCard.find({ examName }).sort({ year: -1 });
   const totalQ = await Question.countDocuments({ isPYQ: true, pyqExam: examName });
   const solved = await Question.countDocuments({ isPYQ: true, pyqExam: examName, 'usageCount': { $gt: 0 } });
@@ -44,9 +49,9 @@ async function getExamStats(examName) {
 // GET all exam cards (default + custom) + stats
 router.get('/exam-cards', verifyToken, isAdmin, async (req, res) => {
   try {
-    const PYQExamCard = mongoose.model('PYQExamCard');
-    const Question    = mongoose.model('Question');
-    const PYQYearCard = mongoose.model('PYQYearCard');
+    
+    
+    
     // Seed defaults if not present
     for (const dc of DEFAULT_CARDS) {
       await PYQExamCard.findOneAndUpdate({ name: dc.name }, { $setOnInsert: dc }, { upsert: true, new: true });
@@ -71,7 +76,7 @@ router.get('/exam-cards', verifyToken, isAdmin, async (req, res) => {
 // POST create new exam card
 router.post('/exam-cards', verifyToken, isAdmin, async (req, res) => {
   try {
-    const PYQExamCard = mongoose.model('PYQExamCard');
+    
     const { name, icon, color, desc } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ success: false, message: 'Name required' });
     const exists = await PYQExamCard.findOne({ name: name.trim() });
@@ -84,7 +89,7 @@ router.post('/exam-cards', verifyToken, isAdmin, async (req, res) => {
 // PUT update exam card
 router.put('/exam-cards/:id', verifyToken, isAdmin, async (req, res) => {
   try {
-    const PYQExamCard = mongoose.model('PYQExamCard');
+    
     const { name, icon, color, desc } = req.body;
     const card = await PYQExamCard.findByIdAndUpdate(req.params.id, { name, icon, color, desc }, { new: true });
     if (!card) return res.status(404).json({ success: false, message: 'Not found' });
@@ -95,9 +100,9 @@ router.put('/exam-cards/:id', verifyToken, isAdmin, async (req, res) => {
 // DELETE exam card + its year cards + questions
 router.delete('/exam-cards/:id', verifyToken, isAdmin, async (req, res) => {
   try {
-    const PYQExamCard = mongoose.model('PYQExamCard');
-    const PYQYearCard = mongoose.model('PYQYearCard');
-    const Question    = mongoose.model('Question');
+    
+    
+    
     const card = await PYQExamCard.findById(req.params.id);
     if (!card) return res.status(404).json({ success: false, message: 'Not found' });
     if (card.isDefault) return res.status(400).json({ success: false, message: 'Cannot delete default exam card. Edit it instead.' });
@@ -121,8 +126,8 @@ router.get('/exam-cards/:examName/stats', verifyToken, isAdmin, async (req, res)
 // GET year cards for an exam
 router.get('/exam-cards/:examName/years', verifyToken, isAdmin, async (req, res) => {
   try {
-    const PYQYearCard = mongoose.model('PYQYearCard');
-    const Question    = mongoose.model('Question');
+    
+    
     const examName = decodeURIComponent(req.params.examName);
     const years = await PYQYearCard.find({ examName }).sort({ year: -1 });
     // Attach question counts
@@ -137,7 +142,7 @@ router.get('/exam-cards/:examName/years', verifyToken, isAdmin, async (req, res)
 // POST create year card
 router.post('/exam-cards/:examName/years', verifyToken, isAdmin, async (req, res) => {
   try {
-    const PYQYearCard = mongoose.model('PYQYearCard');
+    
     const examName = decodeURIComponent(req.params.examName);
     const { year, status, notes } = req.body;
     if (!year) return res.status(400).json({ success: false, message: 'Year required' });
@@ -151,7 +156,7 @@ router.post('/exam-cards/:examName/years', verifyToken, isAdmin, async (req, res
 // PUT update year card
 router.put('/years/:yearId', verifyToken, isAdmin, async (req, res) => {
   try {
-    const PYQYearCard = mongoose.model('PYQYearCard');
+    
     const { status, notes, paperCount } = req.body;
     const yc = await PYQYearCard.findByIdAndUpdate(req.params.yearId, { status, notes, paperCount }, { new: true });
     if (!yc) return res.status(404).json({ success: false, message: 'Year card not found' });
@@ -162,8 +167,8 @@ router.put('/years/:yearId', verifyToken, isAdmin, async (req, res) => {
 // DELETE year card + its questions
 router.delete('/years/:yearId', verifyToken, isAdmin, async (req, res) => {
   try {
-    const PYQYearCard = mongoose.model('PYQYearCard');
-    const Question    = mongoose.model('Question');
+    
+    
     const yc = await PYQYearCard.findById(req.params.yearId);
     if (!yc) return res.status(404).json({ success: false, message: 'Year card not found' });
     const qDel = await Question.deleteMany({ isPYQ: true, pyqExam: yc.examName, pyqYear: yc.year });
@@ -177,8 +182,8 @@ router.delete('/years/:yearId', verifyToken, isAdmin, async (req, res) => {
 // GET questions for a year card (with filters)
 router.get('/years/:yearId/questions', verifyToken, isAdmin, async (req, res) => {
   try {
-    const PYQYearCard = mongoose.model('PYQYearCard');
-    const Question    = mongoose.model('Question');
+    
+    
     const yc = await PYQYearCard.findById(req.params.yearId);
     if (!yc) return res.status(404).json({ success: false, message: 'Year card not found' });
     const { subject, chapter, difficulty, search, page = 1, limit = 50 } = req.query;
@@ -199,8 +204,8 @@ router.get('/years/:yearId/questions', verifyToken, isAdmin, async (req, res) =>
 // POST manual add single question
 router.post('/years/:yearId/questions', verifyToken, isAdmin, async (req, res) => {
   try {
-    const PYQYearCard = mongoose.model('PYQYearCard');
-    const Question    = mongoose.model('Question');
+    
+    
     const yc = await PYQYearCard.findById(req.params.yearId);
     if (!yc) return res.status(404).json({ success: false, message: 'Year card not found' });
     const { text, hindiText, options, correct, subject, chapter, difficulty, explanation, hindiExplanation } = req.body;
@@ -225,8 +230,8 @@ router.post('/years/:yearId/questions', verifyToken, isAdmin, async (req, res) =
 // ── Copy-Paste Upload ──────────────────────────────────────────────────────────
 router.post('/years/:yearId/upload/copypaste', verifyToken, isAdmin, async (req, res) => {
   try {
-    const PYQYearCard = mongoose.model('PYQYearCard');
-    const Question    = mongoose.model('Question');
+    
+    
     const yc = await PYQYearCard.findById(req.params.yearId);
     if (!yc) return res.status(404).json({ success: false, message: 'Year card not found' });
     const { questionsText, answerKeyText } = req.body;
@@ -292,8 +297,8 @@ router.post('/years/:yearId/upload/copypaste', verifyToken, isAdmin, async (req,
 // ── Excel Upload ───────────────────────────────────────────────────────────────
 router.post('/years/:yearId/upload/excel', verifyToken, isAdmin, upload.single('file'), async (req, res) => {
   try {
-    const PYQYearCard = mongoose.model('PYQYearCard');
-    const Question    = mongoose.model('Question');
+    
+    
     const yc = await PYQYearCard.findById(req.params.yearId);
     if (!yc) return res.status(404).json({ success: false, message: 'Year card not found' });
     if (!req.file)  return res.status(400).json({ success: false, message: 'Excel file required' });
@@ -338,8 +343,8 @@ router.post('/years/:yearId/upload/excel', verifyToken, isAdmin, upload.single('
 // ── PDF Upload ─────────────────────────────────────────────────────────────────
 router.post('/years/:yearId/upload/pdf', verifyToken, isAdmin, upload.single('file'), async (req, res) => {
   try {
-    const PYQYearCard = mongoose.model('PYQYearCard');
-    const Question    = mongoose.model('Question');
+    
+    
     const yc = await PYQYearCard.findById(req.params.yearId);
     if (!yc) return res.status(404).json({ success: false, message: 'Year card not found' });
     if (!req.file) return res.status(400).json({ success: false, message: 'PDF file required' });
