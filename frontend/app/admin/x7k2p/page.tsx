@@ -2982,8 +2982,6 @@ const confirmAndAdd=useCallback(async()=>{
                 <div>
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:10}}>
                     <div><div style={pageTitle}>📚 Question Bank</div><div style={pageSub}>{(questions||[]).length} questions · NEET Pattern Ready</div></div>
-                    <button onClick={()=>setShowBin(true)} style={{background:'rgba(255,77,77,0.1)',border:'1px solid rgba(255,77,77,0.3)',color:'#FF4D4D',borderRadius:8,fontSize:11,padding:'6px 12px',cursor:'pointer',fontWeight:600}}>🗑️ Recycle Bin</button>
-                    <button onClick={()=>setShowArchived(true)} style={{background:'rgba(255,184,77,0.1)',border:'1px solid rgba(255,184,77,0.3)',color:'#FFB84D',borderRadius:8,fontSize:11,padding:'6px 12px',cursor:'pointer',fontWeight:600}}>🗂️ Archived</button>
                     <button onClick={expQB} style={{...bg_,fontSize:11,padding:'6px 12px'}}>⬇️ Export CSV</button>
                   </div>
                   <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
@@ -3257,6 +3255,8 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                     <button onClick={function(){setStdPrv(function(p){return !p})}} style={{...bg_,fontSize:10,padding:'5px 10px',background:stdPrv?'rgba(0,229,160,0.12)':'rgba(255,255,255,0.05)',color:stdPrv?'#00E5A0':'#94A3B8'}}>{stdPrv?'🎓 ON':'🎓 View'}</button><button onClick={function(){var nl=qLang==='en'?'hi':'en';setQLang(nl);try{localStorage.setItem('pr_qb_lang',nl)}catch{}}} style={{padding:'5px 10px',borderRadius:7,fontSize:10,fontWeight:700,cursor:'pointer',transition:'all 0.2s',background:qLang==='hi'?'rgba(251,146,60,0.18)':'rgba(255,255,255,0.05)',color:qLang==='hi'?'#FB923C':'#94A3B8',border:'1px solid '+(qLang==='hi'?'rgba(251,146,60,0.45)':'rgba(255,255,255,0.1)')}} title={qLang==='hi'?'Switch to English':'Switch to Hindi'}>{qLang==='hi'?'🇮🇳 हिंदी ✓':'🌐 EN | हिंदी'}</button>
                     <button onClick={expQB} style={{...bg_,fontSize:10,padding:'5px 10px'}} title='Export CSV'>📄 CSV</button><button onClick={expQBPdf} style={{...bg_,fontSize:10,padding:'5px 10px',marginLeft:4}} title='Export PDF'>🖨️ PDF</button>
                     <button onClick={function(){setQBV('add');try{sessionStorage.setItem('pr_qbv','add')}catch{}}} style={{...bp,fontSize:10,padding:'5px 12px'}}>➕ Add</button>
+                    <button onClick={()=>setShowBin(true)} style={{background:'rgba(255,77,77,0.1)',border:'1px solid rgba(255,77,77,0.3)',color:'#FF4D4D',borderRadius:7,fontSize:10,padding:'5px 10px',cursor:'pointer',fontWeight:600}}>🗑️ Bin</button>
+                    <button onClick={()=>setShowArchived(true)} style={{background:'rgba(255,184,77,0.1)',border:'1px solid rgba(255,184,77,0.3)',color:'#FFB84D',borderRadius:7,fontSize:10,padding:'5px 10px',cursor:'pointer',fontWeight:600}}>🗂️ Archive</button>
                   </div>
                   <SInput init='' onSet={v=>{setQSearch(v);setQPage(1)}} ph='🔍 Search questions, chapter, topic…' style={{...inp,marginBottom:8,fontSize:12}}/>
                   {(function(){
