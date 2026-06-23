@@ -1,4 +1,5 @@
 'use client'
+import PreviewAllQuestions from './PreviewAllQuestions'
 import { DeleteBtn, DeleteConfirmModal, RecycleBinModal, ArchivedModal, UndoToast, useDeleteQuestion } from './DeleteQuestionSystem'
 import ContentForge from './ContentForge';
 import AIExplainTab from './AIExplainTab';
@@ -3290,179 +3291,45 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 )}
 
 {qBV==='preview'&&(
-                <div>
-                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
-                    <button onClick={function(){setQBV('home');setBulkSel([]);try{sessionStorage.setItem('pr_qbv','home')}catch{}}} style={{...bg_,padding:'5px 11px',fontSize:11}}>← Back</button>
-                    <div style={{flex:1,minWidth:0,overflow:'hidden'}}><div style={{fontSize:18,fontWeight:800,background:'linear-gradient(90deg,#A78BFA,#60A5FA)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',letterSpacing:0.2,lineHeight:1.2}}>📚 Preview All Questions</div><div style={{display:'flex',alignItems:'center',gap:5,marginTop:3,flexWrap:'wrap'}}><span style={{fontSize:10,color:'#64748B',fontWeight:500}}>Showing</span><span style={{fontSize:11,fontWeight:700,color:'#A78BFA',background:'rgba(167,139,250,0.13)',padding:'1px 9px',borderRadius:8,border:'1px solid rgba(167,139,250,0.28)'}}>{fQs.length}</span><span style={{fontSize:10,color:'#64748B'}}>of {(questions||[]).length} Questions</span></div></div>
-                    <button onClick={function(){setStdPrv(function(p){return !p})}} style={{...bg_,fontSize:10,padding:'5px 10px',background:stdPrv?'rgba(0,229,160,0.12)':'rgba(255,255,255,0.05)',color:stdPrv?'#00E5A0':'#94A3B8'}}>{stdPrv?'🎓 ON':'🎓 View'}</button><button onClick={function(){var nl=qLang==='en'?'hi':'en';setQLang(nl);try{localStorage.setItem('pr_qb_lang',nl)}catch{}}} style={{padding:'5px 10px',borderRadius:7,fontSize:10,fontWeight:700,cursor:'pointer',transition:'all 0.2s',background:qLang==='hi'?'rgba(251,146,60,0.18)':'rgba(255,255,255,0.05)',color:qLang==='hi'?'#FB923C':'#94A3B8',border:'1px solid '+(qLang==='hi'?'rgba(251,146,60,0.45)':'rgba(255,255,255,0.1)')}} title={qLang==='hi'?'Switch to English':'Switch to Hindi'}>{qLang==='hi'?'🇮🇳 हिंदी ✓':'🌐 EN | हिंदी'}</button>
-                    <button onClick={expQB} style={{...bg_,fontSize:10,padding:'5px 10px'}} title='Export CSV'>📄 CSV</button><button onClick={expQBPdf} style={{...bg_,fontSize:10,padding:'5px 10px',marginLeft:4}} title='Export PDF'>🖨️ PDF</button>
-                    <button onClick={function(){setQBV('add');try{sessionStorage.setItem('pr_qbv','add')}catch{}}} style={{...bp,fontSize:10,padding:'5px 12px'}}>➕ Add</button>
-                    <button onClick={()=>setShowBin(true)} style={{background:'rgba(255,77,77,0.1)',border:'1px solid rgba(255,77,77,0.3)',color:'#FF4D4D',borderRadius:7,fontSize:10,padding:'5px 10px',cursor:'pointer',fontWeight:600}}>🗑️ Bin</button>
-                    <button onClick={()=>setShowArchived(true)} style={{background:'rgba(255,184,77,0.1)',border:'1px solid rgba(255,184,77,0.3)',color:'#FFB84D',borderRadius:7,fontSize:10,padding:'5px 10px',cursor:'pointer',fontWeight:600}}>🗂️ Archive</button>
-                  </div>
-                  <SInput init='' onSet={v=>{setQSearch(v);setQPage(1)}} ph='🔍 Search questions, chapter, topic…' style={{...inp,marginBottom:8,fontSize:12}}/>
-                  {(function(){
-                    const activeCnt=[qfApproval,qfDiff2,qfType,qfUsage,qfLevel,qfFormat,qfDate].filter(function(v){return v!=='all'}).length
-                    return(<div style={{marginBottom:8}}>
-                      <button onClick={function(){setQfOpen(function(p){return !p})}} style={{...bg_,fontSize:11,padding:'6px 14px',display:'flex',alignItems:'center',gap:6,width:'100%',justifyContent:'space-between'}}>
-                        <span>🧰 Smart Filters{activeCnt>0?' ('+activeCnt+' active)':''}</span>
-                        <span>{qfOpen?'▲':'▼'}</span>
-                      </button>
-                      {qfOpen&&(<div style={{marginTop:8,padding:10,background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:10,display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
-                        <div><label style={{...lbl,fontSize:9}}>Approval Status</label>
-                          <select value={qfApproval} onChange={function(e){setQfApproval(e.target.value);setQPage(1)}} style={{...inp,width:'100%',fontSize:11,padding:'6px 8px'}}>
-                            <option value='all'>All</option><option value='approved'>Approved</option><option value='pending'>Pending</option><option value='rejected'>Rejected</option>
-                          </select></div>
-                        <div><label style={{...lbl,fontSize:9}}>Difficulty</label>
-                          <select value={qfDiff2} onChange={function(e){setQfDiff2(e.target.value);setQPage(1)}} style={{...inp,width:'100%',fontSize:11,padding:'6px 8px'}}>
-                            <option value='all'>All</option><option value='easy'>Easy</option><option value='medium'>Medium</option><option value='hard'>Hard</option>
-                          </select></div>
-                        <div><label style={{...lbl,fontSize:9}}>Type</label>
-                          <select value={qfType} onChange={function(e){setQfType(e.target.value);setQPage(1)}} style={{...inp,width:'100%',fontSize:11,padding:'6px 8px'}}>
-                            <option value='all'>All</option><option value='SCQ'>SCQ</option><option value='MSQ'>MSQ</option><option value='Integer'>Integer</option>
-                          </select></div>
-                        <div><label style={{...lbl,fontSize:9}}>Usage</label>
-                          <select value={qfUsage} onChange={function(e){setQfUsage(e.target.value);setQPage(1)}} style={{...inp,width:'100%',fontSize:11,padding:'6px 8px'}}>
-                            <option value='all'>All</option><option value='never'>Never Used</option><option value='1-5'>Used 1-5x</option><option value='5+'>Used 5x+</option>
-                          </select></div>
-                        <div><label style={{...lbl,fontSize:9}}>Exam Level</label>
-                          <select value={qfLevel} onChange={function(e){setQfLevel(e.target.value);setQPage(1)}} style={{...inp,width:'100%',fontSize:11,padding:'6px 8px'}}>
-                            <option value='all'>All</option><option value='NEET'>NEET</option><option value='JEE_MAINS'>JEE_MAINS</option><option value='JEE_ADVANCED'>JEE_ADVANCED</option><option value='CUET'>CUET</option><option value='BOARD'>BOARD</option>
-                          </select></div>
-                        <div><label style={{...lbl,fontSize:9}}>Format</label>
-                          <select value={qfFormat} onChange={function(e){setQfFormat(e.target.value);setQPage(1)}} style={{...inp,width:'100%',fontSize:11,padding:'6px 8px'}}>
-                            <option value='all'>All</option><option value='Random'>Random</option><option value='Match_Column'>Match Column</option><option value='Assertion_Reason'>Assertion-Reason</option><option value='Numerical'>Numerical</option><option value='Diagram_Based'>Diagram Based</option>
-                          </select></div>
-                        <div style={{gridColumn:'span 2'}}><label style={{...lbl,fontSize:9}}>Date Added</label>
-                          <select value={qfDate} onChange={function(e){setQfDate(e.target.value);setQPage(1)}} style={{...inp,width:'100%',fontSize:11,padding:'6px 8px'}}>
-                            <option value='all'>All Time</option><option value='7d'>Last 7 Days</option><option value='30d'>Last 30 Days</option>
-                          </select></div>
-                        {activeCnt>0&&(<div style={{gridColumn:'span 2'}}><button onClick={function(){setQfApproval('all');setQfDiff2('all');setQfType('all');setQfUsage('all');setQfLevel('all');setQfFormat('all');setQfDate('all');setQPage(1)}} style={{...bd,fontSize:10,padding:'5px 12px',width:'100%'}}>✕ Clear All Filters</button></div>)}
-                      </div>)}
-                    </div>)
-                  })()}
-                  <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:7}}>
-                    {[{k:'all',l:'All',col:'#A78BFA'},{k:'Physics',l:'⚛️ Phy',col:'#60A5FA'},{k:'Chemistry',l:'🧪 Chem',col:'#F472B6'},{k:'Biology',l:'🧬 Bio',col:'#34D399'},{k:'Math',l:'📐 Math',col:'#FBBF24'},{k:'Other',l:'📚 Other',col:'#94A3B8'}].map(function(x){
-                      const sqBase=(questions||[]).filter(function(q){return !qSearch||(q.text||'').toLowerCase().includes(qSearch.toLowerCase())||(q.subject||'').toLowerCase().includes(qSearch.toLowerCase())||(q.chapter||'').toLowerCase().includes(qSearch.toLowerCase())||(q.topic||'').toLowerCase().includes(qSearch.toLowerCase())})
-                      const cnt=x.k==='all'?sqBase.length:x.k==='Other'?sqBase.filter(function(q){return !['Physics','Chemistry','Biology','Math'].includes(q.subject||'')}).length:sqBase.filter(function(q){return q.subject===x.k}).length
-                      const isA=qSec===x.k
-                      return(<button key={x.k} onClick={function(){setQSec(x.k);setQBioSub('all');setQChapFilter('all');setQPage(1)}} style={{padding:'4px 10px',borderRadius:16,border:'1.5px solid '+(isA?x.col:x.col+'22'),background:isA?x.col+'18':'transparent',color:isA?x.col:'#64748B',fontSize:10,fontWeight:isA?700:400,cursor:'pointer'}}>{x.l} ({cnt})</button>)
-                    })}
-                  </div>
-                  {qSec==='Biology'&&(<div style={{display:'flex',gap:5,marginBottom:7}}>
-                    {[{k:'all',l:'All Bio'},{k:'Zoology',l:'🦁 Zoo'},{k:'Botany',l:'🌿 Bot'}].map(function(x){
-                      const isA=qBioSub===x.k
-                      return(<button key={x.k} onClick={function(){setQBioSub(x.k);setQPage(1)}} style={{padding:'3px 9px',borderRadius:12,border:'1px solid '+(isA?'#34D399':'rgba(52,211,153,0.2)'),background:isA?'rgba(52,211,153,0.12)':'transparent',color:isA?'#34D399':'#64748B',fontSize:10,cursor:'pointer'}}>{x.l}</button>)
-                    })}
-                  </div>)}
-                  {(function(){
-                    const chapBase=(questions||[]).filter(function(q){
-                      const OS=['Physics','Chemistry','Biology','Math']
-                      return qSec==='all'||(qSec==='Other'?!OS.includes(q.subject||''):q.subject===qSec)
-                    })
-                    const chapOpts=[...new Set(chapBase.map(function(q){return q.chapter||''}).filter(Boolean))].sort()
-                    if(chapOpts.length===0)return null
-                    return(<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:7,flexWrap:'wrap'}}>
-                      <span style={{fontSize:9,color:'#475569',fontWeight:600,flexShrink:0}}>📖 Chapter:</span>
-                      <select value={qChapFilter} onChange={function(e){setQChapFilter(e.target.value);setQPage(1)}} style={{fontSize:10,padding:'3px 8px',borderRadius:8,border:'1px solid rgba(167,139,250,0.3)',background:'rgba(255,255,255,0.04)',color:qChapFilter==='all'?'#64748B':'#A78BFA',cursor:'pointer',maxWidth:220}}>
-                        <option value='all'>All Chapters ({chapBase.length})</option>
-                        {chapOpts.map(function(ch){
-                          const cnt=chapBase.filter(function(q){return q.chapter===ch}).length
-                          const dn=ch.includes(' - ')?ch.split(' - ').slice(1).join(' - '):ch
-                          return(<option key={ch} value={ch}>{dn} ({cnt})</option>)
-                        })}
-                      </select>
-                      {qChapFilter!=='all'&&(<button onClick={function(){setQChapFilter('all');setQPage(1)}} style={{fontSize:9,padding:'2px 7px',borderRadius:6,border:'1px solid rgba(255,100,100,0.3)',background:'transparent',color:'#F87171',cursor:'pointer'}}>✕ Clear</button>)}
-                    </div>)
-                  })()}
-                  {(questions||[]).length>0&&(<div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:5,marginBottom:10}}>
-                    {[{l:'Total',v:(questions||[]).length,c:'#A78BFA'},{l:'Physics',v:(questions||[]).filter(function(q){return q.subject==='Physics'}).length,c:'#60A5FA'},{l:'Chemistry',v:(questions||[]).filter(function(q){return q.subject==='Chemistry'}).length,c:'#F472B6'},{l:'Biology',v:(questions||[]).filter(function(q){return q.subject==='Biology'}).length,c:'#34D399'},{l:'Math',v:(questions||[]).filter(function(q){return q.subject==='Math'}).length,c:'#FBBF24'}].map(function(x){return(
-                      <div key={x.l} style={{background:'rgba(255,255,255,0.03)',border:'1px solid '+x.c+'28',borderRadius:9,padding:'8px 4px',textAlign:'center'}}>
-                        <div style={{fontSize:16,fontWeight:800,color:x.c}}>{x.v}</div>
-                        <div style={{fontSize:8,color:'#64748b',marginTop:1}}>{x.l}</div>
-                      </div>)})}
-                  </div>)}
-                  {fQs.length>0&&(function(){
-                    const tot=fQs.length||1
-                    const ez=fQs.filter(function(q){return q.difficulty==='easy'}).length
-                    const md=fQs.filter(function(q){return q.difficulty==='medium'}).length
-                    const hd=fQs.filter(function(q){return q.difficulty==='hard'}).length
-                    return(<div style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)',borderRadius:10,padding:'10px 12px',marginBottom:8}}>
-                      <div style={{fontSize:10,color:'#94A3B8',fontWeight:600,marginBottom:7}}>📊 Difficulty Distribution</div>
-                      {[{l:'Easy',v:ez,col:'#00C864'},{l:'Medium',v:md,col:'#FFB300'},{l:'Hard',v:hd,col:'#FF4D4D'}].map(function(x){
-                        const pct=Math.round((x.v/tot)*100)
-                        return(<div key={x.l} style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
-                          <div style={{width:44,fontSize:9,color:x.col,fontWeight:600}}>{x.l}</div>
-                          <div style={{flex:1,height:4,background:'rgba(255,255,255,0.06)',borderRadius:2}}><div style={{width:pct+'%',height:'100%',background:x.col,borderRadius:2,transition:'width 0.4s ease'}}/></div>
-                          <div style={{width:54,fontSize:9,color:'#475569',textAlign:'right'}}>{x.v} ({pct}%)</div>
-                        </div>)
-                      })}
-                    </div>)
-                  })()}
-                  {bulkSel.length>0&&(<div style={{display:'flex',alignItems:'center',gap:8,padding:'7px 12px',background:'rgba(255,60,60,0.07)',border:'1px solid rgba(255,60,60,0.2)',borderRadius:8,marginBottom:8,flexWrap:'wrap'}}>
-                    <span style={{fontSize:11,color:'#FC8181',fontWeight:700}}>{bulkSel.length} selected</span>
-                    <button onClick={blkApproveQs} style={{fontSize:10,padding:'3px 12px',borderRadius:6,border:'1px solid rgba(0,200,100,0.35)',background:'rgba(0,200,100,0.1)',color:'#00C864',cursor:'pointer',fontWeight:600}}>✅ Approve</button>
-                    <button onClick={openBulkEdit} style={{fontSize:10,padding:'3px 12px',borderRadius:6,border:'1px solid rgba(167,139,250,0.35)',background:'rgba(167,139,250,0.1)',color:'#A78BFA',cursor:'pointer',fontWeight:600}}>✏️ Bulk Edit</button>
-                    <button onClick={async()=>{if(confirm('Move '+bulkSel.length+' questions to Recycle Bin?')){const ok=await bulkDeleteFn(bulkSel);if(ok)setBulkSel([])}}} style={{background:'rgba(255,77,77,0.1)',border:'1px solid rgba(255,77,77,0.35)',color:'#FF4D4D',borderRadius:6,fontSize:10,padding:'3px 12px',cursor:'pointer',fontWeight:600}}>🗑️ Delete</button>
-                    <button onClick={async()=>{if(confirm('Archive '+bulkSel.length+' questions?')){const ok=await bulkArchiveFn(bulkSel);if(ok)setBulkSel([])}}} style={{background:'rgba(255,184,77,0.1)',border:'1px solid rgba(255,184,77,0.35)',color:'#FFB84D',borderRadius:6,fontSize:10,padding:'3px 12px',cursor:'pointer',fontWeight:600}}>🗂️ Archive</button>
-                    <button onClick={function(){setBulkSel([])}} style={{...bg_,fontSize:10,padding:'3px 10px'}}>✕</button>
-                  </div>)}
-<div style={{padding:'10px 0 14px',marginBottom:8,borderBottom:'1px solid rgba(255,255,255,0.08)'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,flexWrap:'wrap',gap:4}}><span style={{fontSize:11,color:'#94a3b8',fontWeight:500,letterSpacing:0.2}}>{_fQsSorted.length>0?((_qPg-1)*25+1)+'-'+Math.min(_qPg*25,_fQsSorted.length)+' of '+_fQsSorted.length+' Questions':''}</span><span style={{fontSize:11,color:'#4D9FFF',fontWeight:700,background:'rgba(77,159,255,0.1)',padding:'2px 8px',borderRadius:10}}>{'Page '+_qPg+' / '+_qTP}</span></div><div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:2,flexWrap:'nowrap',overflowX:'auto'}}><button onClick={()=>setQPage(p=>Math.max(1,p-1))} disabled={_qPg<=1} style={{fontSize:11,color:'#4D9FFF',background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:6,padding:'5px 11px',cursor:'pointer',opacity:_qPg<=1?0.3:1,fontWeight:600}}>{'← Prev'}</button>{Array.from({length:_qTP},function(_el,i){return i+1}).filter(function(p){return p===1||p===_qTP||Math.abs(p-_qPg)<=1}).reduce(function(acc,p,i,arr){if(i>0&&p-arr[i-1]>1)acc.push('…');acc.push(p);return acc;},[]).map(function(p,idx){return typeof p==='string'?<span key={'d'+idx} style={{color:'#475569',fontSize:12,padding:'0 2px',fontWeight:500}}>{'…'}</span>:<button key={p} onClick={function(){setQPage(p)}} style={{fontSize:12,color:_qPg===p?'#fff':'#4D9FFF',background:_qPg===p?'linear-gradient(135deg,#4D9FFF,#a78bfa)':'rgba(77,159,255,0.08)',border:'1px solid '+(_qPg===p?'transparent':'rgba(77,159,255,0.25)'),borderRadius:6,padding:'5px 8px',cursor:'pointer',fontWeight:_qPg===p?800:500,minWidth:32,textAlign:'center',boxShadow:_qPg===p?'0 2px 10px rgba(77,159,255,0.5)':'none'}}>{p}</button>})}<button onClick={()=>setQPage(p=>Math.min(_qTP,p+1))} disabled={_qPg>=_qTP} style={{fontSize:11,color:'#4D9FFF',background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:6,padding:'5px 11px',cursor:'pointer',opacity:_qPg>=_qTP?0.3:1,fontWeight:600}}>{'Next →'}</button></div></div>
-{fQs.length===0
-                    ?<PageHero icon='❓' title='No Questions Found' subtitle={questions.length===0?'Loading questions…':'Try different search or section filter.'}/>
-                    :<div style={{display:'flex',flexDirection:'column',gap:5}}>
-                      {pagedQs.map(function(q,qi){
-                        const isChk=bulkSel.includes(q._id)
-                        const usedInCount=(exams||[]).filter(function(e){return (e.questionIds||e.questions||[]).includes(q._id)}).length
-                        const sCol=q.subject==='Physics'?'#60A5FA':q.subject==='Chemistry'?'#F472B6':q.subject==='Biology'?'#34D399':q.subject==='Math'?'#FBBF24':'#94A3B8'
-                        const dCol=q.difficulty==='hard'?'#FF4D4D':q.difficulty==='easy'?'#00C864':'#FFB300'
-                        return(
-                          <div key={q._id||qi} style={{background:isChk?'rgba(77,159,255,0.05)':'rgba(255,255,255,0.02)',border:'1px solid '+(isChk?'rgba(77,159,255,0.2)':'rgba(255,255,255,0.05)'),borderLeft:'4px solid '+sCol,borderRadius:10,padding:'8px 10px'}}>
-                            <div style={{display:'flex',alignItems:'flex-start',gap:7}}>
-                              <input type='checkbox' checked={isChk} onChange={function(e){if(e.target.checked)setBulkSel(function(p){return [...p,q._id]});else setBulkSel(function(p){return p.filter(function(x){return x!==q._id})})}} style={{marginTop:3,cursor:'pointer',accentColor:'#4D9FFF',flexShrink:0}}/>
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{display:'flex',gap:4,marginBottom:4,flexWrap:'wrap',alignItems:'center'}}>
-                                  <span style={{fontSize:13,color:'#fff',fontWeight:800,background:'linear-gradient(135deg,#4D9FFF,#a78bfa)',borderRadius:6,padding:'3px 10px',minWidth:30,textAlign:'center',display:'inline-block',flexShrink:0,boxShadow:'0 1px 4px rgba(77,159,255,0.4)'}}>#{_fQsSorted.length-((_qPg-1)*25+qi)}</span>
-                                  <span style={{fontSize:9,fontWeight:600,padding:'1px 6px',borderRadius:4,background:sCol+'18',color:sCol,border:'1px solid '+sCol+'30'}}>{q.subject||'General'}</span>
-                                  <span style={{fontSize:9,fontWeight:600,padding:'1px 6px',borderRadius:4,background:dCol+'18',color:dCol,border:'1px solid '+dCol+'30'}}>{q.difficulty||'?'}</span>
-                                  <span style={{fontSize:9,padding:'1px 5px',borderRadius:3,background:'rgba(77,159,255,0.08)',color:'#4D9FFF'}}>{q.type||'SCQ'}</span><span style={{fontSize:9,padding:'1px 6px',borderRadius:3,background:usedInCount>0?'rgba(96,165,250,0.1)':'rgba(255,255,255,0.04)',color:usedInCount>0?'#60A5FA':'#475569'}}>{usedInCount>0?'📊 '+usedInCount+' exam'+(usedInCount>1?'s':''):'📊 —'}</span>
-                                </div>
-                                <div onClick={function(){if(longPressFiredRef.current){longPressFiredRef.current=false;return}setSelQId(q._id)}} onTouchStart={function(){longPressFiredRef.current=false;longPressTimerRef.current=setTimeout(function(){longPressFiredRef.current=true;setBulkSel(function(p){return p.includes(q._id)?p.filter(function(x){return x!==q._id}):[...p,q._id]});if(navigator.vibrate)navigator.vibrate(30)},500)}} onTouchEnd={function(){clearTimeout(longPressTimerRef.current)}} onTouchMove={function(){clearTimeout(longPressTimerRef.current)}} onContextMenu={function(e){e.preventDefault();setBulkSel(function(p){return p.includes(q._id)?p.filter(function(x){return x!==q._id}):[...p,q._id]})}} style={{cursor:'pointer',fontSize:12,color:'#CBD5E1',lineHeight:1.5,marginBottom:3,display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',overflow:'hidden',WebkitTouchCallout:'none',WebkitUserSelect:'none',userSelect:'none'}}>
-{(qLang==='hi'&&q.hindiText?q.hindiText:q.text||'').slice(0,90)}{(qLang==='hi'&&q.hindiText?q.hindiText:q.text||'').length>90?'…':''}
-</div>
-{qLang==='hi'&&!q.hindiText&&<div style={{fontSize:9,color:'#6366f1',marginTop:2,display:'flex',alignItems:'center',gap:3}}><span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',background:'#6366f1',animation:'pulse 1.5s infinite'}}></span>हिंदी अनुवाद प्रतीक्षा में...</div>}
-                                {q.chapter&&<div style={{fontSize:10,color:'#475569'}}>📖 {q.chapter}{q.topic?' › '+q.topic:''}</div>}
-                                {stdPrv&&(q.options||[]).length>0&&(<div style={{marginTop:6,display:'grid',gridTemplateColumns:'1fr 1fr',gap:3}}>
-                                  {(q.options||[]).map(function(opt,oi){
-                                    const ltr=String.fromCharCode(65+oi)
-                                    const cIdx=Array.isArray(q.correct)?q.correct:q.correct!==undefined?[q.correct]:[]
-                                    const isC=(Array.isArray(cIdx)?cIdx.includes(oi):cIdx===oi)||(q.correctAnswer&&q.correctAnswer===ltr)
-                                    return(<div key={oi} style={{padding:'3px 7px',borderRadius:5,fontSize:10,border:'1px solid '+(isC?'rgba(0,200,100,0.4)':'rgba(255,255,255,0.06)'),background:isC?'rgba(0,200,100,0.08)':'rgba(255,255,255,0.02)',color:isC?'#00C864':'#94A3B8'}}>
-                                      <span style={{fontWeight:700,marginRight:4,color:isC?'#00C864':'#4D9FFF'}}>{ltr}.</span>{((qLang==='hi'&&(q.hindiOptions||[])[oi])?q.hindiOptions[oi]:opt||'').replace(/^[A-Da-d][\.\)\:]s*/,'').trim().slice(0,28)}{isC&&' ✓'}
-                                    </div>)
-                                  })}
-                                </div>)}
-                              </div>
-                              {/* HORIZONTAL action buttons */}
-                              <div style={{display:'flex',gap:2,flexShrink:0,flexWrap:'nowrap'}}>
-                                <button onClick={function(){setSelQId(q._id)}} style={{...bg_,padding:'2px',fontSize:10,borderRadius:5,width:30,height:28,display:'flex',alignItems:'center',justifyContent:'center'}} title='Preview'>👁️</button>
-                                <button onClick={function(){fetchUsageStats(q)}} style={{...bg_,padding:'2px',fontSize:10,borderRadius:5,width:30,height:28,display:'flex',alignItems:'center',justifyContent:'center'}} title='Usage Stats'>📊</button>
-                                <button onClick={function(){
-                                  const ltrs=['A','B','C','D']
-                                  const cIdx=Array.isArray(q.correct)&&q.correct.length>0?q.correct[0]:(q.correctAnswer?ltrs.indexOf(q.correctAnswer):0)
-                                  setEditQD(Object.assign({},q,{correctLetter:ltrs[cIdx>=0?cIdx:0]||'A'}))
-                                }} style={{...bg_,padding:'2px',fontSize:10,borderRadius:5,width:30,height:28,display:'flex',alignItems:'center',justifyContent:'center'}} title='Edit'>✏️</button>
-                                <button onClick={function(){copyToAddForm(q)}} style={{...bg_,padding:'2px',fontSize:10,borderRadius:5,width:30,height:28,display:'flex',alignItems:'center',justifyContent:'center'}} title='Copy to Add Form'>📋</button>
-                                <DeleteBtn onClick={()=>openDeleteModal(q)}/>
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  }
-                </div>
+                <PreviewAllQuestions
+                  questions={questions||[]}
+                  exams={exams||[]}
+                  token={typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''}
+                  API={API}
+                  T={T}
+                  fetchAll={fetchAll}
+                  onBack={function(){setQBV('home');setBulkSel([]);try{sessionStorage.setItem('pr_qbv','home')}catch{}}}
+                  onGoAdd={function(){setQBV('add');try{sessionStorage.setItem('pr_qbv','add')}catch{}}}
+                  qLang={qLang} setQLang={setQLang}
+                  qSec={qSec} setQSec={setQSec}
+                  qBioSub={qBioSub} setQBioSub={setQBioSub}
+                  qChapFilter={qChapFilter} setQChapFilter={setQChapFilter}
+                  qSearch={qSearch} setQSearch={setQSearch}
+                  qPage={_qPg} setQPage={setQPage}
+                  qfApproval={qfApproval} setQfApproval={setQfApproval}
+                  qfDiff2={qfDiff2} setQfDiff2={setQfDiff2}
+                  qfType={qfType} setQfType={setQfType}
+                  qfUsage={qfUsage} setQfUsage={setQfUsage}
+                  qfLevel={qfLevel} setQfLevel={setQfLevel}
+                  qfFormat={qfFormat} setQfFormat={setQfFormat}
+                  qfDate={qfDate} setQfDate={setQfDate}
+                  stdPrv={stdPrv} setStdPrv={setStdPrv}
+                  bulkSel={bulkSel} setBulkSel={setBulkSel}
+                  openA2E={openA2E}
+                  fQs={fQs} pagedQs={pagedQs} _fQsSorted={_fQsSorted} _qPg={_qPg} _qTP={_qTP}
+                  setSelQId={setSelQId}
+                  fetchUsageStats={fetchUsageStats}
+                  setEditQD={setEditQD}
+                  copyToAddForm={copyToAddForm}
+                  expQB={expQB}
+                  expQBPdf={expQBPdf}
+                  longPressTimerRef={longPressTimerRef}
+                  longPressFiredRef={longPressFiredRef}
+                  blkApproveQs={blkApproveQs}
+                />
               )}
+
+                            )}
 
               {/* ════════════════════════════════════════════════════ */}
               {/* NCERT MODE MODAL — Fully Independent               */}
