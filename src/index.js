@@ -37,6 +37,7 @@ require('./models/Grievance');
 require('./models/QuestionVersion');
 require('./models/QuestionError');
 require('./models/Doubt');
+const questionStatsRoutes = require('./routes/questionStatsRoutes');
 const questionDeleteRoutes = require('./routes/questionDeleteRoutes');
 const adminQuestionMgmtRoutes = require('./routes/adminQuestionMgmtRoutes');
 const adminResultRoutes = require('./routes/adminResultRoutes');
@@ -96,7 +97,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/auth', twoFactorRoutes);
 
 // ── Admin Routes ──────────────────────────────────────────────
-app.use('/api', questionDeleteRoutes);
+app.use('/api', questionDeleteRoutes)
+app.use('/api', questionStatsRoutes);
+;
 app.use('/api/admin/manage', adminManagementRoutes);  // S37/S72/S38/S93/M4
 app.use('/api/admin', adminSystemRoutes);
 app.use('/api/admin', adminMonitoringRoutes);  // Phase 6.2

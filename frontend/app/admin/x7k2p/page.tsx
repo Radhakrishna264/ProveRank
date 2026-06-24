@@ -1,4 +1,5 @@
 'use client'
+import QBankStatsDashboard from './QBankStatsDashboard'
 import PreviewAllQuestions from './PreviewAllQuestions'
 import { DeleteBtn, DeleteConfirmModal, RecycleBinModal, ArchivedModal, UndoToast, useDeleteQuestion } from './DeleteQuestionSystem'
 import ContentForge from './ContentForge';
@@ -5316,54 +5317,11 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 
           {/* ══ QB STATS ══ */}
           {tab==='qbank_stats'&&(
-            <div>
-              <div style={pageTitle}>📊 Question Bank Statistics (M9)</div>
-              <div style={pageSub}>Total questions, subject distribution, difficulty breakdown — at a glance</div>
-              <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:16}}>
-                <StatBox ico='❓' lbl='Total Questions' val={(questions||[]).length} col={ACC}/>
-                <StatBox ico='⚛️' lbl='Physics' val={(questions||[]).filter(q=>q.subject==='Physics').length} col='#00B4FF'/>
-                <StatBox ico='🧪' lbl='Chemistry' val={(questions||[]).filter(q=>q.subject==='Chemistry').length} col='#FF6B9D'/>
-                <StatBox ico='🧬' lbl='Biology' val={(questions||[]).filter(q=>q.subject==='Biology').length} col='#00E5A0'/>
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
-                <div style={cs}>
-                  <div style={{fontWeight:700,marginBottom:12,fontSize:13}}>📊 Difficulty Distribution</div>
-                  {['easy','medium','hard'].map(d=>{
-                    const cnt=(questions||[]).filter(q=>q.difficulty===d).length
-                    const pct=(questions||[]).length>0?Math.round(cnt/(questions||[]).length*100):0
-                    return(
-                      <div key={d} style={{marginBottom:10}}>
-                        <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4}}>
-                          <span style={{color:d==='easy'?SUC:d==='medium'?WRN:DNG,fontWeight:600,textTransform:'capitalize'}}>{'●'} {d}</span>
-                          <span style={{color:DIM}}>{cnt} ({pct}%)</span>
-                        </div>
-                        <div style={{background:'rgba(255,255,255,0.06)',borderRadius:4,height:10,overflow:'hidden'}}>
-                          <div style={{height:'100%',width:`${pct}%`,background:d==='easy'?SUC:d==='medium'?WRN:DNG,borderRadius:4,transition:'width 0.6s'}}/>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-                <div style={cs}>
-                  <div style={{fontWeight:700,marginBottom:12,fontSize:13}}>📋 Question Types</div>
-                  {['SCQ','MSQ','Integer'].map(t=>{
-                    const cnt=(questions||[]).filter(q=>q.type===t).length
-                    const pct=(questions||[]).length>0?Math.round(cnt/(questions||[]).length*100):0
-                    return(
-                      <div key={t} style={{marginBottom:10}}>
-                        <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4}}>
-                          <span style={{color:ACC,fontWeight:600}}>{t}</span>
-                          <span style={{color:DIM}}>{cnt} ({pct}%)</span>
-                        </div>
-                        <div style={{background:'rgba(255,255,255,0.06)',borderRadius:4,height:10,overflow:'hidden'}}>
-                          <div style={{height:'100%',width:`${pct}%`,background:ACC,borderRadius:4,transition:'width 0.6s'}}/>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
+            <QBankStatsDashboard
+              token={typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''}
+              API={API}
+              T={T}
+            />
           )}
 
           {/* ══ OMR SHEET VIEW ══ */}
