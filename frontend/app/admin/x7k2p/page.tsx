@@ -1,4 +1,5 @@
 'use client'
+import CreateExamWizard from './CreateExamWizard'
 import QBankStatsDashboard from './QBankStatsDashboard'
 import PreviewAllQuestions from './PreviewAllQuestions'
 import { DeleteBtn, DeleteConfirmModal, RecycleBinModal, ArchivedModal, UndoToast, useDeleteQuestion } from './DeleteQuestionSystem'
@@ -2840,123 +2841,15 @@ const confirmAndAdd=useCallback(async()=>{
 
           {/* ══ CREATE EXAM (3-STEP WIZARD) ══ */}
           {tab==='create_exam'&&(
-            <div>
-              <div style={pageTitle}>➕ Create Exam — 3-Step Wizard</div>
-              <div style={pageSub}>Build a complete NEET exam in 3 simple steps</div>
-
-              {/* Step Indicator */}
-              <div style={{display:'flex',gap:0,marginBottom:24,borderRadius:12,overflow:'hidden',border:`1px solid ${BOR}`}}>
-                {[{n:1,l:'📋 Exam Details'},{n:2,l:'❓ Add Questions'},{n:3,l:'✅ Review & Publish'}].map(s=>(
-                  <div key={s.n} style={{flex:1,padding:'12px 8px',textAlign:'center',fontSize:12,fontWeight:s.n===eStep?700:400,background:s.n===eStep?`linear-gradient(135deg,${ACC},#0055CC)`:s.n<eStep?'rgba(0,196,140,0.15)':CRD,color:s.n===eStep?'#fff':s.n<eStep?SUC:DIM,borderRight:s.n<3?`1px solid ${BOR}`:'none',cursor:s.n<eStep?'pointer':'default',transition:'all 0.3s'}} onClick={()=>{if(s.n<eStep)setEStep(s.n)}}>
-                    {s.n<eStep?'✓ ':''}{s.l}
-                  </div>
-                ))}
-              </div>
-
-              {/* Step 1 */}
-              {eStep===1&&(
-                <div style={{...cs}}>
-                  <PageHero icon="📋" title="Step 1 — Exam Details" subtitle="Set up your NEET exam with title, date, duration, and marking scheme. All fields marked * are required."/>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
-                    <div style={{gridColumn:'1/-1'}}><label style={lbl}>Exam Title *</label><SInput init='' onSet={v=>{eTitleR.current=v}} ph='e.g. NEET Full Mock Test — March 2026' style={inp}/></div>
-                    <div><label style={lbl}>Scheduled Date & Time *</label><SInput init='' onSet={v=>{eDateR.current=v}} type='datetime-local' style={inp}/></div>
-                    <div><label style={lbl}>Category</label><SSelect val={eCatR.current||'Full Mock'} onChange={v=>{eCatR.current=v}} opts={[{v:'Full Mock',l:'Full Mock Test'},{v:'Chapter Test',l:'Chapter Test'},{v:'Part Test',l:'Part Test'},{v:'Grand Test',l:'Grand Test'},{v:'PYQ',l:'PYQ Test'}]} style={{...inp}}/></div>
-                    <div><label style={lbl}>Total Marks</label><SInput init='720' onSet={v=>{eMarksR.current=v}} type='number' style={inp}/></div>
-                    <div><label style={lbl}>Duration (minutes)</label><SInput init='200' onSet={v=>{eDurR.current=v}} type='number' style={inp}/></div>
-                    <div><label style={lbl}>Batch (optional)</label><SInput init='' onSet={v=>{eBatchR.current=v}} ph='e.g. NEET 2026 Batch A' style={inp}/></div>
-                    <div><label style={lbl}>Password (optional)</label><SInput init='' onSet={v=>{ePassR.current=v}} type='password' ph='Leave blank for open access' style={inp}/></div>
-                    <div style={{gridColumn:'1/-1'}}><label style={lbl}>Custom Instructions (optional)</label><STextarea init='' onSet={v=>{eInstrR.current=v}} ph='Special instructions for students before starting exam…' rows={3} style={{...inp,resize:'vertical'}}/></div>
-                  </div>
-                  <div style={{display:'flex',gap:8,marginTop:16,padding:'12px',background:'rgba(77,159,255,0.05)',borderRadius:10}}>
-                    <span style={{fontSize:13}}>ℹ️</span>
-                    <span style={{fontSize:12,color:DIM}}>NEET defaults: 180 questions · Physics 45 + Chemistry 45 + Biology 90 · +4/-1 marking · 200 minutes</span>
-                  </div>
-                  <button onClick={createExamS1} disabled={creatingE} style={{...bp,width:'100%',marginTop:16,opacity:creatingE?0.7:1,fontSize:14}}>
-                    {creatingE?'⟳ Creating Exam…':'Next: Add Questions →'}
-                  </button>
-                </div>
-              )}
-
-              {/* Step 2 */}
-              {eStep===2&&(
-                <div style={cs}>
-                  <div style={{background:'rgba(0,196,140,0.1)',border:'1px solid rgba(0,196,140,0.3)',borderRadius:10,padding:'12px 16px',marginBottom:16,display:'flex',gap:10,alignItems:'center'}}>
-                    <span style={{fontSize:20}}>✅</span>
-                    <div>
-                      <div style={{fontWeight:700,fontSize:13,color:SUC}}>Exam Created: {createdETitle||'Exam'}</div>
-                      <div style={{fontSize:11,color:DIM,marginTop:2}}>ID: {createdEId||'Pending'} · Now upload questions</div>
-                    </div>
-                  </div>
-
-                  <PageHero icon="❓" title="Step 2 — Add Questions" subtitle="Upload questions via copy-paste, Excel file, or PDF. You can also add them manually from the Question Bank tab."/>
-
-                  {/* Method Selector */}
-                  <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:16}}>
-                    {([['copypaste','📋','Copy-Paste'],['excel','📊','Excel File'],['pdf','📄','PDF Parse'],['manual','✏️','Manual']] as const).map(([v,ico,l])=>(
-                      <button key={v} onClick={()=>setQMeth(v)} style={{padding:'12px 8px',background:qMeth===v?`linear-gradient(135deg,${ACC},#0055CC)`:'rgba(0,22,40,0.6)',border:`1px solid ${qMeth===v?ACC:BOR}`,borderRadius:10,color:qMeth===v?'#fff':DIM,cursor:'pointer',textAlign:'center',fontSize:12,fontWeight:qMeth===v?700:400,transition:'all 0.2s'}}>
-                        <div style={{fontSize:20,marginBottom:4}}>{ico}</div>{l}
-                      </button>
-                    ))}
-                  </div>
-
-                  {(qMeth==='copypaste'||qMeth==='manual')&&(
-                    <div>
-                      <div style={{marginBottom:10}}><label style={lbl}>Questions Text (paste numbered questions)</label><STextarea init='' onSet={v=>{cpTxtR.current=v}} ph={'1. Which of the following is a noble gas?\nA) Hydrogen\nB) Argon\nC) Nitrogen\nD) Oxygen\n\n2. Next question…'} rows={8} style={{...inp,resize:'vertical'}}/></div>
-                      <div><label style={lbl}>Answer Key (optional — format: 1-B, 2-A, 3-D or line by line)</label><STextarea init='' onSet={v=>{cpKeyR.current=v}} ph='1-B\n2-A\n3-D\n4-C…' rows={4} style={{...inp,resize:'vertical'}}/></div>
-                    </div>
-                  )}
-                  {qMeth==='excel'&&(
-                    <div style={{...cs,textAlign:'center',padding:'30px'}}>
-                      <div style={{fontSize:48,marginBottom:10}}>📊</div>
-                      <div style={{fontWeight:600,fontSize:14,marginBottom:6}}>Upload Excel File</div>
-                      <div style={{fontSize:12,color:DIM,marginBottom:16}}>Columns: Question, Option A, Option B, Option C, Option D, Correct Answer, Subject, Difficulty</div>
-                      <input type='file' accept='.xlsx,.xls,.csv' onChange={e=>setExcelF(e.target.files?.[0]||null)} style={{color:TS,fontSize:13}}/>
-                    </div>
-                  )}
-                  {qMeth==='pdf'&&(
-                    <div style={{...cs,textAlign:'center',padding:'30px'}}>
-                      <div style={{fontSize:48,marginBottom:10}}>📄</div>
-                      <div style={{fontWeight:600,fontSize:14,marginBottom:6}}>Upload PDF File</div>
-                      <div style={{fontSize:12,color:DIM,marginBottom:16}}>AI will automatically parse questions and answer keys from the PDF</div>
-                      <input type='file' accept='.pdf' onChange={e=>setPdfF(e.target.files?.[0]||null)} style={{color:TS,fontSize:13}}/>
-                    </div>
-                  )}
-
-                  {upRes&&(
-                    <div style={{background:upRes.s>0?'rgba(0,196,140,0.1)':'rgba(255,184,77,0.1)',border:`1px solid ${upRes.s>0?'rgba(0,196,140,0.3)':'rgba(255,184,77,0.3)'}`,borderRadius:10,padding:'12px 16px',margin:'14px 0',fontSize:12}}>
-                      {upRes.s>0?`✅ ${upRes.msg}`:`⚠️ ${upRes.msg}`}
-                    </div>
-                  )}
-
-                  <div style={{display:'flex',gap:8,marginTop:16}}>
-                    <button onClick={uploadQs} disabled={uploadingQ} style={{...bp,flex:1,opacity:uploadingQ?0.7:1}}>
-                      {uploadingQ?'⟳ Uploading…':'⬆️ Upload Questions'}
-                    </button>
-                    <button onClick={()=>setEStep(3)} style={{...bg_}}>Skip →</button>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 3 */}
-              {eStep===3&&(
-                <div style={cs}>
-                  <PageHero icon="✅" title="Exam Ready!" subtitle="Your exam has been created and questions added. Review and publish when ready."/>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
-                    {[['Exam Title',createdETitle||'—'],['Exam ID',createdEId?.slice(-8)||'—'],['Questions',upRes?.s||0],['Status','Draft']].map(([l,v])=>(
-                      <div key={String(l)} style={{...cs,padding:'12px',marginBottom:0}}>
-                        <div style={{fontSize:10,color:DIM,marginBottom:2}}>{l}</div>
-                        <div style={{fontWeight:700,color:TS,fontSize:13}}>{String(v)}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                    <button onClick={()=>{setEStep(1);setCreatedEId('');setCreatedETitle('');setUpRes(null)}} style={{...bp}}>➕ Create Another Exam</button>
-                    <button onClick={()=>_setTab('exams')} style={{...bg_}}>📝 View All Exams</button>
-                    <button onClick={()=>_setTab('questions')} style={{...bg_}}>❓ Question Bank</button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <CreateExamWizard
+              token={typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''}
+              API={API}
+              T={T}
+              fetchAll={fetchAll}
+              batches={batches||[]}
+              exams={exams||[]}
+              questions={questions||[]}
+            />
           )}
 
           {/* ══ EXAM TEMPLATES ══ */}
