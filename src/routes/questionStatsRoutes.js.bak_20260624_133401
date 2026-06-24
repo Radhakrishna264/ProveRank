@@ -118,7 +118,7 @@ router.get('/question-bank/stats', verifyToken, isAdmin, async (req, res) => {
     const t = total || 1;
     const withExpl   = t - withoutExplanation;
     const withImg    = withImage;
-    const approved   = (byApproval.find((a) => a._id === 'approved') || { count: 0 }).count;
+    const approved   = (byApproval.find((a:any) => a._id === 'approved') || { count: 0 }).count;
     const usedOnce   = t - neverUsed;
 
     const explScore  = Math.round((withExpl / t) * 30);    // 30pts: explanations
@@ -129,17 +129,17 @@ router.get('/question-bank/stats', verifyToken, isAdmin, async (req, res) => {
     const healthScore = explScore + imgScore + apprScore + usageScore + pyqScore;
 
     // ── Format response ────────────────────────────────────────────────────────
-    const bySubjectMap = {};
-    bySubject.forEach((s) => { bySubjectMap[s._id || 'Unknown'] = s.count; });
+    const bySubjectMap: Record<string, number> = {};
+    bySubject.forEach((s: any) => { bySubjectMap[s._id || 'Unknown'] = s.count; });
 
-    const byDiffMap = {};
-    byDifficulty.forEach((d) => { byDiffMap[d._id || 'Unknown'] = d.count; });
+    const byDiffMap: Record<string, number> = {};
+    byDifficulty.forEach((d: any) => { byDiffMap[d._id || 'Unknown'] = d.count; });
 
-    const byTypeMap = {};
-    byType.forEach((t) => { byTypeMap[t._id || 'Unknown'] = t.count; });
+    const byTypeMap: Record<string, number> = {};
+    byType.forEach((t: any) => { byTypeMap[t._id || 'Unknown'] = t.count; });
 
-    const byApprovalMap = { approved: 0, pending: 0, rejected: 0 };
-    byApproval.forEach((a) => { byApprovalMap[a._id || 'pending'] = a.count; });
+    const byApprovalMap: Record<string, number> = { approved: 0, pending: 0, rejected: 0 };
+    byApproval.forEach((a: any) => { byApprovalMap[a._id || 'pending'] = a.count; });
 
     res.json({
       success: true,
@@ -155,13 +155,13 @@ router.get('/question-bank/stats', verifyToken, isAdmin, async (req, res) => {
       byDifficulty: byDiffMap,
       byType:       byTypeMap,       // 25.1
       byApproval:   byApprovalMap,   // 25.2
-      mostUsed:     mostUsed.map((q) => ({
+      mostUsed:     mostUsed.map((q: any) => ({
         _id: q._id, text: (q.text||'').slice(0,80),
         subject: q.subject, chapter: q.chapter,
         difficulty: q.difficulty, type: q.type,
         usageCount: q.usageCount
       })),                           // 25.6
-      weeklyGrowth: weeklyGrowth.map((w) => ({
+      weeklyGrowth: weeklyGrowth.map((w: any) => ({
         week:  `W${w._id.week}/${w._id.year}`,
         count: w.count,
         from:  w.from
@@ -173,7 +173,7 @@ router.get('/question-bank/stats', verifyToken, isAdmin, async (req, res) => {
         label: healthScore >= 85 ? 'Excellent' : healthScore >= 70 ? 'Good' : healthScore >= 50 ? 'Fair' : 'Needs Work'
       }                              // 25.9
     });
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -190,7 +190,7 @@ router.get('/question-bank/stats/export', verifyToken, isAdmin, async (req, res)
       .lean();
 
     // Format for Excel rows
-    const rows = questions.map((q, i) => ({
+    const rows = questions.map((q: any, i: number) => ({
       'No':          i + 1,
       'Subject':     q.subject || '',
       'Chapter':     q.chapter || '',
@@ -206,7 +206,7 @@ router.get('/question-bank/stats/export', verifyToken, isAdmin, async (req, res)
     }));
 
     res.json({ success: true, rows, total: rows.length });
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -216,13 +216,13 @@ router.get('/question-bank/stats/export', verifyToken, isAdmin, async (req, res)
 // ════════════════════════════════════════════════════════════════
 router.get('/question-bank/never-used', verifyToken, isAdmin, async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20 } = req.query as any;
     const base = { isDeleted: { $ne: true }, isArchived: { $ne: true }, usageCount: { $lte: 0 } };
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const questions = await Question.find(base).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).select('text subject chapter difficulty type createdAt');
     const total     = await Question.countDocuments(base);
     res.json({ success: true, total, questions });
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ success: false, message: err.message }); }
 });
 
