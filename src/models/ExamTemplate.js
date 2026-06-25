@@ -52,7 +52,7 @@ const examTemplateSchema = new mongoose.Schema({
   titleFormat:    { type: String, default: '{name}' },                  // 29.2 — tokens: {name} {date} {category} {format} {n}
   examType:       { type: String, default: 'NEET' },                    // 29.3 — NEET/JEE/CUET/Custom (the "Category" pills in UI)
   examTypeColor:  { type: String, default: '#4D9FFF' },                 // 29.10 — colour tied to examType
-  category:       { type: String, default: 'Full Mock' },               // exam FORMAT — Full Mock/Chapter Test/etc (29.2 "Exam Format")
+  category:       { type: String, default: 'Full Mock', enum: ['Full Mock','Chapter Test','Part Test','Grand Test','Mini Test','PYQ','Custom'] }, // exam FORMAT — must match the wizard's own CATEGORIES list exactly
   subject:        { type: String, default: 'Full Mock' },
   totalQs:        { type: Number, default: 0 },
   subjectQs:      { type: Object, default: {} },

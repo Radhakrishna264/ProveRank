@@ -37,6 +37,21 @@ const DEFAULT_CATEGORIES = [
   { name: 'Custom', color: '#A78BFA', isDefault: true }
 ]
 
+// ── Exam-format whitelist (must match the wizard's own CATEGORIES array) ─────
+const VALID_CATEGORIES = ['Full Mock','Chapter Test','Part Test','Grand Test','Mini Test','PYQ','Custom']
+
+// ── Self-heals any template saved before this bugfix (e.g. category:'NEET'
+// stored when "Category"=examType and the wizard's `category` collided). Any
+// document still carrying an invalid `category` value is silently corrected
+// the moment it's read, and persisted back so it never needs healing again. ─
+async function sanitize(t) {
+  if (!VALID_CATEGORIES.includes(t.category)) {
+    t.category = 'Full Mock'
+    try { await t.save() } catch {}
+  }
+  return t
+}
+
 // ── 29.2 / 29.13: {name} {date} {category} {format} {n} token resolver ────────
 // NOTE: {category} resolves to examType (NEET/JEE/..) to match Feature-29's own
 // spec wording; {format} resolves to the wizard's real `category` (Full Mock/..).
@@ -99,6 +114,7 @@ router.get('/', verifyToken, isAdmin, async (req, res) => {
     if (req.query.examType && req.query.examType !== 'all') filter.examType = req.query.examType
     if (req.query.search) filter.name = new RegExp(String(req.query.search).trim(), 'i')
     const list = await ExamTemplate.find(filter).sort({ isPinned: -1, lastUsedAt: -1, createdAt: -1 })
+    await Promise.all(list.map(sanitize))
     res.json({ success: true, templates: list })
   } catch (err) { res.status(500).json({ success: false, message: err.message }) }
 })
@@ -110,6 +126,7 @@ router.get('/:id', verifyToken, isAdmin, async (req, res) => {
   try {
     const t = await ExamTemplate.findOne({ _id: req.params.id, createdBy: req.user.id })
     if (!t) return res.status(404).json({ success: false, message: 'Template nahi mila' })
+    await sanitize(t)
     res.json({ success: true, template: t })
   } catch (err) { res.status(500).json({ success: false, message: err.message }) }
 })
@@ -129,7 +146,7 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
       titleFormat: b.titleFormat || '{name}',
       examType: b.examType || 'NEET',
       examTypeColor: b.examTypeColor || '#4D9FFF',
-      category: b.category || 'Full Mock',
+      category: VALID_CATEGORIES.includes(b.category) ? b.category : 'Full Mock',
       subject: b.subject || 'Full Mock',
       totalQs: b.totalQs || 0,
       subjectQs: b.subjectQs || {},
@@ -165,6 +182,7 @@ router.put('/:id', verifyToken, isAdmin, async (req, res) => {
     if (b.totalQs !== undefined || b.correctMarks !== undefined) {
       t.totalMarks = Math.round((t.totalQs || 0) * (t.correctMarks != null ? t.correctMarks : 4))
     }
+    if (!VALID_CATEGORIES.includes(t.category)) t.category = 'Full Mock' // guards stale data too
     t.updatedBy = req.user.id
     await t.save()
     res.json({ success: true, message: 'Template update ho gaya ✅', template: t })
@@ -195,6 +213,7 @@ router.post('/:id/versions/:idx/restore', verifyToken, isAdmin, async (req, res)
 
     const currentSnap = snapshotOf(t)
     SNAP_FIELDS.forEach(k => { t[k] = v[k] })
+    if (!VALID_CATEGORIES.includes(t.category)) t.category = 'Full Mock' // old snapshot may itself be stale
     t.versions.unshift(currentSnap)
     if (t.versions.length > 20) t.versions = t.versions.slice(0, 20)
     t.updatedBy = req.user.id
@@ -213,6 +232,7 @@ router.post('/:id/duplicate', verifyToken, isAdmin, async (req, res) => {
     const obj = t.toObject()
     delete obj._id; delete obj.createdAt; delete obj.updatedAt; delete obj.__v
     obj.name = `${obj.name} (Copy)`
+    if (!VALID_CATEGORIES.includes(obj.category)) obj.category = 'Full Mock' // guards stale data too
     obj.usageCount = 0
     obj.lastUsedAt = null
     obj.isPinned = false
@@ -232,6 +252,7 @@ router.patch('/:id/pin', verifyToken, isAdmin, async (req, res) => {
     const t = await ExamTemplate.findOne({ _id: req.params.id, createdBy: req.user.id })
     if (!t) return res.status(404).json({ success: false, message: 'Template nahi mila' })
     t.isPinned = !t.isPinned
+    if (!VALID_CATEGORIES.includes(t.category)) t.category = 'Full Mock' // guards stale data too
     await t.save()
     res.json({ success: true, isPinned: t.isPinned })
   } catch (err) { res.status(500).json({ success: false, message: err.message }) }
@@ -239,14 +260,16 @@ router.patch('/:id/pin', verifyToken, isAdmin, async (req, res) => {
 
 // ════════════════════════════════════════════════════════════════
 // 29.13 — APPLY template (usage count + last used + resolved title)
-// Returns the doc AS-IS — `category` and `examType` already match the
-// exact field names/meanings applyTemplate() in CreateExamWizard.tsx
-// expects, so no remapping needed here.
+// `category`/`examType` already match the exact field names/meanings
+// applyTemplate() in CreateExamWizard.tsx expects. We also self-heal
+// any stale `category` value saved before the bugfix (e.g. 'NEET'),
+// so the wizard can never receive an invalid value, even from old data.
 // ════════════════════════════════════════════════════════════════
 router.post('/:id/apply', verifyToken, isAdmin, async (req, res) => {
   try {
     const t = await ExamTemplate.findOne({ _id: req.params.id, createdBy: req.user.id })
     if (!t) return res.status(404).json({ success: false, message: 'Template nahi mila' })
+    if (!VALID_CATEGORIES.includes(t.category)) t.category = 'Full Mock' // self-heal stale data
     t.usageCount = (t.usageCount || 0) + 1
     t.lastUsedAt = new Date()
     await t.save()

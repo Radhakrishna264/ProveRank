@@ -2,14 +2,14 @@
 # ════════════════════════════════════════════════════════════════════════════
 #  ProveRank — Feature 29: Exam Templates — Create, Save & Reuse
 #  FRONTEND fix / upgrade script  (run on the FRONTEND Replit project root)
-#  v2 — fixes the category/examType field-collision bug + pre-existing
-#       whitelist CastError found in testing.
+#  v3 — backend now self-heals any template saved with the old buggy
+#       category value, so old test data fixes itself automatically.
 #  No python used — pure bash (per project rules).
 # ════════════════════════════════════════════════════════════════════════════
 set -e
 
 echo "════════════════════════════════════════════════"
-echo " Feature 29 — Exam Templates — FRONTEND setup (v2)"
+echo " Feature 29 — Exam Templates — FRONTEND setup (v3)"
 echo "════════════════════════════════════════════════"
 
 # ── locate the admin page.tsx that imports CreateExamWizard ──────────────────
@@ -7305,16 +7305,15 @@ else
   echo "⚠️  $((total-pass)) check(s) fail hue — upar ❌ wali lines dekho, kuch reh gaya ho sakta hai."
 fi
 echo ""
-echo "Bugfix note (v2):"
-echo "  1) category/examType field collision fixed — 'Category' pills (NEET/JEE/"
-echo "     CUET/Custom) now use examType; a new 'Exam Format' picker uses category"
-echo "     (Full Mock/Chapter Test/etc) — matches the wizard's own field meanings."
-echo "  2) Pre-existing 'whitelist' CastError fixed — Step 1 now sends an empty"
-echo "     array instead of the boolean toggle state (backend expects [ObjectId])."
+echo "Bugfix note (v3):"
+echo "  Backend (run feature29_backend_fix.sh) ab har template ko self-heal"
+echo "  karta hai — purane test templates jisme category:'NEET' jaisi galat"
+echo "  value thi, wo apply/list/preview hote hi khud 'Full Mock' me fix ho"
+echo "  jaayegi. Kuch manually delete/recreate karne ki zarurat nahi."
 echo ""
 echo "Note: yeh script sirf syntax-verified, pre-tested content likhta hai (TypeScript"
 echo "parser se already verify kiya gaya hai). Ab dono backups maujood hain agar"
 echo "kabhi revert karna ho: *.bak_feat29"
 echo ""
-echo "Ab: dev server restart karo (ya Replit Run) taaki naya 'Exam Templates' tab dikhe"
-echo "aur Create Exam → Next: Add Questions bina error chale."
+echo "Ab: dev server restart karo (ya Replit Run) — IMPORTANT: backend script bhi"
+echo "(re)run + restart karo, warna self-heal kaam nahi karega."
