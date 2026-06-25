@@ -12,8 +12,15 @@ const inp:any={width:'100%',padding:'11px 14px',background:'rgba(0,12,30,0.9)',b
 const lbl:any={display:'block',fontSize:10,color:DIM,marginBottom:5,fontWeight:700,letterSpacing:0.6,textTransform:'uppercase' as any}
 const cs:any={background:CRD,border:`1px solid ${BOR}`,borderRadius:16,padding:'20px',backdropFilter:'blur(14px)'}
 
+// NOTE on field naming (bugfix round): the Create-Exam-Wizard already has two
+// distinct concepts — `examType` (NEET/JEE/CUET/Custom — exam board) and
+// `category` (Full Mock/Chapter Test/etc — exam format). Feature 29.3's
+// "Template categories — NEET/JEE/CUET/Custom" matches `examType` by value,
+// so the "Category" pills below are bound to `examType` (zero collision with
+// the wizard), and a separate "Exam Format" picker is bound to `category`.
 const SUBJECTS = ['Physics','Chemistry','Biology','Math','GK','English','Other']
 const EXAM_TYPES = ['NEET','JEE','CUET','RBSE','CBSE','Custom']
+const EXAM_FORMATS = ['Full Mock','Chapter Test','Part Test','Grand Test','Mini Test','PYQ','Custom']
 const ICONS = ['📋','🎯','📖','⚡','🏆','🔬','✏️','📐','🧪','🧬','📅','⚙️']
 const SWATCHES = ['#4D9FFF','#FFB84D','#00C48C','#A78BFA','#F472B6','#FBBF24','#34D399','#60A5FA','#FF4D4D','#22D3EE','#FB7185','#84CC16']
 
@@ -34,14 +41,16 @@ function timeAgo(d:any){
   return `${Math.floor(months/12)}y ago`
 }
 
+// {category} resolves to examType (NEET/JEE..) to match Feature-29's own spec
+// wording; {format} resolves to the wizard's real `category` (Full Mock/..).
 function previewTitle(t:any){
   const dateStr = new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})
   const fmt = t.titleFormat || '{name}'
-  return fmt.replace(/{name}/gi,t.name||'Exam').replace(/{date}/gi,dateStr).replace(/{category}/gi,t.category||'').replace(/{examType}/gi,t.examType||'').replace(/{n}/gi,String((t.usageCount||0)+1)).replace(/\s+/g,' ').trim()
+  return fmt.replace(/{name}/gi,t.name||'Exam').replace(/{date}/gi,dateStr).replace(/{category}/gi,t.examType||'').replace(/{format}/gi,t.category||'').replace(/{n}/gi,String((t.usageCount||0)+1)).replace(/\s+/g,' ').trim()
 }
 
 function emptyForm(){
-  return { name:'', icon:'📋', titleFormat:'{name}', category:'NEET', categoryColor:'#4D9FFF', subject:'Full Mock', examType:'NEET', totalQs:180, subjectQs:{Physics:45,Chemistry:45,Biology:90} as Record<string,number>, duration:200, correctMarks:4, negativeMarks:1, instructions:'' }
+  return { name:'', icon:'📋', titleFormat:'{name}', examType:'NEET', examTypeColor:'#4D9FFF', category:'Full Mock', subject:'Full Mock', totalQs:180, subjectQs:{Physics:45,Chemistry:45,Biology:90} as Record<string,number>, duration:200, correctMarks:4, negativeMarks:1, instructions:'' }
 }
 
 function Chip({ico,label,col}:{ico:string;label:string;col?:string}){
@@ -57,7 +66,7 @@ export default function ExamTemplates({ token, API, T, onApply }: Props) {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
-  const [activeCat, setActiveCat] = useState('all')
+  const [activeCat, setActiveCat] = useState('all') // filters by examType
 
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string|null>(null)
@@ -84,7 +93,7 @@ export default function ExamTemplates({ token, API, T, onApply }: Props) {
     setLoading(true)
     try {
       const p = new URLSearchParams()
-      if (activeCat !== 'all') p.set('category', activeCat)
+      if (activeCat !== 'all') p.set('examType', activeCat)
       if (search.trim()) p.set('search', search.trim())
       const r = await fetch(`${API}/api/exam-templates?${p}`, { headers: { Authorization:`Bearer ${token}` } })
       const d = await r.json()
@@ -104,13 +113,13 @@ export default function ExamTemplates({ token, API, T, onApply }: Props) {
   useEffect(() => { fetchCategories() }, [fetchCategories])
   useEffect(() => { fetchTemplates() }, [fetchTemplates])
 
-  const catColor = (name:string) => categories.find(c=>c.name===name)?.color || PRP
+  const catColor = (examType:string) => categories.find(c=>c.name===examType)?.color || PRP
 
   // ── 29.2 / 29.9 — create / edit ──────────────────────────────────────────────
   const openCreate = () => { setEditingId(null); setForm(emptyForm()); setShowForm(true) }
   const openEdit = (t:any) => {
     setEditingId(t._id)
-    setForm({ name:t.name, icon:t.icon||'📋', titleFormat:t.titleFormat||'{name}', category:t.category||'Custom', categoryColor:t.categoryColor||catColor(t.category), subject:t.subject||'Full Mock', examType:t.examType||'Custom', totalQs:t.totalQs||0, subjectQs:t.subjectQs||{}, duration:t.duration||60, correctMarks:t.correctMarks!=null?t.correctMarks:4, negativeMarks:t.negativeMarks!=null?t.negativeMarks:1, instructions:t.instructions||'' })
+    setForm({ name:t.name, icon:t.icon||'📋', titleFormat:t.titleFormat||'{name}', examType:t.examType||'NEET', examTypeColor:t.examTypeColor||catColor(t.examType), category:t.category||'Full Mock', subject:t.subject||'Full Mock', totalQs:t.totalQs||0, subjectQs:t.subjectQs||{}, duration:t.duration||60, correctMarks:t.correctMarks!=null?t.correctMarks:4, negativeMarks:t.negativeMarks!=null?t.negativeMarks:1, instructions:t.instructions||'' })
     setShowForm(true)
   }
 
@@ -191,7 +200,7 @@ export default function ExamTemplates({ token, API, T, onApply }: Props) {
     } catch { T('Network error','e') }
   }
 
-  // ── 29.10 — custom category ──────────────────────────────────────────────────
+  // ── 29.10 — custom category (colours the examType pills) ────────────────────
   const createCategory = async () => {
     if (!newCatName.trim()) { T('Category name required hai','e'); return }
     setSavingCat(true)
@@ -201,7 +210,7 @@ export default function ExamTemplates({ token, API, T, onApply }: Props) {
       if (d.success) {
         T('Category added ✅')
         setCategories(p=>[...p, d.category])
-        setForm((f:any)=>({...f, category:d.category.name, categoryColor:d.category.color}))
+        setForm((f:any)=>({...f, examType:d.category.name, examTypeColor:d.category.color}))
         setShowNewCat(false); setNewCatName('')
       } else T(d.message||'Failed','e')
     } catch { T('Network error','e') }
@@ -287,7 +296,7 @@ export default function ExamTemplates({ token, API, T, onApply }: Props) {
       ) : (
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(290px,1fr))',gap:14}}>
           {templates.map(t=>{
-            const col = t.categoryColor || catColor(t.category) || PRP
+            const col = t.examTypeColor || catColor(t.examType) || PRP
             const sqEntries = Object.entries(t.subjectQs||{})
             const usagePct = Math.round(((t.usageCount||0)/maxUsage)*100)
             const busy = busyId===t._id, applying = applyingId===t._id
@@ -304,7 +313,7 @@ export default function ExamTemplates({ token, API, T, onApply }: Props) {
                     <div style={{width:40,height:40,borderRadius:12,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:19,background:`linear-gradient(145deg,${col}26,rgba(5,12,26,0.9))`,boxShadow:`0 0 0 2px ${col}22`}}>{t.icon||'📋'}</div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:14,color:TS,overflow:'hidden',whiteSpace:'nowrap' as any,textOverflow:'ellipsis'}}>{t.name}</div>
-                      <span style={{fontSize:9,fontWeight:700,letterSpacing:0.4,color:col,background:`${col}16`,border:`1px solid ${col}33`,borderRadius:6,padding:'2px 7px',display:'inline-block',marginTop:4,textTransform:'uppercase' as any}}>{t.category||'Custom'}</span>
+                      <span style={{fontSize:9,fontWeight:700,letterSpacing:0.4,color:col,background:`${col}16`,border:`1px solid ${col}33`,borderRadius:6,padding:'2px 7px',display:'inline-block',marginTop:4,textTransform:'uppercase' as any}}>{t.examType||'NEET'}</span>
                     </div>
                     <button onClick={()=>togglePin(t)} title={t.isPinned?'Unpin':'Pin to top'} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:18,color:t.isPinned?GOLD:'rgba(255,255,255,0.18)',flexShrink:0,filter:t.isPinned?`drop-shadow(0 0 6px ${GOLD}88)`:'none',transition:'all 0.2s'}}>{t.isPinned?'★':'☆'}</button>
                   </div>
@@ -314,7 +323,7 @@ export default function ExamTemplates({ token, API, T, onApply }: Props) {
                     <Chip ico="⏱" label={`${t.duration||0} min`} col={ACC}/>
                     <Chip ico="📊" label={`${t.totalMarks||0} marks`} col={GOLD}/>
                     <Chip ico="❓" label={`${t.totalQs||0} Qs`} col={SUC}/>
-                    <Chip ico="🎯" label={t.examType||'Custom'} col={PRP}/>
+                    <Chip ico="📐" label={t.category||'Full Mock'} col={PRP}/>
                   </div>
 
                   {/* sections breakdown — 29.2 */}
@@ -376,7 +385,7 @@ export default function ExamTemplates({ token, API, T, onApply }: Props) {
               </div>
 
               <div>
-                <label style={lbl}>Title Format <span style={{textTransform:'none' as any,fontWeight:400,color:DIM}}>— tokens: {'{name} {date} {category} {n}'}</span></label>
+                <label style={lbl}>Title Format <span style={{textTransform:'none' as any,fontWeight:400,color:DIM}}>— tokens: {'{name} {date} {category} {format} {n}'}</span></label>
                 <input value={form.titleFormat} onChange={e=>setForm((f:any)=>({...f,titleFormat:e.target.value}))} placeholder="{name} - {date}" style={inp}/>
                 <div style={{fontSize:10,color:SUC,marginTop:4}}>Preview: {previewTitle(form)}</div>
               </div>
@@ -385,8 +394,8 @@ export default function ExamTemplates({ token, API, T, onApply }: Props) {
                 <label style={lbl}>Category</label>
                 <div style={{display:'flex',gap:6,flexWrap:'wrap' as any}}>
                   {categories.map(c=>(
-                    <button key={c.name} onClick={()=>setForm((f:any)=>({...f,category:c.name,categoryColor:c.color}))} style={{display:'flex',alignItems:'center',gap:5,padding:'6px 11px',borderRadius:18,fontSize:11,fontWeight:700,cursor:'pointer',background:form.category===c.name?c.color:`${c.color}14`,color:form.category===c.name?'#fff':c.color,border:`1px solid ${c.color}44`}}>
-                      <span style={{width:6,height:6,borderRadius:'50%',background:form.category===c.name?'#fff':c.color}}/>{c.name}
+                    <button key={c.name} onClick={()=>setForm((f:any)=>({...f,examType:c.name,examTypeColor:c.color}))} style={{display:'flex',alignItems:'center',gap:5,padding:'6px 11px',borderRadius:18,fontSize:11,fontWeight:700,cursor:'pointer',background:form.examType===c.name?c.color:`${c.color}14`,color:form.examType===c.name?'#fff':c.color,border:`1px solid ${c.color}44`}}>
+                      <span style={{width:6,height:6,borderRadius:'50%',background:form.examType===c.name?'#fff':c.color}}/>{c.name}
                     </button>
                   ))}
                   <button onClick={()=>setShowNewCat(p=>!p)} style={{padding:'6px 11px',borderRadius:18,fontSize:11,fontWeight:700,cursor:'pointer',background:'rgba(255,255,255,0.04)',color:DIM,border:`1px dashed ${BOR}`}}>+ New</button>
@@ -407,9 +416,9 @@ export default function ExamTemplates({ token, API, T, onApply }: Props) {
 
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
                 <div>
-                  <label style={lbl}>Exam Type</label>
-                  <select value={form.examType} onChange={e=>setForm((f:any)=>({...f,examType:e.target.value}))} style={inp}>
-                    {EXAM_TYPES.map(et=><option key={et} value={et}>{et}</option>)}
+                  <label style={lbl}>Exam Format</label>
+                  <select value={form.category} onChange={e=>setForm((f:any)=>({...f,category:e.target.value}))} style={inp}>
+                    {EXAM_FORMATS.map(ef=><option key={ef} value={ef}>{ef}</option>)}
                   </select>
                 </div>
                 <div>
@@ -468,14 +477,14 @@ export default function ExamTemplates({ token, API, T, onApply }: Props) {
               <div style={{fontSize:28}}>{previewT.icon||'📋'}</div>
               <div>
                 <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:16,color:TS}}>{previewT.name}</div>
-                <span style={{fontSize:9,fontWeight:700,color:previewT.categoryColor||PRP,background:`${previewT.categoryColor||PRP}16`,border:`1px solid ${previewT.categoryColor||PRP}33`,borderRadius:6,padding:'2px 7px'}}>{previewT.category}</span>
+                <span style={{fontSize:9,fontWeight:700,color:previewT.examTypeColor||PRP,background:`${previewT.examTypeColor||PRP}16`,border:`1px solid ${previewT.examTypeColor||PRP}33`,borderRadius:6,padding:'2px 7px'}}>{previewT.examType}</span>
               </div>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
               <Chip ico="⏱" label={`${previewT.duration} min`} col={ACC}/>
               <Chip ico="📊" label={`${previewT.totalMarks} marks`} col={GOLD}/>
               <Chip ico="❓" label={`${previewT.totalQs} questions`} col={SUC}/>
-              <Chip ico="🎯" label={previewT.examType} col={PRP}/>
+              <Chip ico="📐" label={previewT.category} col={PRP}/>
               <Chip ico="✅" label={`+${previewT.correctMarks} correct`} col={SUC}/>
               <Chip ico="❌" label={`-${previewT.negativeMarks} wrong`} col={DNG}/>
             </div>

@@ -2,6 +2,7 @@
 import CreateExamWizard from './CreateExamWizard'
 import QBankStatsDashboard from './QBankStatsDashboard'
 import PreviewAllQuestions from './PreviewAllQuestions'
+import ExamTemplates from './ExamTemplates'
 import { DeleteBtn, DeleteConfirmModal, RecycleBinModal, ArchivedModal, UndoToast, useDeleteQuestion } from './DeleteQuestionSystem'
 import ContentForge from './ContentForge';
 import AIExplainTab from './AIExplainTab';
@@ -1095,6 +1096,7 @@ export default function AdminPanel() {
   const [token,setToken]=useState('')
   const [mounted,setMounted]=useState(false)
   const [tab,setTab]=useState('dashboard')
+  const [pendingTemplate,setPendingTemplate]=useState<any>(null) // Feature 29.13 — Apply Template → Wizard Step 1
   const _setTab=(id:string)=>{if(id==='creative_studio'){window.location.href='/admin/x7k2p/banner-generator';return;}_setTab_orig(id);}
   const _setTab_orig=(t:string)=>{try{sessionStorage.setItem('pr_admin_tab',t)}catch{};setTab(t)}
   useEffect(()=>{
@@ -2849,34 +2851,19 @@ const confirmAndAdd=useCallback(async()=>{
               batches={batches||[]}
               exams={exams||[]}
               questions={questions||[]}
+              pendingTemplate={pendingTemplate}
+              onTemplateConsumed={()=>setPendingTemplate(null)}
             />
           )}
 
-          {/* ══ EXAM TEMPLATES ══ */}
+          {/* ══ EXAM TEMPLATES — Feature 29 ══ */}
           {tab==='templates'&&(
-            <div>
-              <div style={pageTitle}>📋 Exam Templates (S75)</div>
-              <div style={pageSub}>Pre-configured exam templates — select and auto-fill settings instantly</div>
-              <PageHero icon="📋" title="Save Time with Templates" subtitle="Create templates for recurring exam formats like Full Mock, Chapter Tests, and Grand Tests. One click to apply all settings."/>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:14,marginBottom:20}}>
-                {[{ico:'🎯',name:'NEET Full Mock',desc:'180 Qs · 720 marks · 200 min · Physics+Chemistry+Biology',marks:720,dur:200,cat:'Full Mock'},{ico:'📖',name:'NEET Chapter Test',desc:'45 Qs · 180 marks · 60 min · Single chapter focus',marks:180,dur:60,cat:'Chapter Test'},{ico:'⚡',name:'NEET Part Test',desc:'90 Qs · 360 marks · 100 min · 2 subjects',marks:360,dur:100,cat:'Part Test'},{ico:'🏆',name:'Grand Test',desc:'180 Qs · 720 marks · 200 min · Full syllabus',marks:720,dur:200,cat:'Grand Test'},{ico:'📅',name:'PYQ Practice',desc:'50 Qs · 200 marks · 70 min · Previous year questions',marks:200,dur:70,cat:'PYQ'}].map(t=>(
-                  <div key={t.name} className="card-hover" style={{...cs,cursor:'pointer',transition:'all 0.2s'}} onClick={()=>{eTitleR.current=t.name;eMarksR.current=String(t.marks);eDurR.current=String(t.dur);eCatR.current=t.cat;_setTab('create_exam');T(`Template "${t.name}" applied.`)}}>
-                    <div style={{fontSize:32,marginBottom:8}}>{t.ico}</div>
-                    <div style={{fontWeight:700,fontSize:13,color:TS,marginBottom:4}}>{t.name}</div>
-                    <div style={{fontSize:11,color:DIM,marginBottom:12,lineHeight:1.5}}>{t.desc}</div>
-                    <button style={{...bp,width:'100%',fontSize:11,padding:'8px'}}>Apply Template →</button>
-                  </div>
-                ))}
-              </div>
-              <div style={cs}>
-                <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>💾 Save Current Exam as Template</div>
-                <div style={{fontSize:12,color:DIM,marginBottom:12}}>Create a reusable template from any exam configuration for future use.</div>
-                <div style={{display:'flex',gap:8}}>
-                  <SInput init='' onSet={()=>{}} ph='Template name…' style={{...inp,flex:1}}/>
-                  <button onClick={()=>T('Template saved successfully.')} style={bp}>💾 Save</button>
-                </div>
-              </div>
-            </div>
+            <ExamTemplates
+              token={typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''}
+              API={API}
+              T={T}
+              onApply={(payload:any)=>{setPendingTemplate(payload);_setTab('create_exam')}}
+            />
           )}
 
           {/* ══ BULK EXAM CREATOR ══ */}

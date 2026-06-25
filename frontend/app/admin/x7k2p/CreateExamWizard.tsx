@@ -171,7 +171,7 @@ export default function CreateExamWizard({ token, API, T, fetchAll, batches, exa
       const body = {
         title: title.trim(), subject, category, totalQs, subjectQs, examType,
         duration, totalMarks, correctMarks, negativeMarks, startDate, endDate,
-        instructions, passwordEnabled, password, whitelist, waitingRoom,
+        instructions, passwordEnabled, password, whitelist: [], waitingRoom,
         waitingMinutes: waitingMins, reattempt, reattemptUnlimited, reviewWindow,
         sectionWise, watermark, liveQsRange, assignType, batchId, testSeriesId, multiBatches, status: 'draft'
       }

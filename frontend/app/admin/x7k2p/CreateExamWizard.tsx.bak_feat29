@@ -38,13 +38,13 @@ function Badge({l,col}:{l:string;col:string}){
   return <span style={{background:`${col}18`,border:`1px solid ${col}30`,color:col,borderRadius:8,padding:'2px 8px',fontSize:10,fontWeight:600}}>{l}</span>
 }
 
-interface Props { token:string; API:string; T:(m:string,t?:'s'|'e'|'w')=>void; fetchAll:()=>void; batches:any[]; exams:any[]; questions:any[] }
+interface Props { token:string; API:string; T:(m:string,t?:'s'|'e'|'w')=>void; fetchAll:()=>void; batches:any[]; exams:any[]; questions:any[]; pendingTemplate?:any; onTemplateConsumed?:()=>void }
 
 const SUBJECTS = ['Physics','Chemistry','Biology','Math','GK','English','Other']
 const CATEGORIES = ['Full Mock','Chapter Test','Part Test','Grand Test','Mini Test','PYQ','Custom']
 const EXAM_TYPES = ['NEET','JEE','CUET','RBSE','CBSE','Custom']
 
-export default function CreateExamWizard({ token, API, T, fetchAll, batches, exams, questions }:Props) {
+export default function CreateExamWizard({ token, API, T, fetchAll, batches, exams, questions, pendingTemplate, onTemplateConsumed }:Props) {
   const hdrs = { 'Content-Type':'application/json', Authorization:`Bearer ${token}` }
 
   // ── Wizard step ──────────────────────────────────────────────────────────────
@@ -85,6 +85,7 @@ export default function CreateExamWizard({ token, API, T, fetchAll, batches, exa
   const [creating, setCreating]       = useState(false)
   const [templates, setTemplates]     = useState<any[]>([])
   const [showTemplates, setShowTemplates] = useState(false)
+  const [justApplied, setJustApplied] = useState(false)
 
   // ── Step 2: Questions ────────────────────────────────────────────────────────
   const [qMethod, setQMethod]         = useState<'bank'|'pyq'|'smart'|'copypaste'|'excel'|'pdf'>('bank')
@@ -132,7 +133,7 @@ export default function CreateExamWizard({ token, API, T, fetchAll, batches, exa
 
   // ── Apply template ────────────────────────────────────────────────────────────
   const applyTemplate = (t: any) => {
-    setTitle(t.name || '')
+    setTitle(t.examTitle || t.name || '')
     setSubject(t.subject || 'Full Mock')
     setCategory(t.category || 'Full Mock')
     setTotalQs(t.totalQs || 180)
@@ -144,6 +145,16 @@ export default function CreateExamWizard({ token, API, T, fetchAll, batches, exa
     setShowTemplates(false)
     T(`Template "${t.name}" applied ✅`)
   }
+
+  // ── 29.13: template applied from the dedicated Templates Manager page ──────
+  useEffect(() => {
+    if (pendingTemplate) {
+      applyTemplate(pendingTemplate)
+      setJustApplied(true)
+      setTimeout(() => setJustApplied(false), 1300)
+      if (onTemplateConsumed) onTemplateConsumed()
+    }
+  }, [pendingTemplate])
 
   // ── Step 1: Create Exam ───────────────────────────────────────────────────────
   const submitStep1 = async () => {
@@ -410,6 +421,8 @@ export default function CreateExamWizard({ token, API, T, fetchAll, batches, exa
         .step-enter-left{animation:slideInLeft 0.35s cubic-bezier(0.4,0,0.2,1)}
         .shake-anim{animation:shake 0.5s ease}
         .inp-error{border-color:#FF4D4D !important;box-shadow:0 0 0 3px rgba(255,77,77,0.15) !important}
+        @keyframes templateFlash{0%{box-shadow:0 0 0 3px ${GOLD}77,0 0 24px ${GOLD}33}100%{box-shadow:0 0 0 0px ${GOLD}00}}
+        .tpl-flash{animation:templateFlash 1.3s ease}
       `}}/>
 
       {/* ══ STEP INDICATOR ══════════════════════════════════════════════════════ */}
@@ -473,7 +486,7 @@ export default function CreateExamWizard({ token, API, T, fetchAll, batches, exa
               </div>
 
               {/* Section 1: Exam Identity */}
-              <div style={cs}>
+              <div style={cs} className={justApplied?'tpl-flash':''}>
                 <div style={{fontWeight:700,fontSize:13,color:PRP,marginBottom:14,display:'flex',alignItems:'center',gap:6}}>📋 Exam Identity</div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr',gap:12}}>
                   <Field label="Exam Title" req>
