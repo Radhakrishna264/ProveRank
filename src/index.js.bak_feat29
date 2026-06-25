@@ -36,6 +36,8 @@ require('./models/ReEvaluation');
 require('./models/Grievance');
 require('./models/QuestionVersion');
 require('./models/QuestionError');
+require('./models/ExamTemplate');      // Feature 29 — Exam Templates
+require('./models/TemplateCategory');  // Feature 29.10 — custom categories
 require('./models/Doubt');
 const questionStatsRoutes = require('./routes/questionStatsRoutes');
 const examWizardRoutes = require('./routes/examWizardRoutes');
@@ -100,6 +102,7 @@ app.use('/api/auth', twoFactorRoutes);
 // ── Admin Routes ──────────────────────────────────────────────
 app.use('/api', questionDeleteRoutes)
 app.use('/api', examWizardRoutes);
+app.use('/api/exam-templates', require('./routes/examTemplates')); // Feature 29 — Exam Templates
 
 app.use('/api', questionStatsRoutes);
 ;

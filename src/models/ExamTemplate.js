@@ -1,22 +1,38 @@
 /**
  * ProveRank — Feature 29: Exam Templates — Create, Save & Reuse
- * Formal model. NOTE: examWizardRoutes.js (28.8.4 "Save as Template" +
- * 26 "Quick Templates" picker) already lazily creates a mongoose model
- * named 'ExamTemplate' with a smaller inline schema. Because this file
- * is now require()'d once at server startup (see index.js), this richer
- * schema registers FIRST — examWizardRoutes.js's try/catch will simply
- * reuse this same model. Old fields (name, icon, subject, category,
- * totalQs, subjectQs, duration, totalMarks, correctMarks, negativeMarks,
- * examType, markingScheme, instructions, createdBy) are kept 100%
- * backward-compatible so nothing that already works breaks.
+ *
+ * IMPORTANT FIELD-NAMING NOTE (bugfix round):
+ * The Create-Exam Wizard already has TWO separate, pre-existing concepts
+ * that both sound like "category" in plain English:
+ *   - `examType`  → NEET / JEE / CUET / RBSE / CBSE / Custom   (exam board)
+ *   - `category`  → Full Mock / Chapter Test / Part Test / Grand Test /
+ *                    Mini Test / PYQ / Custom                  (exam format)
+ * Feature 29.3 asked for "Template categories — NEET/JEE/CUET/Custom",
+ * which by VALUE matches the wizard's existing `examType`, not its
+ * `category`. So here we deliberately reuse `examType` for that concept
+ * (zero collision) and ALSO store the wizard's real `category` (exam
+ * format) so a template can specify the full pattern. Using the exact
+ * same field names/meanings as the wizard means applyTemplate() in
+ * CreateExamWizard.tsx needs NO changes — it already reads t.category
+ * and t.examType correctly.
+ *
+ * NOTE: examWizardRoutes.js (28.8.4 "Save as Template" + 26 "Quick
+ * Templates" picker) already lazily creates a mongoose model named
+ * 'ExamTemplate'. Because this file is require()'d once at server
+ * startup (see index.js), this richer schema registers FIRST —
+ * examWizardRoutes.js's try/catch simply reuses this same model, and
+ * its existing fields (name, icon, subject, category, totalQs,
+ * subjectQs, duration, totalMarks, correctMarks, negativeMarks,
+ * examType, markingScheme, instructions, createdBy) stay 100%
+ * backward-compatible.
  */
 const mongoose = require('mongoose')
 
 const versionSnapshotSchema = new mongoose.Schema({
   name:          String,
   titleFormat:   String,
-  category:      String,
-  examType:      String,
+  category:      String,   // exam format — Full Mock / Chapter Test / etc.
+  examType:      String,   // NEET / JEE / CUET / Custom
   subject:       String,
   totalQs:       Number,
   subjectQs:     Object,
@@ -33,11 +49,11 @@ const versionSnapshotSchema = new mongoose.Schema({
 const examTemplateSchema = new mongoose.Schema({
   name:           { type: String, required: true, trim: true },         // 29.2
   icon:           { type: String, default: '📋' },
-  titleFormat:    { type: String, default: '{name}' },                  // 29.2 — tokens: {name} {date} {category} {examType} {n}
-  category:       { type: String, default: 'Custom' },                  // 29.3
-  categoryColor:  { type: String, default: '#A78BFA' },                 // 29.10
+  titleFormat:    { type: String, default: '{name}' },                  // 29.2 — tokens: {name} {date} {category} {format} {n}
+  examType:       { type: String, default: 'NEET' },                    // 29.3 — NEET/JEE/CUET/Custom (the "Category" pills in UI)
+  examTypeColor:  { type: String, default: '#4D9FFF' },                 // 29.10 — colour tied to examType
+  category:       { type: String, default: 'Full Mock' },               // exam FORMAT — Full Mock/Chapter Test/etc (29.2 "Exam Format")
   subject:        { type: String, default: 'Full Mock' },
-  examType:       { type: String, default: 'Custom' },
   totalQs:        { type: Number, default: 0 },
   subjectQs:      { type: Object, default: {} },
   sections:       { type: Array,  default: [] },                        // 29.2

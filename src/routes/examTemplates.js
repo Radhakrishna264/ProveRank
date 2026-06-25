@@ -1,10 +1,16 @@
 /**
  * ProveRank — Feature 29: Exam Templates — Create, Save & Reuse
  * Mounted at /api/exam-templates (see index.js)
- * Sub-features covered:
+ *
+ * Field-naming note (see models/ExamTemplate.js header):
+ *  - `examType` = NEET/JEE/CUET/Custom  → the "Category" pills in the UI (29.3)
+ *  - `category` = Full Mock/Chapter Test/etc → the "Exam Format" picker
+ * These reuse the Create-Exam-Wizard's own field names/meanings exactly,
+ * so applyTemplate() in CreateExamWizard.tsx needs no changes at all.
+ *
  *  29.1  GET    /                     list templates (pinned first)
  *  29.2  POST   /                     create template
- *  29.3  GET    /categories           list categories (defaults + custom)
+ *  29.3  GET    /categories           list categories (defaults + custom) — colours examType
  *  29.4  usageCount field             tracked on /apply
  *  29.5  POST   /:id/duplicate        duplicate template
  *  29.6  lastUsedAt field             tracked on /apply
@@ -23,7 +29,7 @@ const { verifyToken, isAdmin } = require('../middleware/auth')
 const ExamTemplate     = require('../models/ExamTemplate')
 const TemplateCategory = require('../models/TemplateCategory')
 
-// ── 29.3 / 29.10: default categories (not stored in DB) ───────────────────────
+// ── 29.3 / 29.10: default categories — these colour the examType pills ────────
 const DEFAULT_CATEGORIES = [
   { name: 'NEET',   color: '#4D9FFF', isDefault: true },
   { name: 'JEE',    color: '#FFB84D', isDefault: true },
@@ -31,15 +37,17 @@ const DEFAULT_CATEGORIES = [
   { name: 'Custom', color: '#A78BFA', isDefault: true }
 ]
 
-// ── 29.2 / 29.13: {name} {date} {category} {examType} {n} token resolver ──────
+// ── 29.2 / 29.13: {name} {date} {category} {format} {n} token resolver ────────
+// NOTE: {category} resolves to examType (NEET/JEE/..) to match Feature-29's own
+// spec wording; {format} resolves to the wizard's real `category` (Full Mock/..).
 function resolveTitleFormat(t) {
   const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
   const fmt = t.titleFormat || '{name}'
   return fmt
     .replace(/{name}/gi, t.name || 'Exam')
     .replace(/{date}/gi, dateStr)
-    .replace(/{category}/gi, t.category || '')
-    .replace(/{examType}/gi, t.examType || '')
+    .replace(/{category}/gi, t.examType || '')
+    .replace(/{format}/gi, t.category || '')
     .replace(/{n}/gi, String((t.usageCount || 0) + 1))
     .replace(/\s+/g, ' ')
     .trim()
@@ -88,7 +96,7 @@ router.post('/categories', verifyToken, isAdmin, async (req, res) => {
 router.get('/', verifyToken, isAdmin, async (req, res) => {
   try {
     const filter = { createdBy: req.user.id }
-    if (req.query.category && req.query.category !== 'all') filter.category = req.query.category
+    if (req.query.examType && req.query.examType !== 'all') filter.examType = req.query.examType
     if (req.query.search) filter.name = new RegExp(String(req.query.search).trim(), 'i')
     const list = await ExamTemplate.find(filter).sort({ isPinned: -1, lastUsedAt: -1, createdAt: -1 })
     res.json({ success: true, templates: list })
@@ -119,10 +127,10 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
       name: b.name.trim(),
       icon: b.icon || '📋',
       titleFormat: b.titleFormat || '{name}',
-      category: b.category || 'Custom',
-      categoryColor: b.categoryColor || '#A78BFA',
+      examType: b.examType || 'NEET',
+      examTypeColor: b.examTypeColor || '#4D9FFF',
+      category: b.category || 'Full Mock',
       subject: b.subject || 'Full Mock',
-      examType: b.examType || 'Custom',
       totalQs: b.totalQs || 0,
       subjectQs: b.subjectQs || {},
       sections: b.sections || [],
@@ -151,7 +159,7 @@ router.put('/:id', verifyToken, isAdmin, async (req, res) => {
     if (t.versions.length > 20) t.versions = t.versions.slice(0, 20)
 
     const b = req.body
-    ;['name','icon','titleFormat','category','categoryColor','subject','examType','totalQs','subjectQs','sections','duration','correctMarks','negativeMarks','markingScheme','instructions'].forEach(k => {
+    ;['name','icon','titleFormat','examType','examTypeColor','category','subject','totalQs','subjectQs','sections','duration','correctMarks','negativeMarks','markingScheme','instructions'].forEach(k => {
       if (b[k] !== undefined) t[k] = b[k]
     })
     if (b.totalQs !== undefined || b.correctMarks !== undefined) {
@@ -231,6 +239,9 @@ router.patch('/:id/pin', verifyToken, isAdmin, async (req, res) => {
 
 // ════════════════════════════════════════════════════════════════
 // 29.13 — APPLY template (usage count + last used + resolved title)
+// Returns the doc AS-IS — `category` and `examType` already match the
+// exact field names/meanings applyTemplate() in CreateExamWizard.tsx
+// expects, so no remapping needed here.
 // ════════════════════════════════════════════════════════════════
 router.post('/:id/apply', verifyToken, isAdmin, async (req, res) => {
   try {

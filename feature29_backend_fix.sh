@@ -2,12 +2,13 @@
 # ════════════════════════════════════════════════════════════════════════════
 #  ProveRank — Feature 29: Exam Templates — Create, Save & Reuse
 #  BACKEND fix / upgrade script  (run on the BACKEND Replit project root)
+#  v2 — fixes the category/examType field-collision bug found in testing.
 #  No python used — pure bash + node (per project rules).
 # ════════════════════════════════════════════════════════════════════════════
 set -e
 
 echo "════════════════════════════════════════════════"
-echo " Feature 29 — Exam Templates — BACKEND setup"
+echo " Feature 29 — Exam Templates — BACKEND setup (v2)"
 echo "════════════════════════════════════════════════"
 
 # ── locate backend project root (the index.js that requires examWizardRoutes) ─
@@ -30,23 +31,39 @@ echo "→ Writing models/ExamTemplate.js ..."
 cat > "$BASE_DIR/models/ExamTemplate.js" << '__PRRANK_EOF_MODEL1__'
 /**
  * ProveRank — Feature 29: Exam Templates — Create, Save & Reuse
- * Formal model. NOTE: examWizardRoutes.js (28.8.4 "Save as Template" +
- * 26 "Quick Templates" picker) already lazily creates a mongoose model
- * named 'ExamTemplate' with a smaller inline schema. Because this file
- * is now require()'d once at server startup (see index.js), this richer
- * schema registers FIRST — examWizardRoutes.js's try/catch will simply
- * reuse this same model. Old fields (name, icon, subject, category,
- * totalQs, subjectQs, duration, totalMarks, correctMarks, negativeMarks,
- * examType, markingScheme, instructions, createdBy) are kept 100%
- * backward-compatible so nothing that already works breaks.
+ *
+ * IMPORTANT FIELD-NAMING NOTE (bugfix round):
+ * The Create-Exam Wizard already has TWO separate, pre-existing concepts
+ * that both sound like "category" in plain English:
+ *   - `examType`  → NEET / JEE / CUET / RBSE / CBSE / Custom   (exam board)
+ *   - `category`  → Full Mock / Chapter Test / Part Test / Grand Test /
+ *                    Mini Test / PYQ / Custom                  (exam format)
+ * Feature 29.3 asked for "Template categories — NEET/JEE/CUET/Custom",
+ * which by VALUE matches the wizard's existing `examType`, not its
+ * `category`. So here we deliberately reuse `examType` for that concept
+ * (zero collision) and ALSO store the wizard's real `category` (exam
+ * format) so a template can specify the full pattern. Using the exact
+ * same field names/meanings as the wizard means applyTemplate() in
+ * CreateExamWizard.tsx needs NO changes — it already reads t.category
+ * and t.examType correctly.
+ *
+ * NOTE: examWizardRoutes.js (28.8.4 "Save as Template" + 26 "Quick
+ * Templates" picker) already lazily creates a mongoose model named
+ * 'ExamTemplate'. Because this file is require()'d once at server
+ * startup (see index.js), this richer schema registers FIRST —
+ * examWizardRoutes.js's try/catch simply reuses this same model, and
+ * its existing fields (name, icon, subject, category, totalQs,
+ * subjectQs, duration, totalMarks, correctMarks, negativeMarks,
+ * examType, markingScheme, instructions, createdBy) stay 100%
+ * backward-compatible.
  */
 const mongoose = require('mongoose')
 
 const versionSnapshotSchema = new mongoose.Schema({
   name:          String,
   titleFormat:   String,
-  category:      String,
-  examType:      String,
+  category:      String,   // exam format — Full Mock / Chapter Test / etc.
+  examType:      String,   // NEET / JEE / CUET / Custom
   subject:       String,
   totalQs:       Number,
   subjectQs:     Object,
@@ -63,11 +80,11 @@ const versionSnapshotSchema = new mongoose.Schema({
 const examTemplateSchema = new mongoose.Schema({
   name:           { type: String, required: true, trim: true },         // 29.2
   icon:           { type: String, default: '📋' },
-  titleFormat:    { type: String, default: '{name}' },                  // 29.2 — tokens: {name} {date} {category} {examType} {n}
-  category:       { type: String, default: 'Custom' },                  // 29.3
-  categoryColor:  { type: String, default: '#A78BFA' },                 // 29.10
+  titleFormat:    { type: String, default: '{name}' },                  // 29.2 — tokens: {name} {date} {category} {format} {n}
+  examType:       { type: String, default: 'NEET' },                    // 29.3 — NEET/JEE/CUET/Custom (the "Category" pills in UI)
+  examTypeColor:  { type: String, default: '#4D9FFF' },                 // 29.10 — colour tied to examType
+  category:       { type: String, default: 'Full Mock' },               // exam FORMAT — Full Mock/Chapter Test/etc (29.2 "Exam Format")
   subject:        { type: String, default: 'Full Mock' },
-  examType:       { type: String, default: 'Custom' },
   totalQs:        { type: Number, default: 0 },
   subjectQs:      { type: Object, default: {} },
   sections:       { type: Array,  default: [] },                        // 29.2
@@ -114,10 +131,16 @@ cat > "$BASE_DIR/routes/examTemplates.js" << '__PRRANK_EOF_ROUTE__'
 /**
  * ProveRank — Feature 29: Exam Templates — Create, Save & Reuse
  * Mounted at /api/exam-templates (see index.js)
- * Sub-features covered:
+ *
+ * Field-naming note (see models/ExamTemplate.js header):
+ *  - `examType` = NEET/JEE/CUET/Custom  → the "Category" pills in the UI (29.3)
+ *  - `category` = Full Mock/Chapter Test/etc → the "Exam Format" picker
+ * These reuse the Create-Exam-Wizard's own field names/meanings exactly,
+ * so applyTemplate() in CreateExamWizard.tsx needs no changes at all.
+ *
  *  29.1  GET    /                     list templates (pinned first)
  *  29.2  POST   /                     create template
- *  29.3  GET    /categories           list categories (defaults + custom)
+ *  29.3  GET    /categories           list categories (defaults + custom) — colours examType
  *  29.4  usageCount field             tracked on /apply
  *  29.5  POST   /:id/duplicate        duplicate template
  *  29.6  lastUsedAt field             tracked on /apply
@@ -136,7 +159,7 @@ const { verifyToken, isAdmin } = require('../middleware/auth')
 const ExamTemplate     = require('../models/ExamTemplate')
 const TemplateCategory = require('../models/TemplateCategory')
 
-// ── 29.3 / 29.10: default categories (not stored in DB) ───────────────────────
+// ── 29.3 / 29.10: default categories — these colour the examType pills ────────
 const DEFAULT_CATEGORIES = [
   { name: 'NEET',   color: '#4D9FFF', isDefault: true },
   { name: 'JEE',    color: '#FFB84D', isDefault: true },
@@ -144,15 +167,17 @@ const DEFAULT_CATEGORIES = [
   { name: 'Custom', color: '#A78BFA', isDefault: true }
 ]
 
-// ── 29.2 / 29.13: {name} {date} {category} {examType} {n} token resolver ──────
+// ── 29.2 / 29.13: {name} {date} {category} {format} {n} token resolver ────────
+// NOTE: {category} resolves to examType (NEET/JEE/..) to match Feature-29's own
+// spec wording; {format} resolves to the wizard's real `category` (Full Mock/..).
 function resolveTitleFormat(t) {
   const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
   const fmt = t.titleFormat || '{name}'
   return fmt
     .replace(/{name}/gi, t.name || 'Exam')
     .replace(/{date}/gi, dateStr)
-    .replace(/{category}/gi, t.category || '')
-    .replace(/{examType}/gi, t.examType || '')
+    .replace(/{category}/gi, t.examType || '')
+    .replace(/{format}/gi, t.category || '')
     .replace(/{n}/gi, String((t.usageCount || 0) + 1))
     .replace(/\s+/g, ' ')
     .trim()
@@ -201,7 +226,7 @@ router.post('/categories', verifyToken, isAdmin, async (req, res) => {
 router.get('/', verifyToken, isAdmin, async (req, res) => {
   try {
     const filter = { createdBy: req.user.id }
-    if (req.query.category && req.query.category !== 'all') filter.category = req.query.category
+    if (req.query.examType && req.query.examType !== 'all') filter.examType = req.query.examType
     if (req.query.search) filter.name = new RegExp(String(req.query.search).trim(), 'i')
     const list = await ExamTemplate.find(filter).sort({ isPinned: -1, lastUsedAt: -1, createdAt: -1 })
     res.json({ success: true, templates: list })
@@ -232,10 +257,10 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
       name: b.name.trim(),
       icon: b.icon || '📋',
       titleFormat: b.titleFormat || '{name}',
-      category: b.category || 'Custom',
-      categoryColor: b.categoryColor || '#A78BFA',
+      examType: b.examType || 'NEET',
+      examTypeColor: b.examTypeColor || '#4D9FFF',
+      category: b.category || 'Full Mock',
       subject: b.subject || 'Full Mock',
-      examType: b.examType || 'Custom',
       totalQs: b.totalQs || 0,
       subjectQs: b.subjectQs || {},
       sections: b.sections || [],
@@ -264,7 +289,7 @@ router.put('/:id', verifyToken, isAdmin, async (req, res) => {
     if (t.versions.length > 20) t.versions = t.versions.slice(0, 20)
 
     const b = req.body
-    ;['name','icon','titleFormat','category','categoryColor','subject','examType','totalQs','subjectQs','sections','duration','correctMarks','negativeMarks','markingScheme','instructions'].forEach(k => {
+    ;['name','icon','titleFormat','examType','examTypeColor','category','subject','totalQs','subjectQs','sections','duration','correctMarks','negativeMarks','markingScheme','instructions'].forEach(k => {
       if (b[k] !== undefined) t[k] = b[k]
     })
     if (b.totalQs !== undefined || b.correctMarks !== undefined) {
@@ -344,6 +369,9 @@ router.patch('/:id/pin', verifyToken, isAdmin, async (req, res) => {
 
 // ════════════════════════════════════════════════════════════════
 // 29.13 — APPLY template (usage count + last used + resolved title)
+// Returns the doc AS-IS — `category` and `examType` already match the
+// exact field names/meanings applyTemplate() in CreateExamWizard.tsx
+// expects, so no remapping needed here.
 // ════════════════════════════════════════════════════════════════
 router.post('/:id/apply', verifyToken, isAdmin, async (req, res) => {
   try {
@@ -620,7 +648,7 @@ chk "router.patch('/:id/pin'"   "$BASE_DIR/routes/examTemplates.js"     "29.8  p
 chk "router.get('/:id/versions'" "$BASE_DIR/routes/examTemplates.js"    "29.9  version history route"
 chk "router.post('/:id/versions/:idx/restore'" "$BASE_DIR/routes/examTemplates.js" "29.9  restore version route"
 chk "router.post('/categories'" "$BASE_DIR/routes/examTemplates.js"    "29.10 create custom category + colour route"
-chk "categoryColor"             "$BASE_DIR/models/ExamTemplate.js"      "29.11 colour field for cards"
+chk "examTypeColor"             "$BASE_DIR/models/ExamTemplate.js"      "29.11 colour field for cards"
 chk "subjectQs"                 "$BASE_DIR/models/ExamTemplate.js"      "29.12 sections/marks data stored"
 chk "router.post('/:id/apply'"  "$BASE_DIR/routes/examTemplates.js"     "29.13 apply route (usage++ + resolved title)"
 chk "require('./models/ExamTemplate')" "$INDEX_FILE"                   "29    model registered in index.js"
@@ -634,6 +662,12 @@ else
   echo "⚠️  Kuch backend checks fail hue — upar dekhein, kuch reh gaya ho sakta hai."
 fi
 
+echo ""
+echo "Bugfix note (v2): category/examType field collision fixed."
+echo "  examType = NEET/JEE/CUET/Custom (the 'Category' pills, 29.3)"
+echo "  category = Full Mock/Chapter Test/etc (the 'Exam Format' picker)"
+echo "  Both reuse the Create-Exam-Wizard's own existing field meanings,"
+echo "  so applyTemplate() in the wizard needed zero changes."
 echo ""
 echo "Old systems untouched (zero risk to existing features):"
 echo "  • routes/examFeatures.js  (S75 in-memory stub)        — not touched"
