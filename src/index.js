@@ -124,7 +124,6 @@ if (questionExtraRoutes)    app.use('/api/questions', questionExtraRoutes);
 // ── Exam Routes ───────────────────────────────────────────────
 app.use('/api/exams', examFeaturesRoutes);
 app.use('/api/exams', examRoutes);
-app.use('/api/exams-manage', require('./routes/examListing')); // Feature 33 — All Exams List/Filter/Search
 app.use('/api/exams', examPatchRoutes);
              // S5/S75/S85/S26/S62/S31/S96
 app.use('/api/exam-paper', examPaperRoutes);

@@ -105,10 +105,7 @@ const examSchema = new mongoose.Schema({
     totalDuplicates: { type: Number, default: 0 }
   },
 
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-
-  // Feature 33.20 — Pinned exams (important exams shown at top of All Exams list)
-  isPinned: { type: Boolean, default: false }
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 
 }, { timestamps: true });
 
