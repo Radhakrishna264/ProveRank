@@ -3,7 +3,6 @@ import CreateExamWizard from './CreateExamWizard'
 import QBankStatsDashboard from './QBankStatsDashboard'
 import PreviewAllQuestions from './PreviewAllQuestions'
 import ExamTemplates from './ExamTemplates'
-import AllExams from './AllExams'
 import { DeleteBtn, DeleteConfirmModal, RecycleBinModal, ArchivedModal, UndoToast, useDeleteQuestion } from './DeleteQuestionSystem'
 import ContentForge from './ContentForge';
 import AIExplainTab from './AIExplainTab';
@@ -2796,14 +2795,50 @@ const confirmAndAdd=useCallback(async()=>{
             </div>
           )}
 
-          {/* ══ ALL EXAMS — Feature 33 ══ */}
+          {/* ══ ALL EXAMS ══ */}
           {tab==='exams'&&(
-            <AllExams
-              token={typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''}
-              API={API}
-              T={T}
-              onCreateNew={()=>_setTab('create_exam')}
-            />
+            <div>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16,flexWrap:'wrap',gap:10}}>
+                <div>
+                  <div style={pageTitle}>📝 All Exams</div>
+                  <div style={pageSub}>{(exams||[]).length} exams total — manage, edit, clone, and monitor</div>
+                </div>
+                <button onClick={()=>_setTab('create_exam')} style={bp}>➕ Create Exam</button>
+              </div>
+
+              <div style={{marginBottom:14}}>
+                <SInput init={examSearch} onSet={setExamSearch} ph='🔍 Search exams by title…' style={{...inp,maxWidth:400}}/>
+              </div>
+
+              {(fExams||[]).length===0
+                ?<PageHero icon="📝" title="No Exams Found" subtitle="Create your first NEET exam to get started. Use templates for quick setup or build from scratch with the 3-step wizard."/>
+                :<div style={{display:'grid',gap:10}}>
+                  {(fExams||[]).map(e=>(
+                    <div key={e._id} className="card-hover" style={{...cs,display:'flex',gap:12,flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',transition:'all 0.2s'}}>
+                      <div style={{flex:1,minWidth:200}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                          <span style={{fontWeight:700,fontSize:14,color:TS}}>{e.title}</span>
+                          <Badge label={e.status||'draft'} col={e.status==='active'?SUC:e.status==='published'?ACC:DIM}/>
+                          {e.category&&<Badge label={e.category} col={GOLD}/>}
+                        </div>
+                        <div style={{display:'flex',gap:12,fontSize:11,color:DIM,flexWrap:'wrap'}}>
+                          <span>📅 {e.scheduledAt?new Date(e.scheduledAt).toLocaleString():'-'}</span>
+                          <span>⏱️ {e.duration} min</span>
+                          <span>🎯 {e.totalMarks} marks</span>
+                          {e.attempts!==undefined&&<span>👤 {e.attempts} attempts</span>}
+                          {e.batch&&<span>📦 {e.batch}</span>}
+                        </div>
+                      </div>
+                      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                        <button onClick={()=>_setTab('create_exam')} style={{...bg_,fontSize:11}}>✏️ Edit</button>
+                        <button onClick={()=>cloneExam(e._id)} style={{...bg_,fontSize:11}}>📋 Clone</button>
+                        <button onClick={()=>delExam(e._id)} style={{...bd,fontSize:11}}>🗑️ Delete</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              }
+            </div>
           )}
 
           {/* ══ CREATE EXAM (3-STEP WIZARD) ══ */}
