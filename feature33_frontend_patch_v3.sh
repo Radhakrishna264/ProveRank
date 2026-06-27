@@ -1,3 +1,32 @@
+#!/usr/bin/env bash
+# ════════════════════════════════════════════════════════════════════════════
+#  ProveRank — Feature 33 — FRONTEND patch v3
+#  v2: fixed exam card layout bug + added Preview Exam button/modal
+#  v3: Preview Exam now also supports — Explanation (hidden by default, per-
+#      question toggle) + Hindi/English toggle (auto-shown only if available)
+#  No other files touched — only AllExams.tsx is rewritten.
+# ════════════════════════════════════════════════════════════════════════════
+set -e
+echo "════════════════════════════════════════════════"
+echo " Feature 33 — FRONTEND patch v3 (Explanation + Hindi/English toggle)"
+echo "════════════════════════════════════════════════"
+
+PAGE_FILE=$(grep -rl "import CreateExamWizard from './CreateExamWizard'" --include="*.tsx" . 2>/dev/null | head -1)
+if [ -z "$PAGE_FILE" ]; then
+  echo "❌ page.tsx nahi mila. Frontend project root se chalao."
+  exit 1
+fi
+DIR=$(dirname "$PAGE_FILE")
+ALLEXAMS_FILE="$DIR/AllExams.tsx"
+echo "✓ Admin folder mila: $DIR"
+
+if [ -f "$ALLEXAMS_FILE" ]; then
+  cp "$ALLEXAMS_FILE" "$ALLEXAMS_FILE.bak_feat33_v3"
+  echo "✓ Backup bana: $ALLEXAMS_FILE.bak_feat33_v3"
+fi
+echo ""
+echo "→ Rewriting $ALLEXAMS_FILE ..."
+cat > "$ALLEXAMS_FILE" << '__PRRANK_EOF_ALLEXAMS3__'
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 
@@ -888,3 +917,31 @@ function CalendarGrid({month,exams,onDayClick,onExamClick}:{month:Date;exams:any
     </div>
   )
 }
+__PRRANK_EOF_ALLEXAMS3__
+
+echo ""
+node --version >/dev/null 2>&1 || true
+
+echo "── Verification ──"
+pass=0; total=0
+chk(){ total=$((total+1)); if grep -q "$1" "$2" 2>/dev/null; then echo "✅ $3"; pass=$((pass+1)); else echo "❌ $3"; fi }
+
+chk "openPreview"            "$ALLEXAMS_FILE" "Preview Exam action intact"
+chk "toggleExplain"          "$ALLEXAMS_FILE" "NEW: Explanation toggle (hidden by default)"
+chk "Show Explanation"       "$ALLEXAMS_FILE" "NEW: per-question Show/Hide Explanation button"
+chk "previewLang"            "$ALLEXAMS_FILE" "NEW: Hindi/English language state"
+chk "hasHindiQ"               "$ALLEXAMS_FILE" "NEW: auto-detects Hindi availability (toggle only shows if present)"
+chk "हिंदी अनुवाद उपलब्ध नहीं" "$ALLEXAMS_FILE" "NEW: graceful per-question fallback when Hindi missing"
+chk "exams.map(e=>{"         "$ALLEXAMS_FILE" "33.1  listing intact"
+chk "CalendarGrid"           "$ALLEXAMS_FILE" "33.15 calendar view intact"
+chk "leaderboard"            "$ALLEXAMS_FILE" "33.14 analytics panel intact"
+
+echo ""
+echo "Checks passed: $pass / $total"
+echo ""
+echo "Note: agar question documents me explanation field ka naam 'explanation'/"
+echo "'solution'/'explanationText'/'answerExplanation'/'detailedSolution' me se"
+echo "koi NA ho, to button khud nahi dikhega (kyunki field detect nahi hota)."
+echo "Exact field name bata do to update kar denge."
+echo ""
+echo "Ab: dev server restart karo (Replit Run / redeploy)."
