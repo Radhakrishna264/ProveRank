@@ -173,18 +173,6 @@ router.get('/list', verifyToken, isAdmin, async (req, res) => {
 // ════════════════════════════════════════════════════════════════
 // 33.14 — ANALYTICS QUICK VIEW (side panel)
 // ════════════════════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════
-// NEW — PREVIEW EXAM CONTENT (admin checks questions/options render
-// correctly before students attempt it). Read-only, no attempt created.
-// ════════════════════════════════════════════════════════════════
-router.get('/:id/preview', verifyToken, isAdmin, async (req, res) => {
-  try {
-    const exam = await Exam.findById(req.params.id).populate('questions').lean()
-    if (!exam) return res.status(404).json({ success: false, message: 'Exam nahi mila' })
-    res.json({ success: true, examTitle: exam.title, questions: exam.questions || [] })
-  } catch (err) { res.status(500).json({ success: false, message: err.message }) }
-})
-
 router.get('/:id/analytics', verifyToken, isAdmin, async (req, res) => {
   try {
     const exam = await Exam.findById(req.params.id).select('title totalMarks duration category subject type status schedule questions')

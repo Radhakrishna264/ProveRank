@@ -96,10 +96,6 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
   const [analyticsData, setAnalyticsData] = useState<any>(null)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
 
-  const [previewExam, setPreviewExam] = useState<any>(null)
-  const [previewQuestions, setPreviewQuestions] = useState<any[]>([])
-  const [previewLoading, setPreviewLoading] = useState(false)
-
   const [editExam, setEditExam] = useState<any>(null)
   const [editForm, setEditForm] = useState<any>({})
   const [savingEdit, setSavingEdit] = useState(false)
@@ -258,19 +254,6 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
       if(d.success){ T('Exam updated ✅'); setEditExam(null); fetchExams() } else T(d.message||'Failed','e')
     } catch { T('Network error','e') }
     setSavingEdit(false)
-  }
-
-  // ── NEW — Preview Exam (verify question/option content renders correctly,
-  // before students attempt it). Read-only, creates no attempt record. ───────
-  const openPreview = async (exam:any) => {
-    setPreviewExam(exam); setPreviewLoading(true); setPreviewQuestions([])
-    try {
-      const r = await fetch(`${API}/api/exams-manage/${exam._id}/preview`,{headers:{Authorization:`Bearer ${token}`}})
-      const d = await r.json()
-      if(d.success) setPreviewQuestions(d.questions||[])
-      else T(d.message||'Preview load nahi ho payi','e')
-    } catch { T('Network error','e') }
-    setPreviewLoading(false)
   }
 
   // ── 33.14 — analytics side panel ─────────────────────────────────────────────
@@ -510,7 +493,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
           <button onClick={onCreateNew} style={{...bp,fontSize:13}}>+ Create Your First Exam</button>
         </div>
       ) : (
-        <div style={{display:'flex',flexDirection:'column' as any,gap:12}}>
+        <div style={{display:'flex',flexDirection:'column' as any,gap:10}}>
           {exams.map(e=>{
             const meta = STATUS_META[e.status] || STATUS_META.draft
             const cd = e.status==='scheduled' ? countdownLabel(e.schedule?.startTime, now) : null
@@ -518,46 +501,39 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
             const selected = selectedIds.includes(e._id)
             const busy = busyId===e._id
             return (
-              <div key={e._id} className="ae-card" style={{position:'relative' as any,overflow:'hidden',borderRadius:16,background:CRD,border:`1px solid ${BOR}`,borderLeft:`4px solid ${meta.color}`,backdropFilter:'blur(14px)',boxShadow:'0 4px 18px rgba(0,0,0,0.3)'}}>
-                <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${meta.color},${meta.color}00 85%)`}}/>
-
-                <div style={{padding:'14px 16px 12px',display:'flex',gap:10,alignItems:'flex-start'}}>
-                  {bulkMode && (
-                    <input type="checkbox" checked={selected} onChange={()=>toggleSelect(e._id)} style={{marginTop:4,width:16,height:16,cursor:'pointer',flexShrink:0}}/>
-                  )}
-                  <div style={{flex:1,minWidth:0,cursor:'pointer'}} onClick={()=>openAnalytics(e)}>
-                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap' as any}}>
-                      {e.isPinned && <span title="Pinned" style={{color:GOLD,fontSize:13}}>📌</span>}
-                      <span style={{fontWeight:700,fontSize:14,color:TS,fontFamily:'Playfair Display,serif'}}>{e.title}</span>
-                      <span style={{display:'inline-flex',alignItems:'center',gap:4,fontSize:10,fontWeight:700,color:meta.color,background:`${meta.color}18`,border:`1px solid ${meta.color}44`,borderRadius:20,padding:'3px 10px',boxShadow:e.status==='live'?`0 0 10px ${SUC}66`:'none'}}>{meta.icon} {meta.label}</span>
-                      {cd && <span className="ae-countdown" style={{fontSize:10,fontWeight:700,color:WRN,background:`${WRN}18`,border:`1px solid ${WRN}44`,borderRadius:20,padding:'3px 10px'}}>⏰ {cd}</span>}
-                      {needsAttn && <span title="Needs attention" style={{fontSize:10,fontWeight:700,color:DNG,background:`${DNG}18`,border:`1px solid ${DNG}44`,borderRadius:20,padding:'3px 10px'}}>⚠️ Needs attention</span>}
-                    </div>
-                    <div style={{display:'flex',gap:6,flexWrap:'wrap' as any}}>
-                      <Chip ico="📅" label={fmtDateStr(e.schedule?.startTime)} col={ACC}/>
-                      <Chip ico="⏱" label={`${e.duration||0} min`} col={ACC}/>
-                      <Chip ico="📊" label={`${e.totalMarks||0} marks`} col={GOLD}/>
-                      <Chip ico="👥" label={`${e.studentCount||0} students`} col={SUC}/>
-                      <Chip ico="❓" label={`${e.questionCount||0} Qs`} col={PRP}/>
-                      {e.category && <Chip ico="📐" label={e.category} col={DIM}/>}
-                      {e.batch && <Chip ico="📦" label={e.batch} col={DIM}/>}
-                    </div>
+              <div key={e._id} className="ae-card" style={{...cs,padding:'14px 16px',borderLeft:`4px solid ${meta.color}`,display:'flex',gap:12,alignItems:'flex-start',flexWrap:'wrap' as any}}>
+                {bulkMode && (
+                  <input type="checkbox" checked={selected} onChange={()=>toggleSelect(e._id)} style={{marginTop:4,width:16,height:16,cursor:'pointer',flexShrink:0}}/>
+                )}
+                <div style={{flex:1,minWidth:220,cursor:'pointer'}} onClick={()=>openAnalytics(e)}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap' as any}}>
+                    {e.isPinned && <span title="Pinned" style={{color:GOLD,fontSize:13}}>📌</span>}
+                    <span style={{fontWeight:700,fontSize:14,color:TS,fontFamily:'Playfair Display,serif'}}>{e.title}</span>
+                    <span style={{display:'inline-flex',alignItems:'center',gap:4,fontSize:10,fontWeight:700,color:meta.color,background:`${meta.color}18`,border:`1px solid ${meta.color}44`,borderRadius:20,padding:'3px 10px',boxShadow:e.status==='live'?`0 0 10px ${SUC}66`:'none'}}>{meta.icon} {meta.label}</span>
+                    {cd && <span className="ae-countdown" style={{fontSize:10,fontWeight:700,color:WRN,background:`${WRN}18`,border:`1px solid ${WRN}44`,borderRadius:20,padding:'3px 10px'}}>⏰ {cd}</span>}
+                    {needsAttn && <span title="Needs attention" style={{fontSize:10,fontWeight:700,color:DNG,background:`${DNG}18`,border:`1px solid ${DNG}44`,borderRadius:20,padding:'3px 10px'}}>⚠️ Needs attention</span>}
+                  </div>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap' as any}}>
+                    <Chip ico="📅" label={fmtDateStr(e.schedule?.startTime)} col={ACC}/>
+                    <Chip ico="⏱" label={`${e.duration||0} min`} col={ACC}/>
+                    <Chip ico="📊" label={`${e.totalMarks||0} marks`} col={GOLD}/>
+                    <Chip ico="👥" label={`${e.studentCount||0} students`} col={SUC}/>
+                    <Chip ico="❓" label={`${e.questionCount||0} Qs`} col={PRP}/>
+                    {e.category && <Chip ico="📐" label={e.category} col={DIM}/>}
+                    {e.batch && <Chip ico="📦" label={e.batch} col={DIM}/>}
                   </div>
                 </div>
-
-                <div style={{height:1,background:'rgba(255,255,255,0.06)',margin:'0 16px'}}/>
-
-                <div style={{display:'flex',gap:6,padding:'10px 14px',overflowX:'auto' as any}}>
-                  <button onClick={()=>togglePin(e)} title={e.isPinned?'Unpin':'Pin to top'} style={{...bg_,flexShrink:0,padding:'7px 12px',fontSize:11,color:e.isPinned?GOLD:DIM,borderColor:e.isPinned?`${GOLD}44`:BOR}}>📌 {e.isPinned?'Pinned':'Pin'}</button>
-                  <button onClick={()=>togglePublish(e)} disabled={busy} title="Toggle status" style={{...bg_,flexShrink:0,padding:'7px 12px',fontSize:11,color:e.status==='draft'?SUC:WRN,borderColor:e.status==='draft'?`${SUC}44`:`${WRN}44`}}>
+                <div style={{display:'flex',flexDirection:'column' as any,gap:6,flexShrink:0,minWidth:140}}>
+                  <button onClick={()=>togglePin(e)} style={{...bg_,fontSize:10,padding:'6px 10px',color:e.isPinned?GOLD:DIM}}>{e.isPinned?'📌 Unpin':'📌 Pin'}</button>
+                  <button onClick={()=>togglePublish(e)} disabled={busy} style={{...bg_,fontSize:10,padding:'6px 10px',color:e.status==='draft'?SUC:WRN}}>
                     {busy?<span className="ae-spin">⟳</span>:(e.status==='draft'?'📢 Publish':'↩️ Unpublish')}
                   </button>
-                  <div style={{width:1,background:'rgba(255,255,255,0.08)',flexShrink:0,margin:'2px 2px'}}/>
-                  <button onClick={()=>openPreview(e)} title="Preview as student — check questions/options render correctly" style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13,color:ACC}}>👁</button>
-                  <button onClick={()=>openEdit(e)} title="Edit" style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13}}>✏️</button>
-                  <button onClick={()=>cloneExam(e)} title="Clone" disabled={busy} style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13}}>⧉</button>
-                  <button onClick={()=>openAnalytics(e)} title="View Results" style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13}}>📈</button>
-                  <button onClick={()=>setDeleteConfirm(e)} title="Delete" style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13,color:DNG,borderColor:`${DNG}33`}}>🗑</button>
+                  <div style={{display:'flex',gap:4}}>
+                    <button onClick={()=>openEdit(e)} title="Edit" style={{...bg_,flex:1,padding:'6px 0',fontSize:11}}>✏️</button>
+                    <button onClick={()=>cloneExam(e)} title="Clone" disabled={busy} style={{...bg_,flex:1,padding:'6px 0',fontSize:11}}>⧉</button>
+                    <button onClick={()=>openAnalytics(e)} title="View Results" style={{...bg_,flex:1,padding:'6px 0',fontSize:11}}>📈</button>
+                    <button onClick={()=>setDeleteConfirm(e)} title="Delete" style={{...bg_,flex:1,padding:'6px 0',fontSize:11,color:DNG}}>🗑</button>
+                  </div>
                 </div>
               </div>
             )
@@ -724,72 +700,6 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                     </div>
                   )}
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ══ PREVIEW EXAM — content/option rendering check (no attempt created) ══ */}
-      {previewExam && (
-        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.85)',backdropFilter:'blur(4px)',zIndex:230,display:'flex',flexDirection:'column' as any}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 18px',borderBottom:`1px solid ${BOR}`,background:CRD,flexShrink:0}}>
-            <div>
-              <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:TS}}>👁 {previewExam.title}</div>
-              <div style={{fontSize:10,color:DIM,marginTop:2}}>Student jaisa hi content view — read-only, koi attempt record nahi banta</div>
-            </div>
-            <button onClick={()=>setPreviewExam(null)} style={{background:'transparent',border:'none',color:DIM,fontSize:20,cursor:'pointer',flexShrink:0}}>✕</button>
-          </div>
-
-          <div style={{flex:1,overflowY:'auto' as any,padding:'16px',boxSizing:'border-box' as any}}>
-            {previewLoading ? (
-              <div style={{textAlign:'center' as any,padding:'60px 0',color:DIM}}><span className="ae-spin" style={{fontSize:24}}>⟳</span><div style={{marginTop:10,fontSize:12}}>Questions load ho rahe hain...</div></div>
-            ) : previewQuestions.length===0 ? (
-              <div style={{...cs,textAlign:'center' as any,padding:'40px 20px'}}>
-                <div style={{fontSize:40,marginBottom:10}}>❓</div>
-                <div style={{fontSize:13,color:TS,fontWeight:700,marginBottom:4}}>Is exam me koi question nahi hai</div>
-                <div style={{fontSize:11,color:DIM}}>Step 2 (Add Questions) complete nahi hua hoga.</div>
-              </div>
-            ) : (
-              <div style={{display:'flex',flexDirection:'column' as any,gap:12,maxWidth:680,margin:'0 auto'}}>
-                {previewQuestions.map((q:any,qi:number)=>{
-                  const qText = q.questionText || q.text || q.question || q.title || '(Question text missing — render issue!)'
-                  const opts = q.options || q.choices || []
-                  const correctRaw = q.correct ?? q.correctAnswer ?? q.correctOption ?? q.answer
-                  const isCorrect = (idx:number, letter:string) => {
-                    if(Array.isArray(correctRaw)) return correctRaw.includes(idx) || correctRaw.includes(letter)
-                    if(typeof correctRaw==='number') return correctRaw===idx
-                    if(typeof correctRaw==='string') return correctRaw.toUpperCase()===letter || correctRaw===String(idx)
-                    return false
-                  }
-                  const missingOpts = !opts || opts.length===0
-                  return (
-                    <div key={q._id||qi} style={{...cs,padding:'14px 16px',borderLeft:`3px solid ${missingOpts?DNG:ACC}`}}>
-                      <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:8,flexWrap:'wrap' as any}}>
-                        <span style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:13,color:TS}}>Q{qi+1}</span>
-                        {q.subject && <Chip ico="📚" label={q.subject} col={PRP}/>}
-                        {q.difficulty && <Chip ico="🎯" label={q.difficulty} col={WRN}/>}
-                        {q.type && <Chip ico="📝" label={q.type} col={ACC}/>}
-                        {missingOpts && <Chip ico="⚠️" label="No options found!" col={DNG}/>}
-                      </div>
-                      <div style={{fontSize:13,color:TS,lineHeight:1.6,marginBottom:10}}>{qText}</div>
-                      {!missingOpts && (
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
-                          {opts.map((opt:any,oi:number)=>{
-                            const letter = String.fromCharCode(65+oi)
-                            const correct = isCorrect(oi,letter)
-                            const optText = typeof opt==='string' ? opt : (opt?.text||opt?.label||JSON.stringify(opt))
-                            return (
-                              <div key={oi} style={{padding:'7px 10px',borderRadius:8,fontSize:11,border:`1px solid ${correct?`${SUC}55`:BOR}`,background:correct?`${SUC}10`:'rgba(255,255,255,0.02)',color:correct?SUC:'#CBD5E1'}}>
-                                <b style={{marginRight:4}}>{letter}.</b>{optText} {correct?'✓':''}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
               </div>
             )}
           </div>

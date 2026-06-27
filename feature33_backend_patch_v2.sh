@@ -1,3 +1,31 @@
+#!/usr/bin/env bash
+# ════════════════════════════════════════════════════════════════════════════
+#  ProveRank — Feature 33 — BACKEND patch v2
+#  Adds: GET /:id/preview (Preview Exam content/option check)
+#  No other files touched — only routes/examListing.js is rewritten.
+# ════════════════════════════════════════════════════════════════════════════
+set -e
+echo "════════════════════════════════════════════════"
+echo " Feature 33 — BACKEND patch v2 (Preview Exam)"
+echo "════════════════════════════════════════════════"
+
+INDEX_FILE=$(grep -rl "require('./routes/examWizardRoutes')" --include="index.js" . 2>/dev/null | head -1)
+if [ -z "$INDEX_FILE" ]; then
+  echo "❌ index.js nahi mila. Backend project root se chalao."
+  exit 1
+fi
+BASE_DIR=$(dirname "$INDEX_FILE")
+LISTING_FILE="$BASE_DIR/routes/examListing.js"
+echo "✓ Backend root mila: $BASE_DIR"
+
+if [ -f "$LISTING_FILE" ]; then
+  cp "$LISTING_FILE" "$LISTING_FILE.bak_feat33_v2"
+  echo "✓ Backup bana: $LISTING_FILE.bak_feat33_v2"
+fi
+mkdir -p "$BASE_DIR/routes"
+echo ""
+echo "→ Rewriting $LISTING_FILE ..."
+cat > "$LISTING_FILE" << '__PRRANK_EOF_LISTING2__'
 /**
  * ProveRank — Feature 33: All Exams — List, Filter, Search
  * Mounted at /api/exams-manage (deliberately a DIFFERENT prefix from /api/exams,
@@ -402,3 +430,15 @@ router.get('/export', verifyToken, isAdmin, async (req, res) => {
 })
 
 module.exports = router
+__PRRANK_EOF_LISTING2__
+
+node --check "$LISTING_FILE" && echo "✅ routes/examListing.js syntax OK" || { echo "❌ Syntax error — backup safe: $LISTING_FILE.bak_feat33_v2"; exit 1; }
+
+echo ""
+echo "── Verification ──"
+grep -q "router.get('/:id/preview'" "$LISTING_FILE" && echo "✅ Preview Exam endpoint added (GET /:id/preview)" || echo "❌ Preview endpoint missing"
+grep -q "router.get('/list'" "$LISTING_FILE" && echo "✅ Existing /list endpoint intact" || echo "❌ /list endpoint missing — investigate!"
+grep -q "router.get('/:id/analytics'" "$LISTING_FILE" && echo "✅ Existing /analytics endpoint intact" || echo "❌ /analytics endpoint missing — investigate!"
+
+echo ""
+echo "Ab: server restart karo (Render Run/redeploy)."

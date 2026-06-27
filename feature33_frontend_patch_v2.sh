@@ -1,3 +1,31 @@
+#!/usr/bin/env bash
+# ════════════════════════════════════════════════════════════════════════════
+#  ProveRank — Feature 33 — FRONTEND patch v2
+#  Fixes: exam card layout bug (action buttons stretching/wrapping oddly,
+#         flat "all-black" look) + adds Preview Exam button/modal.
+#  No other files touched — only AllExams.tsx is rewritten.
+# ════════════════════════════════════════════════════════════════════════════
+set -e
+echo "════════════════════════════════════════════════"
+echo " Feature 33 — FRONTEND patch v2 (card fix + Preview Exam)"
+echo "════════════════════════════════════════════════"
+
+PAGE_FILE=$(grep -rl "import CreateExamWizard from './CreateExamWizard'" --include="*.tsx" . 2>/dev/null | head -1)
+if [ -z "$PAGE_FILE" ]; then
+  echo "❌ page.tsx nahi mila. Frontend project root se chalao."
+  exit 1
+fi
+DIR=$(dirname "$PAGE_FILE")
+ALLEXAMS_FILE="$DIR/AllExams.tsx"
+echo "✓ Admin folder mila: $DIR"
+
+if [ -f "$ALLEXAMS_FILE" ]; then
+  cp "$ALLEXAMS_FILE" "$ALLEXAMS_FILE.bak_feat33_v2"
+  echo "✓ Backup bana: $ALLEXAMS_FILE.bak_feat33_v2"
+fi
+echo ""
+echo "→ Rewriting $ALLEXAMS_FILE ..."
+cat > "$ALLEXAMS_FILE" << '__PRRANK_EOF_ALLEXAMS2__'
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 
@@ -853,3 +881,26 @@ function CalendarGrid({month,exams,onDayClick,onExamClick}:{month:Date;exams:any
     </div>
   )
 }
+__PRRANK_EOF_ALLEXAMS2__
+
+echo ""
+echo "── Verification ──"
+pass=0; total=0
+chk(){ total=$((total+1)); if grep -q "$1" "$2" 2>/dev/null; then echo "✅ $3"; pass=$((pass+1)); else echo "❌ $3"; fi }
+
+chk "openPreview"            "$ALLEXAMS_FILE" "NEW: Preview Exam action (verify content/options before students attempt)"
+chk "previewExam"            "$ALLEXAMS_FILE" "NEW: Preview Exam modal"
+chk "overflowX:'auto' as any}}>" "$ALLEXAMS_FILE" "FIX: action bar is a scroll row now (no more wrap/stretch bug)"
+chk "exams.map(e=>{"         "$ALLEXAMS_FILE" "33.1  listing intact"
+chk "togglePin"              "$ALLEXAMS_FILE" "33.20 pin intact"
+chk "togglePublish"          "$ALLEXAMS_FILE" "33.11 publish toggle intact"
+chk "CalendarGrid"           "$ALLEXAMS_FILE" "33.15 calendar view intact"
+chk "leaderboard"            "$ALLEXAMS_FILE" "33.14 analytics panel intact"
+
+echo ""
+echo "Checks passed: $pass / $total"
+echo ""
+echo "IMPORTANT: backend patch (feature33_backend_patch_v2.sh) bhi run + restart"
+echo "karo, warna Preview button click karne par 404 aayega."
+echo ""
+echo "Ab: dev server restart karo (Replit Run / redeploy)."
