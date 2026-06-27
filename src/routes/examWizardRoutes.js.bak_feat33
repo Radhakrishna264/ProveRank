@@ -128,10 +128,8 @@ router.post('/exam-wizard/create', verifyToken, isAdmin, async (req, res) => {
       totalMarks: parseInt(totalMarks) || 720,
       correctMarks: parseFloat(correctMarks) || 4,
       negativeMarks: parseFloat(negativeMarks) || 1,
-      schedule: {
-        startTime: startDate ? new Date(startDate) : null,
-        endTime: endDate ? new Date(endDate) : null
-      },
+      scheduledAt: startDate ? new Date(startDate) : null,
+      endDate: endDate ? new Date(endDate) : null,
       customInstructions: instructions || '',
       password: passwordEnabled ? (password || '') : '',
       whitelist: whitelist || false,
@@ -146,7 +144,6 @@ router.post('/exam-wizard/create', verifyToken, isAdmin, async (req, res) => {
       batches: multiBatches || [],
       testSeriesId: testSeriesId || null,
       miniSeriesId: miniSeriesId || null,
-      seriesName: testSeriesId || miniSeriesId || '', // Feature 33.5 — real schema field for series-based filtering
       assignType: assignType || 'open',
       status: status || 'draft',
       questions: [],
