@@ -108,15 +108,7 @@ const examSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 
   // Feature 33.20 — Pinned exams (important exams shown at top of All Exams list)
-  isPinned: { type: Boolean, default: false },
-
-  // Feature 31 — Exam Clone/Duplicate: tracks which exam this was cloned from
-  clonedFrom: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam', default: null },
-
-  // Feature 34 — Exam Delete: soft-delete / Recycle Bin (34.5 / 34.9 / 34.10 / 34.24)
-  isArchived:  { type: Boolean, default: false },
-  archivedAt:  { type: Date, default: null },
-  archivedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+  isPinned: { type: Boolean, default: false }
 
 }, { timestamps: true });
 

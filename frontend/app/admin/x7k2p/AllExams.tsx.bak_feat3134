@@ -106,31 +106,9 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
   const [editForm, setEditForm] = useState<any>({})
   const [savingEdit, setSavingEdit] = useState(false)
 
-  // ── Feature 34 — rich delete flow (replaces the old simple deleteConfirm) ───
-  const [deleteImpact, setDeleteImpact] = useState<any>(null) // {exam, data}
-  const [deleteImpactLoading, setDeleteImpactLoading] = useState(false)
-  const [deleteMode, setDeleteMode] = useState<'archive'|'permanent'>('archive')
-  const [deleteReasonInput, setDeleteReasonInput] = useState('')
-  const [confirmTitleInput, setConfirmTitleInput] = useState('')
-  const [deleteCascadeOpen, setDeleteCascadeOpen] = useState(false)
-  const [undoToast, setUndoToast] = useState<any>(null) // {exam, secondsLeft, timer, payload}
-  const [trashView, setTrashView] = useState(false)
-  const [trashExams, setTrashExams] = useState<any[]>([])
-  const [trashLoading, setTrashLoading] = useState(false)
-
+  const [deleteConfirm, setDeleteConfirm] = useState<any>(null)
   const [busyId, setBusyId] = useState<string|null>(null)
   const [bulkBusy, setBulkBusy] = useState(false)
-
-  // ── Feature 31 — clone dialog, success toast, history, compare ──────────────
-  const [cloneDialogExam, setCloneDialogExam] = useState<any>(null)
-  const [cloneForm, setCloneForm] = useState<any>({newTitle:'',startTime:'',endTime:'',targetBatch:''})
-  const [cloning, setCloning] = useState(false)
-  const [cloneSuccessToast, setCloneSuccessToast] = useState<any>(null)
-  const [cloneInfoExam, setCloneInfoExam] = useState<any>(null)
-  const [cloneInfoData, setCloneInfoData] = useState<any>(null)
-  const [cloneInfoLoading, setCloneInfoLoading] = useState(false)
-  const [compareData, setCompareData] = useState<any>(null)
-  const [compareLoading, setCompareLoading] = useState(false)
 
   const [calExams, setCalExams] = useState<any[]>([])
   const [calLoading, setCalLoading] = useState(false)
@@ -236,155 +214,27 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
     setBusyId(null)
   }
 
-  // ════════════════════════════════════════════════════════════════════════
-  // FEATURE 31 — Clone dialog (31.1-31.6, 31.8), success toast (31.14),
-  // clone history (31.9/31.10/31.15), compare (31.11)
-  // ════════════════════════════════════════════════════════════════════════
-  const openCloneDialog = (exam:any) => {
-    setCloneDialogExam(exam)
-    setCloneForm({ newTitle: `Copy of ${exam.title}`, startTime:'', endTime:'', targetBatch: exam.batch||'' })
-  }
-
-  const submitClone = async () => {
-    if (!cloneDialogExam) return
-    setCloning(true)
-    try {
-      const r = await fetch(`${API}/api/exams-manage/${cloneDialogExam._id}/clone-advanced`,{method:'POST',headers:hdrs,body:JSON.stringify(cloneForm)})
-      const d = await r.json()
-      if (d.success) { setCloneDialogExam(null); setCloneSuccessToast(d.exam); fetchExams() } else T(d.message||'Failed','e')
-    } catch { T('Network error','e') }
-    setCloning(false)
-  }
-
-  const openCloneInfo = async (exam:any) => {
-    setCloneInfoExam(exam); setCloneInfoLoading(true); setCloneInfoData(null); setCompareData(null)
-    try {
-      const r = await fetch(`${API}/api/exams-manage/${exam._id}/clone-info`,{headers:{Authorization:`Bearer ${token}`}})
-      const d = await r.json()
-      if (d.success) setCloneInfoData(d)
-    } catch {}
-    setCloneInfoLoading(false)
-  }
-
-  const openCompare = async (idA:string, idB:string) => {
-    setCompareLoading(true); setCompareData(null)
-    try {
-      const r = await fetch(`${API}/api/exams-manage/compare?a=${idA}&b=${idB}`,{headers:{Authorization:`Bearer ${token}`}})
-      const d = await r.json()
-      if (d.success) setCompareData(d)
-    } catch {}
-    setCompareLoading(false)
-  }
-
-  // ════════════════════════════════════════════════════════════════════════
-  // FEATURE 34 — Delete impact (34.3/34.11/34.13), archive (34.5/34.9),
-  // permanent delete with safety checks (34.6/34.14/34.15/34.17),
-  // 10s undo (34.16/34.20), Recycle Bin (34.10/34.24)
-  // ════════════════════════════════════════════════════════════════════════
-  const openDeleteModal = async (exam:any) => {
-    setDeleteImpact({ exam, data:null }); setDeleteImpactLoading(true)
-    setDeleteMode('archive'); setDeleteReasonInput(''); setConfirmTitleInput(''); setDeleteCascadeOpen(false)
-    try {
-      const r = await fetch(`${API}/api/exams-manage/${exam._id}/delete-impact`,{headers:{Authorization:`Bearer ${token}`}})
-      const d = await r.json()
-      if (d.success) { setDeleteImpact({ exam, data: d }) } else { T(d.message||'Failed','e') }
-    } catch { T('Network error','e') }
-    setDeleteImpactLoading(false)
-  }
-
-  const confirmArchive = async () => {
-    if (!deleteImpact) return
-    setBusyId(deleteImpact.exam._id)
-    try {
-      const r = await fetch(`${API}/api/exams-manage/${deleteImpact.exam._id}/archive`,{method:'PATCH',headers:hdrs})
-      const d = await r.json()
-      if (d.success) { T(d.message||'Archived ✅'); setDeleteImpact(null); fetchExams() } else T(d.message||'Failed','e')
-    } catch { T('Network error','e') }
-    setBusyId(null)
-  }
-
-  const executePermanentDelete = async (exam:any, payload:any) => {
-    try {
-      const r = await fetch(`${API}/api/exams-manage/${exam._id}/permanent`,{method:'DELETE',headers:hdrs,body:JSON.stringify(payload)})
-      const d = await r.json()
-      if (d.success) { T(`Exam delete ho gaya — ${d.deletedAttempts||0} attempts, ${d.deletedResults||0} results bhi cascade delete hue`); setExams(p=>p.filter(x=>x._id!==exam._id)) }
-      else T(d.message||'Delete failed','e')
-    } catch { T('Network error','e') }
-  }
-
-  const startUndoCountdown = (exam:any, payload:any) => {
-    let seconds = 10
-    const timer = setInterval(()=>{
-      seconds -= 1
-      setUndoToast((p:any)=> (p && p.exam._id===exam._id) ? {...p, secondsLeft:seconds} : p)
-      if (seconds<=0) {
-        clearInterval(timer)
-        setUndoToast(null)
-        executePermanentDelete(exam, payload)
-      }
-    },1000)
-    setUndoToast({ exam, secondsLeft: seconds, timer, payload })
-  }
-
-  const cancelUndo = () => {
-    if (undoToast?.timer) clearInterval(undoToast.timer)
-    setUndoToast(null)
-    T('Delete cancel ho gaya — exam safe hai ✅')
-  }
-
-  const confirmPermanentDelete = () => {
-    if (!deleteImpact) return
-    const { exam, data } = deleteImpact
-    if (data?.requiresTypeToConfirm && confirmTitleInput !== exam.title) { T('Exam ka exact title type karo confirm karne ke liye','e'); return }
-    if (data?.requiresReason && !deleteReasonInput.trim()) { T('Completed exam delete karne ke liye reason dena mandatory hai','e'); return }
-    const payload = { confirmTitle: confirmTitleInput, reason: deleteReasonInput }
-    setDeleteImpact(null)
-    startUndoCountdown(exam, payload) // 34.16 — 10s grace period before the real API call fires
-  }
-
-  // ── Recycle Bin (34.10/34.24) ─────────────────────────────────────────────────
-  const fetchTrash = useCallback(async ()=>{
-    setTrashLoading(true)
-    try {
-      const r = await fetch(`${API}/api/exams-manage/trash`,{headers:{Authorization:`Bearer ${token}`}})
-      const d = await r.json()
-      if (d.success) setTrashExams(d.exams||[])
-    } catch {}
-    setTrashLoading(false)
-  },[API,token])
-  useEffect(()=>{ if(trashView) fetchTrash() },[trashView,fetchTrash])
-
-  const restoreExam = async (exam:any) => {
+  // ── 33.9 — clone (reuses existing working endpoint; it has no success:false
+  // shape on error, only a non-200 status, so check r.ok) ─────────────────────
+  const cloneExam = async (exam:any) => {
     setBusyId(exam._id)
     try {
-      const r = await fetch(`${API}/api/exams-manage/${exam._id}/restore`,{method:'PATCH',headers:hdrs})
+      const r = await fetch(`${API}/api/exams/${exam._id}/clone`,{method:'POST',headers:hdrs})
       const d = await r.json()
-      if (d.success) { T('Exam restore ho gaya ✅'); fetchTrash(); fetchExams() } else T(d.message||'Failed','e')
+      if(r.ok){ T('Exam cloned ✅'); fetchExams() } else T(d.message||'Failed','e')
     } catch { T('Network error','e') }
     setBusyId(null)
   }
 
-  const purgeFromTrash = async (exam:any) => {
-    if (!window.confirm(`"${exam.title}" ko HAMESHA ke liye delete karna hai? Ye undo nahi ho sakta.`)) return
+  // ── 33.9 — delete (reuses existing working endpoint; same r.ok-based check) ──
+  const deleteExam = async (exam:any) => {
     setBusyId(exam._id)
     try {
-      const r = await fetch(`${API}/api/exams-manage/${exam._id}/permanent`,{method:'DELETE',headers:hdrs,body:JSON.stringify({confirmTitle:exam.title})})
+      const r = await fetch(`${API}/api/exams/${exam._id}`,{method:'DELETE',headers:{Authorization:`Bearer ${token}`}})
       const d = await r.json()
-      if (d.success) { T('Permanently delete ho gaya'); setTrashExams(p=>p.filter(x=>x._id!==exam._id)) } else T(d.message||'Failed','e')
+      if(r.ok){ T('Exam deleted'); setExams(p=>p.filter(x=>x._id!==exam._id)) } else T(d.message||'Failed','e')
     } catch { T('Network error','e') }
-    setBusyId(null)
-  }
-
-  // ── 34.12 — bulk archive (safer alternative to bulk permanent delete) ───────
-  const bulkArchive = async () => {
-    if (!selectedIds.length) return
-    setBulkBusy(true)
-    try {
-      const r = await fetch(`${API}/api/exams-manage/bulk-archive`,{method:'POST',headers:hdrs,body:JSON.stringify({ids:selectedIds})})
-      const d = await r.json()
-      if (d.success) { T(d.message||'Archived ✅'); setSelectedIds([]); fetchExams() } else T(d.message||'Failed','e')
-    } catch { T('Network error','e') }
-    setBulkBusy(false)
+    setBusyId(null); setDeleteConfirm(null)
   }
 
   // ── 33.9 — quick edit ─────────────────────────────────────────────────────────
@@ -538,7 +388,6 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
             <button onClick={()=>setViewMode('calendar')} title="Calendar view" style={{background:viewMode==='calendar'?`${ACC}33`:'transparent',border:'none',color:viewMode==='calendar'?TS:DIM,borderRadius:8,padding:'7px 11px',cursor:'pointer',fontSize:13}}>📅</button>
           </div>
           <button onClick={()=>{setBulkMode(p=>!p);setSelectedIds([])}} style={{...bg_,fontSize:12,background:bulkMode?`${PRP}22`:bg_.background,borderColor:bulkMode?PRP:BOR,color:bulkMode?PRP:TS}}>☑️ Bulk Select</button>
-          <button onClick={()=>setTrashView(p=>!p)} style={{...bg_,fontSize:12,background:trashView?`${DNG}22`:bg_.background,borderColor:trashView?DNG:BOR,color:trashView?DNG:TS}}>🗑 Trash{trashExams.length>0?` (${trashExams.length})`:''}</button>
         </div>
 
         {showFilters && (
@@ -643,52 +492,20 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
       </div>
 
       {/* ══ BULK ACTION BAR — 33.27 ══════════════════════════════════════════════ */}
-      {!trashView && bulkMode && selectedIds.length>0 && (
+      {bulkMode && selectedIds.length>0 && (
         <div style={{...cs,padding:'10px 16px',marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap' as any,borderColor:`${PRP}44`}}>
           <span style={{fontSize:12,color:TS,fontWeight:600}}>{selectedIds.length} exam(s) selected</span>
           <div style={{display:'flex',gap:8,flexWrap:'wrap' as any}}>
             <button onClick={selectAllOnPage} style={{...bg_,fontSize:11}}>Select all on page</button>
             <button onClick={clearSelection} style={{...bg_,fontSize:11}}>Clear</button>
             <button onClick={bulkPublish} disabled={bulkBusy} style={{...bg_,fontSize:11,color:SUC,borderColor:`${SUC}33`}}>{bulkBusy?<span className="ae-spin">⟳</span>:'📢 Publish Selected'}</button>
-            <button onClick={bulkArchive} disabled={bulkBusy} style={{...bg_,fontSize:11,color:ACC,borderColor:`${ACC}33`}}>{bulkBusy?<span className="ae-spin">⟳</span>:'📥 Archive Selected'}</button>
-            <button onClick={bulkDelete} disabled={bulkBusy} style={{...bg_,fontSize:11,color:DNG,borderColor:`${DNG}33`}}>{bulkBusy?<span className="ae-spin">⟳</span>:'🗑 Delete Selected (drafts only)'}</button>
+            <button onClick={bulkDelete} disabled={bulkBusy} style={{...bg_,fontSize:11,color:DNG,borderColor:`${DNG}33`}}>{bulkBusy?<span className="ae-spin">⟳</span>:'🗑 Delete Selected'}</button>
           </div>
         </div>
       )}
 
-      {/* ══ FEATURE 34 — RECYCLE BIN (34.10/34.24) ════════════════════════════════ */}
-      {trashView && (
-        <div style={cs}>
-          <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:TS,marginBottom:4}}>🗑 Recycle Bin</div>
-          <div style={{fontSize:11,color:DIM,marginBottom:14}}>Archived exams — 30 din ke baad automatically permanently delete ho jaate hain.</div>
-          {trashLoading ? (
-            <div style={{textAlign:'center' as any,padding:'40px 0',color:DIM}}><span className="ae-spin" style={{fontSize:22}}>⟳</span></div>
-          ) : trashExams.length===0 ? (
-            <div style={{textAlign:'center' as any,padding:'30px 0',color:DIM,fontSize:12}}>Recycle Bin khaali hai.</div>
-          ) : (
-            <div style={{display:'flex',flexDirection:'column' as any,gap:10}}>
-              {trashExams.map(e=>{
-                const daysLeft = e.archivedAt ? Math.max(0,30-Math.floor((Date.now()-new Date(e.archivedAt).getTime())/86400000)) : 30
-                return (
-                  <div key={e._id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,padding:'10px 14px',background:'rgba(255,255,255,0.03)',borderRadius:10,border:`1px solid ${BOR}`,flexWrap:'wrap' as any}}>
-                    <div>
-                      <div style={{fontSize:13,color:TS,fontWeight:600}}>{e.title}</div>
-                      <div style={{fontSize:10,color:WRN,marginTop:2}}>⏳ {daysLeft} din baad auto-delete</div>
-                    </div>
-                    <div style={{display:'flex',gap:6}}>
-                      <button onClick={()=>restoreExam(e)} disabled={busyId===e._id} style={{...bg_,fontSize:11,color:SUC,borderColor:`${SUC}33`}}>{busyId===e._id?<span className="ae-spin">⟳</span>:'↺ Restore'}</button>
-                      <button onClick={()=>purgeFromTrash(e)} disabled={busyId===e._id} style={{...bg_,fontSize:11,color:DNG,borderColor:`${DNG}33`}}>🗑 Delete Forever</button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* ══ LIST VIEW ════════════════════════════════════════════════════════════ */}
-      {!trashView && viewMode==='list' && (loading ? (
+      {viewMode==='list' && (loading ? (
         <div style={{textAlign:'center' as any,padding:'60px 20px',color:DIM}}><span className="ae-spin" style={{fontSize:24}}>⟳</span><div style={{marginTop:10,fontSize:12}}>Loading exams...</div></div>
       ) : exams.length===0 ? (
         <div style={{...cs,textAlign:'center' as any,padding:'48px 24px'}}>
@@ -729,12 +546,6 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                       <Chip ico="❓" label={`${e.questionCount||0} Qs`} col={PRP}/>
                       {e.category && <Chip ico="📐" label={e.category} col={DIM}/>}
                       {e.batch && <Chip ico="📦" label={e.batch} col={DIM}/>}
-                      {e.clonedFrom && <Chip ico="🔗" label={`Source: ${e.clonedFrom.title||'…'}`} col={PRP}/>}
-                      {e.cloneCount>0 && (
-                        <span onClick={(ev:any)=>{ev.stopPropagation();openCloneInfo(e)}} style={{cursor:'pointer'}}>
-                          <Chip ico="🔗" label={`Cloned ${e.cloneCount}x`} col={ACC}/>
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -749,13 +560,9 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                   <div style={{width:1,background:'rgba(255,255,255,0.08)',flexShrink:0,margin:'2px 2px'}}/>
                   <button onClick={()=>openPreview(e)} title="Preview as student — check questions/options render correctly" style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13,color:ACC}}>👁</button>
                   <button onClick={()=>openEdit(e)} title="Edit" style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13}}>✏️</button>
-                  <button onClick={()=>openCloneDialog(e)} title="Clone this exam" style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13}}>📋</button>
+                  <button onClick={()=>cloneExam(e)} title="Clone" disabled={busy} style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13}}>⧉</button>
                   <button onClick={()=>openAnalytics(e)} title="View Results" style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13}}>📈</button>
-                  {e.status==='live' ? (
-                    <button title="Live exam — pehle end/unpublish karo delete/archive karne ke liye" style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13,color:DNG,opacity:0.6,cursor:'not-allowed'}}>🔒</button>
-                  ) : (
-                    <button onClick={()=>openDeleteModal(e)} title="Delete / Archive" style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13,color:DNG,borderColor:`${DNG}33`}}>🗑</button>
-                  )}
+                  <button onClick={()=>setDeleteConfirm(e)} title="Delete" style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13,color:DNG,borderColor:`${DNG}33`}}>🗑</button>
                 </div>
               </div>
             )
@@ -764,7 +571,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
       ))}
 
       {/* ══ PAGINATION — 33.10 ══════════════════════════════════════════════════ */}
-      {!trashView && viewMode==='list' && !loading && exams.length>0 && totalPages>1 && (
+      {viewMode==='list' && !loading && exams.length>0 && totalPages>1 && (
         <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:10,marginTop:18}}>
           <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page<=1} style={{...bg_,fontSize:12,opacity:page<=1?0.4:1}}>← Prev</button>
           <span style={{fontSize:12,color:DIM}}>Page {page} of {totalPages}</span>
@@ -773,7 +580,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
       )}
 
       {/* ══ CALENDAR VIEW — 33.15 ════════════════════════════════════════════════ */}
-      {!trashView && viewMode==='calendar' && (
+      {viewMode==='calendar' && (
         <div style={cs}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
             <button onClick={()=>setCalMonth(d=>new Date(d.getFullYear(),d.getMonth()-1,1))} style={{...bg_,fontSize:12,padding:'6px 12px'}}>←</button>
@@ -788,199 +595,16 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
         </div>
       )}
 
-      {/* ══ FEATURE 34 — RICH DELETE MODAL (34.2/34.3/34.4/34.9/34.11/34.14/34.17/34.19/34.21/34.22/34.23) ══ */}
-      {deleteImpact && (
-        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.75)',backdropFilter:'blur(4px)',zIndex:210,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'20px 14px',overflowY:'auto' as any}} onClick={()=>setDeleteImpact(null)}>
-          <div onClick={e=>e.stopPropagation()} style={{...cs,width:'100%',maxWidth:420,marginTop:10,border:`1.5px solid ${DNG}44`}}>
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
-              <span style={{fontSize:20}}>⚠️</span>
-              <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:TS}}>Delete "{deleteImpact.exam.title}"?</div>
+      {/* ══ DELETE CONFIRM ══════════════════════════════════════════════════════ */}
+      {deleteConfirm && (
+        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.7)',backdropFilter:'blur(4px)',zIndex:210,display:'flex',alignItems:'center',justifyContent:'center',padding:14}} onClick={()=>setDeleteConfirm(null)}>
+          <div onClick={e=>e.stopPropagation()} style={{...cs,width:'100%',maxWidth:340,borderColor:`${DNG}33`}}>
+            <div style={{fontSize:14,fontWeight:700,color:TS,marginBottom:8}}>🗑 Delete Exam?</div>
+            <div style={{fontSize:12,color:DIM,marginBottom:18}}>"{deleteConfirm.title}" permanently delete ho jaayega, saari attempts/results bhi. Ye undo nahi ho sakta.</div>
+            <div style={{display:'flex',gap:8}}>
+              <button onClick={()=>setDeleteConfirm(null)} style={{...bg_,flex:1}}>Cancel</button>
+              <button onClick={()=>deleteExam(deleteConfirm)} style={{...bp,flex:1,background:`linear-gradient(135deg,${DNG},#9B0000)`}}>Delete</button>
             </div>
-
-            {deleteImpactLoading ? (
-              <div style={{textAlign:'center' as any,padding:'30px 0',color:DIM}}><span className="ae-spin" style={{fontSize:20}}>⟳</span></div>
-            ) : !deleteImpact.data ? (
-              <div style={{fontSize:12,color:DNG}}>Stats load nahi ho payi.</div>
-            ) : deleteImpact.data.isLive ? (
-              <div style={{padding:'14px',background:`${DNG}14`,border:`1px solid ${DNG}44`,borderRadius:10,fontSize:12,color:DNG,marginBottom:14}}>
-                🔒 Ye exam abhi LIVE/Active hai — delete ya archive nahi kar sakte. Pehle isse end/unpublish karo (📢/↩️ button se), phir wapas try karo.
-              </div>
-            ) : (
-              <>
-                <div style={{display:'flex',gap:6,flexWrap:'wrap' as any,marginBottom:14}}>
-                  <span style={{fontSize:11,fontWeight:700,color:WRN,background:`${WRN}18`,border:`1px solid ${WRN}44`,borderRadius:8,padding:'5px 10px'}}>👥 {deleteImpact.data.studentsAttempted} students ne attempt kiya</span>
-                  <span style={{fontSize:11,fontWeight:700,color:WRN,background:`${WRN}18`,border:`1px solid ${WRN}44`,borderRadius:8,padding:'5px 10px'}}>📝 {deleteImpact.data.attemptCount} attempts</span>
-                </div>
-
-                <div style={{marginBottom:14}}>
-                  <button onClick={()=>setDeleteCascadeOpen(p=>!p)} style={{...bg_,fontSize:11,width:'100%',textAlign:'left' as any}}>
-                    {deleteCascadeOpen?'🔽':'▶️'} What will be deleted? (cascade details)
-                  </button>
-                  {deleteCascadeOpen && (
-                    <div style={{marginTop:8,padding:'10px 12px',background:'rgba(255,255,255,0.03)',borderRadius:8,fontSize:11,color:DIM,lineHeight:1.7}}>
-                      • {deleteImpact.data.attemptCount} attempt record(s)<br/>
-                      • {deleteImpact.data.resultCount} result(s)<br/>
-                      • Future certificates (agar feature ban'a) bhi automatically invalid ho jaayenge<br/>
-                      • Ye action sirf "Permanent Delete" se hota hai — "Archive" se data safe rehta hai
-                    </div>
-                  )}
-                </div>
-
-                <div style={{display:'flex',gap:8,marginBottom:14}}>
-                  <button onClick={()=>setDeleteMode('archive')} style={{...bg_,flex:1,fontSize:11,background:deleteMode==='archive'?`${ACC}22`:bg_.background,borderColor:deleteMode==='archive'?ACC:BOR,color:deleteMode==='archive'?ACC:TS}}>📥 Archive (reversible)</button>
-                  <button onClick={()=>setDeleteMode('permanent')} style={{...bg_,flex:1,fontSize:11,background:deleteMode==='permanent'?`${DNG}22`:bg_.background,borderColor:deleteMode==='permanent'?DNG:BOR,color:deleteMode==='permanent'?DNG:TS}}>🗑 Permanent Delete</button>
-                </div>
-
-                {deleteMode==='archive' && (
-                  <div style={{fontSize:11,color:DIM,marginBottom:14,lineHeight:1.5}}>Exam "Recycle Bin" me chala jaayega — 30 din tak restore kar sakte ho, uske baad auto-delete ho jaayega.</div>
-                )}
-
-                {deleteMode==='permanent' && (
-                  <>
-                    <div style={{fontSize:11,color:DNG,marginBottom:10,fontWeight:600}}>⚠️ Ye action undo nahi ho sakta (10 second ka grace period milega).</div>
-                    {deleteImpact.data.requiresReason && (
-                      <div style={{marginBottom:10}}>
-                        <label style={lbl}>Delete Reason (mandatory — completed exam)</label>
-                        <textarea value={deleteReasonInput} onChange={e=>setDeleteReasonInput(e.target.value)} rows={2} style={{...inp,resize:'vertical' as any}} placeholder="Kyun delete kar rahe ho?"/>
-                      </div>
-                    )}
-                    {deleteImpact.data.requiresTypeToConfirm && (
-                      <div style={{marginBottom:10}}>
-                        <label style={lbl}>Confirm karne ke liye exam ka title type karo: <b style={{color:TS}}>{deleteImpact.exam.title}</b></label>
-                        <input value={confirmTitleInput} onChange={e=>setConfirmTitleInput(e.target.value)} style={inp} placeholder="Exam title yahan type karo"/>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                <div style={{display:'flex',gap:8,marginTop:6}}>
-                  <button onClick={()=>setDeleteImpact(null)} style={{...bg_,flex:1}}>Cancel</button>
-                  {deleteMode==='archive' ? (
-                    <button onClick={confirmArchive} disabled={busyId===deleteImpact.exam._id} style={{...bpAcc,flex:1}}>{busyId===deleteImpact.exam._id?<span className="ae-spin">⟳</span>:'📥 Archive Now'}</button>
-                  ) : (
-                    <button onClick={confirmPermanentDelete} style={{...bp,flex:1,background:`linear-gradient(135deg,${DNG},#9B0000)`}}>🗑 Delete Permanently</button>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ══ FEATURE 34 — 10s UNDO TOAST (34.16/34.20) ══════════════════════════════ */}
-      {undoToast && (
-        <div style={{position:'fixed' as any,left:16,bottom:16,zIndex:260,background:CRD,border:`1px solid ${DNG}44`,borderRadius:14,padding:'14px 16px',minWidth:260,maxWidth:340,boxShadow:'0 8px 28px rgba(0,0,0,0.5)'}}>
-          <div style={{fontSize:12,color:TS,marginBottom:8}}>🗑 "{undoToast.exam.title}" delete ho raha hai... ({undoToast.secondsLeft}s)</div>
-          <div style={{height:4,borderRadius:3,background:'rgba(255,255,255,0.08)',overflow:'hidden',marginBottom:10}}>
-            <div style={{height:'100%',width:`${(undoToast.secondsLeft/10)*100}%`,background:`linear-gradient(90deg,${DNG},${WRN})`,transition:'width 1s linear'}}/>
-          </div>
-          <button onClick={cancelUndo} style={{...bpAcc,width:'100%',padding:'9px',fontSize:12,fontWeight:800}}>↩️ UNDO</button>
-        </div>
-      )}
-
-      {/* ══ FEATURE 31 — CLONE DIALOG (31.1-31.6/31.8/31.13) ══════════════════════ */}
-      {cloneDialogExam && (
-        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.7)',backdropFilter:'blur(4px)',zIndex:210,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'20px 14px',overflowY:'auto' as any}} onClick={()=>setCloneDialogExam(null)}>
-          <div onClick={e=>e.stopPropagation()} style={{...cs,width:'100%',maxWidth:400,marginTop:10}}>
-            <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:TS,marginBottom:14}}>📋 Clone Exam</div>
-            <div style={{fontSize:11,color:DIM,marginBottom:14}}>Same questions, settings, marking scheme copy ho jaayenge. Naya exam Draft me banega.</div>
-            <div style={{display:'flex',flexDirection:'column' as any,gap:12}}>
-              <div>
-                <label style={lbl}>New Title</label>
-                <input value={cloneForm.newTitle} onChange={e=>setCloneForm((f:any)=>({...f,newTitle:e.target.value}))} style={inp}/>
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-                <div><label style={lbl}>New Start Date/Time</label><input type="datetime-local" value={cloneForm.startTime} onChange={e=>setCloneForm((f:any)=>({...f,startTime:e.target.value}))} style={inp}/></div>
-                <div><label style={lbl}>New End Date/Time</label><input type="datetime-local" value={cloneForm.endTime} onChange={e=>setCloneForm((f:any)=>({...f,endTime:e.target.value}))} style={inp}/></div>
-              </div>
-              <div>
-                <label style={lbl}>Batch (alag batch me clone karna ho to change karo)</label>
-                <input value={cloneForm.targetBatch} onChange={e=>setCloneForm((f:any)=>({...f,targetBatch:e.target.value}))} style={inp}/>
-              </div>
-            </div>
-            <div style={{display:'flex',gap:10,marginTop:18}}>
-              <button onClick={()=>setCloneDialogExam(null)} style={{...bg_,flex:1}}>Cancel</button>
-              <button onClick={submitClone} disabled={cloning} style={{...bpAcc,flex:1}}>{cloning?'Cloning...':'📋 Clone Now'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ══ FEATURE 31 — PREMIUM CLONE SUCCESS TOAST (31.14) ══════════════════════ */}
-      {cloneSuccessToast && (
-        <div style={{position:'fixed' as any,inset:0,zIndex:270,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none' as any}}>
-          <div onClick={()=>{ openEdit(cloneSuccessToast); setCloneSuccessToast(null) }} style={{pointerEvents:'auto' as any,cursor:'pointer',background:`linear-gradient(135deg,rgba(0,196,140,0.18),${CRD})`,border:`1.5px solid ${SUC}55`,borderRadius:18,padding:'22px 28px',textAlign:'center' as any,boxShadow:`0 12px 40px rgba(0,0,0,0.5),0 0 30px ${SUC}33`,animation:'aeFadeIn 0.35s ease',maxWidth:300}}>
-            <div style={{fontSize:34,marginBottom:8}}>✅</div>
-            <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:TS,marginBottom:4}}>Exam cloned successfully!</div>
-            <div style={{fontSize:11,color:SUC,fontWeight:600}}>Click to edit "{cloneSuccessToast.title}" →</div>
-            <button onClick={(e:any)=>{e.stopPropagation();setCloneSuccessToast(null)}} style={{marginTop:12,background:'transparent',border:'none',color:DIM,fontSize:11,cursor:'pointer'}}>Dismiss</button>
-          </div>
-        </div>
-      )}
-
-      {/* ══ FEATURE 31 — CLONE HISTORY + COMPARE (31.9/31.10/31.11/31.15) ════════ */}
-      {cloneInfoExam && (
-        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.7)',backdropFilter:'blur(4px)',zIndex:210,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'20px 14px',overflowY:'auto' as any}} onClick={()=>{setCloneInfoExam(null);setCompareData(null)}}>
-          <div onClick={e=>e.stopPropagation()} style={{...cs,width:'100%',maxWidth:480,marginTop:10}}>
-            <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:TS,marginBottom:4}}>🔗 Clone History</div>
-            <div style={{fontSize:11,color:DIM,marginBottom:14}}>{cloneInfoExam.title}</div>
-
-            {cloneInfoLoading ? (
-              <div style={{textAlign:'center' as any,padding:24,color:DIM}}><span className="ae-spin">⟳</span></div>
-            ) : !cloneInfoData ? null : (
-              <div style={{display:'flex',flexDirection:'column' as any,gap:12}}>
-                {cloneInfoData.parent && (
-                  <div>
-                    <label style={lbl}>Source (parent)</label>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'9px 12px',background:'rgba(255,255,255,0.03)',borderRadius:8,fontSize:12}}>
-                      <span style={{color:TS}}>{cloneInfoData.parent.title}</span>
-                      <button onClick={()=>openCompare(cloneInfoExam._id,cloneInfoData.parent._id)} style={{...bg_,fontSize:10,padding:'4px 10px'}}>⇄ Compare</button>
-                    </div>
-                  </div>
-                )}
-                <div>
-                  <label style={lbl}>Cloned {cloneInfoData.children?.length||0} time(s)</label>
-                  {(!cloneInfoData.children || cloneInfoData.children.length===0) ? (
-                    <div style={{fontSize:11,color:DIM}}>Abhi tak iska koi clone nahi banaya gaya.</div>
-                  ) : (
-                    <div style={{display:'flex',flexDirection:'column' as any,gap:6}}>
-                      {cloneInfoData.children.map((c:any)=>(
-                        <div key={c._id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'9px 12px',background:'rgba(255,255,255,0.03)',borderRadius:8,fontSize:12}}>
-                          <span style={{color:TS}}>{c.title} <span style={{color:DIM,fontSize:10}}>({STATUS_META[c.status]?.label||c.status})</span></span>
-                          <button onClick={()=>openCompare(cloneInfoExam._id,c._id)} style={{...bg_,fontSize:10,padding:'4px 10px'}}>⇄ Compare</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {compareLoading && <div style={{textAlign:'center' as any,padding:14,color:DIM}}><span className="ae-spin">⟳</span></div>}
-                {compareData && (
-                  <div>
-                    <label style={lbl}>Settings Diff</label>
-                    <div style={{border:`1px solid ${BOR}`,borderRadius:8,overflow:'hidden'}}>
-                      {[
-                        {key:'category',label:'Category'},{key:'subject',label:'Subject'},{key:'type',label:'Exam Type'},
-                        {key:'duration',label:'Duration'},{key:'totalMarks',label:'Total Marks'},{key:'batch',label:'Batch'},
-                        {key:'seriesName',label:'Series'},{key:'status',label:'Status'}
-                      ].map((f,i)=>{
-                        const valA = compareData.examA[f.key] ?? '—'
-                        const valB = compareData.examB[f.key] ?? '—'
-                        const diff = String(valA)!==String(valB)
-                        return (
-                          <div key={f.key} style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',fontSize:10,padding:'7px 10px',background:diff?`${WRN}0C`:'transparent',borderTop:i>0?`1px solid ${BOR}`:'none'}}>
-                            <span style={{color:DIM,fontWeight:700}}>{f.label}</span>
-                            <span style={{color:diff?WRN:TS}}>{String(valA)}</span>
-                            <span style={{color:diff?WRN:TS}}>{String(valB)}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            <button onClick={()=>{setCloneInfoExam(null);setCompareData(null)}} style={{...bg_,width:'100%',marginTop:16}}>Close</button>
           </div>
         </div>
       )}
@@ -989,12 +613,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
       {editExam && (
         <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.7)',backdropFilter:'blur(4px)',zIndex:200,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'20px 14px',overflowY:'auto' as any}} onClick={()=>setEditExam(null)}>
           <div onClick={e=>e.stopPropagation()} style={{...cs,width:'100%',maxWidth:480,marginTop:10}}>
-            <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:16,color:TS,marginBottom:8}}>✏️ Edit Exam</div>
-            {editExam.clonedFrom && (
-              <div style={{fontSize:11,color:PRP,background:`${PRP}14`,border:`1px solid ${PRP}33`,borderRadius:8,padding:'8px 10px',marginBottom:14}}>
-                🔗 Ye ek cloned exam hai (draft) — publish karne se pehle settings change karo. Questions replace/edit karne ke liye "Add Questions" / Question Bank flow use karo (yahan se settings hi edit hote hain).
-              </div>
-            )}
+            <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:16,color:TS,marginBottom:16}}>✏️ Edit Exam</div>
             <div style={{display:'flex',flexDirection:'column' as any,gap:12}}>
               <div>
                 <label style={lbl}>Title</label>
@@ -1130,9 +749,6 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                   <button onClick={()=>setPreviewLang('en')} style={{background:previewLang==='en'?`${ACC}33`:'transparent',border:'none',color:previewLang==='en'?TS:DIM,borderRadius:6,padding:'5px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>EN</button>
                   <button onClick={()=>setPreviewLang('hi')} style={{background:previewLang==='hi'?`${ACC}33`:'transparent',border:'none',color:previewLang==='hi'?TS:DIM,borderRadius:6,padding:'5px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>हिं</button>
                 </div>
-              )}
-              {previewExam.status!=='live' && (
-                <button onClick={()=>{const ex=previewExam; setPreviewExam(null); openDeleteModal(ex)}} title="Delete this exam" style={{...bg_,padding:'6px 10px',fontSize:13,color:DNG,borderColor:`${DNG}33`}}>🗑️</button>
               )}
               <button onClick={()=>setPreviewExam(null)} style={{background:'transparent',border:'none',color:DIM,fontSize:20,cursor:'pointer'}}>✕</button>
             </div>

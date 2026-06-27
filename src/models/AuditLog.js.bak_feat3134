@@ -8,8 +8,7 @@ const auditLogSchema = new mongoose.Schema({
       'PERMISSION_UPDATE', 'ADMIN_FROZEN', 'ADMIN_UNFROZEN',
       'STUDENT_IMPERSONATE', 'ADMIN_CREATE', 'STUDENT_BAN',
       'STUDENT_UNBAN', 'EXAM_CREATE', 'EXAM_DELETE', 'LOGIN',
-      'QUESTION_ADD', 'QUESTION_DELETE', 'BULK_IMPORT',
-      'EXAM_ARCHIVE', 'EXAM_RESTORE', 'EXAM_CLONE'
+      'QUESTION_ADD', 'QUESTION_DELETE', 'BULK_IMPORT'
     ]
   },
   performedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -23,4 +22,4 @@ const auditLogSchema = new mongoose.Schema({
 auditLogSchema.pre('updateOne', function() { throw new Error('AuditLog is tamper-proof'); });
 auditLogSchema.pre('findOneAndUpdate', function() { throw new Error('AuditLog is tamper-proof'); });
 
-module.exports = mongoose.models.AuditLog || mongoose.model('AuditLog', auditLogSchema);
+module.exports = mongoose.model('AuditLog', auditLogSchema);

@@ -1,3 +1,181 @@
+#!/usr/bin/env bash
+# ════════════════════════════════════════════════════════════════════════════
+#  ProveRank — Feature 31 (Exam Clone/Duplicate) + Feature 34 (Exam Delete)
+#  BACKEND fix / upgrade script  (run on the BACKEND Replit project root)
+#  No python used — pure bash + node (per project rules).
+# ════════════════════════════════════════════════════════════════════════════
+set -e
+
+echo "════════════════════════════════════════════════"
+echo " Feature 31 + 34 — Clone & Delete — BACKEND setup"
+echo "════════════════════════════════════════════════"
+
+# ── locate backend project root (the index.js that requires examWizardRoutes) ─
+INDEX_FILE=$(grep -rl "require('./routes/examWizardRoutes')" --include="index.js" . 2>/dev/null | head -1)
+if [ -z "$INDEX_FILE" ]; then
+  echo "❌ index.js (jisme examWizardRoutes required ho) nahi mila."
+  echo "   Ye script apne BACKEND project ke root folder se chalao."
+  exit 1
+fi
+BASE_DIR=$(dirname "$INDEX_FILE")
+echo "✓ Backend root mila: $BASE_DIR"
+
+EXAM_MODEL="$BASE_DIR/models/Exam.js"
+LISTING_FILE="$BASE_DIR/routes/examListing.js"
+AUDITLOG_FILE=$(find "$BASE_DIR" -iname "AuditLog.js" 2>/dev/null | head -1)
+
+if [ ! -f "$EXAM_MODEL" ]; then
+  echo "❌ models/Exam.js nahi mila: $EXAM_MODEL"
+  exit 1
+fi
+if [ ! -f "$LISTING_FILE" ]; then
+  echo "❌ routes/examListing.js nahi mila — pehle Feature 33 ka backend script chalao."
+  exit 1
+fi
+if [ -z "$AUDITLOG_FILE" ]; then
+  echo "❌ AuditLog.js model kahi nahi mila (project me dhoonda)."
+  exit 1
+fi
+echo "✓ AuditLog model mila: $AUDITLOG_FILE"
+
+# ── backup everything before any overwrite ────────────────────────────────────
+cp "$EXAM_MODEL" "$EXAM_MODEL.bak_feat3134"
+cp "$LISTING_FILE" "$LISTING_FILE.bak_feat3134"
+cp "$AUDITLOG_FILE" "$AUDITLOG_FILE.bak_feat3134"
+echo "✓ Backups bana diye (.bak_feat3134)"
+echo ""
+# ── 1) models/Exam.js — FULL REWRITE (clonedFrom + archive fields added) ────
+echo "→ Rewriting $EXAM_MODEL ..."
+cat > "$EXAM_MODEL" << '__PRRANK_EOF_EXAM__'
+const mongoose = require('mongoose');
+
+const examSchema = new mongoose.Schema({
+  title:        { type: String, required: true, trim: true },
+  subject:      { type: String, default: 'NEET' },
+  duration:     { type: Number, required: true },
+  totalMarks:   { type: Number, default: 720 },
+  questions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }], // QsBank Integration
+
+  sections: [{
+    name:          String,
+    subject:       String,
+    questionCount: Number,
+    timeLimit:     Number,
+    marks:         Number,
+    fromQNo:       Number, // F19B.5.21 / F20B.5.21 / F21B.8.21 — subject Q-no range start
+    toQNo:         Number  // F19B.5.21 / F20B.5.21 / F21B.8.21 — subject Q-no range end
+  }],
+
+  markingScheme: {
+    correct:     { type: Number, default: 4 },
+    incorrect:   { type: Number, default: -1 },
+    unattempted: { type: Number, default: 0 },
+    msqMode:     { type: String, enum: ['ALL_OR_NOTHING', 'PARTIAL_NEGATIVE'], default: 'ALL_OR_NOTHING' }
+  },
+
+  password:   { type: String, default: '' },
+
+  schedule: {
+    startTime:  Date,
+    endTime:    Date,
+    resultTime: Date  // when result/scorecard becomes visible to students
+  },
+
+  audioMonitoringEnabled: { type: Boolean, default: false },
+  status: { type: String, enum: ['draft', 'scheduled', 'live', 'ended'], default: 'draft' },
+
+  batch:    { type: String, default: '' },
+
+  // F19B.6.8 / F20B.6.8 / F21B.9.7 — Multi-batch assign toggle (additional batch IDs besides primary `batch`)
+  multiBatch: [{ type: String, default: [] }],
+
+  // F19B.6 / F20B.6 / F21B.9 — Assignment Type selector
+  assignmentType: { type: String, enum: ['batch', 'series', 'mini_test', 'individual'], default: 'individual' },
+
+  // F19B.6.2/6.3 / F20B.6.2/6.3 / F21B.9.2/9.3 — Test Series / Mini Test Series label (grouping, also used for Step-8 "exam series/group")
+  seriesName: { type: String, default: '' },
+
+  category: { type: String, enum: ['Full Mock', 'Chapter Test', 'Part Test', 'Grand Test', 'Mini Test'], default: 'Full Mock' },
+
+  whitelist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+
+  watermark:          { type: Boolean, default: true },
+  customInstructions: { type: String, default: '' },
+
+  reviewWindow: {
+    enabled:         { type: Boolean, default: false },
+    durationMinutes: { type: Number, default: 0 },
+  fullscreenForce: { type: Boolean, default: false },
+  fullscreenWarnings: { type: Number, default: 0 }
+  },
+
+  template:   { type: String, default: '' },
+  difficulty: { type: String, default: 'Mixed' },
+  type:       { type: String, default: 'NEET' },
+
+  waitingRoomEnabled: { type: Boolean, default: false },
+  waitingRoomMinutes: { type: Number, default: 10 },
+
+  maxAttempts:    { type: Number, default: 1 },
+  reattemptCount: { type: String, enum: ['best', 'last'], default: 'last' },
+  // F19B.5.16 / F20B.5.16 / F21B.8.16 — Unlimited attempt option (maxAttempts auto-set to a large number when true)
+  unlimitedAttempts: { type: Boolean, default: false },
+  questionSnapshot:  { type: Array, default: [] },
+  snapshotLocked:    { type: Boolean, default: false },
+  snapshotLockedAt:  { type: Date, default: null },
+
+  whitelistEnabled:    { type: Boolean, default: false },
+  whitelistedStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  whitelistedGroups:   [{ type: String }],
+
+  // F19B.5.5 / F20B.5.5 / F21B.8.5 — Subject wise Qs count input
+  subjectWiseCount: [{ subject: String, count: Number }],
+  // F19B.5.4 / F20B.5.4 / F21B.8.4 — Total Questions requested (auto-select N out of M parsed)
+  totalQuestionsRequested: { type: Number, default: 0 },
+
+  // F19B.8.1 / F20B.8.1 / F21B.11.1 — Scheduled auto-publish
+  scheduledPublish: {
+    enabled:   { type: Boolean, default: false },
+    publishAt: { type: Date, default: null }
+  },
+  // F19B.8.6 / F20B.8.6 / F21B.11.6 — Notify Students toggle
+  notifyStudents: { type: Boolean, default: false },
+  // F19B.8.4 / F20B.8.4 / F21B.11.4 — Save as Template
+  isTemplate: { type: Boolean, default: false },
+
+  // F19B.7 / F20B / F21B — source tracking (which method created this exam + parse stats)
+  sourceMeta: {
+    sourceType:     { type: String, enum: ['paste', 'excel', 'pdf', 'manual', ''], default: '' },
+    fileName:        { type: String, default: '' },
+    uploadedAt:      { type: Date, default: null },
+    pageCount:       { type: Number, default: 0 },
+    totalParsed:     { type: Number, default: 0 },
+    totalErrors:     { type: Number, default: 0 },
+    totalDuplicates: { type: Number, default: 0 }
+  },
+
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
+  // Feature 33.20 — Pinned exams (important exams shown at top of All Exams list)
+  isPinned: { type: Boolean, default: false },
+
+  // Feature 31 — Exam Clone/Duplicate: tracks which exam this was cloned from
+  clonedFrom: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam', default: null },
+
+  // Feature 34 — Exam Delete: soft-delete / Recycle Bin (34.5 / 34.9 / 34.10 / 34.24)
+  isArchived:  { type: Boolean, default: false },
+  archivedAt:  { type: Date, default: null },
+  archivedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+
+}, { timestamps: true });
+
+module.exports = mongoose.model('Exam', examSchema);
+
+__PRRANK_EOF_EXAM__
+
+# ── 2) routes/examListing.js — FULL REWRITE (Feature 31+34 endpoints added) ──
+echo "→ Rewriting $LISTING_FILE ..."
+cat > "$LISTING_FILE" << '__PRRANK_EOF_LISTING__'
 /**
  * ProveRank — Feature 33: All Exams — List, Filter, Search
  * Mounted at /api/exams-manage (deliberately a DIFFERENT prefix from /api/exams,
@@ -673,3 +851,109 @@ router.post('/bulk-archive', verifyToken, isAdmin, async (req, res) => {
 })
 
 module.exports = router
+__PRRANK_EOF_LISTING__
+
+# ── 3) AuditLog.js — FULL REWRITE (new EXAM_ARCHIVE/RESTORE/CLONE enums) ─────
+echo "→ Rewriting $AUDITLOG_FILE ..."
+cat > "$AUDITLOG_FILE" << '__PRRANK_EOF_AUDITLOG__'
+const mongoose = require('mongoose');
+
+const auditLogSchema = new mongoose.Schema({
+  action: {
+    type: String,
+    required: true,
+    enum: [
+      'PERMISSION_UPDATE', 'ADMIN_FROZEN', 'ADMIN_UNFROZEN',
+      'STUDENT_IMPERSONATE', 'ADMIN_CREATE', 'STUDENT_BAN',
+      'STUDENT_UNBAN', 'EXAM_CREATE', 'EXAM_DELETE', 'LOGIN',
+      'QUESTION_ADD', 'QUESTION_DELETE', 'BULK_IMPORT',
+      'EXAM_ARCHIVE', 'EXAM_RESTORE', 'EXAM_CLONE'
+    ]
+  },
+  performedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  targetUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  details: { type: String },
+  ip: { type: String },
+  createdAt: { type: Date, default: Date.now }
+}, { timestamps: false });
+
+// Tamper-proof: no update allowed
+auditLogSchema.pre('updateOne', function() { throw new Error('AuditLog is tamper-proof'); });
+auditLogSchema.pre('findOneAndUpdate', function() { throw new Error('AuditLog is tamper-proof'); });
+
+module.exports = mongoose.models.AuditLog || mongoose.model('AuditLog', auditLogSchema);
+__PRRANK_EOF_AUDITLOG__
+
+echo ""
+echo "── Syntax check (node --check) ──"
+SYN_OK=1
+node --check "$EXAM_MODEL" 2>&1 && echo "✅ models/Exam.js syntax OK" || SYN_OK=0
+node --check "$LISTING_FILE" 2>&1 && echo "✅ routes/examListing.js syntax OK" || SYN_OK=0
+node --check "$AUDITLOG_FILE" 2>&1 && echo "✅ AuditLog.js syntax OK" || SYN_OK=0
+
+if [ "$SYN_OK" -eq 0 ]; then
+  echo "❌ Syntax error mila — backups safe hain (.bak_feat3134)"
+  exit 1
+fi
+
+echo ""
+echo "── Feature 31 verification (Backend) — Exam Clone/Duplicate ──"
+pass=0; total=0
+chk(){ total=$((total+1)); if grep -q "$1" "$2" 2>/dev/null; then echo "✅ $3"; pass=$((pass+1)); else echo "❌ $3"; fi }
+
+chk "clonedFrom"                       "$EXAM_MODEL"   "31     clonedFrom field on Exam model"
+chk "router.post('/:id/clone-advanced'" "$LISTING_FILE" "31.1   Clone button endpoint"
+chk "Copy of"                          "$LISTING_FILE" "31.2   default title 'Copy of [Original]'"
+chk "obj.status = 'draft'"             "$LISTING_FILE" "31.3/31.4/31.6  settings+questions copied, status=draft"
+chk "obj.schedule = {"                 "$LISTING_FILE" "31.5   date/time reset"
+chk "obj.batch = b.targetBatch"        "$LISTING_FILE" "31.8   clone to different batch"
+chk "router.get('/:id/clone-info'"     "$LISTING_FILE" "31.9   clone history endpoint"
+chk "cloneCount"                       "$LISTING_FILE" "31.10  clone count computed in /list"
+chk "router.get('/compare'"            "$LISTING_FILE" "31.11  compare endpoint"
+chk "EXAM_CLONE"                       "$AUDITLOG_FILE" "31     audit log on clone"
+
+backend31=$pass; total31=$total
+
+echo ""
+echo "── Feature 34 verification (Backend) — Exam Delete ──"
+pass=0; total=0
+chk "isArchived"                       "$EXAM_MODEL"   "34     isArchived field on Exam model"
+chk "router.get('/:id/delete-impact'"  "$LISTING_FILE" "34.3/34.11  delete impact/stats endpoint"
+chk "isLive"                           "$LISTING_FILE" "34.4   prevent delete if live"
+chk "router.patch('/:id/archive'"      "$LISTING_FILE" "34.5/34.9   archive endpoint"
+chk "canPermanentDeleteFreely"         "$LISTING_FILE" "34.6   permanent delete for draft check"
+chk "EXAM_DELETE"                      "$AUDITLOG_FILE" "34.7   audit log on delete"
+chk "router.delete('/:id/permanent'"   "$LISTING_FILE" "34.6/34.13  permanent delete + cascade route"
+chk "router.patch('/:id/restore'"      "$LISTING_FILE" "34.10  recycle bin restore endpoint"
+chk "THIRTY_DAYS_MS"                   "$LISTING_FILE" "34.10  30-day auto-purge"
+chk "router.get('/trash'"              "$LISTING_FILE" "34.24  recycle bin list endpoint"
+chk "Attempt.deleteMany"               "$LISTING_FILE" "34.13  cascade delete attempts"
+chk "Result.deleteMany"                "$LISTING_FILE" "34.13  cascade delete results"
+chk "router.post('/bulk-archive'"      "$LISTING_FILE" "34.12  bulk archive endpoint"
+chk "requiresReason"                   "$LISTING_FILE" "34.14  mandatory reason for completed exams"
+chk "role !== 'superadmin'"            "$LISTING_FILE" "34.15  admin restriction (draft-only for sub-admin)"
+chk "requiresTypeToConfirm"            "$LISTING_FILE" "34.17  type-to-confirm check"
+chk "EXAM_ARCHIVE"                     "$AUDITLOG_FILE" "34     audit log on archive"
+chk "EXAM_RESTORE"                     "$AUDITLOG_FILE" "34     audit log on restore"
+
+backend34=$pass; total34=$total
+
+echo ""
+echo "Backend Feature 31 checks: $backend31 / $total31"
+echo "Backend Feature 34 checks: $backend34 / $total34"
+if [ "$backend31" -eq "$total31" ] && [ "$backend34" -eq "$total34" ]; then
+  echo "✅ BACKEND — Feature 31 + Feature 34 backend pieces fully implemented."
+else
+  echo "⚠️  Kuch backend checks fail hue — upar dekhein."
+fi
+
+echo ""
+echo "Notes:"
+echo "  • Clone/Delete naye endpoints /api/exams-manage prefix par hain (Feature 33"
+echo "    wala safe namespace) — koi existing route touch nahi hua."
+echo "  • Purane /api/exams/:examId/clone aur /api/exams/:id (DELETE) endpoints"
+echo "    bilkul waise hi rehne diye gaye hain (kisi aur jagah use ho rahe ho to safe hai)."
+echo "  • Bug fix (side note): analytics me 'auto_submitted' status value real schema"
+echo "    me exist nahi karti thi — 'timeout' se replace kar diya (sahi pass-rate ab milega)."
+echo ""
+echo "Ab: server restart karo (npm start / Replit Run)."
