@@ -2792,10 +2792,10 @@ const confirmAndAdd=useCallback(async()=>{
                   <button onClick={fetchAll} style={{...bp,padding:'9px 18px'}}>🔄 Refresh Live Data</button>
                 </div>
               </div>
-            
-            {/* Feature 32 — Time Extension */}
-            <TimeExtensionPanel token={token} API={API} T={T} role={role} />
             </div>
+
+            {/* Feature 32 */}
+            <TimeExtensionPanel token={token} API={API} T={T} role={role} />
           )}
 
           {/* ══ ALL EXAMS — Feature 33 ══ */}
