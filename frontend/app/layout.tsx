@@ -29,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           })();
         `}}/>
       </head>
-      <body suppressHydrationWarning className="dark-theme" id="pr-body">
+      <body suppressHydrationWarning>
         {children}
       </body>
     </html>
