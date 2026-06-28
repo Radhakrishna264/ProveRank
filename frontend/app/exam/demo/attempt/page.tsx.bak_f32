@@ -60,7 +60,6 @@ export default function ExamAttempt() {
   const [answers, setAnswers]   = useState<(number|null)[]>(Array(30).fill(null))
   const [status, setStatus]     = useState<Status[]>(Array(30).fill('unseen'))
   const [timeLeft, setTimeLeft] = useState(TOTAL_SECS)
-  const [timeExtNotif, setTimeExtNotif] = useState<string|null>(null) // Feature 32
   const [section, setSection]   = useState(0)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [confirmSubmit, setConfirmSubmit] = useState(false)
@@ -148,38 +147,6 @@ export default function ExamAttempt() {
   const sec = SECTIONS[section]
 
   if (!mounted) return <div style={{minHeight:'100vh',background:'#000A18'}}/>
-
-  // Feature 32 — Time Extension Socket Listener
-  useEffect(() => {
-    // ── Feature 32: Per-Student Time Extension ──────────────────
-    if (socket) {
-      // Join personal room so admin can target this student
-      const studentId = attempt?.studentId || user?.id || user?._id;
-      const attemptId = attempt?._id || params?.attemptId || attemptIdRef.current;
-      if (studentId) socket.emit('join', `student:${studentId}`);
-      if (attemptId) socket.emit('join', `attempt:${attemptId}`);
-
-      socket.on('time:extend', (data) => {
-        const extraSec = (data.extraMinutes || 0) * 60;
-        if (data.isUndo) {
-          // Undo — reduce time
-          setTimeLeft(prev => Math.max(0, prev - Math.abs(extraSec)));
-          setTimeExtNotif(`Admin cancelled a time extension (${data.extraMinutes} min removed)`);
-        } else {
-          // Add extra time
-          setTimeLeft(prev => prev + extraSec);
-          setTimeExtNotif(data.message || `Admin has given you +${data.extraMinutes} minutes`);
-        }
-        // Auto-hide notification after 8 seconds
-        setTimeout(() => setTimeExtNotif(null), 8000);
-      });
-
-      return () => {
-        socket.off('time:extend');
-      };
-    }
-    // ────────────────────────────────────────────────────────────
-  }, [socket, attempt, user])
 
   return (
     <div style={{minHeight:'100vh',background:'#000A18',fontFamily:'Inter,sans-serif',color:'#E8F4FF',userSelect:'none'}}>
@@ -490,24 +457,6 @@ export default function ExamAttempt() {
           </div>
         </div>
       )}
-      
-{/* ── Feature 32: Time Extension Notification ── */}
-{timeExtNotif && (
-  <div style={{
-    position:'fixed', top:20, right:20, zIndex:9999,
-    background:'linear-gradient(135deg,rgba(22,35,56,0.98),rgba(15,23,42,0.98))',
-    border:'1px solid rgba(167,139,250,0.6)',
-    borderRadius:14, padding:'14px 20px', maxWidth:320,
-    boxShadow:'0 0 30px rgba(167,139,250,0.25)',
-    animation:'slideInRight 0.3s ease'
-  }}>
-    <div style={{fontWeight:700,fontSize:13,color:'#a78bfa',marginBottom:4}}>
-      ⏱️ Extra Time Granted
-    </div>
-    <div style={{fontSize:12,color:'#e2e8f0'}}>{timeExtNotif}</div>
-    <style>{'@keyframes slideInRight{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}'}</style>
-  </div>
-)}
     </div>
   )
 }

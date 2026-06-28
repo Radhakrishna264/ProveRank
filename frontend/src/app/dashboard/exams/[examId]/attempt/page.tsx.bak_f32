@@ -39,7 +39,6 @@ export default function ExamAttemptPage() {
   const [statuses, setStatuses] = useState<Record<string, QStatus>>({});
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
   const [timeLeft, setTimeLeft] = useState(0);
-  const [timeExtNotif, setTimeExtNotif] = useState<string|null>(null) // Feature 32
   const [warnings, setWarnings] = useState(0);
   const [showWarning, setShowWarning] = useState(false);
   const [warningMsg, setWarningMsg] = useState('');
@@ -223,38 +222,6 @@ export default function ExamAttemptPage() {
       ⟳ Loading exam...
     </div>
   );
-
-  // Feature 32 — Time Extension Socket Listener
-  useEffect(() => {
-    // ── Feature 32: Per-Student Time Extension ──────────────────
-    if (socket) {
-      // Join personal room so admin can target this student
-      const studentId = attempt?.studentId || user?.id || user?._id;
-      const attemptId = attempt?._id || params?.attemptId || attemptIdRef.current;
-      if (studentId) socket.emit('join', `student:${studentId}`);
-      if (attemptId) socket.emit('join', `attempt:${attemptId}`);
-
-      socket.on('time:extend', (data) => {
-        const extraSec = (data.extraMinutes || 0) * 60;
-        if (data.isUndo) {
-          // Undo — reduce time
-          setTimeLeft(prev => Math.max(0, prev - Math.abs(extraSec)));
-          setTimeExtNotif(`Admin cancelled a time extension (${data.extraMinutes} min removed)`);
-        } else {
-          // Add extra time
-          setTimeLeft(prev => prev + extraSec);
-          setTimeExtNotif(data.message || `Admin has given you +${data.extraMinutes} minutes`);
-        }
-        // Auto-hide notification after 8 seconds
-        setTimeout(() => setTimeExtNotif(null), 8000);
-      });
-
-      return () => {
-        socket.off('time:extend');
-      };
-    }
-    // ────────────────────────────────────────────────────────────
-  }, [socket, attempt, user])
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100vh', background:'#F8FAFC', fontFamily:'Inter,sans-serif', position:'relative', overflow:'hidden' }}>
