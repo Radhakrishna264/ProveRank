@@ -2287,7 +2287,6 @@ const confirmAndAdd=useCallback(async()=>{
     {id:'exams',ico:'📝',lbl:'All Exams',grp:'Exams'},
     {id:'create_exam',ico:'➕',lbl:'Create Exam',grp:'Exams'},
     {id:'templates',ico:'📋',lbl:'Templates',grp:'Exams'},
-    {id:'bulk_creator',ico:'⚡',lbl:'Bulk Creator',grp:'Exams'},
     {id:'questions',ico:'❓',lbl:'Question Bank',grp:'Questions'},
     {id:'smart_gen',ico:'🤖',lbl:'Smart Generator',grp:'Questions'},
     {id:'ai_explain',ico:'💡',lbl:'AI Explanation',grp:'Questions'},
@@ -2333,9 +2332,8 @@ const confirmAndAdd=useCallback(async()=>{
 
   // ── Admin role: filter NAV based on their permissions ──
   const PERM_TO_NAV:{[k:string]:string[]}={
-    create_exam:['create_exam','templates','bulk_creator'],
+    create_exam:['create_exam','templates'],
     edit_exam:['exams'],delete_exam:['exams'],clone_exam:['exams'],
-    bulk_exam:['bulk_creator'],
     manage_questions:['questions'],
     ai_questions:['smart_gen'],
     pyq_access:['pyq_bank'],
@@ -2831,36 +2829,6 @@ const confirmAndAdd=useCallback(async()=>{
             />
           )}
 
-          {/* ══ BULK EXAM CREATOR ══ */}
-          {tab==='bulk_creator'&&(
-            <div>
-              <div style={pageTitle}>⚡ Bulk Exam Creator (N8)</div>
-              <div style={pageSub}>Create multiple exams at once from an Excel file</div>
-              <PageHero icon="⚡" title="Create 10 Exams in One Click" subtitle="Upload an Excel file with exam details — title, date, batch, duration, marks — and all exams will be created automatically."/>
-              <div style={cs}>
-                <div style={{fontWeight:700,marginBottom:12,fontSize:13}}>📊 Excel Format Required</div>
-                <div style={{background:'rgba(0,31,58,0.6)',borderRadius:10,padding:'14px',marginBottom:16,fontSize:12}}>
-                  <div style={{fontWeight:700,color:ACC,marginBottom:6}}>Required Columns:</div>
-                  {['title (required)','scheduledAt (YYYY-MM-DD HH:mm)','totalMarks (default: 720)','duration (minutes, default: 200)','category (Full Mock/Chapter Test/etc.)','batch (optional)','password (optional)'].map((c,i)=>(
-                    <div key={i} style={{color:DIM,marginBottom:3}}>• {c}</div>
-                  ))}
-                </div>
-                <div style={{textAlign:'center',padding:'20px',border:`2px dashed ${BOR2}`,borderRadius:12,marginBottom:14}}>
-                  <div style={{fontSize:40,marginBottom:8}}>📊</div>
-                  <div style={{fontWeight:600,fontSize:13,marginBottom:4}}>Upload Excel File (.xlsx)</div>
-                  <input type='file' accept='.xlsx,.xls,.csv' onChange={e=>setBulkExamFile(e.target.files?.[0]||null)} style={{color:TS,fontSize:13,marginTop:8}}/>
-                </div>
-                {bulkResult&&(
-                  <div style={{background:'rgba(0,196,140,0.1)',border:'1px solid rgba(0,196,140,0.3)',borderRadius:10,padding:'12px',marginBottom:12,fontSize:12}}>
-                    ✅ {bulkResult.created||0} exams created · {bulkResult.failed||0} failed
-                  </div>
-                )}
-                <button onClick={bulkCreateExams} disabled={bulkExamLoading||!bulkExamFile} style={{...bp,width:'100%',opacity:(bulkExamLoading||!bulkExamFile)?0.6:1}}>
-                  {bulkExamLoading?'⟳ Creating Exams…':'⚡ Create All Exams'}
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* ══ QUESTION BANK ══ */}
           {tab==='questions'&&(
