@@ -307,7 +307,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
     try {
       const r = await fetch(`${API}/api/exams-manage/${exam._id}/permanent`,{method:'DELETE',headers:hdrs,body:JSON.stringify(payload)})
       const d = await r.json()
-      if (d.success) { T(`Exam deleted — ${d.deletedAttempts||0} attempt(s) and ${d.deletedResults||0} result(s) were also cascade-deleted`); setExams(p=>p.filter(x=>x._id!==exam._id)) }
+      if (d.success) { T(`Exam delete ho gaya — ${d.deletedAttempts||0} attempts, ${d.deletedResults||0} results bhi cascade delete hue`); setExams(p=>p.filter(x=>x._id!==exam._id)) }
       else T(d.message||'Delete failed','e')
     } catch { T('Network error','e') }
   }
@@ -329,14 +329,14 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
   const cancelUndo = () => {
     if (undoToast?.timer) clearInterval(undoToast.timer)
     setUndoToast(null)
-    T('Delete cancelled — the exam is safe ✅')
+    T('Delete cancel ho gaya — exam safe hai ✅')
   }
 
   const confirmPermanentDelete = () => {
     if (!deleteImpact) return
     const { exam, data } = deleteImpact
-    if (data?.requiresTypeToConfirm && confirmTitleInput !== exam.title) { T('Type the exact exam title to confirm','e'); return }
-    if (data?.requiresReason && !deleteReasonInput.trim()) { T('A reason is required to delete a completed exam','e'); return }
+    if (data?.requiresTypeToConfirm && confirmTitleInput !== exam.title) { T('Exam ka exact title type karo confirm karne ke liye','e'); return }
+    if (data?.requiresReason && !deleteReasonInput.trim()) { T('Completed exam delete karne ke liye reason dena mandatory hai','e'); return }
     const payload = { confirmTitle: confirmTitleInput, reason: deleteReasonInput }
     setDeleteImpact(null)
     startUndoCountdown(exam, payload) // 34.16 — 10s grace period before the real API call fires
@@ -359,18 +359,18 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
     try {
       const r = await fetch(`${API}/api/exams-manage/${exam._id}/restore`,{method:'PATCH',headers:hdrs})
       const d = await r.json()
-      if (d.success) { T('Exam restored ✅'); fetchTrash(); fetchExams() } else T(d.message||'Failed','e')
+      if (d.success) { T('Exam restore ho gaya ✅'); fetchTrash(); fetchExams() } else T(d.message||'Failed','e')
     } catch { T('Network error','e') }
     setBusyId(null)
   }
 
   const purgeFromTrash = async (exam:any) => {
-    if (!window.confirm(`Permanently delete "${exam.title}"? This cannot be undone.`)) return
+    if (!window.confirm(`"${exam.title}" ko HAMESHA ke liye delete karna hai? Ye undo nahi ho sakta.`)) return
     setBusyId(exam._id)
     try {
       const r = await fetch(`${API}/api/exams-manage/${exam._id}/permanent`,{method:'DELETE',headers:hdrs,body:JSON.stringify({confirmTitle:exam.title})})
       const d = await r.json()
-      if (d.success) { T('Permanently deleted'); setTrashExams(p=>p.filter(x=>x._id!==exam._id)) } else T(d.message||'Failed','e')
+      if (d.success) { T('Permanently delete ho gaya'); setTrashExams(p=>p.filter(x=>x._id!==exam._id)) } else T(d.message||'Failed','e')
     } catch { T('Network error','e') }
     setBusyId(null)
   }
@@ -660,11 +660,11 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
       {trashView && (
         <div style={cs}>
           <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:TS,marginBottom:4}}>🗑 Recycle Bin</div>
-          <div style={{fontSize:11,color:DIM,marginBottom:14}}>Archived exams are automatically and permanently deleted after 30 days.</div>
+          <div style={{fontSize:11,color:DIM,marginBottom:14}}>Archived exams — 30 din ke baad automatically permanently delete ho jaate hain.</div>
           {trashLoading ? (
             <div style={{textAlign:'center' as any,padding:'40px 0',color:DIM}}><span className="ae-spin" style={{fontSize:22}}>⟳</span></div>
           ) : trashExams.length===0 ? (
-            <div style={{textAlign:'center' as any,padding:'30px 0',color:DIM,fontSize:12}}>The Recycle Bin is empty.</div>
+            <div style={{textAlign:'center' as any,padding:'30px 0',color:DIM,fontSize:12}}>Recycle Bin khaali hai.</div>
           ) : (
             <div style={{display:'flex',flexDirection:'column' as any,gap:10}}>
               {trashExams.map(e=>{
@@ -673,7 +673,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                   <div key={e._id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,padding:'10px 14px',background:'rgba(255,255,255,0.03)',borderRadius:10,border:`1px solid ${BOR}`,flexWrap:'wrap' as any}}>
                     <div>
                       <div style={{fontSize:13,color:TS,fontWeight:600}}>{e.title}</div>
-                      <div style={{fontSize:10,color:WRN,marginTop:2}}>⏳ Auto-deletes in {daysLeft} day{daysLeft!==1?'s':''}</div>
+                      <div style={{fontSize:10,color:WRN,marginTop:2}}>⏳ {daysLeft} din baad auto-delete</div>
                     </div>
                     <div style={{display:'flex',gap:6}}>
                       <button onClick={()=>restoreExam(e)} disabled={busyId===e._id} style={{...bg_,fontSize:11,color:SUC,borderColor:`${SUC}33`}}>{busyId===e._id?<span className="ae-spin">⟳</span>:'↺ Restore'}</button>
@@ -752,7 +752,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                   <button onClick={()=>openCloneDialog(e)} title="Clone this exam" style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13}}>📋</button>
                   <button onClick={()=>openAnalytics(e)} title="View Results" style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13}}>📈</button>
                   {e.status==='live' ? (
-                    <button title="Live exam — end/unpublish it first to delete or archive" style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13,color:DNG,opacity:0.6,cursor:'not-allowed'}}>🔒</button>
+                    <button title="Live exam — pehle end/unpublish karo delete/archive karne ke liye" style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13,color:DNG,opacity:0.6,cursor:'not-allowed'}}>🔒</button>
                   ) : (
                     <button onClick={()=>openDeleteModal(e)} title="Delete / Archive" style={{...bg_,flexShrink:0,padding:'7px 11px',fontSize:13,color:DNG,borderColor:`${DNG}33`}}>🗑</button>
                   )}
@@ -790,7 +790,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
 
       {/* ══ FEATURE 34 — RICH DELETE MODAL (34.2/34.3/34.4/34.9/34.11/34.14/34.17/34.19/34.21/34.22/34.23) ══ */}
       {deleteImpact && (
-        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.75)',backdropFilter:'blur(4px)',zIndex:9210,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'76px 14px 20px',overflowY:'auto' as any}} onClick={()=>setDeleteImpact(null)}>
+        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.75)',backdropFilter:'blur(4px)',zIndex:210,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'20px 14px',overflowY:'auto' as any}} onClick={()=>setDeleteImpact(null)}>
           <div onClick={e=>e.stopPropagation()} style={{...cs,width:'100%',maxWidth:420,marginTop:10,border:`1.5px solid ${DNG}44`}}>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
               <span style={{fontSize:20}}>⚠️</span>
@@ -803,12 +803,12 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
               <div style={{fontSize:12,color:DNG}}>Stats load nahi ho payi.</div>
             ) : deleteImpact.data.isLive ? (
               <div style={{padding:'14px',background:`${DNG}14`,border:`1px solid ${DNG}44`,borderRadius:10,fontSize:12,color:DNG,marginBottom:14}}>
-                🔒 This exam is currently LIVE/Active — it cannot be deleted or archived. End/unpublish it first (using the 📢/↩️ button), then try again.
+                🔒 Ye exam abhi LIVE/Active hai — delete ya archive nahi kar sakte. Pehle isse end/unpublish karo (📢/↩️ button se), phir wapas try karo.
               </div>
             ) : (
               <>
                 <div style={{display:'flex',gap:6,flexWrap:'wrap' as any,marginBottom:14}}>
-                  <span style={{fontSize:11,fontWeight:700,color:WRN,background:`${WRN}18`,border:`1px solid ${WRN}44`,borderRadius:8,padding:'5px 10px'}}>👥 {deleteImpact.data.studentsAttempted} student(s) attempted</span>
+                  <span style={{fontSize:11,fontWeight:700,color:WRN,background:`${WRN}18`,border:`1px solid ${WRN}44`,borderRadius:8,padding:'5px 10px'}}>👥 {deleteImpact.data.studentsAttempted} students ne attempt kiya</span>
                   <span style={{fontSize:11,fontWeight:700,color:WRN,background:`${WRN}18`,border:`1px solid ${WRN}44`,borderRadius:8,padding:'5px 10px'}}>📝 {deleteImpact.data.attemptCount} attempts</span>
                 </div>
 
@@ -820,8 +820,8 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                     <div style={{marginTop:8,padding:'10px 12px',background:'rgba(255,255,255,0.03)',borderRadius:8,fontSize:11,color:DIM,lineHeight:1.7}}>
                       • {deleteImpact.data.attemptCount} attempt record(s)<br/>
                       • {deleteImpact.data.resultCount} result(s)<br/>
-                      • Future certificates (once that feature is built) will also automatically become invalid<br/>
-                      • This action only happens with "Permanent Delete" — "Archive" keeps the data safe
+                      • Future certificates (agar feature ban'a) bhi automatically invalid ho jaayenge<br/>
+                      • Ye action sirf "Permanent Delete" se hota hai — "Archive" se data safe rehta hai
                     </div>
                   )}
                 </div>
@@ -832,12 +832,12 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                 </div>
 
                 {deleteMode==='archive' && (
-                  <div style={{fontSize:11,color:DIM,marginBottom:14,lineHeight:1.5}}>The exam will move to the Recycle Bin — you can restore it within 30 days, after which it will be auto-deleted.</div>
+                  <div style={{fontSize:11,color:DIM,marginBottom:14,lineHeight:1.5}}>Exam "Recycle Bin" me chala jaayega — 30 din tak restore kar sakte ho, uske baad auto-delete ho jaayega.</div>
                 )}
 
                 {deleteMode==='permanent' && (
                   <>
-                    <div style={{fontSize:11,color:DNG,marginBottom:10,fontWeight:600}}>⚠️ This action cannot be undone (you'll get a 10-second grace period).</div>
+                    <div style={{fontSize:11,color:DNG,marginBottom:10,fontWeight:600}}>⚠️ Ye action undo nahi ho sakta (10 second ka grace period milega).</div>
                     {deleteImpact.data.requiresReason && (
                       <div style={{marginBottom:10}}>
                         <label style={lbl}>Delete Reason (mandatory — completed exam)</label>
@@ -846,8 +846,8 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                     )}
                     {deleteImpact.data.requiresTypeToConfirm && (
                       <div style={{marginBottom:10}}>
-                        <label style={lbl}>Type the exam title to confirm: <b style={{color:TS}}>{deleteImpact.exam.title}</b></label>
-                        <input value={confirmTitleInput} onChange={e=>setConfirmTitleInput(e.target.value)} style={inp} placeholder="Type the exam title here"/>
+                        <label style={lbl}>Confirm karne ke liye exam ka title type karo: <b style={{color:TS}}>{deleteImpact.exam.title}</b></label>
+                        <input value={confirmTitleInput} onChange={e=>setConfirmTitleInput(e.target.value)} style={inp} placeholder="Exam title yahan type karo"/>
                       </div>
                     )}
                   </>
@@ -869,8 +869,8 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
 
       {/* ══ FEATURE 34 — 10s UNDO TOAST (34.16/34.20) ══════════════════════════════ */}
       {undoToast && (
-        <div style={{position:'fixed' as any,left:16,bottom:16,zIndex:9260,background:CRD,border:`1px solid ${DNG}44`,borderRadius:14,padding:'14px 16px',minWidth:260,maxWidth:340,boxShadow:'0 8px 28px rgba(0,0,0,0.5)'}}>
-          <div style={{fontSize:12,color:TS,marginBottom:8}}>🗑 Deleting "{undoToast.exam.title}"... ({undoToast.secondsLeft}s)</div>
+        <div style={{position:'fixed' as any,left:16,bottom:16,zIndex:260,background:CRD,border:`1px solid ${DNG}44`,borderRadius:14,padding:'14px 16px',minWidth:260,maxWidth:340,boxShadow:'0 8px 28px rgba(0,0,0,0.5)'}}>
+          <div style={{fontSize:12,color:TS,marginBottom:8}}>🗑 "{undoToast.exam.title}" delete ho raha hai... ({undoToast.secondsLeft}s)</div>
           <div style={{height:4,borderRadius:3,background:'rgba(255,255,255,0.08)',overflow:'hidden',marginBottom:10}}>
             <div style={{height:'100%',width:`${(undoToast.secondsLeft/10)*100}%`,background:`linear-gradient(90deg,${DNG},${WRN})`,transition:'width 1s linear'}}/>
           </div>
@@ -880,10 +880,10 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
 
       {/* ══ FEATURE 31 — CLONE DIALOG (31.1-31.6/31.8/31.13) ══════════════════════ */}
       {cloneDialogExam && (
-        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.7)',backdropFilter:'blur(4px)',zIndex:9210,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'76px 14px 20px',overflowY:'auto' as any}} onClick={()=>setCloneDialogExam(null)}>
+        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.7)',backdropFilter:'blur(4px)',zIndex:210,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'20px 14px',overflowY:'auto' as any}} onClick={()=>setCloneDialogExam(null)}>
           <div onClick={e=>e.stopPropagation()} style={{...cs,width:'100%',maxWidth:400,marginTop:10}}>
             <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:TS,marginBottom:14}}>📋 Clone Exam</div>
-            <div style={{fontSize:11,color:DIM,marginBottom:14}}>The same questions, settings, and marking scheme will be copied. The new exam will be created as a Draft.</div>
+            <div style={{fontSize:11,color:DIM,marginBottom:14}}>Same questions, settings, marking scheme copy ho jaayenge. Naya exam Draft me banega.</div>
             <div style={{display:'flex',flexDirection:'column' as any,gap:12}}>
               <div>
                 <label style={lbl}>New Title</label>
@@ -894,7 +894,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                 <div><label style={lbl}>New End Date/Time</label><input type="datetime-local" value={cloneForm.endTime} onChange={e=>setCloneForm((f:any)=>({...f,endTime:e.target.value}))} style={inp}/></div>
               </div>
               <div>
-                <label style={lbl}>Batch (change this to clone into a different batch)</label>
+                <label style={lbl}>Batch (alag batch me clone karna ho to change karo)</label>
                 <input value={cloneForm.targetBatch} onChange={e=>setCloneForm((f:any)=>({...f,targetBatch:e.target.value}))} style={inp}/>
               </div>
             </div>
@@ -908,7 +908,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
 
       {/* ══ FEATURE 31 — PREMIUM CLONE SUCCESS TOAST (31.14) ══════════════════════ */}
       {cloneSuccessToast && (
-        <div style={{position:'fixed' as any,inset:0,zIndex:9270,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none' as any}}>
+        <div style={{position:'fixed' as any,inset:0,zIndex:270,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none' as any}}>
           <div onClick={()=>{ openEdit(cloneSuccessToast); setCloneSuccessToast(null) }} style={{pointerEvents:'auto' as any,cursor:'pointer',background:`linear-gradient(135deg,rgba(0,196,140,0.18),${CRD})`,border:`1.5px solid ${SUC}55`,borderRadius:18,padding:'22px 28px',textAlign:'center' as any,boxShadow:`0 12px 40px rgba(0,0,0,0.5),0 0 30px ${SUC}33`,animation:'aeFadeIn 0.35s ease',maxWidth:300}}>
             <div style={{fontSize:34,marginBottom:8}}>✅</div>
             <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:TS,marginBottom:4}}>Exam cloned successfully!</div>
@@ -920,7 +920,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
 
       {/* ══ FEATURE 31 — CLONE HISTORY + COMPARE (31.9/31.10/31.11/31.15) ════════ */}
       {cloneInfoExam && (
-        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.7)',backdropFilter:'blur(4px)',zIndex:9210,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'76px 14px 20px',overflowY:'auto' as any}} onClick={()=>{setCloneInfoExam(null);setCompareData(null)}}>
+        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.7)',backdropFilter:'blur(4px)',zIndex:210,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'20px 14px',overflowY:'auto' as any}} onClick={()=>{setCloneInfoExam(null);setCompareData(null)}}>
           <div onClick={e=>e.stopPropagation()} style={{...cs,width:'100%',maxWidth:480,marginTop:10}}>
             <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:TS,marginBottom:4}}>🔗 Clone History</div>
             <div style={{fontSize:11,color:DIM,marginBottom:14}}>{cloneInfoExam.title}</div>
@@ -941,7 +941,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                 <div>
                   <label style={lbl}>Cloned {cloneInfoData.children?.length||0} time(s)</label>
                   {(!cloneInfoData.children || cloneInfoData.children.length===0) ? (
-                    <div style={{fontSize:11,color:DIM}}>No clones have been made from this exam yet.</div>
+                    <div style={{fontSize:11,color:DIM}}>Abhi tak iska koi clone nahi banaya gaya.</div>
                   ) : (
                     <div style={{display:'flex',flexDirection:'column' as any,gap:6}}>
                       {cloneInfoData.children.map((c:any)=>(
@@ -987,12 +987,12 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
 
       {/* ══ QUICK EDIT MODAL — 33.9 ═════════════════════════════════════════════ */}
       {editExam && (
-        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.7)',backdropFilter:'blur(4px)',zIndex:9200,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'76px 14px 20px',overflowY:'auto' as any}} onClick={()=>setEditExam(null)}>
+        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.7)',backdropFilter:'blur(4px)',zIndex:200,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'20px 14px',overflowY:'auto' as any}} onClick={()=>setEditExam(null)}>
           <div onClick={e=>e.stopPropagation()} style={{...cs,width:'100%',maxWidth:480,marginTop:10}}>
             <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:16,color:TS,marginBottom:8}}>✏️ Edit Exam</div>
             {editExam.clonedFrom && (
               <div style={{fontSize:11,color:PRP,background:`${PRP}14`,border:`1px solid ${PRP}33`,borderRadius:8,padding:'8px 10px',marginBottom:14}}>
-                🔗 This is a cloned exam (draft) — adjust the settings before publishing. To replace/edit questions, use the "Add Questions" / Question Bank flow (only settings can be edited here).
+                🔗 Ye ek cloned exam hai (draft) — publish karne se pehle settings change karo. Questions replace/edit karne ke liye "Add Questions" / Question Bank flow use karo (yahan se settings hi edit hote hain).
               </div>
             )}
             <div style={{display:'flex',flexDirection:'column' as any,gap:12}}>
@@ -1041,7 +1041,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
 
       {/* ══ ANALYTICS SIDE PANEL — 33.14 ════════════════════════════════════════ */}
       {analyticsExam && (
-        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.6)',backdropFilter:'blur(3px)',zIndex:9220,display:'flex',justifyContent:'flex-end'}} onClick={()=>setAnalyticsExam(null)}>
+        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.6)',backdropFilter:'blur(3px)',zIndex:220,display:'flex',justifyContent:'flex-end'}} onClick={()=>setAnalyticsExam(null)}>
           <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:420,height:'100%',overflowY:'auto' as any,background:CRD,borderLeft:`1px solid ${BOR}`,padding:20,boxSizing:'border-box' as any}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
               <div>
@@ -1098,7 +1098,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                 <div>
                   <div style={{fontSize:11,fontWeight:700,color:TS,marginBottom:8}}>🏆 Leaderboard (Top 10)</div>
                   {(!analyticsData.leaderboard || analyticsData.leaderboard.length===0) ? (
-                    <div style={{fontSize:11,color:DIM}}>No attempts yet.</div>
+                    <div style={{fontSize:11,color:DIM}}>Abhi tak koi attempt nahi hua.</div>
                   ) : (
                     <div style={{display:'flex',flexDirection:'column' as any,gap:6}}>
                       {analyticsData.leaderboard.map((l:any,i:number)=>(
@@ -1118,11 +1118,11 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
 
       {/* ══ PREVIEW EXAM — content/option rendering check (no attempt created) ══ */}
       {previewExam && (
-        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.85)',backdropFilter:'blur(4px)',zIndex:9230,display:'flex',flexDirection:'column' as any}}>
+        <div style={{position:'fixed' as any,inset:0,background:'rgba(0,4,14,0.85)',backdropFilter:'blur(4px)',zIndex:230,display:'flex',flexDirection:'column' as any}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 18px',borderBottom:`1px solid ${BOR}`,background:CRD,flexShrink:0,gap:10}}>
             <div style={{minWidth:0}}>
               <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:TS,overflow:'hidden',whiteSpace:'nowrap' as any,textOverflow:'ellipsis'}}>👁 {previewExam.title}</div>
-              <div style={{fontSize:10,color:DIM,marginTop:2}}>Same content view as students see — read-only, no attempt record is created</div>
+              <div style={{fontSize:10,color:DIM,marginTop:2}}>Student jaisa hi content view — read-only, koi attempt record nahi banta</div>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
               {previewQuestions.some((q:any)=>q.hindiText || (q.hindiOptions&&q.hindiOptions.length>0)) && (
@@ -1144,8 +1144,8 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
             ) : previewQuestions.length===0 ? (
               <div style={{...cs,textAlign:'center' as any,padding:'40px 20px'}}>
                 <div style={{fontSize:40,marginBottom:10}}>❓</div>
-                <div style={{fontSize:13,color:TS,fontWeight:700,marginBottom:4}}>This exam has no questions</div>
-                <div style={{fontSize:11,color:DIM}}>Step 2 (Add Questions) probably hasn't been completed yet.</div>
+                <div style={{fontSize:13,color:TS,fontWeight:700,marginBottom:4}}>Is exam me koi question nahi hai</div>
+                <div style={{fontSize:11,color:DIM}}>Step 2 (Add Questions) complete nahi hua hoga.</div>
               </div>
             ) : (
               <div style={{display:'flex',flexDirection:'column' as any,gap:12,maxWidth:680,margin:'0 auto'}}>

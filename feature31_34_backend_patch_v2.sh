@@ -1,3 +1,32 @@
+#!/usr/bin/env bash
+# ════════════════════════════════════════════════════════════════════════════
+#  ProveRank — Feature 31 + 34 — BACKEND patch v2
+#  Fixes: all UI-facing message strings converted from Hinglish to pure English.
+#  No other logic changed — only routes/examListing.js text updated.
+# ════════════════════════════════════════════════════════════════════════════
+set -e
+echo "════════════════════════════════════════════════"
+echo " Feature 31 + 34 — BACKEND patch v2 (English text)"
+echo "════════════════════════════════════════════════"
+
+INDEX_FILE=$(grep -rl "require('./routes/examWizardRoutes')" --include="index.js" . 2>/dev/null | head -1)
+if [ -z "$INDEX_FILE" ]; then
+  echo "❌ index.js not found. Run this from your BACKEND project root."
+  exit 1
+fi
+BASE_DIR=$(dirname "$INDEX_FILE")
+LISTING_FILE="$BASE_DIR/routes/examListing.js"
+echo "✓ Backend root found: $BASE_DIR"
+
+if [ ! -f "$LISTING_FILE" ]; then
+  echo "❌ routes/examListing.js not found — run the Feature 33/31+34 backend script first."
+  exit 1
+fi
+cp "$LISTING_FILE" "$LISTING_FILE.bak_feat3134_v2"
+echo "✓ Backup created: $LISTING_FILE.bak_feat3134_v2"
+echo ""
+echo "→ Rewriting $LISTING_FILE ..."
+cat > "$LISTING_FILE" << '__PRRANK_EOF_LISTING2__'
 /**
  * ProveRank — Feature 33: All Exams — List, Filter, Search
  * Mounted at /api/exams-manage (deliberately a DIFFERENT prefix from /api/exams,
@@ -673,3 +702,10 @@ router.post('/bulk-archive', verifyToken, isAdmin, async (req, res) => {
 })
 
 module.exports = router
+__PRRANK_EOF_LISTING2__
+
+node --check "$LISTING_FILE" && echo "✅ routes/examListing.js syntax OK" || { echo "❌ Syntax error — backup safe at $LISTING_FILE.bak_feat3134_v2"; exit 1; }
+echo ""
+grep -qP "kar gaya|nahi mila|ho gaye|hai\.|\bnahi\b|\bkaro\b" "$LISTING_FILE" && echo '⚠️ Some Hinglish text may remain — please report it' || echo '✅ All backend messages are now pure English'
+echo ""
+echo "Now: restart the server (Render Run / redeploy)."

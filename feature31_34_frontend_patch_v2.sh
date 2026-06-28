@@ -1,3 +1,37 @@
+#!/usr/bin/env bash
+# ════════════════════════════════════════════════════════════════════════════
+#  ProveRank — Feature 31 + 34 — FRONTEND patch v2
+#  Fixes:
+#   1) Modals were rendering behind/under the sticky app header (cut off at
+#      top) — z-index bumped on all modals + safe top-clearance padding added.
+#   2) All UI-facing text converted from Hinglish to pure English (toasts,
+#      labels, placeholders, modal copy). Conversational replies in this chat
+#      stay Hinglish — only the in-app text shown to users is now English.
+#  No other logic changed — only AllExams.tsx updated.
+# ════════════════════════════════════════════════════════════════════════════
+set -e
+echo "════════════════════════════════════════════════"
+echo " Feature 31 + 34 — FRONTEND patch v2 (modal fix + English text)"
+echo "════════════════════════════════════════════════"
+
+PAGE_FILE=$(grep -rl "import CreateExamWizard from './CreateExamWizard'" --include="*.tsx" . 2>/dev/null | head -1)
+if [ -z "$PAGE_FILE" ]; then
+  echo "❌ page.tsx not found. Run this from your FRONTEND project root."
+  exit 1
+fi
+DIR=$(dirname "$PAGE_FILE")
+ALLEXAMS_FILE="$DIR/AllExams.tsx"
+echo "✓ Admin folder found: $DIR"
+
+if [ ! -f "$ALLEXAMS_FILE" ]; then
+  echo "❌ AllExams.tsx not found — run the Feature 33/31+34 frontend script first."
+  exit 1
+fi
+cp "$ALLEXAMS_FILE" "$ALLEXAMS_FILE.bak_feat3134_v2"
+echo "✓ Backup created: $ALLEXAMS_FILE.bak_feat3134_v2"
+echo ""
+echo "→ Rewriting $ALLEXAMS_FILE ..."
+cat > "$ALLEXAMS_FILE" << '__PRRANK_EOF_ALLEXAMS2__'
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 
@@ -1272,3 +1306,33 @@ function CalendarGrid({month,exams,onDayClick,onExamClick}:{month:Date;exams:any
     </div>
   )
 }
+__PRRANK_EOF_ALLEXAMS2__
+
+echo "── Verification ──"
+pass=0; total=0
+chk(){ total=$((total+1)); if grep -q "$1" "$2" 2>/dev/null; then echo "✅ $3"; pass=$((pass+1)); else echo "❌ $3"; fi }
+
+chk "zIndex:9210"            "$ALLEXAMS_FILE" "FIX: modal z-index raised above app header"
+chk "76px 14px 20px"         "$ALLEXAMS_FILE" "FIX: dialogs get safe top-clearance below header"
+chk "Exam deleted —"         "$ALLEXAMS_FILE" "FIX: delete toast is now pure English"
+chk "Type the exact exam title" "$ALLEXAMS_FILE" "FIX: type-to-confirm copy is now pure English"
+chk "Archived exams are automatically" "$ALLEXAMS_FILE" "FIX: Recycle Bin copy is now pure English"
+chk "openCloneDialog"        "$ALLEXAMS_FILE" "31.1   Clone button intact"
+chk "submitClone"            "$ALLEXAMS_FILE" "31.3/31.4 settings+questions copy intact"
+chk "openDeleteModal"        "$ALLEXAMS_FILE" "34.1   delete flow intact"
+chk "startUndoCountdown"     "$ALLEXAMS_FILE" "34.16  undo countdown intact"
+chk "trashView"              "$ALLEXAMS_FILE" "34.10/34.24 recycle bin intact"
+
+echo ""
+echo "Checks passed: $pass / $total"
+echo ""
+echo "Note: the Hindi/English toggle inside Preview Exam intentionally still shows"
+echo "a Devanagari fallback note when Hindi content is missing for a question —"
+echo "that's a real bilingual-preview feature (shows what a Hindi-medium student"
+echo "would actually see), not leftover Hinglish. Let me know if you'd rather"
+echo "that be in English too."
+echo ""
+echo "IMPORTANT: also run the backend patch (feature31_34_backend_patch_v2.sh) so"
+echo "API response messages are pure English too."
+echo ""
+echo "Now: restart the dev server (Replit Run / redeploy)."
