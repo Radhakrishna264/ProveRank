@@ -90,7 +90,6 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   const [filterOptions, setFilterOptions] = useState<any>({categories:[],subjects:[],batches:[],series:[]})
-  const [realBatches, setRealBatches] = useState<any[]>([]) // synced live from Batch Manager (/api/admin/batch-controls)
   const [admins, setAdmins] = useState<any[]>([])
 
   const [analyticsExam, setAnalyticsExam] = useState<any>(null)
@@ -124,7 +123,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
 
   // ── Feature 31 — clone dialog, success toast, history, compare ──────────────
   const [cloneDialogExam, setCloneDialogExam] = useState<any>(null)
-  const [cloneForm, setCloneForm] = useState<any>({newTitle:'',startTime:'',endTime:'',targetBatch:'',seriesName:''})
+  const [cloneForm, setCloneForm] = useState<any>({newTitle:'',startTime:'',endTime:'',targetBatch:''})
   const [cloning, setCloning] = useState(false)
   const [cloneSuccessToast, setCloneSuccessToast] = useState<any>(null)
   const [cloneInfoExam, setCloneInfoExam] = useState<any>(null)
@@ -185,16 +184,6 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
     } catch {}
   },[API,token])
 
-  // ── synced live from the real Batch Manager — not just batch names already
-  // used on past exams, so a brand-new batch with zero exams still shows up ──
-  const fetchRealBatches = useCallback(async ()=>{
-    try {
-      const r = await fetch(`${API}/api/admin/batch-controls`,{headers:{Authorization:`Bearer ${token}`}})
-      const d = await r.json()
-      setRealBatches(d.batches||[])
-    } catch {}
-  },[API,token])
-
   const fetchAdmins = useCallback(async ()=>{
     try {
       const r = await fetch(`${API}/api/exams-manage/admins`,{headers:{Authorization:`Bearer ${token}`}})
@@ -204,7 +193,6 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
   },[API,token])
 
   useEffect(()=>{ fetchFilterOptions() },[fetchFilterOptions])
-  useEffect(()=>{ fetchRealBatches() },[fetchRealBatches])
   useEffect(()=>{ if(isSuperAdmin) fetchAdmins() },[isSuperAdmin,fetchAdmins])
 
   // ── 33.15 — calendar view data (separate, wider, date-bounded fetch) ────────
@@ -254,7 +242,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
   // ════════════════════════════════════════════════════════════════════════
   const openCloneDialog = (exam:any) => {
     setCloneDialogExam(exam)
-    setCloneForm({ newTitle: `Copy of ${exam.title}`, startTime:'', endTime:'', targetBatch: exam.batch||'', seriesName: exam.seriesName||'' })
+    setCloneForm({ newTitle: `Copy of ${exam.title}`, startTime:'', endTime:'', targetBatch: exam.batch||'' })
   }
 
   const submitClone = async () => {
@@ -509,9 +497,6 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
         .ae-spin{animation:aeSpin 0.8s linear infinite;display:inline-block}
         .ae-countdown{animation:aePulse 1.8s ease infinite}
       `}}/>
-      <datalist id="series-suggestions">
-        {filterOptions.series.map((s:string)=><option key={s} value={s}/>)}
-      </datalist>
 
       {/* ══ HEADER ══════════════════════════════════════════════════════════════ */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:16,flexWrap:'wrap' as any}}>
@@ -910,14 +895,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
               </div>
               <div>
                 <label style={lbl}>Batch (change this to clone into a different batch)</label>
-                <select value={cloneForm.targetBatch} onChange={e=>setCloneForm((f:any)=>({...f,targetBatch:e.target.value}))} style={inp}>
-                  <option value="">— Open / No Batch —</option>
-                  {realBatches.map((b:any)=><option key={b._id} value={b.name}>{b.name}{b.status!=='active'?` (${b.status})`:''}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={lbl}>Test Series / Mini Series (optional)</label>
-                <input list="series-suggestions" value={cloneForm.seriesName} onChange={e=>setCloneForm((f:any)=>({...f,seriesName:e.target.value}))} style={inp} placeholder="Leave blank, or pick/type a series name"/>
+                <input value={cloneForm.targetBatch} onChange={e=>setCloneForm((f:any)=>({...f,targetBatch:e.target.value}))} style={inp}/>
               </div>
             </div>
             <div style={{display:'flex',gap:10,marginTop:18}}>
@@ -1035,17 +1013,8 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                 <div><label style={lbl}>End Time</label><input type="datetime-local" value={editForm.endTime} onChange={e=>setEditForm((f:any)=>({...f,endTime:e.target.value}))} style={inp}/></div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-                <div>
-                  <label style={lbl}>Batch</label>
-                  <select value={editForm.batch} onChange={e=>setEditForm((f:any)=>({...f,batch:e.target.value}))} style={inp}>
-                    <option value="">— Open / No Batch —</option>
-                    {realBatches.map((b:any)=><option key={b._id} value={b.name}>{b.name}{b.status!=='active'?` (${b.status})`:''}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={lbl}>Test Series / Mini Series</label>
-                  <input list="series-suggestions" value={editForm.seriesName} onChange={e=>setEditForm((f:any)=>({...f,seriesName:e.target.value}))} style={inp} placeholder="Leave blank, or pick/type a series name"/>
-                </div>
+                <div><label style={lbl}>Batch</label><input value={editForm.batch} onChange={e=>setEditForm((f:any)=>({...f,batch:e.target.value}))} style={inp}/></div>
+                <div><label style={lbl}>Test Series</label><input value={editForm.seriesName} onChange={e=>setEditForm((f:any)=>({...f,seriesName:e.target.value}))} style={inp}/></div>
               </div>
               <div>
                 <label style={lbl}>Status</label>

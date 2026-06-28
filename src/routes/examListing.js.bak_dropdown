@@ -472,7 +472,6 @@ router.post('/:id/clone-advanced', verifyToken, isAdmin, async (req, res) => {
     }
     // 31.8 — clone to a different batch if provided, else keep original's batch
     if (b.targetBatch !== undefined) obj.batch = b.targetBatch
-    if (b.seriesName !== undefined) obj.seriesName = b.seriesName
 
     obj.createdBy = req.user.id
     obj.updatedBy = req.user.id

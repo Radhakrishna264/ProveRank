@@ -1,3 +1,33 @@
+#!/usr/bin/env bash
+# ════════════════════════════════════════════════════════════════════════════
+#  ProveRank — Batch/Test-Series dropdown sync — BACKEND patch
+#  Adds: seriesName passthrough in /clone-advanced (was missing — only batch
+#        was being copied to the new clone before).
+#  No other logic changed — only routes/examListing.js updated.
+# ════════════════════════════════════════════════════════════════════════════
+set -e
+echo "════════════════════════════════════════════════"
+echo " Batch/Series dropdown sync — BACKEND patch"
+echo "════════════════════════════════════════════════"
+
+INDEX_FILE=$(grep -rl "require('./routes/examWizardRoutes')" --include="index.js" . 2>/dev/null | head -1)
+if [ -z "$INDEX_FILE" ]; then
+  echo "❌ index.js not found. Run this from your BACKEND project root."
+  exit 1
+fi
+BASE_DIR=$(dirname "$INDEX_FILE")
+LISTING_FILE="$BASE_DIR/routes/examListing.js"
+echo "✓ Backend root found: $BASE_DIR"
+
+if [ ! -f "$LISTING_FILE" ]; then
+  echo "❌ routes/examListing.js not found — run the earlier Feature 33/31+34 backend script first."
+  exit 1
+fi
+cp "$LISTING_FILE" "$LISTING_FILE.bak_dropdown"
+echo "✓ Backup created: $LISTING_FILE.bak_dropdown"
+echo ""
+echo "→ Rewriting $LISTING_FILE ..."
+cat > "$LISTING_FILE" << '__PRRANK_EOF_LISTING__'
 /**
  * ProveRank — Feature 33: All Exams — List, Filter, Search
  * Mounted at /api/exams-manage (deliberately a DIFFERENT prefix from /api/exams,
@@ -674,3 +704,10 @@ router.post('/bulk-archive', verifyToken, isAdmin, async (req, res) => {
 })
 
 module.exports = router
+__PRRANK_EOF_LISTING__
+
+node --check "$LISTING_FILE" && echo "✅ Syntax OK" || { echo "❌ Syntax error — backup safe at $LISTING_FILE.bak_dropdown"; exit 1; }
+echo ""
+grep -q "b.seriesName !== undefined" "$LISTING_FILE" && echo "✅ seriesName now copied on clone" || echo "❌ fix missing"
+echo ""
+echo "Now: restart the server (Render Run / redeploy)."

@@ -1,3 +1,41 @@
+#!/usr/bin/env bash
+# ════════════════════════════════════════════════════════════════════════════
+#  ProveRank — Batch/Test-Series dropdown sync — FRONTEND patch
+#  Adds:
+#   1) Batch field in Clone dialog + Edit modal — now a real dropdown synced
+#      live from the Batch Manager (/api/admin/batch-controls), with an
+#      "— Open / No Batch —" option preserved for individually-assigned exams.
+#   2) Test Series / Mini Series field — now an autocomplete input suggesting
+#      previously-used series names (no dedicated Test Series system exists
+#      yet, so both share one underlying field — will split into two real
+#      dropdowns once those pages are built).
+#   3) Clone dialog now also lets you set the Series when cloning (was
+#      missing entirely before).
+#  No other logic changed — only AllExams.tsx updated.
+# ════════════════════════════════════════════════════════════════════════════
+set -e
+echo "════════════════════════════════════════════════"
+echo " Batch/Series dropdown sync — FRONTEND patch"
+echo "════════════════════════════════════════════════"
+
+PAGE_FILE=$(grep -rl "import CreateExamWizard from './CreateExamWizard'" --include="*.tsx" . 2>/dev/null | head -1)
+if [ -z "$PAGE_FILE" ]; then
+  echo "❌ page.tsx not found. Run this from your FRONTEND project root."
+  exit 1
+fi
+DIR=$(dirname "$PAGE_FILE")
+ALLEXAMS_FILE="$DIR/AllExams.tsx"
+echo "✓ Admin folder found: $DIR"
+
+if [ ! -f "$ALLEXAMS_FILE" ]; then
+  echo "❌ AllExams.tsx not found — run the earlier Feature 33/31+34 frontend script first."
+  exit 1
+fi
+cp "$ALLEXAMS_FILE" "$ALLEXAMS_FILE.bak_dropdown"
+echo "✓ Backup created: $ALLEXAMS_FILE.bak_dropdown"
+echo ""
+echo "→ Rewriting $ALLEXAMS_FILE ..."
+cat > "$ALLEXAMS_FILE" << '__PRRANK_EOF_ALLEXAMS__'
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 
@@ -1303,3 +1341,23 @@ function CalendarGrid({month,exams,onDayClick,onExamClick}:{month:Date;exams:any
     </div>
   )
 }
+__PRRANK_EOF_ALLEXAMS__
+
+echo "── Verification ──"
+pass=0; total=0
+chk(){ total=$((total+1)); if grep -q "$1" "$2" 2>/dev/null; then echo "✅ $3"; pass=$((pass+1)); else echo "❌ $3"; fi }
+
+chk "fetchRealBatches"             "$ALLEXAMS_FILE" "Real-time batch sync function added"
+chk "api/admin/batch-controls"     "$ALLEXAMS_FILE" "Wired to the live Batch Manager endpoint"
+chk "realBatches.map"              "$ALLEXAMS_FILE" "Batch dropdown populated dynamically"
+chk "Open / No Batch"              "$ALLEXAMS_FILE" "Open/No-Batch option preserved for individual exams"
+chk "series-suggestions"           "$ALLEXAMS_FILE" "Test/Mini Series autocomplete added"
+chk "cloneForm.seriesName"         "$ALLEXAMS_FILE" "Clone dialog can now also set Series"
+
+echo ""
+echo "Checks passed: $pass / $total"
+echo ""
+echo "Run the backend patch too (so seriesName actually saves when cloning):"
+echo "  bash batch_series_dropdown_backend_patch.sh"
+echo ""
+echo "Now: restart the dev server (Replit Run / redeploy)."
