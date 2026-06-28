@@ -430,7 +430,15 @@ export default function ExamAttemptPage() {
               <div>Is section mein koi question nahi</div>
             </div>
           )}
-        </main>
+        
+      {/* Feature 32 — Time Extension Notification */}
+      {timeExtNotif && (
+        <div style={{position:'fixed',top:20,right:20,zIndex:9999,background:'rgba(22,35,56,0.98)',border:'1px solid rgba(167,139,250,0.6)',borderRadius:14,padding:'14px 20px',maxWidth:320,boxShadow:'0 0 30px rgba(167,139,250,0.25)'}}>
+          <div style={{fontWeight:700,fontSize:13,color:'#a78bfa',marginBottom:4}}>⏱️ Extra Time Granted</div>
+          <div style={{fontSize:12,color:'#e2e8f0'}}>{timeExtNotif}</div>
+        </div>
+      )}
+      </main>
       </div>
 
       {/* ══ Submit Confirm Modal (S2 trigger) ══ */}
