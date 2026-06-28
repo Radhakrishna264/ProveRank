@@ -73,20 +73,13 @@ router.get('/:attemptId/timer', verifyToken, async (req, res) => {
     if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
     const exam = await Exam.findById(attempt.examId);
     if (!exam) return res.status(404).json({ message: 'Exam not found' });
-    // Feature 32: include granted extra time in timer
-    let timeExtMin = 0;
-    try {
-      const TE = require('../models/TimeExtension');
-      const exts = await TE.find({ attemptId: attempt._id, isUndone: false });
-      timeExtMin = exts.reduce((s, e) => s + e.extraMinutes, 0);
-    } catch(_e) {}
-    const totalDurationSec = ((exam.duration || 200) + timeExtMin) * 60;
+    const totalDurationSec = (exam.duration || 200) * 60;
     const elapsedSec = Math.floor((Date.now() - new Date(attempt.startedAt).getTime()) / 1000);
     const remainingSec = Math.max(0, totalDurationSec - elapsedSec);
     return res.status(200).json({ startedAt: attempt.startedAt, startTime: attempt.startedAt, ipAddress: attempt.ipAddress,
       startTime: attempt.startedAt,
       ipAddress: attempt.ipAddress, 
-    totalDurationSec, elapsedSec, remainingSec, timeExtMin,
+    totalDurationSec, elapsedSec, remainingSec,
     timeRemaining: remainingSec,
     elapsed: elapsedSec,
     timeLeft: remainingSec,

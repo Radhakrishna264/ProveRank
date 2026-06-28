@@ -12,6 +12,7 @@ import StoreAdminTab from './StoreAdminTab';
 import AdminWelcomeBanner from './AdminWelcomeBanner';
 import AdminPYQBankTab from './AdminPYQBankTab';
 import AdminProfilePage from './AdminProfilePage';
+import TimeExtensionPanel from './TimeExtensionPanel'; // Feature 32
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import katex from 'katex'
 
@@ -2792,6 +2793,9 @@ const confirmAndAdd=useCallback(async()=>{
                 </div>
               </div>
             </div>
+
+            {/* Feature 32 */}
+            <TimeExtensionPanel token={token} API={API} T={T} role={role} />
           )}
 
           {/* ══ ALL EXAMS — Feature 33 ══ */}
