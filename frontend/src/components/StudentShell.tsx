@@ -15,7 +15,19 @@ export function PRLogo({size=40}:{size?:number}){
 }
 function GalaxyBg(){
   const ref=useRef<HTMLCanvasElement>(null)
-  useEffect(()=>{
+  
+  // ── Theme body class sync ─────────────────────────────────────
+  useEffect(() => {
+    const apply = (t: string) => {
+      const b = document.body, h = document.documentElement;
+      ['dark-theme','light-theme','aurora-theme'].forEach(c=>{b.classList.remove(c);h.classList.remove(c);});
+      const cls = t==='light'?'light-theme':t==='aurora'?'aurora-theme':'dark-theme';
+      b.classList.add(cls); h.classList.add(cls); h.setAttribute('data-theme',t);
+    };
+    apply(darkMode?'light':'dark');
+  }, [darkMode]);
+
+useEffect(()=>{
     const canvas=ref.current;if(!canvas)return
     const ctx=canvas.getContext('2d');if(!ctx)return
     const resize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight};resize()

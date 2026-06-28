@@ -15,8 +15,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+        {/* Theme init — runs before paint to prevent flash */}
+        <script dangerouslySetInnerHTML={{__html:`
+          (function(){
+            try {
+              var t = localStorage.getItem('pr_theme') || 'dark';
+              var cls = t === 'light' ? 'light-theme' : t === 'aurora' ? 'aurora-theme' : 'dark-theme';
+              document.documentElement.classList.add(cls);
+              document.documentElement.setAttribute('data-theme', t);
+            } catch(e) {
+              document.documentElement.classList.add('dark-theme');
+            }
+          })();
+        `}}/>
       </head>
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning className="dark-theme" id="pr-body">
+        {children}
+      </body>
     </html>
   )
 }
