@@ -467,3 +467,18 @@ html, body {
   padding: 0;
 }
 #__next, main { width: 100%; max-width: 100%; }
+
+/* ── PROVERANK: Side cut fix — safe horizontal padding ── */
+@media (max-width: 768px) {
+  main {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+  /* Prevent any element from overflowing */
+  .main-content, [data-page-wrapper] {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}

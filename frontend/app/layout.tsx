@@ -1,6 +1,7 @@
 import 'katex/dist/katex.min.css'
 import type { Metadata } from 'next'
 import './globals.css'
+import ThemeWatcher from './ThemeWatcher'
 
 export const metadata: Metadata = {
   title: 'ProveRank – India\'s Most Advanced NEET Test Platform',
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         `}}/>
       </head>
       <body suppressHydrationWarning>
+        <ThemeWatcher />
         {children}
       </body>
     </html>
