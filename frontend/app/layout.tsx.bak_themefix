@@ -20,13 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{__html:`
           (function(){
             try {
-              var ct = localStorage.getItem('pr_color_theme') || 'dark';
-              var valid = ['white','dark','teal'];
-              if (valid.indexOf(ct) === -1) ct = 'dark';
-              var h = document.documentElement;
-              h.classList.remove('white-theme','dark-theme','teal-theme');
-              h.classList.add(ct + '-theme');
-              h.setAttribute('data-color-theme', ct);
+              var t = localStorage.getItem('pr_theme') || 'dark';
+              var cls = t === 'light' ? 'light-theme' : t === 'aurora' ? 'aurora-theme' : 'dark-theme';
+              document.documentElement.classList.add(cls);
+              document.documentElement.setAttribute('data-theme', t);
             } catch(e) {
               document.documentElement.classList.add('dark-theme');
             }

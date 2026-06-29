@@ -513,3 +513,48 @@ html, body {
 [data-color-theme='white'] .tbtn:hover { border-color: #2563EB !important; background: rgba(37,99,235,0.1) !important; }
 [data-color-theme='white'] .pr-card,
 [data-color-theme='white'] .stat-card { background: rgba(255,255,255,0.97) !important; border-color: rgba(0,0,0,0.06) !important; box-shadow: 0 4px 24px rgba(0,0,0,0.07) !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   3-THEME SYSTEM (set from Profile page → pr_color_theme)
+   html.dark-theme / html.white-theme / html.teal-theme
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── DARK THEME (default) ─────────────────────────────────── */
+html.dark-theme,
+html.dark-theme body {
+  background-color: #0A0A0A !important;
+  color: #FFFFFF !important;
+}
+html.dark-theme body {
+  background-image:
+    radial-gradient(ellipse at 20% 20%, rgba(0,85,204,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 80%, rgba(77,159,255,0.07) 0%, transparent 55%);
+}
+
+/* ── WHITE THEME ──────────────────────────────────────────── */
+html.white-theme,
+html.white-theme body {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+}
+html.white-theme body {
+  background-image:
+    radial-gradient(ellipse at 15% 10%, rgba(37,99,235,0.07) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 90%, rgba(37,99,235,0.05) 0%, transparent 50%);
+}
+
+/* ── TEAL THEME ───────────────────────────────────────────── */
+html.teal-theme,
+html.teal-theme body {
+  background-color: #001A1A !important;
+  color: #CCFBF1 !important;
+}
+html.teal-theme body {
+  background-image: linear-gradient(145deg, #001A1A 0%, #002E2E 50%, #000D0D 100%) !important;
+}
+
+/* Default fallback */
+html:not(.white-theme):not(.teal-theme) body {
+  background-color: #0A0A0A;
+}
+

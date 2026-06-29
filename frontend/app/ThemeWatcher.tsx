@@ -1,39 +1,34 @@
 'use client'
 import { useEffect } from 'react'
 
-/**
- * ThemeWatcher — safely syncs localStorage pr_theme → html class
- * Intercepts localStorage.setItem so theme toggles apply instantly
- * Place once in layout.tsx, requires no changes to any other file
- */
 export default function ThemeWatcher() {
   useEffect(() => {
-    const apply = (t: string) => {
+    // Apply theme from pr_color_theme (new) or fallback to pr_theme (old)
+    const applyColorTheme = (t: string) => {
       const h = document.documentElement
-      h.classList.remove('dark-theme', 'light-theme', 'aurora-theme')
-      h.classList.add(
-        t === 'light' ? 'light-theme' :
-        t === 'aurora' ? 'aurora-theme' :
-        'dark-theme'
-      )
-      h.setAttribute('data-theme', t)
+      h.classList.remove('white-theme', 'dark-theme', 'teal-theme')
+      h.classList.add(t + '-theme')
+      h.setAttribute('data-color-theme', t)
     }
 
-    // Apply on mount
+    // On mount — read saved theme
     try {
-      apply(localStorage.getItem('pr_theme') || 'dark')
+      const ct = localStorage.getItem('pr_color_theme') || 'dark'
+      applyColorTheme(['white','dark','teal'].includes(ct) ? ct : 'dark')
     } catch {}
 
-    // Intercept localStorage.setItem to catch theme toggles in same tab
+    // Intercept localStorage.setItem — catch theme changes in same tab
     const orig = Storage.prototype.setItem
     Storage.prototype.setItem = function(key: string, value: string) {
       orig.call(this, key, value)
-      if (key === 'pr_theme') apply(value)
+      if (key === 'pr_color_theme') {
+        applyColorTheme(['white','dark','teal'].includes(value) ? value : 'dark')
+      }
     }
 
-    // Also listen for cross-tab changes
+    // Cross-tab sync
     const onStorage = (e: StorageEvent) => {
-      if (e.key === 'pr_theme' && e.newValue) apply(e.newValue)
+      if (e.key === 'pr_color_theme' && e.newValue) applyColorTheme(e.newValue)
     }
     window.addEventListener('storage', onStorage)
 

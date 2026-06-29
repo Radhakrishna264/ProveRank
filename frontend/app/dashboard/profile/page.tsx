@@ -8,7 +8,17 @@ export default function Profile() {
   const formRef = useRef<HTMLDivElement>(null)
     const [activeTheme,setActiveTheme]=useState<'white'|'dark'|'teal'>('dark')
   useEffect(()=>{try{const t=localStorage.getItem('pr_color_theme') as any;if(t&&['white','dark','teal'].includes(t))setActiveTheme(t)}catch{}},[])
-  const applyTheme=(t:'white'|'dark'|'teal')=>{setActiveTheme(t);try{localStorage.setItem('pr_color_theme',t);window.dispatchEvent(new StorageEvent('storage',{key:'pr_color_theme',newValue:t}))}catch{}}
+  const applyTheme=(t:'white'|'dark'|'teal')=>{
+    setActiveTheme(t);
+    try{
+      localStorage.setItem('pr_color_theme',t);
+      // Apply html class immediately
+      const h=document.documentElement;
+      h.classList.remove('white-theme','dark-theme','teal-theme');
+      h.classList.add(t+'-theme');
+      h.setAttribute('data-color-theme',t);
+    }catch{}
+  }
   const [lang, setLang] = useState<'en'|'hi'>('en')
   const [tab, setTab] = useState<'info'|'security'|'preferences'>('info')
   const [mounted, setMounted] = useState(false)
