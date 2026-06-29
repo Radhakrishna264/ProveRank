@@ -46,7 +46,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
   const router=useRouter()
   const [mounted,setMounted]=useState(false)
   const [lang,setLang]=useState<'en'|'hi'>('en')
-  const [dm,setDm]=useState(true)
+  const dm=true
   const [side,setSide]=useState(false)
   const [user,setUser]=useState<any>(null)
   const [token,setToken]=useState('')
@@ -60,7 +60,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
   useEffect(()=>{
     const tk=_gt();if(!tk){router.replace('/login');return}
     setToken(tk);setRole(_gr())
-    try{const sl=localStorage.getItem('pr_lang') as 'en'|'hi'|null;if(sl)setLang(sl);if(localStorage.getItem('pr_theme')==='light')setDm(false)}catch{}
+    try{const sl=localStorage.getItem('pr_lang') as 'en'|'hi'|null;if(sl)setLang(sl);}catch{}
     fetch(`${API}/api/auth/me`,{headers:{Authorization:`Bearer ${tk}`}}).then(r=>r.ok?r.json():null).then(d=>{if(d?._id)setUser(d)}).catch(()=>{})
     setMounted(true)
   },[router])
@@ -78,10 +78,10 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
       </div>
     )
   }
-  const bg=dm?'radial-gradient(ellipse at 15% 55%,#001020 0%,#000A18 50%,#000308 100%)':'radial-gradient(ellipse at 15% 55%,#E0EFFF 0%,#C5DFFF 50%,#A5C8FF 100%)'
+  const bg='radial-gradient(ellipse at 15% 55%,#001020 0%,#000A18 50%,#000308 100%)'
   const bdr=dm?C.border:C.borderL,txt=dm?C.text:C.textL,sub=dm?C.sub:C.subL
   const toggleLang=()=>{const n=lang==='en'?'hi':'en';setLang(n);try{localStorage.setItem('pr_lang',n)}catch{}}
-  const toggleTheme=()=>{const n=!dm;setDm(n);try{localStorage.setItem('pr_theme',n?'dark':'light')}catch{}}
+  
   const logout=()=>{_ca();router.replace('/login')}
   return(
     <ShellCtx.Provider value={{lang,darkMode:dm,user,toast,token,role}}>
@@ -115,7 +115,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
           </div>
           <div style={{display:'flex',alignItems:'center',gap:7}}>
             <button className="tbtn" onClick={toggleLang}>{lang==='en'?'हि':'EN'}</button>
-            <button className="tbtn" onClick={toggleTheme}>{dm?'☀️':'🌙'}</button>
+            
             <a href="/announcements" style={{background:'none',border:`1px solid ${bdr}`,borderRadius:8,width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none',fontSize:15,color:txt}}>🔔</a>
           <button
             onClick={()=>{_ca();window.location.href='/login'}}
