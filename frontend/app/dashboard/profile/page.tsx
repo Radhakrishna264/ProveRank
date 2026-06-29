@@ -63,25 +63,6 @@ export default function Profile() {
   }
 
   const studentId   = (user as any)?.studentId || null
-  const       {tab==='prefs'&&(
-        <div style={{borderRadius:14,padding:'18px 4px',marginTop:12}}>
-
-          {/* 🎨 Color Theme Picker */}
-          <div style={{borderTop:'1px solid '+C.border,paddingTop:18,marginTop:10}}>
-            <div style={{fontSize:13,fontWeight:700,color:C.primary,marginBottom:14}}>🎨 {t('App Color Theme','ऐप कलर थीम')}</div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
-              {[
-                {id:'white',lbl:t('Pure White','सफेद'),bg:'#FFFFFF',acc:'#2563EB',ico:'☀️'},
-                {id:'dark', lbl:t('Pure Dark','काला'),  bg:'#0A0A0A',acc:'#4D9FFF',ico:'🌑'},
-                {id:'teal', lbl:t('Neon Teal','टील'),   bg:'linear-gradient(135deg,#001A1A,#002E2E)',acc:'#2DD4BF',ico:'🌊'},
-              ].map((th)=>
-                <button key={th.id} onClick={()=>applyTheme(th.id as any)}
-                  style={{background:th.bg,border:'2px solid '+(activeTheme===th.id?th.acc:'rgba(255,255,255,0.08)'),borderRadius:14,padding:'12px 6px',cursor:'pointer',textAlign:'center',boxShadow:activeTheme===th.id?('0 0 18px '+th.acc+'55'):'none',transition:'all .2s',position:'relative',minHeight:85}}>
-                  {activeTheme===th.id&&<span style={{position:'absolute',top:5,right:7,fontSize:10,color:th.acc,fontWeight:800}}>✓</span>}
-                  <div style={{fontSize:22,marginBottom:5}}>{th.ico}</div>
-                  <div style={{fontSize:11,fontWeight:700,color:th.acc}}>{th.lbl}</div>
-                </button>
-              )}
             </div>
             <div style={{fontSize:10,color:C.sub,textAlign:'center',marginTop:8}}>
               {t('Applies to all student pages. Test Series keeps default.','टेस्ट सीरीज पेज डिफ़ॉल्ट थीम रखता है।')}
@@ -320,7 +301,27 @@ export default function Profile() {
                   <div className="toggle" style={{background:p.val?'#4D9FFF':'rgba(77,159,255,0.2)'}}>
                     <div className="toggle-dot" style={{left:p.val?20:3}}/>
                   </div>
-                </div>
+                
+          {/* 🎨 Color Theme Picker */}
+          <div style={{borderTop:'1px solid '+C.border,paddingTop:18,marginTop:6}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.primary,marginBottom:14}}>🎨 {t('App Color Theme','ऐप कलर थीम')}</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
+              {[
+                {id:'white',lbl:'Pure White',bg:'#FFFFFF',acc:'#2563EB',ico:'☀️'},
+                {id:'dark', lbl:'Pure Dark', bg:'#0A0A0A',acc:'#4D9FFF',ico:'🌑'},
+                {id:'teal', lbl:'Neon Teal',  bg:'linear-gradient(135deg,#001A1A,#002E2E)',acc:'#2DD4BF',ico:'🌊'},
+              ].map((th)=>
+                <button key={th.id} onClick={()=>applyTheme(th.id as any)}
+                  style={{background:th.bg,border:'2px solid '+(activeTheme===th.id?th.acc:'rgba(255,255,255,0.08)'),borderRadius:14,padding:'12px 6px',cursor:'pointer',textAlign:'center',transition:'all .2s',position:'relative',minHeight:82,boxShadow:activeTheme===th.id?('0 0 18px '+th.acc+'55'):'none'}}>
+                  {activeTheme===th.id&&<span style={{position:'absolute',top:5,right:7,fontSize:10,color:th.acc,fontWeight:800}}>✓</span>}
+                  <div style={{fontSize:20,marginBottom:4}}>{th.ico}</div>
+                  <div style={{fontSize:11,fontWeight:700,color:th.acc}}>{th.lbl}</div>
+                </button>
+              )}
+            </div>
+            <div style={{fontSize:10,color:C.sub,textAlign:'center',marginTop:8}}>{t('Theme applies to all student pages','थीम सभी पेजों पर लागू')}</div>
+          </div>
+</div>
               ))}
             </div>
           )}
