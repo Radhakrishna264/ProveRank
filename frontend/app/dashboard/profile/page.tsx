@@ -63,14 +63,6 @@ export default function Profile() {
   }
 
   const studentId   = (user as any)?.studentId || null
-            </div>
-            <div style={{fontSize:10,color:C.sub,textAlign:'center',marginTop:8}}>
-              {t('Applies to all student pages. Test Series keeps default.','टेस्ट सीरीज पेज डिफ़ॉल्ट थीम रखता है।')}
-            </div>
-          </div>
-        </div>
-      )}
-
       loginHistory= (user as any)?.loginHistory || []
   const memberSince = (user as any)?.createdAt
     ? new Date((user as any).createdAt).toLocaleDateString('en-US',{month:'long',year:'numeric'})
