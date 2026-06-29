@@ -63,7 +63,7 @@ export default function Profile() {
   }
 
   const studentId   = (user as any)?.studentId || null
-      loginHistory= (user as any)?.loginHistory || []
+  const loginHistory = (user as any)?.loginHistory || []
   const memberSince = (user as any)?.createdAt
     ? new Date((user as any).createdAt).toLocaleDateString('en-US',{month:'long',year:'numeric'})
     : ''
