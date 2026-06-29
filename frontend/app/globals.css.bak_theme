@@ -482,34 +482,3 @@ html, body {
     box-sizing: border-box !important;
   }
 }
-
-/* ═══════════════════════════════════════════════════
-   PROVERANK 3-THEME SYSTEM (student pages)
-   Controlled via [data-color-theme] on container
-   ═══════════════════════════════════════════════════ */
-
-[data-color-theme='teal'] { --teal-color-theme: 1; }
-[data-color-theme='teal'] ::-webkit-scrollbar-thumb { background: rgba(45,212,191,0.4) !important; }
-[data-color-theme='teal'] input,
-[data-color-theme='teal'] select,
-[data-color-theme='teal'] textarea { color-scheme: dark; accent-color: #2DD4BF; }
-[data-color-theme='teal'] .nav-lnk:hover  { background: rgba(45,212,191,0.14) !important; color: #2DD4BF !important; }
-[data-color-theme='teal'] .btn-p { background: linear-gradient(135deg,#2DD4BF,#0D9488) !important; }
-[data-color-theme='teal'] .tbtn  { border-color: rgba(45,212,191,0.35) !important; color: #CCFBF1 !important; }
-[data-color-theme='teal'] .tbtn:hover { border-color: #2DD4BF !important; background: rgba(45,212,191,0.14) !important; }
-
-[data-color-theme='dark'] ::-webkit-scrollbar-thumb { background: rgba(77,159,255,0.35) !important; }
-[data-color-theme='dark'] input,
-[data-color-theme='dark'] select,
-[data-color-theme='dark'] textarea { color-scheme: dark; accent-color: #4D9FFF; }
-
-[data-color-theme='white'] ::-webkit-scrollbar-thumb { background: rgba(37,99,235,0.3) !important; }
-[data-color-theme='white'] input,
-[data-color-theme='white'] select,
-[data-color-theme='white'] textarea { color-scheme: light; accent-color: #2563EB; }
-[data-color-theme='white'] .nav-lnk:hover  { background: rgba(37,99,235,0.1) !important; color: #2563EB !important; }
-[data-color-theme='white'] .btn-p { background: linear-gradient(135deg,#2563EB,#1D4ED8) !important; }
-[data-color-theme='white'] .tbtn  { border-color: rgba(37,99,235,0.35) !important; color: #0F172A !important; }
-[data-color-theme='white'] .tbtn:hover { border-color: #2563EB !important; background: rgba(37,99,235,0.1) !important; }
-[data-color-theme='white'] .pr-card,
-[data-color-theme='white'] .stat-card { background: rgba(255,255,255,0.97) !important; border-color: rgba(0,0,0,0.06) !important; box-shadow: 0 4px 24px rgba(0,0,0,0.07) !important; }

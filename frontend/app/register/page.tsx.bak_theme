@@ -3,8 +3,8 @@ import PRLogo from '@/components/PRLogo'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
-const PRI='#2DD4BF',SUC='#00C48C',DNG='#FF4D4D',SUB='#5EEAD4',TXT='#CCFBF1' // Neon Teal
-const inp:any={width:'100%',padding:'12px 14px',background:'rgba(0,20,18,.85)',border:'1.5px solid rgba(0,200,160,.3)',borderRadius:10,color:TXT,fontSize:14,fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box',transition:'border-color .2s'}
+const PRI='#4D9FFF',SUC='#00C48C',DNG='#FF4D4D',SUB='#6B8FAF',TXT='#E8F4FF'
+const inp:any={width:'100%',padding:'12px 14px',background:'rgba(0,22,40,.85)',border:'1.5px solid rgba(77,159,255,.3)',borderRadius:10,color:TXT,fontSize:14,fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box',transition:'border-color .2s'}
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -91,7 +91,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div style={{minHeight:'100vh',background:'linear-gradient(145deg,#001A1A 0%,#002E2E 50%,#000D0D 100%)',fontFamily:'Inter,sans-serif',overflowX:'hidden'}}>
+    <div style={{minHeight:'100vh',background:'radial-gradient(ellipse at 80% 40%,#000D1A,#000510 55%,#000108)',fontFamily:'Inter,sans-serif',overflowX:'hidden'}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600;700&display=swap');*{box-sizing:border-box}@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}@keyframes spinSlow{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes glowGreen{0%,100%{filter:drop-shadow(0 0 6px #00C48C55)}50%{filter:drop-shadow(0 0 18px #00C48C99)}}@keyframes bounce{0%,100%{transform:translateY(0) scale(1)}30%{transform:translateY(-18px) scale(1.06)}60%{transform:translateY(-8px) scale(0.97)}}`}</style>
 
       {/* Galaxy Canvas */}
@@ -147,13 +147,13 @@ export default function RegisterPage() {
           <div style={{textAlign:'center',marginBottom:28,animation:'glowGreen 3s ease-in-out infinite'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,marginBottom:4}}>
               <PRLogo size={44}/>
-              <div style={{fontFamily:'Playfair Display,serif',fontSize:26,fontWeight:700,background:'linear-gradient(90deg,#2DD4BF,#00F0D4)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>ProveRank</div>
+              <div style={{fontFamily:'Playfair Display,serif',fontSize:26,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF,#00D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>ProveRank</div>
             </div>
             <div style={{fontSize:12,color:SUB,marginTop:4}}>NEET Preparation Platform</div>
           </div>
 
           {/* Form Card */}
-          <div style={{background:'rgba(0,35,30,.88)',border:'1px solid rgba(0,200,160,.28)',borderRadius:20,padding:'32px 28px',backdropFilter:'blur(20px)',boxShadow:'0 8px 40px rgba(0,0,0,.5)'}}>
+          <div style={{background:'rgba(0,22,40,.88)',border:'1px solid rgba(77,159,255,.28)',borderRadius:20,padding:'32px 28px',backdropFilter:'blur(20px)',boxShadow:'0 8px 40px rgba(0,0,0,.5)'}}>
 
             {step==='details'?(
               <>

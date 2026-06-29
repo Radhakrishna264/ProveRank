@@ -6,9 +6,6 @@ import { useAuth } from '@/lib/useAuth'
 export default function Profile() {
   const { user, logout } = useAuth('student')
   const formRef = useRef<HTMLDivElement>(null)
-    const [activeTheme,setActiveTheme]=useState<'white'|'dark'|'teal'>('dark')
-  useEffect(()=>{try{const t=localStorage.getItem('pr_color_theme') as any;if(t&&['white','dark','teal'].includes(t))setActiveTheme(t)}catch{}},[])
-  const applyTheme=(t:'white'|'dark'|'teal')=>{setActiveTheme(t);try{localStorage.setItem('pr_color_theme',t);window.dispatchEvent(new StorageEvent('storage',{key:'pr_color_theme',newValue:t}))}catch{}}
   const [lang, setLang] = useState<'en'|'hi'>('en')
   const [tab, setTab] = useState<'info'|'security'|'preferences'>('info')
   const [mounted, setMounted] = useState(false)
@@ -63,34 +60,7 @@ export default function Profile() {
   }
 
   const studentId   = (user as any)?.studentId || null
-  const       {tab==='prefs'&&(
-        <div style={{borderRadius:14,padding:'18px 4px',marginTop:12}}>
-
-          {/* 🎨 Color Theme Picker */}
-          <div style={{borderTop:'1px solid '+C.border,paddingTop:18,marginTop:10}}>
-            <div style={{fontSize:13,fontWeight:700,color:C.primary,marginBottom:14}}>🎨 {t('App Color Theme','ऐप कलर थीम')}</div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
-              {[
-                {id:'white',lbl:t('Pure White','सफेद'),bg:'#FFFFFF',acc:'#2563EB',ico:'☀️'},
-                {id:'dark', lbl:t('Pure Dark','काला'),  bg:'#0A0A0A',acc:'#4D9FFF',ico:'🌑'},
-                {id:'teal', lbl:t('Neon Teal','टील'),   bg:'linear-gradient(135deg,#001A1A,#002E2E)',acc:'#2DD4BF',ico:'🌊'},
-              ].map((th)=>
-                <button key={th.id} onClick={()=>applyTheme(th.id as any)}
-                  style={{background:th.bg,border:'2px solid '+(activeTheme===th.id?th.acc:'rgba(255,255,255,0.08)'),borderRadius:14,padding:'12px 6px',cursor:'pointer',textAlign:'center',boxShadow:activeTheme===th.id?('0 0 18px '+th.acc+'55'):'none',transition:'all .2s',position:'relative',minHeight:85}}>
-                  {activeTheme===th.id&&<span style={{position:'absolute',top:5,right:7,fontSize:10,color:th.acc,fontWeight:800}}>✓</span>}
-                  <div style={{fontSize:22,marginBottom:5}}>{th.ico}</div>
-                  <div style={{fontSize:11,fontWeight:700,color:th.acc}}>{th.lbl}</div>
-                </button>
-              )}
-            </div>
-            <div style={{fontSize:10,color:C.sub,textAlign:'center',marginTop:8}}>
-              {t('Applies to all student pages. Test Series keeps default.','टेस्ट सीरीज पेज डिफ़ॉल्ट थीम रखता है।')}
-            </div>
-          </div>
-        </div>
-      )}
-
-      loginHistory= (user as any)?.loginHistory || []
+  const loginHistory= (user as any)?.loginHistory || []
   const memberSince = (user as any)?.createdAt
     ? new Date((user as any).createdAt).toLocaleDateString('en-US',{month:'long',year:'numeric'})
     : ''

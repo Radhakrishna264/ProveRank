@@ -4,8 +4,8 @@ import PRLogo from '@/components/PRLogo'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
-const PRI='#2DD4BF',SUC='#00C48C',DNG='#FF4D4D',SUB='#5EEAD4',TXT='#CCFBF1' // Neon Teal
-const inp:any={width:'100%',padding:'12px 14px',background:'rgba(0,20,18,.85)',border:'1.5px solid rgba(0,200,160,.3)',borderRadius:10,color:TXT,fontSize:14,fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box',transition:'border-color .2s'}
+const PRI='#4D9FFF',SUC='#00C48C',DNG='#FF4D4D',SUB='#6B8FAF',TXT='#E8F4FF'
+const inp:any={width:'100%',padding:'12px 14px',background:'rgba(0,22,40,.85)',border:'1.5px solid rgba(77,159,255,.3)',borderRadius:10,color:TXT,fontSize:14,fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box',transition:'border-color .2s'}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -123,7 +123,7 @@ export default function LoginPage() {
   const clearAll=()=>{setError('');setMsg('')}
 
   return (
-    <div style={{minHeight:'100vh',background:'linear-gradient(145deg,#001A1A 0%,#002E2E 50%,#000D0D 100%)',fontFamily:'Inter,sans-serif',overflowX:'hidden'}}>
+    <div style={{minHeight:'100vh',background:'radial-gradient(ellipse at 20% 50%,#000D1A,#000308 60%,#00010A)',fontFamily:'Inter,sans-serif',overflowX:'hidden'}}>
       {showWelcome&&welcomeData&&<WelcomeBanner studentName={welcomeData.name} studentId={welcomeData.studentId} onClose={()=>{setShowWelcome(false);const tk=localStorage.getItem('pr_token');if(tk)fetch((process.env.NEXT_PUBLIC_API_URL||'https://proverank.onrender.com')+'/api/welcome-seen',{method:'POST',headers:{Authorization:'Bearer '+tk}}).catch(()=>{});}}/>}
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600;700&display=swap');*{box-sizing:border-box}@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}@keyframes rotateSlow{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes glowPulse{0%,100%{filter:drop-shadow(0 0 6px #4D9FFF66)}50%{filter:drop-shadow(0 0 20px #4D9FFFaa)}}@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes dnaPulse{0%,100%{opacity:0.45;transform:translateY(0) scaleX(1)}50%{opacity:0.7;transform:translateY(-10px) scaleX(1.05)}}`}</style>
 
@@ -184,13 +184,13 @@ export default function LoginPage() {
           <div style={{textAlign:'center',marginBottom:24,animation:'glowPulse 3s ease-in-out infinite'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,marginBottom:4}}>
               <PRLogo size={44}/>
-              <div style={{fontFamily:'Playfair Display,serif',fontSize:26,fontWeight:700,background:'linear-gradient(90deg,#2DD4BF,#00F0D4)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>ProveRank</div>
+              <div style={{fontFamily:'Playfair Display,serif',fontSize:26,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF,#00D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>ProveRank</div>
             </div>
             <div style={{fontSize:12,color:SUB,marginTop:4}}>NEET Preparation Platform</div>
           </div>
 
           {/* Form Card */}
-          <div style={{background:'rgba(0,35,30,.88)',border:'1px solid rgba(0,200,160,.28)',borderRadius:20,padding:'28px 24px',backdropFilter:'blur(20px)',boxShadow:'0 8px 40px rgba(0,0,0,.5)'}}>
+          <div style={{background:'rgba(0,22,40,.88)',border:'1px solid rgba(77,159,255,.28)',borderRadius:20,padding:'28px 24px',backdropFilter:'blur(20px)',boxShadow:'0 8px 40px rgba(0,0,0,.5)'}}>
             <div style={{display:'flex',gap:0,marginBottom:22,borderRadius:10,overflow:'hidden',border:'1px solid rgba(77,159,255,.25)'}}>
               {([['password','🔑 Password'],['otp','📱 OTP Login'],['forgot','🔓 Forgot']] as const).map(([t,l])=>(
                 <button key={t} onClick={()=>{setTab(t);clearAll()}} style={{flex:1,padding:'10px 4px',background:tab===t?`linear-gradient(135deg,${PRI},#0055CC)`:'rgba(0,22,40,.8)',color:tab===t?'#fff':SUB,border:'none',cursor:'pointer',fontFamily:'Inter,sans-serif',fontSize:11,fontWeight:tab===t?700:400,borderRight:t!=='forgot'?'1px solid rgba(77,159,255,.2)':'none',transition:'all .2s'}}>

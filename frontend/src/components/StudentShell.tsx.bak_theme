@@ -6,9 +6,8 @@ const _gt=():string=>{try{return localStorage.getItem('pr_token')||''}catch{retu
 const _gr=():string=>{try{return localStorage.getItem('pr_role')||'student'}catch{return'student'}}
 const _ca=():void=>{try{localStorage.removeItem('pr_token');localStorage.removeItem('pr_role')}catch{}}
 export const C={primary:'#4D9FFF',card:'rgba(0,22,40,0.82)',cardL:'rgba(255,255,255,0.92)',border:'rgba(77,159,255,0.22)',borderL:'rgba(77,159,255,0.4)',text:'#E8F4FF',textL:'#0F172A',sub:'#6B8FAF',subL:'#475569',success:'#00C48C',danger:'#FF4D4D',gold:'#FFD700',warn:'#FFB84D',purple:'#A78BFA',pink:'#FF6B9D'}
-export type ColorTheme='white'|'dark'|'teal'
-export interface ShellCtx{lang:'en'|'hi';darkMode:boolean;colorTheme:ColorTheme;theme:any;setColorTheme:(t:ColorTheme)=>void;user:any;toast:(m:string,t?:'s'|'e'|'w')=>void;token:string;role:string}
-const ShellCtx=createContext<ShellCtx>({lang:'en',darkMode:true,colorTheme:'dark',theme:{primary:'#4D9FFF'},setColorTheme:()=>{},user:null,toast:()=>{},token:'',role:'student'})
+export interface ShellCtx{lang:'en'|'hi';darkMode:boolean;user:any;toast:(m:string,t?:'s'|'e'|'w')=>void;token:string;role:string}
+const ShellCtx=createContext<ShellCtx>({lang:'en',darkMode:true,user:null,toast:()=>{},token:'',role:'student'})
 export const useShell=()=>useContext(ShellCtx)
 export function PRLogo({size=40}:{size?:number}){
   const b=size*0.94,p=Math.round(b*0.63),r=Math.round(b*0.63),f=Math.round(p*0.52),rd=Math.round(p*0.28)
@@ -47,7 +46,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
   const router=useRouter()
   const [mounted,setMounted]=useState(false)
   const [lang,setLang]=useState<'en'|'hi'>('en')
-  const [colorTheme,setColorThemeState]=useState<ColorTheme>('dark')
+  const dm=true
   const [side,setSide]=useState(false)
   const [user,setUser]=useState<any>(null)
   const [token,setToken]=useState('')
@@ -61,8 +60,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
   useEffect(()=>{
     const tk=_gt();if(!tk){router.replace('/login');return}
     setToken(tk);setRole(_gr())
-    try{const sl=localStorage.getItem('pr_lang') as 'en'|'hi'|null;if(sl)setLang(sl);const ct=localStorage.getItem('pr_color_theme') as ColorTheme|null;if(ct&&['white','dark','teal'].includes(ct))setColorThemeState(ct);}catch{}
-    const _onTh=(e:StorageEvent)=>{if(e.key==='pr_color_theme'&&e.newValue&&['white','dark','teal'].includes(e.newValue))setColorThemeState(e.newValue as ColorTheme)};window.addEventListener('storage',_onTh)
+    try{const sl=localStorage.getItem('pr_lang') as 'en'|'hi'|null;if(sl)setLang(sl);}catch{}
     fetch(`${API}/api/auth/me`,{headers:{Authorization:`Bearer ${tk}`}}).then(r=>r.ok?r.json():null).then(d=>{if(d?._id)setUser(d)}).catch(()=>{})
     setMounted(true)
   },[router])
@@ -80,32 +78,22 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
       </div>
     )
   }
-  // Color Theme System
-  const _TH:Record<string,any>={
-    white:{shellBg:'#FFFFFF',headerBg:'rgba(240,247,255,0.97)',sidebarBg:'rgba(240,247,255,0.97)',primary:'#2563EB',text:'#0F172A',sub:'#64748B',border:'rgba(37,99,235,0.15)',navActive:'rgba(37,99,235,0.1)',isDark:false,showGalaxy:false,hexC:'rgba(37,99,235,0.03)'},
-    dark:{shellBg:'#0A0A0A',headerBg:'rgba(17,17,17,0.97)',sidebarBg:'rgba(17,17,17,0.97)',primary:'#4D9FFF',text:'#FFFFFF',sub:'#9CA3AF',border:'rgba(77,159,255,0.12)',navActive:'rgba(77,159,255,0.12)',isDark:true,showGalaxy:false,hexC:'rgba(77,159,255,0.022)'},
-    teal:{shellBg:'linear-gradient(145deg,#001A1A 0%,#002E2E 50%,#000D0D 100%)',headerBg:'rgba(0,26,26,0.96)',sidebarBg:'rgba(0,40,35,0.97)',primary:'#2DD4BF',text:'#CCFBF1',sub:'#5EEAD4',border:'rgba(45,212,191,0.18)',navActive:'rgba(45,212,191,0.14)',isDark:true,showGalaxy:true,hexC:'rgba(45,212,191,0.022)'},
-  }
-  const _isTS=['test-series','batches'].includes(pageKey)
-  const _tsDef={shellBg:'#020816',headerBg:'rgba(0,5,18,.95)',sidebarBg:'rgba(0,5,18,.97)',primary:'#4D9FFF',text:'#E8F4FF',sub:'#6B8FAF',border:C.border,navActive:'rgba(77,159,255,.16)',isDark:true,showGalaxy:true,hexC:'rgba(77,159,255,.022)'}
-  const th=_isTS?_tsDef:(_TH[colorTheme]||_TH.dark)
-  const dm=th.isDark
-  const setColorTheme=(t:ColorTheme)=>{setColorThemeState(t);try{localStorage.setItem('pr_color_theme',t);window.dispatchEvent(new StorageEvent('storage',{key:'pr_color_theme',newValue:t}))}catch{}}
-  const bdr=th.border,txt=th.text,sub=th.sub
+  const bg='radial-gradient(ellipse at 15% 55%,#001020 0%,#000A18 50%,#000308 100%)'
+  const bdr=dm?C.border:C.borderL,txt=dm?C.text:C.textL,sub=dm?C.sub:C.subL
   const toggleLang=()=>{const n=lang==='en'?'hi':'en';setLang(n);try{localStorage.setItem('pr_lang',n)}catch{}}
   
   const logout=()=>{_ca();router.replace('/login')}
   return(
-    <ShellCtx.Provider value={{lang,darkMode:dm,colorTheme:_isTS?'dark':colorTheme,theme:th,setColorTheme,user,toast,token,role}}>
-      <div data-color-theme={_isTS?'dark':colorTheme} style={{minHeight:'100vh',background:th.shellBg,color:txt,fontFamily:'Inter,sans-serif',position:'relative',overflowX:'hidden'}}>
+    <ShellCtx.Provider value={{lang,darkMode:dm,user,toast,token,role}}>
+      <div style={{minHeight:'100vh',background:'#020816',color:txt,fontFamily:'Inter,sans-serif',position:'relative',overflowX:'hidden'}}>
         <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap');@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes gradMove{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}*{box-sizing:border-box}::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(77,159,255,.4);border-radius:4px}.nav-lnk:hover{background:rgba(77,159,255,.16)!important;color:#4D9FFF!important}.btn-p{background:linear-gradient(135deg,#4D9FFF,#0055CC);color:#fff;border:none;border-radius:10px;padding:11px 22px;cursor:pointer;font-weight:700;font-size:13px;font-family:Inter,sans-serif}.tbtn{padding:6px 14px;border-radius:20px;border:1.5px solid rgba(77,159,255,.4);background:rgba(0,22,40,.55);color:#E8F4FF;font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;backdrop-filter:blur(8px);transition:all .2s}.tbtn:hover{border-color:#4D9FFF;background:rgba(77,159,255,.18)}input,select,textarea{color-scheme:dark}`}</style>
-        {th.showGalaxy&&<GalaxyBg/>}
-        <div aria-hidden style={{position:'fixed',top:-70,left:-70,fontSize:320,color:th.hexC,pointerEvents:'none',zIndex:0,lineHeight:1,userSelect:'none'}}>⬡</div>
-        <div aria-hidden style={{position:'fixed',bottom:-70,right:-70,fontSize:320,color:th.hexC,pointerEvents:'none',zIndex:0,lineHeight:1,userSelect:'none'}}>⬡</div>
+        <GalaxyBg/>
+        <div aria-hidden style={{position:'fixed',top:-70,left:-70,fontSize:320,color:'rgba(77,159,255,.022)',pointerEvents:'none',zIndex:0,lineHeight:1,userSelect:'none'}}>⬡</div>
+        <div aria-hidden style={{position:'fixed',bottom:-70,right:-70,fontSize:320,color:'rgba(77,159,255,.022)',pointerEvents:'none',zIndex:0,lineHeight:1,userSelect:'none'}}>⬡</div>
         {toastSt&&<div style={{position:'fixed',top:0,left:0,right:0,zIndex:9999,padding:'14px 24px',fontWeight:700,fontSize:13,textAlign:'center',animation:'fadeIn .3s ease',background:toastSt.tp==='s'?'linear-gradient(90deg,#00C48C,#00a87a)':toastSt.tp==='w'?'linear-gradient(90deg,#FFB84D,#e6a200)':'linear-gradient(90deg,#FF4D4D,#cc0000)',color:toastSt.tp==='w'?'#000':'#fff'}}>{toastSt.tp==='e'?'❌':toastSt.tp==='w'?'⚠️':'✅'} {toastSt.msg}</div>}
         {side&&<div onClick={()=>setSide(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',zIndex:49,backdropFilter:'blur(3px)'}}/>}
-        <div style={{position:'fixed',top:0,left:0,width:272,height:'100vh',background:th.sidebarBg,borderRight:`1px solid ${bdr}`,zIndex:50,overflowY:'auto',display:'flex',flexDirection:'column',transform:side?'translateX(0)':'translateX(-100%)',transition:'transform .28s cubic-bezier(.4,0,.2,1)',backdropFilter:'blur(24px)',boxShadow:'5px 0 32px rgba(0,0,0,.6)'}}>
-          <div style={{padding:'18px 18px 14px',borderBottom:`1px solid ${bdr}`,position:'sticky',top:0,background:th.sidebarBg,flexShrink:0}}>
+        <div style={{position:'fixed',top:0,left:0,width:272,height:'100vh',background:'rgba(0,5,18,.97)',borderRight:`1px solid ${bdr}`,zIndex:50,overflowY:'auto',display:'flex',flexDirection:'column',transform:side?'translateX(0)':'translateX(-100%)',transition:'transform .28s cubic-bezier(.4,0,.2,1)',backdropFilter:'blur(24px)',boxShadow:'5px 0 32px rgba(0,0,0,.6)'}}>
+          <div style={{padding:'18px 18px 14px',borderBottom:`1px solid ${bdr}`,position:'sticky',top:0,background:'rgba(0,5,18,.97)',flexShrink:0}}>
             <div style={{display:'flex',alignItems:'center',gap:10}}>
               <PRLogo size={38}/>
               <div><div style={{fontFamily:'Playfair Display,serif',fontSize:18,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF 0%,#fff 60%,#4D9FFF 100%)',backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'gradMove 4s ease infinite'}}>ProveRank</div><div style={{fontSize:10,color:'#B8C8D8',fontWeight:600,marginTop:1}}>{role==='parent'?(lang==='en'?'Parent':'अभिभावक'):(lang==='en'?'Student':'छात्र')}</div></div>
@@ -113,14 +101,14 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
             <button onClick={()=>setSide(false)} style={{position:'absolute',top:14,right:12,background:'none',border:'none',color:sub,cursor:'pointer',fontSize:18,lineHeight:1,padding:4}}>✕</button>
           </div>
           <div style={{padding:'8px',flex:1,overflowY:'auto'}}>
-            {NAV.map(n=>(<a key={n.id} href={n.href} className="nav-lnk" onClick={()=>setSide(false)} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderRadius:9,textDecoration:'none',color:pageKey===n.id?th.primary:sub,background:pageKey===n.id?th.navActive:'transparent',fontWeight:pageKey===n.id?700:400,fontSize:13,borderLeft:pageKey===n.id?('3px solid '+th.primary):'3px solid transparent',marginBottom:1,transition:'all .2s'}}><span style={{fontSize:15,width:20,textAlign:'center'}}>{n.icon}</span><span>{lang==='en'?n.en:n.hi}</span>{pageKey===n.id&&<span style={{marginLeft:'auto',width:6,height:6,borderRadius:'50%',background:th.primary,flexShrink:0}}/>}</a>))}
+            {NAV.map(n=>(<a key={n.id} href={n.href} className="nav-lnk" onClick={()=>setSide(false)} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderRadius:9,textDecoration:'none',color:pageKey===n.id?'#4D9FFF':sub,background:pageKey===n.id?'rgba(77,159,255,.16)':'transparent',fontWeight:pageKey===n.id?700:400,fontSize:13,borderLeft:pageKey===n.id?'3px solid #4D9FFF':'3px solid transparent',marginBottom:1,transition:'all .2s'}}><span style={{fontSize:15,width:20,textAlign:'center'}}>{n.icon}</span><span>{lang==='en'?n.en:n.hi}</span>{pageKey===n.id&&<span style={{marginLeft:'auto',width:6,height:6,borderRadius:'50%',background:'#4D9FFF',flexShrink:0}}/>}</a>))}
           </div>
           <div style={{padding:'12px 14px',borderTop:`1px solid ${bdr}`,flexShrink:0}}>
             <div style={{padding:'12px',background:'rgba(77,159,255,.06)',borderRadius:12,border:`1px solid ${bdr}`,marginBottom:10,textAlign:'center'}}><div style={{fontSize:11,color:sub,marginBottom:4}}>{lang==='en'?'Powered by AI Proctoring':'AI प्रॉक्टरिंग द्वारा संचालित'}</div><div style={{fontSize:10,color:C.success,fontWeight:600}}>🟢 {lang==='en'?'All Systems Live':'सभी सिस्टम लाइव'}</div></div>
             
           </div>
         </div>
-        <div style={{position:'sticky',top:0,zIndex:40,background:th.headerBg,backdropFilter:'blur(22px)',borderBottom:`1px solid ${bdr}`,height:58,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 16px',boxShadow:'0 2px 24px rgba(0,0,0,.3)'}}>
+        <div style={{position:'sticky',top:0,zIndex:40,background:dm?'rgba(0,5,18,.95)':'rgba(224,239,255,.96)',backdropFilter:'blur(22px)',borderBottom:`1px solid ${bdr}`,height:58,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 16px',boxShadow:'0 2px 24px rgba(0,0,0,.3)'}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             <button onClick={()=>setSide(true)} style={{background:'none',border:'none',color:txt,fontSize:22,cursor:'pointer',padding:'4px 6px',borderRadius:7,lineHeight:1}} title="Menu">☰</button>
             <div style={{display:'flex',alignItems:'center',gap:8}}><PRLogo size={30}/><div><div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,background:`linear-gradient(90deg,${C.primary},#fff)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',lineHeight:1}}>ProveRank</div><div style={{fontSize:9,color:'#B8C8D8',fontWeight:600,letterSpacing:.6}}>{lang==='en'?'STUDENT':'छात्र'}</div></div></div>
