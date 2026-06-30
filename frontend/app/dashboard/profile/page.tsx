@@ -292,7 +292,6 @@ export default function Profile() {
                   </div>
                 
                     </div>
-</div>
               ))}
             </div>
           )}
