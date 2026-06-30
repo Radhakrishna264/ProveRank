@@ -11,29 +11,31 @@ export default function DashLayout({ children, title, subtitle }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const [lang, setLang] = useState<'en'|'hi'>('en')
-  const [colorTheme, setColorThemeState] = useState<'white'|'dark'|'teal'>('dark')
-  const dark = colorTheme !== 'white'
+  const [dark, setDark] = useState(true)
   const [sideOpen, setSideOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(()=>{
     setMounted(true)
     const sl=localStorage.getItem('pr_lang') as 'en'|'hi'; if(sl) setLang(sl)
-    const ct=localStorage.getItem('pr_color_theme') as any; if(ct&&['white','dark','teal'].includes(ct)) setColorThemeState(ct)
-    const onTh=(e:StorageEvent)=>{if(e.key==='pr_color_theme'&&e.newValue&&['white','dark','teal'].includes(e.newValue))setColorThemeState(e.newValue as any)}
-    window.addEventListener('storage',onTh)
-    return ()=>window.removeEventListener('storage',onTh)
+    const st=localStorage.getItem('pr_theme'); if(st==='light') setDark(false)
   },[])
 
   const toggleLang = ()=>{ const n=lang==='en'?'hi':'en'; setLang(n); localStorage.setItem('pr_lang',n) }
-  const toggleDark = ()=>{} // theme now controlled from Settings page
+  const toggleDark = ()=>{ const n=!dark; setDark(n); localStorage.setItem('pr_theme',n?'dark':'light') }
 
-  const _THV:Record<string,any> = {
-    white:{bg:'#F0F7FF',sidebar:'rgba(248,252,255,0.98)',card:'rgba(255,255,255,0.95)',bord:'rgba(37,99,235,0.18)',tm:'#0F172A',ts:'#64748B',topbar:'rgba(248,252,255,0.96)',muted:'#CBD5E1',hover:'rgba(37,99,235,0.06)',activeLink:'rgba(37,99,235,0.1)',primary:'#2563EB'},
-    dark: {bg:'#000A18',sidebar:'rgba(0,8,20,0.97)',card:'rgba(0,18,36,0.9)',bord:'rgba(77,159,255,0.14)',tm:'#E8F4FF',ts:'#6B8BAF',topbar:'rgba(0,6,18,0.96)',muted:'#2A4A6A',hover:'rgba(77,159,255,0.08)',activeLink:'rgba(77,159,255,0.15)',primary:'#4D9FFF'},
-    teal: {bg:'#001A1A',sidebar:'rgba(0,40,35,0.97)',card:'rgba(0,35,30,0.85)',bord:'rgba(45,212,191,0.18)',tm:'#CCFBF1',ts:'#5EEAD4',topbar:'rgba(0,26,26,0.96)',muted:'#0D3330',hover:'rgba(45,212,191,0.1)',activeLink:'rgba(45,212,191,0.15)',primary:'#2DD4BF'},
+  const v = {
+    bg:       dark ? '#000A18' : '#F0F7FF',
+    sidebar:  dark ? 'rgba(0,8,20,0.97)'   : 'rgba(248,252,255,0.98)',
+    card:     dark ? 'rgba(0,18,36,0.9)'   : 'rgba(255,255,255,0.95)',
+    bord:     dark ? 'rgba(77,159,255,0.14)': 'rgba(77,159,255,0.25)',
+    tm:       dark ? '#E8F4FF' : '#0F172A',
+    ts:       dark ? '#6B8BAF' : '#64748B',
+    topbar:   dark ? 'rgba(0,6,18,0.96)'   : 'rgba(248,252,255,0.96)',
+    muted:    dark ? '#2A4A6A' : '#CBD5E1',
+    hover:    dark ? 'rgba(77,159,255,0.08)': 'rgba(77,159,255,0.06)',
+    activeLink: dark ? 'rgba(77,159,255,0.15)' : 'rgba(77,159,255,0.1)',
   }
-  const v = _THV[colorTheme] || _THV.dark
 
   const nav = [
     { href:'/dashboard',              icon:'⊞', en:'Dashboard',    hi:'डैशबोर्ड' },
@@ -44,7 +46,6 @@ export default function DashLayout({ children, title, subtitle }: Props) {
     { href:'/dashboard/leaderboard',  icon:'🏆', en:'Leaderboard',  hi:'लीडरबोर्ड' },
     { href:'/dashboard/certificate',  icon:'🎓', en:'Certificate',  hi:'प्रमाण पत्र' },
     { href:'/dashboard/admit-card',   icon:'🎫', en:'Admit Card',   hi:'प्रवेश पत्र' },
-    { href:'/dashboard/settings',     icon:'⚙️', en:'Settings',     hi:'सेटिंग्स' },
     { href:'/support',                icon:'💬', en:'Support',      hi:'सहायता' },
   ]
 
