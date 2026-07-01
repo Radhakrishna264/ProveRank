@@ -73,10 +73,18 @@ export default function AuthShell({ steps = [], current = 0, children }: Props) 
             <div style={{ fontSize: 11, color: T.sub, marginTop: 4, fontWeight: 600, letterSpacing: 0.4 }}>Rise to the Top</div>
           </div>
           <div style={{ height: 1, background: T.cardBorder }} />
-          {[['🎯', 'NEET Pattern Tests'], ['📊', 'AI Analytics'], ['🏆', 'All India Ranking']].map(([ic, l]) => (
+          {[
+            ['🎯', 'Multi Exam Platform'],
+            ['🤖', 'AI Proctoring'],
+            ['👨‍🏫', 'Designed By Experts'],
+            ['📊', 'Deep AI Analytics'],
+            ['🏆', 'All India Ranking'],
+            ['⚡', 'Instant Results'],
+            ['📱', 'Mobile Friendly'],
+          ].map(([ic, l]) => (
             <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 17 }}>{ic}</span>
-              <span style={{ fontSize: 12, color: T.txt, fontWeight: 500 }}>{l}</span>
+              <span style={{ fontSize: 15 }}>{ic}</span>
+              <span style={{ fontSize: 11, color: T.txt, fontWeight: 500 }}>{l}</span>
             </div>
           ))}
         </div>

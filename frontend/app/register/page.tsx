@@ -17,6 +17,7 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [agreedTnc, setAgreedTnc] = useState(false)
+  const [showTermsModal, setShowTermsModal] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [msg, setMsg] = useState('')
@@ -147,13 +148,12 @@ export default function RegisterPage() {
                 <span style={{ fontSize: 18 }}>📋</span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 12, color: T.txt, marginBottom: 4 }}>You must read Terms &amp; Conditions before proceeding</div>
-                  <a
-                    href={'/terms?back=/register'}
-                    onClick={() => { try { localStorage.setItem('pr_terms_redirect', '1') } catch {} }}
-                    style={{ color: T.pri, fontSize: 12, fontWeight: 700, textDecoration: 'underline' }}
+                  <button
+                    onClick={() => setShowTermsModal(true)}
+                    style={{ background: 'none', border: 'none', color: T.pri, fontSize: 12, fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', padding: 0, fontFamily: 'Inter,sans-serif' }}
                   >
                     📖 Read Terms &amp; Conditions →
-                  </a>
+                  </button>
                 </div>
               </div>
             ) : (
@@ -210,6 +210,51 @@ export default function RegisterPage() {
         </div>
       )}
 
+
+      {/* ── Terms Modal ── */}
+      {showTermsModal && (
+        <div onClick={() => setShowTermsModal(false)} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background:'rgba(0,35,30,0.98)',border:'1px solid rgba(0,200,160,0.3)',borderRadius:18,width:'100%',maxWidth:520,maxHeight:'82vh',display:'flex',flexDirection:'column',backdropFilter:'blur(24px)',boxShadow:'0 16px 60px rgba(0,0,0,0.7)' }}>
+            {/* Header */}
+            <div style={{ padding:'16px 20px',borderBottom:'1px solid rgba(0,200,160,0.2)',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0 }}>
+              <div>
+                <div style={{ fontFamily:'Playfair Display,serif',fontSize:16,fontWeight:700,color:T.txt }}>Terms &amp; Conditions</div>
+                <div style={{ fontSize:10,color:T.pri,marginTop:2 }}>Version 2.1 — Updated March 2026</div>
+              </div>
+              <button onClick={() => setShowTermsModal(false)} style={{ background:'none',border:'none',color:T.sub,cursor:'pointer',fontSize:22,lineHeight:1,padding:4 }}>✕</button>
+            </div>
+            {/* Scrollable content */}
+            <div style={{ overflowY:'auto',padding:'14px 20px',flex:1 }}>
+              {[
+                ['1. Exam Rules & Conduct','Students must attempt exams in a quiet, well-lit environment. Any form of cheating, including using external resources, sharing questions, or impersonating another student, will result in immediate disqualification and permanent account ban.'],
+                ['2. Privacy Policy','We collect your name, email, and exam data solely for platform operation. Webcam snapshots during proctoring are used only for AI-based monitoring and automatically deleted within 24 hours. We never share your data with third parties.'],
+                ['3. Proctoring Policy','By starting any exam you consent to: (a) webcam access for AI facial monitoring, (b) tab-switch tracking, (c) IP logging. Three warnings result in automatic exam submission.'],
+                ['4. Result & Ranking Policy','All India Ranks are based on score then time. Results are final unless an Answer Key Challenge is filed within 48 hours. Re-evaluation processed within 7 working days.'],
+                ['5. Account & Access Policy','Each account is for individual use only. New device login automatically signs out previous device. Sharing credentials is prohibited.'],
+                ['6. Refund & Payment Policy','All purchases are non-refundable once access is granted. Technical failure credits added to account. Disputes must be raised within 7 days.'],
+                ['7. Data Security & AI Monitoring','All data is encrypted. Our AI analyses video in real-time without storing identity beyond the exam session. We never sell data to advertisers.'],
+                ['8. Grievance Redressal','Contact support@proverank.com for complaints. We respond within 48 hours and resolve within 7 working days.'],
+              ].map(([title, body]) => (
+                <div key={title} style={{ marginBottom:12,padding:'10px 14px',background:'rgba(0,20,18,0.6)',borderRadius:10,border:'1px solid rgba(0,200,160,0.15)' }}>
+                  <div style={{ fontSize:12,fontWeight:700,color:T.txt,marginBottom:5 }}>{title}</div>
+                  <div style={{ fontSize:11,color:T.sub,lineHeight:1.7 }}>{body}</div>
+                </div>
+              ))}
+            </div>
+            {/* Accept button */}
+            <div style={{ padding:'14px 20px',borderTop:'1px solid rgba(0,200,160,0.2)',flexShrink:0,display:'flex',gap:10 }}>
+              <button onClick={() => { setAgreedTnc(true); setShowTermsModal(false); try { localStorage.setItem('pr_terms_viewed','true') } catch {} }}
+                style={{ flex:1,padding:'12px',background:'linear-gradient(135deg,#2DD4BF,#0D9488)',color:'#001A1A',border:'none',borderRadius:10,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'Inter,sans-serif',boxShadow:'0 4px 16px rgba(45,212,191,0.4)' }}>
+                ✓ I Accept All Terms
+              </button>
+              <button onClick={() => setShowTermsModal(false)}
+                style={{ padding:'12px 18px',background:'transparent',border:'1px solid rgba(0,200,160,0.3)',color:'#5EEAD4',borderRadius:10,cursor:'pointer',fontSize:13,fontFamily:'Inter,sans-serif' }}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AuthShell>
   )
 }
