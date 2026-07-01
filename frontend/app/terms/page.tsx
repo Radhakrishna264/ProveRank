@@ -47,15 +47,18 @@ export default function TermsPage() {
   // F35.15 — Scroll-to-bottom enforcement + progress bar
   useEffect(() => {
     const onScroll = () => {
-      const doc = document.documentElement
-      const scrollTop = doc.scrollTop || document.body.scrollTop
-      const scrollHeight = doc.scrollHeight - doc.clientHeight
-      const pct = scrollHeight > 0 ? Math.min(100, (scrollTop / scrollHeight) * 100) : 100
+      // Use multiple sources for cross-browser support
+      const scrollTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0
+      const docHeight = document.documentElement.scrollHeight || document.body.scrollHeight || 0
+      const winHeight = window.innerHeight || document.documentElement.clientHeight || 0
+      const scrollHeight = docHeight - winHeight
+      const pct = scrollHeight > 0 ? Math.min(100, Math.round((scrollTop / scrollHeight) * 100)) : 100
       setScrollPct(pct)
-      if (pct >= 92) setCanAccept(true)
+      if (pct >= 88) setCanAccept(true)  // 88% threshold (more lenient)
     }
-    window.addEventListener('scroll', onScroll)
-    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    // Check immediately on mount (short pages unlock right away)
+    setTimeout(onScroll, 100)
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
@@ -67,13 +70,22 @@ export default function TermsPage() {
   const handleAccept = async () => {
     if (!canAccept) return
     setAccepting(true)
-    try { localStorage.setItem('pr_terms_accepted', 'true') } catch {}
+    try {
+      localStorage.setItem('pr_terms_accepted', 'true')
+      // Signal register page to auto-check T&C checkbox
+      localStorage.setItem('pr_terms_viewed', 'true')
+    } catch {}
     try {
       const tk = localStorage.getItem('pr_token')
       if (tk) await fetch(`${API}/api/auth/accept-terms`, { method: 'POST', headers: { Authorization: `Bearer ${tk}` } })
     } catch {}
-    const back = new URLSearchParams(window.location.search).get('back')
-    if (back) router.push(back); else router.push('/dashboard')
+    const params = new URLSearchParams(window.location.search)
+    const back = params.get('back')
+    // Small delay for state to settle, then redirect
+    setTimeout(() => {
+      if (back) router.push(back)
+      else router.push('/dashboard')
+    }, 150)
   }
 
   if (!mounted) return null
@@ -95,7 +107,7 @@ export default function TermsPage() {
 
       <div style={{ borderBottom: `1px solid ${BORD}`, padding: '18px 5%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'rgba(0,12,11,0.92)', backdropFilter: 'blur(20px)', zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: PRI, cursor: 'pointer', fontSize: 20 }}>←</button>
+          <a href="javascript:history.back()" style={{ background: 'none', border: 'none', color: PRI, cursor: 'pointer', fontSize: 20, textDecoration: 'none' }}>←</a>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ animation: 'glowTeal 3s ease-in-out infinite' }}><PRLogo size={26} /></div>
             <span style={{ fontFamily: 'Playfair Display,serif', fontSize: 17, fontWeight: 700, color: PRI }}>ProveRank</span>
@@ -138,11 +150,11 @@ export default function TermsPage() {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', position: 'relative', zIndex: 10 }}>
           <button className="lb" onClick={handleAccept} disabled={!canAccept || accepting} style={{ flex: 1, minWidth: 200 }}>
             {accepting ? '...' : `✓ ${lang === 'en' ? 'I Accept All Terms' : 'मैं सभी शर्तें स्वीकार करता/करती हूं'}`}
           </button>
-          <button onClick={() => router.back()} style={{ flex: 1, minWidth: 200, padding: 15, borderRadius: 10, border: `1.5px solid ${BORD}`, background: 'transparent', color: SUB, fontSize: 16, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+          <button onClick={() => { try { window.history.back() } catch { window.location.href = '/register' } }} style={{ flex: 1, minWidth: 200, padding: 15, borderRadius: 10, border: `1.5px solid ${BORD}`, background: 'transparent', color: SUB, fontSize: 16, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
             {lang === 'en' ? 'Decline' : 'अस्वीकार करें'}
           </button>
         </div>

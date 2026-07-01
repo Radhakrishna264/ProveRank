@@ -42,6 +42,16 @@ export default function RegisterPage() {
   }, [email])
 
   // F35.9 — OTP resend countdown
+  // Auto-check T&C if user is returning from terms page
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('pr_terms_viewed') === 'true') {
+        setAgreedTnc(true)
+        localStorage.removeItem('pr_terms_viewed') // consume it
+      }
+    } catch {}
+  }, [])
+
   useEffect(() => { if (step === 'otp') setResendCooldown(60) }, [step])
   useEffect(() => {
     if (resendCooldown <= 0) return
@@ -130,11 +140,32 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* F35.12 — T&C checkbox required */}
-          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 18, cursor: 'pointer' }}>
-            <input type="checkbox" checked={agreedTnc} onChange={e => setAgreedTnc(e.target.checked)} style={{ marginTop: 2, accentColor: T.pri, width: 16, height: 16, flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: T.sub, lineHeight: 1.5 }}>I agree to the <a href="/terms" target="_blank" style={{ color: T.pri, fontWeight: 600 }}>Terms &amp; Conditions</a> and Privacy Policy</span>
-          </label>
+          {/* F35.12 — T&C checkbox — must read terms first */}
+          <div style={{ marginTop: 18, padding: '12px 14px', background: 'rgba(0,20,18,0.6)', border: `1px solid ${agreedTnc ? T.pri : T.cardBorder}`, borderRadius: 10, transition: 'border-color .3s' }}>
+            {!agreedTnc ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>📋</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, color: T.txt, marginBottom: 4 }}>You must read Terms &amp; Conditions before proceeding</div>
+                  <a
+                    href={'/terms?back=/register'}
+                    onClick={() => { try { localStorage.setItem('pr_terms_redirect', '1') } catch {} }}
+                    style={{ color: T.pri, fontSize: 12, fontWeight: 700, textDecoration: 'underline' }}
+                  >
+                    📖 Read Terms &amp; Conditions →
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <div style={{ width: 20, height: 20, borderRadius: 5, background: T.pri, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ color: '#001A1A', fontSize: 12, fontWeight: 900 }}>✓</span>
+                </div>
+                <span style={{ fontSize: 12, color: T.txt, fontWeight: 600 }}>✅ Terms &amp; Conditions read and accepted</span>
+                <button onClick={() => setAgreedTnc(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#FF4D4D', fontSize: 11, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>Undo</button>
+              </label>
+            )}
+          </div>
 
           <button onClick={register} disabled={loading || !canSubmit} style={{ ...btnPri(loading || !canSubmit), marginTop: 20 }}>{loading ? 'Creating Account...' : 'Create Account →'}</button>
           <div style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: T.sub }}>Already have an account?{' '}<a href="/login" style={{ color: T.pri, fontWeight: 600, textDecoration: 'none' }}>Login →</a></div>
