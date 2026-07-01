@@ -208,6 +208,8 @@ router.post('/login', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '7d' }
     )
+    // F35.1 — Multi-device session control: new login invalidates old device
+    await User.collection.updateOne({ _id: user._id }, { $set: { activeSessionToken: token } })
     res.json({ token, role: user.role || 'student', name:user.name||'',studentId:user.studentId||null,welcomeSeen:user.welcomeSeen||false,message:'Login successful' })
   } catch (err) {
     console.error('Login error:', err)
@@ -265,6 +267,8 @@ router.post('/login-otp', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '7d' }
     )
+    // F35.1 — Multi-device session control
+    await User.collection.updateOne({ _id: user._id }, { $set: { activeSessionToken: token } })
     res.json({ token, role: user.role || 'student', message: 'Login successful' })
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
@@ -354,6 +358,11 @@ router.get('/me', async (req, res) => {
       { projection: { password:0, emailVerifyOTP:0, loginOTP:0, resetOTP:0, emailVerifyToken:0 } }
     )
     if (!user) return res.status(404).json({ message: 'User not found' })
+    // F35.1 — Reject if logged in on another device (session replaced)
+    const presentedToken = auth.split(' ')[1]
+    if ((user.role==='student'||!user.role) && user.activeSessionToken && user.activeSessionToken !== presentedToken) {
+      return res.status(401).json({ message: 'Session expired — you have been logged in on another device.', code: 'SESSION_REPLACED' })
+    }
     res.json({ ...user, studentId: user.studentId||null, loginHistory: user.loginHistory || [] })
   } catch (err) {
     res.status(401).json({ message: 'Invalid token' })
@@ -405,6 +414,40 @@ router.post('/admin/registration-control', async (req, res) => {
       message: `Registration ${enabled ? 'ENABLED' : 'DISABLED'} successfully`,
       open_registration: Boolean(enabled)
     })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+
+// ── F35.8 — Real-time Email Availability Check ─────────────────────
+router.post('/check-email', async (req, res) => {
+  try {
+    const { email } = req.body
+    if (!email) return res.status(400).json({ message: 'Email required' })
+    const validFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    if (!validFormat) return res.json({ valid:false, available:false, message:'Invalid email format' })
+    const existing = await User.collection.findOne({ email })
+    const taken = !!(existing && (existing.emailVerified || existing.verified) && !existing.archived)
+    res.json({ valid:true, available: !taken, message: taken ? 'Email already registered' : 'Email available' })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// ── F35.15 — Accept Terms (timestamp + version tracking) ───────────
+router.post('/accept-terms', async (req, res) => {
+  try {
+    const auth = req.headers.authorization
+    if (!auth) return res.status(401).json({ message: 'No token' })
+    const payload = jwt.verify(auth.split(' ')[1], JWT_SECRET)
+    const mongoose = require('mongoose')
+    const TERMS_VERSION = 'Version 2.1 — Updated March 2026'
+    await User.collection.updateOne(
+      { _id: new mongoose.Types.ObjectId(payload.id) },
+      { $set: { termsAccepted:true, termsAcceptedAt:new Date(), termsVersion: TERMS_VERSION } }
+    )
+    res.json({ message: 'Terms accepted', version: TERMS_VERSION })
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
   }

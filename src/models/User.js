@@ -44,7 +44,13 @@ const userSchema = new mongoose.Schema({
   archived: { type: Boolean, default: false },
   banReason: { type: String },
   banExpiry: { type: Date },
-  parentEmail: { type: String }
+  parentEmail: { type: String },
+
+  // ── F35: Multi-device session control + Terms tracking ─────────
+  activeSessionToken: { type: String, default: null },
+  termsAccepted:      { type: Boolean, default: false },
+  termsAcceptedAt:    { type: Date,    default: null },
+  termsVersion:        { type: String, default: null },
 }, { timestamps: true });
 
 // password hashing removed — done in auth.js directly;

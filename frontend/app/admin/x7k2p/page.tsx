@@ -3970,7 +3970,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
                     </div>
                   </div>
                   {/* Login History */}
-                  {selStudent.loginHistory&&selStudent.loginHistory.length>0&&(
+                  {role==='superadmin'&&selStudent.loginHistory&&selStudent.loginHistory.length>0&&(
                     <div style={{marginTop:14,paddingTop:12,borderTop:'1px solid rgba(77,159,255,0.12)'}}>
                       <div style={{fontWeight:700,fontSize:10,color:'#8899AA',marginBottom:8,letterSpacing:'0.8px',textTransform:'uppercase' as const}}>📊 Recent Login Activity (S48)</div>
                       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(170px,1fr))',gap:6}}>
