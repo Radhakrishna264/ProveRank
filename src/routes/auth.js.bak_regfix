@@ -455,23 +455,13 @@ router.post('/accept-terms', async (req, res) => {
 
 
 // ── Registration Status Check ────────────────────────────────────
-router.get('/registration-status', async (req, res) => {
+router.get('/registration-status', (req, res) => {
   try {
-    let open = true
-    try {
-      const FeatureFlag = require('../models/FeatureFlag')
-      const flag = await FeatureFlag.findOne({ key: 'student_registration' })
-      if (flag) open = flag.enabled === true
-    } catch (_e) {
-      // FeatureFlag model not available — default open
-    }
-    // No cache headers — always fresh
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate')
-    res.json({ open, timestamp: Date.now() })
+    const open = global.featureFlags ? global.featureFlags['open_registration'] !== false : true
+    res.json({ open, message: open ? 'Registration is open' : 'Registration is currently closed' })
   } catch (err) {
-    res.json({ open: true, timestamp: Date.now() })
+    res.json({ open: true, message: 'Registration is open' })
   }
 })
-
 
 module.exports = router
