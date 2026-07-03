@@ -96,7 +96,7 @@ function MiniMock({ lang }: { lang: 'en'|'hi' }) {
   return (
     <div style={{marginTop:14,background:'rgba(123,77,255,0.08)',borderRadius:12,padding:'14px 16px',border:'1px solid rgba(123,77,255,0.2)'}}>
       <div style={{fontSize:11,color:'#7B4DFF',fontWeight:700,marginBottom:8,textTransform:'uppercase',letterSpacing:.5}}>
-        {lang==='en' ? '🧬 Try a Sample Question' : '🧬 एक सैंपल प्रश्न आज़माएं'}
+        {lang==='en' ? '🧠 Try a Sample Question' : '🧠 एक सैंपल प्रश्न आज़माएं'}
       </div>
       <div style={{fontSize:13,color:'#CCFBF1',marginBottom:10,lineHeight:1.5}}>{q}</div>
       {opts.map((o,i) => (
@@ -168,20 +168,20 @@ export default function OnboardingPage() {
   // ── Step content (36.1, 36.5) ────────────────────────────
   const STEPS = [
     {
-      en: { h: `Welcome to ProveRank${userName ? ', '+userName : ''}! 🚀`, b: 'Your NEET preparation journey starts here. We\'ll help you crack NEET with smart tools, AI analytics, and curated content.' },
-      hi: { h: `ProveRank में आपका स्वागत है${userName ? ', '+userName : ''}! 🚀`, b: 'आपकी NEET तैयारी की यात्रा यहाँ से शुरू होती है। हम आपको स्मार्ट टूल्स और AI एनालिटिक्स से NEET क्रैक करने में मदद करेंगे।' }
+      en: { h: `Welcome to ProveRank${userName ? ', '+userName : ''}! 🚀`, b: 'Your exam preparation journey starts here. Whether it\'s NEET, IIT-JEE, CUET, SSC, RPSC or DSSSB — we\'ll help you succeed with smart tools, AI analytics, and curated content.' },
+      hi: { h: `ProveRank में आपका स्वागत है${userName ? ', '+userName : ''}! 🚀`, b: 'आपकी परीक्षा तैयारी की यात्रा यहाँ से शुरू होती है। NEET, IIT-JEE, CUET, SSC, RPSC या DSSSB — हम आपको सफलता दिलाएंगे।' }
     },
     {
-      en: { h: '📝 Full Mock Tests', b: 'Attempt full-length & chapter-wise mock tests designed exactly like NEET. Track your progress, see where you stand, and improve with every attempt.' },
-      hi: { h: '📝 मॉक टेस्ट', b: 'NEET जैसे फुल-लेंथ और चैप्टर-वाइज मॉक टेस्ट दें। अपनी प्रगति ट्रैक करें और हर प्रयास से बेहतर बनें।' }
+      en: { h: '📝 Full Mock Tests', b: 'Attempt full-length & chapter-wise mock tests tailored to your exam — NEET, JEE, CUET, SSC, and more. Track your progress and improve with every attempt.' },
+      hi: { h: '📝 मॉक टेस्ट', b: 'NEET, JEE, CUET, SSC जैसे परीक्षाओं के लिए फुल-लेंथ और चैप्टर-वाइज मॉक टेस्ट दें। हर प्रयास से बेहतर बनें।' }
     },
     {
       en: { h: '📊 AI-Powered Analytics', b: 'Get deep insights into your performance — subject-wise accuracy, time spent per question, weak topics, and personalized study suggestions.' },
       hi: { h: '📊 AI एनालिटिक्स', b: 'अपने प्रदर्शन की गहरी जानकारी पाएं — विषयवार सटीकता, कमज़ोर टॉपिक्स और व्यक्तिगत अध्ययन सुझाव।' }
     },
     {
-      en: { h: '🏆 Rankings & Leaderboard', b: 'See where you rank among thousands of NEET aspirants. Batch rankings, national rankings, and subject-wise standings — compete and rise to the top!' },
-      hi: { h: '🏆 रैंकिंग और लीडरबोर्ड', b: 'हजारों NEET aspirants में अपनी रैंक देखें। बैच रैंकिंग, नेशनल रैंकिंग और विषयवार स्थिति — प्रतिस्पर्धा करें और शीर्ष पर पहुंचें!' }
+      en: { h: '🏆 Rankings & Leaderboard', b: 'See where you rank among thousands of competitive exam aspirants. Batch rankings, national rankings, and exam-wise standings — compete and rise to the top!' },
+      hi: { h: '🏆 रैंकिंग और लीडरबोर्ड', b: 'हजारों प्रतियोगी परीक्षा aspirants में अपनी रैंक देखें। बैच रैंकिंग, नेशनल रैंकिंग — प्रतिस्पर्धा करें और शीर्ष पर पहुंचें!' }
     },
     {
       en: { h: '🧠 Smart Revision System', b: 'Our AI identifies your weak areas and creates a personalized revision plan. Spaced repetition ensures you remember what you study.' },
@@ -189,7 +189,7 @@ export default function OnboardingPage() {
     },
     {
       en: { h: "🎉 You're All Set!", b: 'Your ProveRank journey begins now! Your account is ready, your first mock test awaits, and the leaderboard is waiting for you. Rise to the Top! 🚀' },
-      hi: { h: '🎉 आप तैयार हैं!', b: 'आपकी ProveRank यात्रा अब शुरू होती है! आपका पहला मॉक टेस्ट इंतज़ार कर रहा है और लीडरबोर्ड आपका इंतजार कर रहा है। Rise to the Top! 🚀' }
+      hi: { h: '🎉 आप तैयार हैं!', b: 'आपकी ProveRank यात्रा अब शुरू होती है! आपका पहला मॉक टेस्ट इंतज़ार कर रहा है। Rise to the Top! 🚀' }
     },
   ]
 
@@ -268,7 +268,7 @@ export default function OnboardingPage() {
               {lang==='en'?'Welcome to ProveRank!':'ProveRank में आपका स्वागत है!'}
             </div>
             <div style={{fontSize:13,color:SUB,lineHeight:1.6}}>
-              {lang==='en'?'Your account is set up. Let\'s start your NEET journey! 🚀':'आपका अकाउंट तैयार है। NEET यात्रा शुरू करें! 🚀'}
+              {lang==='en'?'Your account is set up. Let\'s start your exam journey! 🚀':'आपका अकाउंट तैयार है। NEET यात्रा शुरू करें! 🚀'}
             </div>
             <div style={{marginTop:16,fontSize:12,color:'rgba(45,212,191,0.6)',animation:'pulse 1.5s ease-in-out infinite'}}>
               {lang==='en'?'Taking you to dashboard...':'डैशबोर्ड पर ले जा रहे हैं...'}
@@ -356,7 +356,7 @@ export default function OnboardingPage() {
           </button>
           {step===5 && (
             <button onClick={()=>{
-              const txt = encodeURIComponent(lang==='en'?'🚀 I just joined ProveRank — the ultimate NEET prep platform! Join me at prove-rank.vercel.app':'🚀 मैं अभी ProveRank से जुड़ गया — NEET की सबसे बेहतरीन तैयारी! prove-rank.vercel.app पर जुड़ें')
+              const txt = encodeURIComponent(lang==='en'?'🚀 I just joined ProveRank — the ultimate competitive exam platform! Join me at prove-rank.vercel.app':'🚀 मैं अभी ProveRank से जुड़ गया — प्रतियोगी परीक्षाओं की सबसे बेहतरीन तैयारी! prove-rank.vercel.app पर जुड़ें')
               window.open(`https://wa.me/?text=${txt}`,'_blank')
             }} style={{background:'rgba(37,211,102,0.12)',border:'1px solid rgba(37,211,102,0.3)',borderRadius:20,padding:'6px 14px',color:'#25D366',fontSize:11,cursor:'pointer',fontWeight:600,display:'flex',alignItems:'center',gap:6}}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
