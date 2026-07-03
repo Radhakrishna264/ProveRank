@@ -195,13 +195,13 @@ router.post('/login', async (req, res) => {
     else if (rawUA.includes('Linux')) os = 'Linux'
     let city = 'Unknown', country = 'Unknown'
     try {
-      const _ac=new AbortController();const _gt=setTimeout(()=>_ac.abort(),1500);const geoRes=await fetch(`http://ip-api.com/json/${realIp}?fields=city,country,status`,{signal:_ac.signal});clearTimeout(_gt)
+      const geoRes = await fetch(`http://ip-api.com/json/${realIp}?fields=city,country,status`)
       const geo = await geoRes.json()
       if (geo.status === 'success') { city = geo.city || 'Unknown'; country = geo.country || 'Unknown' }
     } catch(e) {}
     history.push({ at: new Date(), ip: realIp, browser, os, city, country, device: `${browser} on ${os}` })
-    User.collection.updateOne({ _id: user._id },
-      { $set: { loginHistory: history.slice(-50) }, $inc: { loginCount: 1 } }).catch(()=>{})
+    await User.collection.updateOne({ _id: user._id },
+      { $set: { loginHistory: history.slice(-50) }, $inc: { loginCount: 1 } })
 
     const token = jwt.sign(
       { id: user._id.toString(), role: user.role || 'student' },
@@ -428,7 +428,7 @@ router.post('/check-email', async (req, res) => {
     const validFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
     if (!validFormat) return res.json({ valid:false, available:false, message:'Invalid email format' })
     const existing = await User.collection.findOne({ email })
-    const taken = !!(existing && (existing.emailVerified || existing.verified) && !existing.archived && existing.deleted !== true)
+    const taken = !!(existing && (existing.emailVerified || existing.verified) && !existing.archived)
     res.json({ valid:true, available: !taken, message: taken ? 'Email already registered' : 'Email available' })
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
@@ -450,17 +450,6 @@ router.post('/accept-terms', async (req, res) => {
     res.json({ message: 'Terms accepted', version: TERMS_VERSION })
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
-  }
-})
-
-
-// ── Registration Status Check ────────────────────────────────────
-router.get('/registration-status', (req, res) => {
-  try {
-    const open = global.featureFlags ? global.featureFlags['open_registration'] !== false : true
-    res.json({ open, message: open ? 'Registration is open' : 'Registration is currently closed' })
-  } catch (err) {
-    res.json({ open: true, message: 'Registration is open' })
   }
 })
 

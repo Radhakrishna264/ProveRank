@@ -23,15 +23,6 @@ export default function RegisterPage() {
   const [msg, setMsg] = useState('')
   const [resending, setResend] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
-  const [regClosed, setRegClosed] = useState(false)
-
-  // Registration status check on mount
-  useEffect(() => {
-    fetch(`${API}/api/auth/registration-status`)
-      .then(r => r.json())
-      .then(d => { if (!d.open) setRegClosed(true) })
-      .catch(() => {})
-  }, [])
 
   // F35.8 — Email availability check (debounced 500ms) / Real-time format validation
   const [emailCheck, setEmailCheck] = useState<{ checking: boolean; available: boolean | null; msg: string }>({ checking: false, available: null, msg: '' })
@@ -53,9 +44,13 @@ export default function RegisterPage() {
 
   // F35.9 — OTP resend countdown
   // Auto-check T&C if user is returning from terms page
-  // Bug3: clear stale flag only, never auto-accept
   useEffect(() => {
-    try { localStorage.removeItem('pr_terms_viewed') } catch {}
+    try {
+      if (localStorage.getItem('pr_terms_viewed') === 'true') {
+        setAgreedTnc(true)
+        localStorage.removeItem('pr_terms_viewed') // consume it
+      }
+    } catch {}
   }, [])
 
   useEffect(() => { if (step === 'otp') setResendCooldown(60) }, [step])
@@ -112,28 +107,7 @@ export default function RegisterPage() {
   return (
     <AuthShell steps={steps} current={currentStepIdx}>
 
-      {/* Reg Closed Banner */}
-      {regClosed && step === 'details' && (
-        <div style={{ position:'relative', background:'rgba(0,8,6,0.97)', border:'2px solid rgba(255,80,80,0.35)', borderRadius:18, padding:'38px 22px', textAlign:'center', backdropFilter:'blur(20px)', boxShadow:'0 12px 50px rgba(0,0,0,0.75)', overflow:'hidden' }}>
-          <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'linear-gradient(90deg,#FF6B6B,#FF4D4D,#FF8C42)' }} />
-          <div style={{ fontSize:52, marginBottom:12 }}>🔒</div>
-          <h2 style={{ fontFamily:'Playfair Display,serif', fontSize:20, fontWeight:700, color:'#FF8080', margin:'0 0 10px' }}>Registration Temporarily Closed</h2>
-          <div style={{ background:'rgba(255,70,70,0.08)', border:'1px solid rgba(255,70,70,0.25)', borderRadius:10, padding:'12px 16px', marginBottom:16 }}>
-            <p style={{ fontSize:13, color:'#FFAAAA', fontWeight:600, margin:0, lineHeight:1.6 }}>
-              📢 Registration is currently closed. We&apos;ll be back soon. Please contact Admin for access.
-            </p>
-          </div>
-          <p style={{ fontSize:13, color:'rgba(255,255,255,0.45)', marginBottom:22, lineHeight:1.65 }}>
-            New student registrations are temporarily paused.<br/>Existing students can still login normally.
-          </p>
-          <div style={{ display:'flex', gap:10, justifyContent:'center', flexWrap:'wrap' }}>
-            <a href="/login" style={{ padding:'11px 24px', background:'linear-gradient(135deg,#2DD4BF,#0D9488)', color:'#001A1A', borderRadius:11, fontWeight:700, fontSize:13, textDecoration:'none', display:'inline-block' }}>Login →</a>
-            <a href="mailto:admin@proverank.com" style={{ padding:'11px 20px', background:'rgba(255,80,80,0.12)', border:'1px solid rgba(255,80,80,0.3)', color:'#FF9999', borderRadius:11, fontWeight:600, fontSize:13, textDecoration:'none', display:'inline-block' }}>📧 Contact Admin</a>
-          </div>
-        </div>
-      )}
-
-      {!regClosed && step === 'details' && (
+      {step === 'details' && (
         <div style={{ background: T.card, border: `1px solid ${T.cardBorder}`, borderRadius: 20, padding: '30px 26px', backdropFilter: 'blur(24px)', boxShadow: '0 8px 40px rgba(0,0,0,.5)' }}>
           <h2 style={{ fontFamily: 'Playfair Display,serif', fontSize: 22, fontWeight: 700, color: T.txt, margin: '0 0 6px', textAlign: 'center' }}>Create Account</h2>
           <p style={{ fontSize: 13, color: T.sub, textAlign: 'center', marginBottom: 22 }}>Join ProveRank — Rise to the Top</p>
@@ -269,7 +243,7 @@ export default function RegisterPage() {
             </div>
             {/* Accept button */}
             <div style={{ padding:'14px 20px',borderTop:'1px solid rgba(0,200,160,0.2)',flexShrink:0,display:'flex',gap:10 }}>
-              <button onClick={() => { setAgreedTnc(true); setShowTermsModal(false); /* Bug3: session-only */ }}
+              <button onClick={() => { setAgreedTnc(true); setShowTermsModal(false); try { localStorage.setItem('pr_terms_viewed','true') } catch {} }}
                 style={{ flex:1,padding:'12px',background:'linear-gradient(135deg,#2DD4BF,#0D9488)',color:'#001A1A',border:'none',borderRadius:10,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'Inter,sans-serif',boxShadow:'0 4px 16px rgba(45,212,191,0.4)' }}>
                 ✓ I Accept All Terms
               </button>

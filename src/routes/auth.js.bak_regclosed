@@ -453,15 +453,4 @@ router.post('/accept-terms', async (req, res) => {
   }
 })
 
-
-// ── Registration Status Check ────────────────────────────────────
-router.get('/registration-status', (req, res) => {
-  try {
-    const open = global.featureFlags ? global.featureFlags['open_registration'] !== false : true
-    res.json({ open, message: open ? 'Registration is open' : 'Registration is currently closed' })
-  } catch (err) {
-    res.json({ open: true, message: 'Registration is open' })
-  }
-})
-
 module.exports = router

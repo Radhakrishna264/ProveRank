@@ -86,9 +86,9 @@ export default function RegisterPage() {
       const r = await fetch(`${API}/api/auth/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, otp }) })
       const d = await r.json()
       if (r.ok) {
-        try { localStorage.setItem('pr_token', d.token); localStorage.setItem('pr_role', d.role || 'student'); localStorage.setItem('pr_new_student', 'true'); localStorage.setItem('pr_name', d.name||'') } catch {}
-        setStep('done') // F35.14 — confetti
-        setTimeout(() => router.replace('/onboarding'), 2200) // F36 — onboarding tour
+        try { localStorage.setItem('pr_token', d.token); localStorage.setItem('pr_role', d.role || 'student'); localStorage.setItem('pr_new_student', 'true') } catch {}
+        setStep('done') // F35.14 — confetti success before redirect
+        setTimeout(() => router.replace('/dashboard'), 2200)
       } else setError(d.message || 'Invalid OTP')
     } catch { setError('Network error. Please try again.') }
     setLoading(false)
