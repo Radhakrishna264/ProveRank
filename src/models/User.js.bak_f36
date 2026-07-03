@@ -46,11 +46,6 @@ const userSchema = new mongoose.Schema({
   banExpiry: { type: Date },
   parentEmail: { type: String },
 
-  // ── F36: Onboarding Tour ──────────────────────────────────────────
-  onboarded:      { type: Boolean, default: false },
-  onboardedAt:    { type: Date,    default: null },
-  badges:         [{ id: String, name: String, unlockedAt: { type: Date, default: Date.now } }],
-
   // ── F35: Multi-device session control + Terms tracking ─────────
   activeSessionToken: { type: String, default: null },
   termsAccepted:      { type: Boolean, default: false },

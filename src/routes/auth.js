@@ -119,7 +119,7 @@ router.post('/verify-otp', async (req, res) => {
       { expiresIn: '7d' }
     )
     res.json({ token, role: user.role || 'student', name: user.name, studentId: user.studentId||null, welcomeSeen: user.welcomeSeen||false,
-               message: 'Email verified! Welcome to ProveRank.' })
+               needsOnboarding: !user.onboarded, message: 'Email verified! Welcome to ProveRank.' })
   } catch (err) {
     console.error('OTP verify error:', err)
     res.status(500).json({ message: 'Server error' })
@@ -461,6 +461,39 @@ router.get('/registration-status', (req, res) => {
     res.json({ open, message: open ? 'Registration is open' : 'Registration is currently closed' })
   } catch (err) {
     res.json({ open: true, message: 'Registration is open' })
+  }
+})
+
+
+// ── F36: Complete Onboarding — mark user as onboarded + give Explorer badge ──
+router.post('/complete-onboarding', async (req, res) => {
+  try {
+    const token   = req.headers.authorization?.split(' ')[1]
+    if (!token) return res.status(401).json({ message: 'Token required' })
+
+    const JWT_SECRET = process.env.JWT_SECRET || 'proverank_jwt_super_secret_key_2024'
+    let decoded
+    try { decoded = require('jsonwebtoken').verify(token, JWT_SECRET) }
+    catch { return res.status(401).json({ message: 'Invalid token' }) }
+
+    const user = await User.findById(decoded.id)
+    if (!user) return res.status(404).json({ message: 'User not found' })
+
+    if (!user.onboarded) {
+      // Add Explorer badge if not already present
+      const hasExplorer = (user.badges || []).some(b => b.id === 'explorer')
+      const badges = hasExplorer ? user.badges : [
+        ...(user.badges || []),
+        { id: 'explorer', name: 'Explorer', unlockedAt: new Date() }
+      ]
+      await User.findByIdAndUpdate(decoded.id, {
+        onboarded: true, onboardedAt: new Date(), badges
+      })
+      return res.json({ success: true, badge: 'explorer', message: 'Onboarding complete! Explorer badge unlocked.' })
+    }
+    res.json({ success: true, message: 'Already onboarded' })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' })
   }
 })
 

@@ -1,3 +1,23 @@
+#!/bin/bash
+# ═══════════════════════════════════════════════════════════════
+#  ProveRank — F36 Onboarding Tour (FRONTEND)
+#  1. Create app/onboarding/page.tsx (full tour)
+#  2. Patch register/page.tsx — redirect to /onboarding after OTP
+# ═══════════════════════════════════════════════════════════════
+set -e
+
+REG_F=$(find . -path "*/app/register/page.tsx" | grep -v node_modules | head -1)
+ONBOARD_DIR=$(dirname "$REG_F")/../onboarding
+echo "Register page : $REG_F"
+echo "Onboarding dir: $ONBOARD_DIR"
+
+cp "$REG_F" "${REG_F}.bak_f36"
+mkdir -p "$ONBOARD_DIR"
+
+# ════════════════════════════════════════════════════════════════
+# 1. CREATE — app/onboarding/page.tsx (ALL 25 sub-features)
+# ════════════════════════════════════════════════════════════════
+cat > "$ONBOARD_DIR/page.tsx" << 'PAGEOF'
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -367,7 +387,7 @@ export default function OnboardingPage() {
 
         {/* ── 36.5 — Language hint ─────────────────────── */}
         <div style={{textAlign:'center',marginTop:12}}>
-          <button onClick={()=>setLang((l:'en'|'hi')=>l==='en'?'hi':'en') // 36.5 lang toggle} style={{background:'none',border:'none',color:'rgba(94,234,212,0.4)',fontSize:11,cursor:'pointer'}}>
+          <button onClick={()=>setLang(l=>l==='en'?'hi':'en')} style={{background:'none',border:'none',color:'rgba(94,234,212,0.4)',fontSize:11,cursor:'pointer'}}>
             {lang==='en'?'हिन्दी में देखें':'View in English'}
           </button>
         </div>
@@ -376,3 +396,98 @@ export default function OnboardingPage() {
     </div>
   )
 }
+PAGEOF
+
+echo "✅ Onboarding page created at $ONBOARD_DIR/page.tsx"
+
+# ════════════════════════════════════════════════════════════════
+# 2. PATCH — register/page.tsx: redirect to /onboarding
+# ════════════════════════════════════════════════════════════════
+export REG_F
+node << 'JSEOF'
+const fs = require('fs');
+const f  = process.env.REG_F;
+let c = fs.readFileSync(f, 'utf8');
+
+if (c.includes('/onboarding')) {
+  console.log('ℹ️  Register page already redirects to /onboarding');
+} else {
+  // Patch redirect after successful OTP verify
+  c = c.replace(
+    "try { localStorage.setItem('pr_token', d.token); localStorage.setItem('pr_role', d.role || 'student'); localStorage.setItem('pr_new_student', 'true') } catch {}\n        setStep('done') // F35.14 — confetti success before redirect\n        setTimeout(() => router.replace('/dashboard'), 2200)",
+    "try { localStorage.setItem('pr_token', d.token); localStorage.setItem('pr_role', d.role || 'student'); localStorage.setItem('pr_new_student', 'true'); localStorage.setItem('pr_name', d.name||'') } catch {}\n        setStep('done') // F35.14 — confetti\n        setTimeout(() => router.replace('/onboarding'), 2200) // F36 — onboarding tour"
+  );
+
+  if (!c.includes('/onboarding')) {
+    // Flexible fallback
+    c = c.replace(
+      "router.replace('/dashboard')",
+      "router.replace('/onboarding') // F36"
+    );
+  }
+
+  fs.writeFileSync(f, c);
+  console.log('✅ Register page: redirect to /onboarding after OTP verify');
+}
+
+const v = fs.readFileSync(f,'utf8');
+console.log('Redirects to /onboarding:', v.includes('/onboarding') ? '✅' : '❌');
+JSEOF
+
+# ════════════════════════════════════════════════════════════════
+# VERIFY — All 25 sub-features
+# ════════════════════════════════════════════════════════════════
+echo ""
+echo "═══════════════════════════════════════════════════════"
+echo "  🔍 Frontend F36 — Verification"
+echo "═══════════════════════════════════════════════════════"
+export ONBOARD_DIR REG_F
+node << 'JSEOF'
+const fs = require('fs');
+const OD = process.env.ONBOARD_DIR + '/page.tsx';
+const RF = process.env.REG_F;
+
+const op = fs.existsSync(OD) ? fs.readFileSync(OD,'utf8') : '';
+const rp = fs.existsSync(RF) ? fs.readFileSync(RF,'utf8') : '';
+
+const checks = [
+  ['36.1  6-step content (Welcome→Mock→AI→Rankings→Revision→Done)', op.includes('STEPS') && op.includes('TOTAL = 6')],
+  ['36.2  Step dots progress indicator',                              op.includes('Array.from({length:TOTAL})')],
+  ['36.3  Per-step SVG animation (StepSVG component)',               op.includes('function StepSVG')],
+  ['36.4  Per-step color theming (STEP_COLORS)',                     op.includes('STEP_COLORS')],
+  ['36.5  Hindi/English both (lang toggle)',                         op.includes("lang==='en'?'hi':'en'")],
+  ['36.6  Back button (step > 0)',                                   op.includes('step>0')],
+  ['36.7  Next button with step-color gradient',                     op.includes('Next →')],
+  ['36.8  Start My Journey → welcome banner',                       op.includes('Start My Journey')],
+  ['36.9  Skip Tour → welcome banner too',                          op.includes('Skip Tour')],
+  ['36.10 localStorage pr_onboarded set',                           op.includes("'pr_onboarded','1'")],
+  ['36.11 Redirect to /dashboard on complete',                      op.includes("router.replace('/dashboard')")],
+  ['36.12 Auth check → redirect to /login if no token',             op.includes("router.replace('/login')")],
+  ['36.13 Glassmorphism card rgba(0,22,40,0.88)',                   op.includes('rgba(0,35,30,0.88)') || op.includes('cardBg')],
+  ['36.14 Playfair Display font',                                    op.includes('Playfair Display')],
+  ['36.15 keyframes float, bounce, fadeIn, pulse, shimmer',         op.includes('@keyframes float') && op.includes('@keyframes bounce') && op.includes('@keyframes shimmer')],
+  ['36.16 "Step X of 6" progress text',                             op.includes('Step ${step+1} of ${TOTAL}')],
+  ['36.17 Explorer badge achievement unlock',                        op.includes('Explorer') && op.includes('badge')],
+  ['36.18 Interactive mini mock question on Step 2',                op.includes('function MiniMock') && op.includes('Mitochondria')],
+  ['36.19 Dark/light mode theme support',                           op.includes('isDark') || op.includes('pr_color_theme')],
+  ['36.20 WhatsApp share on final step',                            op.includes('wa.me')],
+  ['36.21 Confetti burst on final step',                            op.includes('function Confetti')],
+  ['36.22 Progress bar gradient purple→blue→green',                 op.includes('#7B4DFF,#4D9FFF,#00C48C')],
+  ['36.23 slideLeft/slideRight animation between steps',            op.includes('slideLeft') && op.includes('slideRight')],
+  ['36.24 Mobile full-screen card (no scroll)',                     op.includes('maxWidth:480')],
+  ['36.25 Step X of 6 + pct% display',                             op.includes('pct}%')],
+  ['Register → redirects to /onboarding after OTP',                rp.includes('/onboarding')],
+];
+
+let pass=0, fail=0;
+checks.forEach(([l,v]) => { console.log((v?'✅':'❌')+' '+l); v?pass++:fail++; });
+console.log('\n'+pass+'/'+checks.length+' passed');
+if (fail===0) {
+  console.log('\n🎉 Feature 36 Frontend — ALL IMPLEMENTED!');
+} else {
+  console.log('\n⚠️  '+fail+' check(s) need attention');
+}
+JSEOF
+
+echo ""
+echo "git add . && git commit -m 'feat: F36 Onboarding Tour — 6-step guided tour' && git push"
