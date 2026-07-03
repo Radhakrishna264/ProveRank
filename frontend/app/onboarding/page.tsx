@@ -367,7 +367,7 @@ export default function OnboardingPage() {
 
         {/* ── 36.5 — Language hint ─────────────────────── */}
         <div style={{textAlign:'center',marginTop:12}}>
-          <button onClick={()=>setLang((l)=>l==='en'?'hi':'en')} style={{background:'none',border:'none',color:'rgba(94,234,212,0.4)',fontSize:11,cursor:'pointer'}}>
+          <button onClick={()=>setLang((l:'en'|'hi')=>l==='en'?'hi':'en') // 36.5 lang toggle} style={{background:'none',border:'none',color:'rgba(94,234,212,0.4)',fontSize:11,cursor:'pointer'}}>
             {lang==='en'?'हिन्दी में देखें':'View in English'}
           </button>
         </div>
