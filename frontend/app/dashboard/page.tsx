@@ -168,7 +168,7 @@ function ChecklistWidget({token,toast,lang}:{token:string;toast:(m:string,t?:'s'
   // Hide widget if all done AND badge already given (seen before)
   if(allDone && hasBadge) return null
 
-  const pct = Math.round((count/5)*100)
+  const pct = Math.round((count/4)*100)
 
   return (
     <>
@@ -209,7 +209,7 @@ function ChecklistWidget({token,toast,lang}:{token:string;toast:(m:string,t?:'s'
             </div>
           </div>
           <div style={{textAlign:'right'}}>
-            <div style={{fontSize:18,fontWeight:800,color:'#4D9FFF'}}>{count}/5</div>
+            <div style={{fontSize:18,fontWeight:800,color:'#4D9FFF'}}>{count}/4</div>
             <div style={{fontSize:9,color:'#6B8FAF'}}>{t2('Complete','पूर्ण')}</div>
           </div>
         </div>
