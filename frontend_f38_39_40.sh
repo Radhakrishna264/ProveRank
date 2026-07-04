@@ -1,3 +1,15 @@
+#!/bin/bash
+# ═══════════════════════════════════════════════════════════════
+#  ProveRank — F38 + F39 + F40: Profile Page Complete Rewrite
+#  Two-column layout, completion ring, new fields, F40 save UX
+# ═══════════════════════════════════════════════════════════════
+set -e
+
+PROF_F=$(find . -path "*/app/profile/page.tsx" | grep -v node_modules | head -1)
+echo "Profile: $PROF_F"
+cp "$PROF_F" "${PROF_F}.bak_f38"
+
+cat > "$PROF_F" << 'PAGEOF'
 'use client'
 import CopyBtn from '@/components/CopyBtn'
 import { useState, useEffect, useRef } from 'react'
@@ -617,3 +629,64 @@ function ProfileContent() {
 export default function ProfilePage() {
   return <StudentShell pageKey="profile"><ProfileContent/></StudentShell>
 }
+PAGEOF
+
+echo "✅ Profile page rewritten"
+
+# ── Verify ─────────────────────────────────────────────────────
+export PROF_F
+node << 'JSEOF'
+const fs = require('fs');
+const f  = process.env.PROF_F;
+const c  = fs.readFileSync(f,'utf8');
+
+const checks = [
+  // F38
+  ['F38: Two-column layout',                c.includes('flex:1,minWidth:280')],
+  ['F38: CompletionRing SVG',               c.includes('CompletionRing')],
+  ['F38: Profile completion % calc',        c.includes('calcCp')],
+  ['F38: Avatar upload + camera overlay',   c.includes('avatarInput') && c.includes('uploadAvatar')],
+  ['F38: First-letter initial fallback',    c.includes('charAt(0).toUpperCase')],
+  ['F38: Student ID + CopyBtn',             c.includes('CopyBtn') && c.includes('studentId')],
+  ['F38: Amber warning < 100%',             c.includes('amber') || c.includes('251,191,36')],
+  ['F38: Verified badge',                   c.includes('emailVerified')],
+  ['F38: Member since date',                c.includes('createdAt')],
+  ['F38: Gender dropdown (optional)',       c.includes('GENDERS')],
+  ['F38: State dropdown (Indian states)',   c.includes('STATES') && c.includes('Uttar Pradesh')],
+  ['F38: Bio with char counter (160)',      c.includes('/160') && c.includes('bio.length')],
+  ['F38: Timezone auto-detect + editable', c.includes('TIMEZONES') && c.includes('Intl.DateTimeFormat')],
+  ['F38: Pill-shaped tabs',                c.includes('borderRadius:10') && c.includes('TABS')],
+  // F39
+  ['F39: Target Exam dropdown',            c.includes('TARGET_EXAMS')],
+  ['F39: Target Year dropdown',            c.includes('TARGET_YEARS')],
+  ['F39: Board dropdown',                  c.includes('BOARDS')],
+  ['F39: Year of Appearing dropdown',      c.includes('YEAR_APPEAR')],
+  ['F39: School/College field',            c.includes('school')],
+  ['F39: Coaching Institute field',        c.includes('coaching')],
+  ['F39: Study Info section header',       c.includes('Study Information') || c.includes('अध्ययन जानकारी')],
+  // F40
+  ['F40: Save → disappears on success',    c.includes('setSaved(true)')],
+  ['F40: Edit Profile button appears',     c.includes('setEditing(true);setSaved(false)')],
+  ['F40: Green save button animation',     c.includes('00C48C,#007755')],
+  ['F40: Purple Edit button outlined',     c.includes('A78BFA') && c.includes('✏️')],
+  ['F40: passSaved for security tab',      c.includes('passSaved')],
+  ['F40: Change Again button',             c.includes('Change Again')],
+  // Security
+  ['Security: Eye icon toggle (3 fields)', c.includes('EyeBtn') && (c.match(/EyeBtn/g)||[]).length >= 3],
+  ['Security: Live password match valid.', c.includes('np!==cnp')],
+  ['Security: Login history',              c.includes('loginHistory')],
+  // Preserved
+  ['StudentShell wrapper preserved',       c.includes('StudentShell') && c.includes('pageKey="profile"')],
+  ['CopyBtn import preserved',             c.includes("import CopyBtn")],
+  ['changePass API preserved',             c.includes('change-password')],
+];
+
+let pass=0,fail=0;
+checks.forEach(([l,v])=>{ console.log((v?'✅':'❌')+' '+l); v?pass++:fail++; });
+console.log('\n'+pass+'/'+checks.length+' passed');
+if(fail===0) console.log('\n🎉 F38+F39+F40 fully implemented!');
+else         console.log('\n⚠️ '+fail+' issue(s)');
+JSEOF
+
+echo ""
+echo "git add . && git commit -m 'feat: F38+F39+F40 Profile page — new UI, completion ring, all fields' && git push"

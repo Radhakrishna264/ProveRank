@@ -377,13 +377,12 @@ router.patch('/me', async (req, res) => {
     const payload = jwt.verify(auth.split(' ')[1], JWT_SECRET)
     const mongoose = require('mongoose')
     const allowed = ['name','phone','dob','city','targetExam','board',
-                     'school','bio','parentEmail','goals','avatar','state','gender','timezone','targetYear','yearOfAppearing','coachingInstitute','preferences']
+                     'school','bio','parentEmail','goals','avatar']
     const update = { updatedAt: new Date() }
-    allowed.forEach(k => { if (req.body[k] !== undefined) update[k] = k==='bio'?(req.body[k]||'').slice(0,160):req.body[k] })
-    const _snap={name:update.name,phone:update.phone,city:update.city,state:update.state,targetExam:update.targetExam}
+    allowed.forEach(k => { if (req.body[k] !== undefined) update[k] = req.body[k] })
     await User.collection.updateOne(
       { _id: new mongoose.Types.ObjectId(payload.id) },
-      { $set: update, $push: { profileHistory: { updatedAt: new Date(), snapshot: _snap } } }
+      { $set: update }
     )
     res.json({ message: 'Profile updated successfully' })
   } catch (err) {
@@ -556,15 +555,6 @@ router.post('/checklist/mark', async (req, res) => {
     if (item === 'pyq')       update['checklist.pyqExplored']      = true
     if (item === 'analytics') update['checklist.analyticsVisited'] = true
 
-    
-    if (state            !== undefined) allowed.state            = state
-    if (gender           !== undefined) allowed.gender           = gender
-    if (timezone         !== undefined) allowed.timezone         = timezone
-    if (targetYear       !== undefined) allowed.targetYear       = targetYear
-    if (yearOfAppearing  !== undefined) allowed.yearOfAppearing  = yearOfAppearing
-    if (coachingInstitute!== undefined) allowed.coachingInstitute= coachingInstitute
-    if (preferences      !== undefined) allowed.preferences      = preferences
-    // Profile history snapshot
     await User.findByIdAndUpdate(decoded.id, { $set: update })
     res.json({ success: true })
   } catch (err) {

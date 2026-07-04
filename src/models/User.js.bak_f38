@@ -8,34 +8,6 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   studentId: { type: String, unique: true, sparse: true, trim: true },
   adminId: { type: String, unique: true, sparse: true, trim: true },
-
-  // ── F38/F39: Extended Profile Fields ──────────────────────────
-  state:              { type: String, default: '' },
-  gender:             { type: String, default: '' },
-  timezone:           { type: String, default: 'Asia/Kolkata' },
-  targetYear:         { type: String, default: '' },
-  yearOfAppearing:    { type: String, default: '' },
-  coachingInstitute:  { type: String, default: '' },
-
-  // Profile history (each save timestamped — Superadmin can view)
-  profileHistory: [{
-    updatedAt:        { type: Date, default: Date.now },
-    updatedFields:    [String],
-    snapshot: {
-      name: String, phone: String, dob: String, city: String,
-      state: String, gender: String, bio: String,
-      targetExam: String, targetYear: String, board: String,
-      school: String, coachingInstitute: String,
-    }
-  }],
-
-  // Preferences
-  preferences: {
-    emailNotif:    { type: Boolean, default: true },
-    smsNotif:      { type: Boolean, default: false },
-    studyReminder: { type: Boolean, default: true },
-  },
-
   welcomeSeen: { type: Boolean, default: false },
   role: {
     type: String,
