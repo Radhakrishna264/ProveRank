@@ -511,15 +511,13 @@ router.get('/checklist', async (req, res) => {
     const pyqDone = !!(user.checklist?.pyqExplored)
 
     // 5. Analytics visited — stored in user.checklist.analyticsVisited
-    const analyticsDone = !!(user.checklist?.analyticsVisited)
 
     const items = [
       { id: 'profile',   done: profileDone,    icon: '👤', label_en: 'Complete your profile',              label_hi: 'प्रोफ़ाइल पूरी करें',        href: '/profile',   xp: 50 },
       { id: 'firstTest', done: firstTestDone,  icon: '📝', label_en: 'Give your first mock test',          label_hi: 'पहला मॉक टेस्ट दें',           href: '/my-exams',  xp: 100 },
       { id: 'goals',     done: goalsDone,      icon: '🎯', label_en: 'Set your target rank & score',       label_hi: 'लक्ष्य रैंक और स्कोर सेट करें', href: '/goals',     xp: 30 },
-      { id: 'pyq',       done: pyqDone,        icon: '📚', label_en: 'Explore PYQ Bank (2015–2024)',        label_hi: 'PYQ बैंक एक्सप्लोर करें',       href: '/pyq-bank',  xp: 20 },
-      { id: 'analytics', done: analyticsDone,  icon: '📉', label_en: 'Check your analytics dashboard',    label_hi: 'एनालिटिक्स डैशबोर्ड देखें',    href: '/analytics', xp: 20 },
-    ]
+      { id: 'pyq',       done: pyqDone,        icon: '📚', label_en: 'Explore PYQ Bank',        label_hi: 'PYQ बैंक एक्सप्लोर करें',       href: '/pyq-bank',  xp: 20 },
+      ]
 
     const completedCount = items.filter(i => i.done).length
     const allDone = completedCount === 5
@@ -529,7 +527,7 @@ router.get('/checklist', async (req, res) => {
       success: true,
       items,
       completedCount,
-      totalCount: 5,
+      totalCount: 4,
       allDone,
       hasBadge,
       totalXP: items.filter(i => i.done).reduce((s, i) => s + i.xp, 0),

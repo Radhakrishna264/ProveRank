@@ -155,7 +155,7 @@ function ChecklistWidget({token,toast,lang}:{token:string;toast:(m:string,t?:'s'
       window.location.href = href
     }
     // Mark pyq/analytics as visited
-    if(itemId==='pyq'||itemId==='analytics'){
+    if(itemId==='pyq'){
       fetch(API2+'/api/auth/checklist/mark',{
         method:'POST',
         headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
