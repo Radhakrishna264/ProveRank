@@ -51,6 +51,14 @@ const userSchema = new mongoose.Schema({
   termsAccepted:      { type: Boolean, default: false },
   termsAcceptedAt:    { type: Date,    default: null },
   termsVersion:        { type: String, default: null },
+
+  // F37 — Checklist + XP
+  checklist: {
+    pyqExplored:      { type: Boolean, default: false },
+    analyticsVisited: { type: Boolean, default: false },
+  },
+  xp: { type: Number, default: 0 },
+
 }, { timestamps: true });
 
 // password hashing removed — done in auth.js directly;
