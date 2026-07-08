@@ -16,14 +16,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-        {/* Theme init — runs before paint to prevent flash */}
+        {/* Theme init — runs before paint to prevent flash. Only 2 themes now: light / dark (legacy white/teal values are migrated). */}
         <script dangerouslySetInnerHTML={{__html:`
           (function(){
             try {
-              var t = localStorage.getItem('pr_theme') || 'dark';
-              var cls = t === 'light' ? 'light-theme' : t === 'aurora' ? 'aurora-theme' : 'dark-theme';
-              document.documentElement.classList.add(cls);
-              document.documentElement.setAttribute('data-theme', t);
+              var raw = localStorage.getItem('pr_color_theme') || 'dark';
+              var ct = raw;
+              if (raw === 'white') ct = 'light';
+              else if (raw === 'teal') ct = 'dark';
+              if (ct !== 'light' && ct !== 'dark') ct = 'dark';
+              var h = document.documentElement;
+              h.classList.remove('white-theme','dark-theme','teal-theme','light-theme');
+              h.classList.add(ct + '-theme');
+              h.setAttribute('data-color-theme', ct);
             } catch(e) {
               document.documentElement.classList.add('dark-theme');
             }
