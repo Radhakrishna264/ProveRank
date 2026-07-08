@@ -212,7 +212,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
           @media(min-width:769px){.pr-shell-main:not(.immersive){padding:24px 32px 72px}}
           @media(max-width:360px){.hide-xs{display:none!important}}
           @keyframes silverShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-          @media(min-width:768px){.pr-brand-center{position:absolute!important;left:50%!important;transform:translateX(-50%)!important;z-index:1}}
+          @media(min-width:480px){.pr-brand-center{position:absolute!important;left:50%!important;transform:translateX(-50%)!important;z-index:1}}
           @media(max-width:768px){div[style*="display:flex"][style*="flexWrap"]{row-gap:8px}}
         `}</style>
         {th.showGalaxy&&<GalaxyBg/>}
