@@ -211,6 +211,8 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
           .pr-shell-main img,.pr-shell-main svg,.pr-shell-main video,.pr-shell-main table{max-width:100%}
           @media(min-width:769px){.pr-shell-main:not(.immersive){padding:24px 32px 72px}}
           @media(max-width:360px){.hide-xs{display:none!important}}
+          @keyframes silverShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+          @media(min-width:768px){.pr-brand-center{position:absolute!important;left:50%!important;transform:translateX(-50%)!important;z-index:1}}
           @media(max-width:768px){div[style*="display:flex"][style*="flexWrap"]{row-gap:8px}}
         `}</style>
         {th.showGalaxy&&<GalaxyBg/>}
@@ -265,7 +267,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
               <PRLogo size={28}/>
               <div style={{minWidth:0}}>
                 <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:14.5,lineHeight:1,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:{color:'#2563EB'})}}>ProveRank</div>
-                <div className="hide-xs" style={{fontSize:8.5,color:th.logoTag,fontWeight:700,letterSpacing:.6,whiteSpace:'nowrap'}}>{lang==='en'?'STUDENT':'छात्र'}</div>
+                <div className="hide-xs" style={{fontSize:8.5,fontWeight:700,letterSpacing:.6,whiteSpace:'nowrap',background:'linear-gradient(90deg,#909090,#E8E8E8,#C0C0C0,#FFFFFF,#C0C0C0,#909090)',backgroundSize:'300% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'silverShimmer 3s linear infinite'}}>{lang==='en'?'STUDENT':'छात्र'}</div>
               </div>
             </div>
           </div>
