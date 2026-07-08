@@ -159,7 +159,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
       primary:'#2563EB',text:'#0F172A',sub:'#51607A',
       border:'rgba(37,99,235,0.14)',navActive:'rgba(37,99,235,0.10)',
       isDark:false,showGalaxy:false,hexC:'rgba(37,99,235,0.035)',
-      brandGrad:'#2563EB',logoTag:'#1E293B',
+      brandGrad:'#2563EB',logoTag:'#374151',
       chipBg:'rgba(37,99,235,0.06)',
     },
     dark:{
@@ -225,7 +225,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
             <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0}}>
               <PRLogo size={36}/>
               <div style={{minWidth:0}}>
-                <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:th.isDark?'gradMove 5s ease infinite':'none',whiteSpace:'nowrap'}}>ProveRank</div>
+                <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'gradMove 5s ease infinite'}:{color:'#2563EB'})}}>ProveRank</div>
                 <div style={{fontSize:10,color:th.logoTag,fontWeight:600,marginTop:1,whiteSpace:'nowrap'}}>{role==='parent'?(lang==='en'?'Parent Panel':'अभिभावक पैनल'):(lang==='en'?'Student Panel':'छात्र पैनल')}</div>
               </div>
             </div>
@@ -264,7 +264,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
             <div style={{display:'flex',alignItems:'center',gap:7,minWidth:0}}>
               <PRLogo size={28}/>
               <div style={{minWidth:0}}>
-                <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:14.5,background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',lineHeight:1,whiteSpace:'nowrap'}}>ProveRank</div>
+                <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:14.5,lineHeight:1,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:{color:'#2563EB'})}}>ProveRank</div>
                 <div className="hide-xs" style={{fontSize:8.5,color:th.logoTag,fontWeight:700,letterSpacing:.6,whiteSpace:'nowrap'}}>{lang==='en'?'STUDENT':'छात्र'}</div>
               </div>
             </div>
