@@ -82,7 +82,7 @@ const NAV_GROUPS=[
   ]},
   {label:'Account',labelHi:'खाता',items:[
     {id:'admit-card',icon:'🪪',en:'Admit Card',hi:'प्रवेश पत्र',href:'/admit-card'},
-    {id:'settings',icon:'⚙️',en:'Settings',hi:'सेटिंग्स',href:'/settings'},
+    
     {id:'profile',icon:'👤',en:'Profile',hi:'प्रोफ़ाइल',href:'/profile'},
   ]},
 ]
