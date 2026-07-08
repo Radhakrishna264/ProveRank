@@ -159,7 +159,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
       primary:'#2563EB',text:'#0F172A',sub:'#51607A',
       border:'rgba(37,99,235,0.14)',navActive:'rgba(37,99,235,0.10)',
       isDark:false,showGalaxy:false,hexC:'rgba(37,99,235,0.035)',
-      brandGrad:'linear-gradient(90deg,#2563EB 0%,#0F172A 55%,#2563EB 100%)',logoTag:'#51607A',
+      brandGrad:'#2563EB',logoTag:'#1E293B',
       chipBg:'rgba(37,99,235,0.06)',
     },
     dark:{
@@ -225,7 +225,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
             <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0}}>
               <PRLogo size={36}/>
               <div style={{minWidth:0}}>
-                <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'gradMove 5s ease infinite',whiteSpace:'nowrap'}}>ProveRank</div>
+                <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:th.isDark?'gradMove 5s ease infinite':'none',whiteSpace:'nowrap'}}>ProveRank</div>
                 <div style={{fontSize:10,color:th.logoTag,fontWeight:600,marginTop:1,whiteSpace:'nowrap'}}>{role==='parent'?(lang==='en'?'Parent Panel':'अभिभावक पैनल'):(lang==='en'?'Student Panel':'छात्र पैनल')}</div>
               </div>
             </div>
