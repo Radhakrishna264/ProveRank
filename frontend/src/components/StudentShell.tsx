@@ -212,6 +212,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
           @media(min-width:769px){.pr-shell-main:not(.immersive){padding:24px 32px 72px}}
           @media(max-width:360px){.hide-xs{display:none!important}}
           @keyframes silverShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+          @keyframes greenBadge{0%,100%{box-shadow:0 0 4px rgba(0,196,140,0.35),inset 0 0 4px rgba(0,196,140,0.1)}50%{box-shadow:0 0 12px rgba(0,196,140,0.75),inset 0 0 8px rgba(0,255,136,0.2)}}
           @media(min-width:480px){.pr-brand-center{position:absolute!important;left:50%!important;transform:translateX(-50%)!important;z-index:1}}
           @media(max-width:768px){div[style*="display:flex"][style*="flexWrap"]{row-gap:8px}}
         `}</style>
@@ -266,8 +267,10 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
             <div style={{display:'flex',alignItems:'center',gap:7,minWidth:0}}>
               <PRLogo size={28}/>
               <div style={{minWidth:0}}>
-                <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:14.5,lineHeight:1,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:{color:'#2563EB'})}}>ProveRank</div>
-                <div style={{fontSize:8.5,fontWeight:700,letterSpacing:.6,whiteSpace:'nowrap',background:'linear-gradient(90deg,#909090,#E8E8E8,#C0C0C0,#FFFFFF,#C0C0C0,#909090)',backgroundSize:'300% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'silverShimmer 3s linear infinite'}}>{lang==='en'?'STUDENT':'छात्र'}</div>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+                  <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:14.5,lineHeight:1,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:{color:'#2563EB'})}}>ProveRank</div>
+                  <div style={{fontSize:7,fontWeight:800,letterSpacing:1.4,whiteSpace:'nowrap',padding:'1px 7px',borderRadius:20,border:'1.5px solid rgba(0,196,140,0.7)',background:'linear-gradient(90deg,#00A86B,#00FF88,#00C48C,#00FF88,#00A86B)',backgroundSize:'300% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'silverShimmer 2.5s linear infinite, greenBadge 2s ease-in-out infinite'}}>{lang==='en'?'STUDENT':'छात्र'}</div>
+                </div>
               </div>
             </div>
           </div>
