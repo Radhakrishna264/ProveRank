@@ -267,7 +267,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
               <PRLogo size={28}/>
               <div style={{minWidth:0}}>
                 <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:14.5,lineHeight:1,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:{color:'#2563EB'})}}>ProveRank</div>
-                <div className="hide-xs" style={{fontSize:8.5,fontWeight:700,letterSpacing:.6,whiteSpace:'nowrap',background:'linear-gradient(90deg,#909090,#E8E8E8,#C0C0C0,#FFFFFF,#C0C0C0,#909090)',backgroundSize:'300% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'silverShimmer 3s linear infinite'}}>{lang==='en'?'STUDENT':'छात्र'}</div>
+                <div style={{fontSize:8.5,fontWeight:700,letterSpacing:.6,whiteSpace:'nowrap',background:'linear-gradient(90deg,#909090,#E8E8E8,#C0C0C0,#FFFFFF,#C0C0C0,#909090)',backgroundSize:'300% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'silverShimmer 3s linear infinite'}}>{lang==='en'?'STUDENT':'छात्र'}</div>
               </div>
             </div>
           </div>
