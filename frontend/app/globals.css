@@ -56,39 +56,52 @@ html.dark-theme body {
 
 /* ═══════════════════════════════════════════════════════════════
    LIGHT THEME — Aurora Blue-White
+   (both class names supported: .light-theme is current, .light-theme
+    also matches new StudentShell body class so overrides below apply)
    ═══════════════════════════════════════════════════════════════ */
 body.light-theme,
 html.light-theme body {
-  background-color: #EEF4FF !important;
+  background-color: #F6F9FF !important;
   background-image:
-    radial-gradient(ellipse at 15% 15%, rgba(77,159,255,0.18) 0%, transparent 55%),
-    radial-gradient(ellipse at 85% 85%, rgba(168,85,247,0.10) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.6) 0%, transparent 60%),
-    linear-gradient(160deg, #EEF4FF 0%, #E4EEFF 40%, #F0F7FF 100%);
-  color: #0D1B2E !important;
+    radial-gradient(ellipse at 15% 15%, rgba(37,99,235,0.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 85%, rgba(168,85,247,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.7) 0%, transparent 60%),
+    linear-gradient(160deg, #FFFFFF 0%, #F3F7FF 45%, #E9F1FF 100%);
+  color: #0F172A !important;
   min-height: 100vh;
 }
 
-/* Light theme text overrides — ensure visibility */
+/* Light theme text overrides — force readable text where components hardcode
+   dark-theme text colors (fixes "white theme text invisible" bug) */
 body.light-theme *[style*="color:#E8F4FF"],
-body.light-theme *[style*="color: #E8F4FF"] {
-  color: #0D1B2E !important;
+body.light-theme *[style*="color: #E8F4FF"],
+body.light-theme *[style*="color:#F1F6FC"],
+body.light-theme *[style*="color: #F1F6FC"] {
+  color: #0F172A !important;
 }
 body.light-theme *[style*="color:#6B8BAF"],
-body.light-theme *[style*="color: #6B8BAF"] {
-  color: #3D5068 !important;
+body.light-theme *[style*="color: #6B8BAF"],
+body.light-theme *[style*="color:#6B8FAF"],
+body.light-theme *[style*="color: #6B8FAF"],
+body.light-theme *[style*="color:#8DA2C0"],
+body.light-theme *[style*="color: #8DA2C0"],
+body.light-theme *[style*="color:#B8C8D8"],
+body.light-theme *[style*="color: #B8C8D8"],
+body.light-theme *[style*="color:#9CA3AF"],
+body.light-theme *[style*="color: #9CA3AF"] {
+  color: #51607A !important;
 }
 
 /* Light theme — card surfaces */
 body.light-theme .pr-card,
 body.light-theme .stat-card {
-  background: rgba(255,255,255,0.9) !important;
-  border-color: rgba(77,159,255,0.25) !important;
-  box-shadow: 0 2px 16px rgba(0,40,100,0.10) !important;
+  background: rgba(255,255,255,0.94) !important;
+  border-color: rgba(37,99,235,0.16) !important;
+  box-shadow: 0 2px 16px rgba(20,50,110,0.08) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   AURORA THEME — Student Special Theme (gradient purple-blue)
+   AURORA THEME — legacy/special theme (kept for any page still using it)
    ═══════════════════════════════════════════════════════════════ */
 body.aurora-theme,
 html.aurora-theme body {
@@ -175,7 +188,7 @@ body.aurora-theme .stat-card {
   backdrop-filter: blur(8px);
 }
 .tbtn:hover { border-color: #4D9FFF; background: rgba(77,159,255,0.15); }
-body.light-theme .tbtn { background: rgba(255,255,255,0.7); color: #0D1B2E; border-color: rgba(77,159,255,0.4); }
+body.light-theme .tbtn { background: rgba(37,99,235,0.06); color: #0F172A; border-color: rgba(37,99,235,0.35); }
 
 /* ─── Glass Card ─────────────────────────────────────────────── */
 .glass-card {
@@ -210,8 +223,8 @@ body.light-theme .glass-card { box-shadow: 0 4px 24px rgba(0,40,100,0.12); }
   border-left: 3px solid #4D9FFF;
   font-weight: 600;
 }
-body.light-theme .sidebar-link:hover  { background: rgba(77,159,255,0.12); }
-body.light-theme .sidebar-link.active { background: rgba(77,159,255,0.15); }
+body.light-theme .sidebar-link:hover  { background: rgba(37,99,235,0.10); }
+body.light-theme .sidebar-link.active { background: rgba(37,99,235,0.14); }
 
 /* ─── Main content ───────────────────────────────────────────── */
 .main-with-sidebar { margin-left: 260px; }
@@ -246,8 +259,8 @@ body.light-theme .card-h:hover {
 .pr-table { width: 100%; border-collapse: collapse; }
 .pr-table th { padding: 12px 16px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
 .pr-table td { padding: 14px 16px; font-size: 14px; }
-body.light-theme .pr-table th { color: #3D5068 !important; }
-body.light-theme .pr-table td { color: #0D1B2E !important; }
+body.light-theme .pr-table th { color: #51607A !important; }
+body.light-theme .pr-table td { color: #0F172A !important; }
 
 /* ─── Badge ──────────────────────────────────────────────────── */
 .badge { display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:99px;font-size:12px;font-weight:600; }
@@ -256,7 +269,7 @@ body.light-theme .pr-table td { color: #0D1B2E !important; }
 .badge-red    { background:rgba(255,71,87,.12);   color:#FF4757; }
 .badge-gold   { background:rgba(255,215,0,.12);   color:#FFD700; }
 .badge-purple { background:rgba(168,85,247,.12);  color:#A855F7; }
-body.light-theme .badge-blue  { background: rgba(77,159,255,0.14); }
+body.light-theme .badge-blue  { background: rgba(37,99,235,0.12); }
 body.light-theme .badge-green { background: rgba(0,196,140,0.12); }
 
 /* ─── OMR Bubbles ────────────────────────────────────────────── */
@@ -391,6 +404,12 @@ body.light-theme .badge-green { background: rgba(0,196,140,0.12); }
     gap: 24px !important;
   }
 
+  /* ── GENERIC SAFETY NET — catches ANY auto-fit/auto-fill grid we
+     don't explicitly know the minmax px value of, so it never
+     overflows/gets clipped on small screens ── */
+  div[style*="repeat(auto-fit"] { grid-template-columns: repeat(auto-fit, minmax(130px,1fr)) !important; }
+  div[style*="repeat(auto-fill"] { grid-template-columns: repeat(auto-fill, minmax(130px,1fr)) !important; }
+
   /* Nav links hidden on mobile */
   nav a.nav-link { display: none !important; }
 
@@ -421,6 +440,9 @@ body.light-theme .badge-green { background: rgba(0,196,140,0.12); }
     grid-template-columns: repeat(3, 1fr) !important;
     gap: 6px !important;
   }
+
+  div[style*="repeat(auto-fit"] { grid-template-columns: repeat(auto-fit, minmax(110px,1fr)) !important; }
+  div[style*="repeat(auto-fill"] { grid-template-columns: repeat(auto-fill, minmax(110px,1fr)) !important; }
 
   div[style*="justifyContent:'space-between'"][style*="flexWrap:'wrap'"] {
     flex-direction: column !important;
@@ -483,26 +505,34 @@ html, body {
   }
 }
 
-/* ═══════════════════════════════════════════════════
-   PROVERANK 3-THEME SYSTEM (student pages)
-   Controlled via [data-color-theme] on container
-   ═══════════════════════════════════════════════════ */
+/* ── PROVERANK: universal anti-overflow safety (all screen sizes) ── */
+img, svg, canvas, video, iframe { max-width: 100%; height: auto; }
+pre, code { max-width: 100%; }
+table { max-width: 100%; }
+input, select, textarea, button { max-width: 100%; }
 
-[data-color-theme='teal'] { --teal-color-theme: 1; }
-[data-color-theme='teal'] ::-webkit-scrollbar-thumb { background: rgba(45,212,191,0.4) !important; }
-[data-color-theme='teal'] input,
-[data-color-theme='teal'] select,
-[data-color-theme='teal'] textarea { color-scheme: dark; accent-color: #2DD4BF; }
-[data-color-theme='teal'] .nav-lnk:hover  { background: rgba(45,212,191,0.14) !important; color: #2DD4BF !important; }
-[data-color-theme='teal'] .btn-p { background: linear-gradient(135deg,#2DD4BF,#0D9488) !important; }
-[data-color-theme='teal'] .tbtn  { border-color: rgba(45,212,191,0.35) !important; color: #CCFBF1 !important; }
-[data-color-theme='teal'] .tbtn:hover { border-color: #2DD4BF !important; background: rgba(45,212,191,0.14) !important; }
+/* ═══════════════════════════════════════════════════
+   PROVERANK 2-THEME SYSTEM (student pages)
+   Controlled via [data-color-theme] on container — light | dark
+   ═══════════════════════════════════════════════════ */
 
 [data-color-theme='dark'] ::-webkit-scrollbar-thumb { background: rgba(77,159,255,0.35) !important; }
 [data-color-theme='dark'] input,
 [data-color-theme='dark'] select,
 [data-color-theme='dark'] textarea { color-scheme: dark; accent-color: #4D9FFF; }
 
+[data-color-theme='light'] ::-webkit-scrollbar-thumb { background: rgba(37,99,235,0.3) !important; }
+[data-color-theme='light'] input,
+[data-color-theme='light'] select,
+[data-color-theme='light'] textarea { color-scheme: light; accent-color: #2563EB; }
+[data-color-theme='light'] .nav-lnk:hover  { background: rgba(37,99,235,0.1) !important; color: #2563EB !important; }
+[data-color-theme='light'] .btn-p { background: linear-gradient(135deg,#2563EB,#1D4ED8) !important; }
+[data-color-theme='light'] .tbtn  { border-color: rgba(37,99,235,0.35) !important; color: #0F172A !important; }
+[data-color-theme='light'] .tbtn:hover { border-color: #2563EB !important; background: rgba(37,99,235,0.1) !important; }
+[data-color-theme='light'] .pr-card,
+[data-color-theme='light'] .stat-card { background: rgba(255,255,255,0.97) !important; border-color: rgba(0,0,0,0.06) !important; box-shadow: 0 4px 24px rgba(0,0,0,0.07) !important; }
+
+/* Legacy attribute values kept mapped for any cached component still using them */
 [data-color-theme='white'] ::-webkit-scrollbar-thumb { background: rgba(37,99,235,0.3) !important; }
 [data-color-theme='white'] input,
 [data-color-theme='white'] select,
@@ -514,24 +544,45 @@ html, body {
 [data-color-theme='white'] .pr-card,
 [data-color-theme='white'] .stat-card { background: rgba(255,255,255,0.97) !important; border-color: rgba(0,0,0,0.06) !important; box-shadow: 0 4px 24px rgba(0,0,0,0.07) !important; }
 
+[data-color-theme='teal'] ::-webkit-scrollbar-thumb { background: rgba(45,212,191,0.4) !important; }
+[data-color-theme='teal'] input,
+[data-color-theme='teal'] select,
+[data-color-theme='teal'] textarea { color-scheme: dark; accent-color: #2DD4BF; }
+[data-color-theme='teal'] .nav-lnk:hover  { background: rgba(45,212,191,0.14) !important; color: #2DD4BF !important; }
+[data-color-theme='teal'] .btn-p { background: linear-gradient(135deg,#2DD4BF,#0D9488) !important; }
+[data-color-theme='teal'] .tbtn  { border-color: rgba(45,212,191,0.35) !important; color: #CCFBF1 !important; }
+[data-color-theme='teal'] .tbtn:hover { border-color: #2DD4BF !important; background: rgba(45,212,191,0.14) !important; }
+
 /* ═══════════════════════════════════════════════════════════════
-   3-THEME SYSTEM (set from Profile page → pr_color_theme)
-   html.dark-theme / html.white-theme / html.teal-theme
+   THEME SYSTEM — html.light-theme / html.dark-theme
+   (legacy html.white-theme / html.teal-theme kept for safety)
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── DARK THEME (default) ─────────────────────────────────── */
 html.dark-theme,
 html.dark-theme body {
-  background-color: #0A0A0A !important;
-  color: #FFFFFF !important;
+  background-color: #070A12 !important;
+  color: #F1F6FC !important;
 }
 html.dark-theme body {
   background-image:
-    radial-gradient(ellipse at 20% 20%, rgba(0,85,204,0.12) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 80%, rgba(77,159,255,0.07) 0%, transparent 55%);
+    radial-gradient(ellipse at 20% 0%, rgba(0,85,204,0.14) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 80%, rgba(77,159,255,0.08) 0%, transparent 55%);
 }
 
-/* ── WHITE THEME ──────────────────────────────────────────── */
+/* ── LIGHT THEME (new) ────────────────────────────────────── */
+html.light-theme,
+html.light-theme body {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+}
+html.light-theme body {
+  background-image:
+    radial-gradient(ellipse at 15% 10%, rgba(37,99,235,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 90%, rgba(37,99,235,0.05) 0%, transparent 50%);
+}
+
+/* ── legacy WHITE THEME class (mapped to same look as light) ── */
 html.white-theme,
 html.white-theme body {
   background-color: #FFFFFF !important;
@@ -543,7 +594,7 @@ html.white-theme body {
     radial-gradient(ellipse at 85% 90%, rgba(37,99,235,0.05) 0%, transparent 50%);
 }
 
-/* ── TEAL THEME ───────────────────────────────────────────── */
+/* ── legacy TEAL THEME class (kept, unused by picker now) ──── */
 html.teal-theme,
 html.teal-theme body {
   background-color: #001A1A !important;
@@ -554,7 +605,6 @@ html.teal-theme body {
 }
 
 /* Default fallback */
-html:not(.white-theme):not(.teal-theme) body {
-  background-color: #0A0A0A;
+html:not(.light-theme):not(.white-theme):not(.teal-theme) body {
+  background-color: #070A12;
 }
-
