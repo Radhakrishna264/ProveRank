@@ -1,3 +1,17 @@
+#!/bin/bash
+# ProveRank — F38 Student Profile — FRONTEND deploy script (v7: 3 bug fixes)
+# 1) Unsaved-changes prompt no longer repeats after Cancel/OK
+# 2) Custom confirm modal instead of native browser confirm()
+# 3) Virtual keyboard no longer closes while typing (remount bug fixed)
+# Run from project ROOT in Replit shell: bash proverank_f38_frontend_v7.sh
+set -e
+
+APP_DIR="frontend/app"
+
+mkdir -p "$APP_DIR/profile"
+
+echo '-> Writing $APP_DIR/profile/page.tsx'
+cat > "$APP_DIR/profile/page.tsx" << 'PRSHEOF'
 'use client'
 import CopyBtn from '@/components/CopyBtn'
 import { useState, useEffect, useRef, useMemo } from 'react'
@@ -786,3 +800,56 @@ function ProfileContent() {
 export default function ProfilePage() {
   return <StudentShell pageKey="profile"><ProfileContent/></StudentShell>
 }
+PRSHEOF
+
+echo ""
+echo "════════════════════════════════════════════════════"
+echo "  F38 FRONTEND v7 — VERIFICATION"
+echo "════════════════════════════════════════════════════"
+PASS=0; TOTAL=0
+check() {
+  TOTAL=$((TOTAL+1))
+  if grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+notcheck() {
+  TOTAL=$((TOTAL+1))
+  if ! grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+
+F="$APP_DIR/profile/page.tsx"
+
+echo "── Bug 1: repeated unsaved-changes prompt ──"
+check "$F" "discardAndLeave"              "Discard-on-leave resets edits so warning doesn't repeat"
+check "$F" "setDirtyPersonal(false); setDirtyAcademic(false); setDirtyPrefs(false)" "All dirty flags cleared after Leave-without-saving"
+
+echo "── Bug 2: native browser confirm() replaced ──"
+notcheck "$F" "window.confirm(t('You have unsaved" "window.confirm() for unsaved-changes REMOVED"
+check "$F" "pendingSection &&"            "Custom in-app Unsaved Changes modal added"
+check "$F" "Leave Without Saving"         "Custom modal has proper Leave/Cancel buttons"
+
+echo "── Bug 3: virtual keyboard closing while typing ──"
+notcheck "$F" "const Hero = () =>"        "Hero no longer redefined every render"
+notcheck "$F" "const PersonalSection = () =>"  "PersonalSection no longer redefined every render (was causing remount)"
+notcheck "$F" "const AcademicSection = () =>"  "AcademicSection no longer redefined every render"
+notcheck "$F" "const SecuritySection = () =>"  "SecuritySection no longer redefined every render"
+notcheck "$F" "const PreferencesSection = () =>" "PreferencesSection no longer redefined every render"
+notcheck "$F" "const ActivitySection = () =>"  "ActivitySection no longer redefined every render"
+notcheck "$F" "const OverviewSection = () =>"  "OverviewSection no longer redefined every render"
+check "$F" "function Toggle("              "Toggle hoisted to module level (stable component identity)"
+check "$F" "personalEl"                    "Sections now render as plain JSX (no remount) — personal"
+check "$F" "securityEl"                    "Sections now render as plain JSX (no remount) — security"
+
+echo "── Prior features intact ──"
+check "$F" "logout-other-sessions"        "logout-other-sessions still intact"
+check "$F" "phoneDupWarning"              "Duplicate phone check still intact"
+check "$F" "idCardOpen"                   "Digital ID Card modal still intact"
+check "$F" "const \[loaded, setLoaded\]"  "False-dirty-on-load guard still intact"
+
+echo "────────────────────────────────────────────────────"
+echo "  $PASS / $TOTAL checks passed"
+echo "════════════════════════════════════════════════════"
+if [ "$PASS" -eq "$TOTAL" ]; then
+  echo "🎉 All 3 bugs fixed and all prior features intact!"
+else
+  echo "⚠️  Review the ❌ lines above."
+fi
