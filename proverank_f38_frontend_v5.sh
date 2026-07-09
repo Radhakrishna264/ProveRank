@@ -1,3 +1,14 @@
+#!/bin/bash
+# ProveRank — F38 Student Profile — FRONTEND deploy script (v5: Theme toggle inline in Preferences, no navigation)
+# Run from project ROOT in Replit shell: bash proverank_f38_frontend_v5.sh
+set -e
+
+APP_DIR="frontend/app"
+
+mkdir -p "$APP_DIR/profile"
+
+echo '-> Writing $APP_DIR/profile/page.tsx'
+cat > "$APP_DIR/profile/page.tsx" << 'PRSHEOF'
 'use client'
 import CopyBtn from '@/components/CopyBtn'
 import { useState, useEffect, useRef, useMemo } from 'react'
@@ -744,3 +755,36 @@ function ProfileContent() {
 export default function ProfilePage() {
   return <StudentShell pageKey="profile"><ProfileContent/></StudentShell>
 }
+PRSHEOF
+
+echo ""
+echo "════════════════════════════════════════════════════"
+echo "  F38 FRONTEND v5 — VERIFICATION"
+echo "════════════════════════════════════════════════════"
+PASS=0; TOTAL=0
+check() {
+  TOTAL=$((TOTAL+1))
+  if grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+notcheck() {
+  TOTAL=$((TOTAL+1))
+  if ! grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+
+F="$APP_DIR/profile/page.tsx"
+
+check "$F" "setColorTheme"                      "Theme toggle: setColorTheme pulled from useShell"
+notcheck "$F" 'href="/settings"'                "Theme toggle: no more navigation to /settings (bug fixed)"
+check "$F" "onClick={()=>setColorTheme(dm?'light':'dark')}" "Theme toggle: instant in-page toggle button (same behavior as header toggle)"
+check "$F" "const \[loaded, setLoaded\]"        "Previous fix intact: false 'unsaved changes' bug guard"
+check "$F" "logout-other-sessions"              "Previous feature intact: logout-other-sessions"
+check "$F" "phoneDupWarning"                    "Previous feature intact: duplicate phone check"
+
+echo "────────────────────────────────────────────────────"
+echo "  $PASS / $TOTAL checks passed"
+echo "════════════════════════════════════════════════════"
+if [ "$PASS" -eq "$TOTAL" ]; then
+  echo "🎉 Bug fixed and all prior features intact!"
+else
+  echo "⚠️  Review the ❌ lines above."
+fi
