@@ -1,3 +1,14 @@
+#!/bin/bash
+# ProveRank — F38 Student Profile — FRONTEND deploy script (v4: fix false "unsaved changes" prompt)
+# Run from project ROOT in Replit shell: bash proverank_f38_frontend_v4.sh
+set -e
+
+APP_DIR="frontend/app"
+
+mkdir -p "$APP_DIR/profile"
+
+echo '-> Writing $APP_DIR/profile/page.tsx'
+cat > "$APP_DIR/profile/page.tsx" << 'PRSHEOF'
 'use client'
 import CopyBtn from '@/components/CopyBtn'
 import { useState, useEffect, useRef, useMemo } from 'react'
@@ -742,3 +753,34 @@ function ProfileContent() {
 export default function ProfilePage() {
   return <StudentShell pageKey="profile"><ProfileContent/></StudentShell>
 }
+PRSHEOF
+
+echo ""
+echo "════════════════════════════════════════════════════"
+echo "  F38 FRONTEND v4 — VERIFICATION"
+echo "════════════════════════════════════════════════════"
+PASS=0; TOTAL=0
+check() {
+  TOTAL=$((TOTAL+1))
+  if grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+
+F="$APP_DIR/profile/page.tsx"
+
+check "$F" "const \[loaded, setLoaded\]"          "Bug fix: 'loaded' guard added"
+check "$F" "setLoaded(true)"                       "Bug fix: loaded flag set after initial snapshot"
+check "$F" "if(!loaded) return"                    "Bug fix: dirty-checks skip until data actually loaded"
+check "$F" "timezone:tz,"                           "Bug fix: initial snapshot uses SAME resolved timezone as state (root cause)"
+check "$F" "SECTIONS = \["                          "Section-based dashboard intact"
+check "$F" "logout-other-sessions"                  "logout-other-sessions still intact"
+check "$F" "phoneDupWarning"                        "Duplicate phone check still intact"
+check "$F" "idCardOpen"                             "Digital ID Card modal still intact"
+
+echo "────────────────────────────────────────────────────"
+echo "  $PASS / $TOTAL checks passed"
+echo "════════════════════════════════════════════════════"
+if [ "$PASS" -eq "$TOTAL" ]; then
+  echo "🎉 Bug fixed and all prior features intact!"
+else
+  echo "⚠️  Review the ❌ lines above."
+fi
