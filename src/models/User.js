@@ -16,11 +16,44 @@ const userSchema = new mongoose.Schema({
   targetYear:         { type: String, default: '' },
   yearOfAppearing:    { type: String, default: '' },
   coachingInstitute:  { type: String, default: '' },
+  dob:                { type: String, default: '' },
+  city:               { type: String, default: '' },
+  bio:                { type: String, default: '', maxlength: 160 },
+  avatar:             { type: String, default: '' },
+  targetExam:         { type: String, default: '' },
+  board:              { type: String, default: '' },
+  school:             { type: String, default: '' },
+  medium:             { type: String, default: '' },
+  batch:              { type: String, default: '' },
 
-  // Profile history (each save timestamped — Superadmin can view)
+  // ── F38: 2FA (TOTP) ────────────────────────────────────────────
+  twoFactorEnabled:     { type: Boolean, default: false },
+  twoFactorSecret:      { type: String, default: null },
+  twoFactorTempSecret:  { type: String, default: null },
+
+  // ── F38: Login health / device tracking ─────────────────────────
+  failedLoginAttempts: { type: Number, default: 0 },
+  lastFailedLoginAt:   { type: Date, default: null },
+  trustedDevices: [{
+    deviceId:   String,
+    label:      String,
+    browser:    String,
+    os:         String,
+    addedAt:    { type: Date, default: Date.now },
+    lastUsedAt: Date,
+  }],
+
+  // Profile history (F38 §9 — per-field internal audit trail, DB only, never shown to student)
   profileHistory: [{
     updatedAt:        { type: Date, default: Date.now },
     updatedFields:    [String],
+    changes: [{
+      field:    String,
+      oldValue: mongoose.Schema.Types.Mixed,
+      newValue: mongoose.Schema.Types.Mixed,
+    }],
+    updatedBy: { type: String, default: 'self' },
+    source:    { type: String, default: 'profile_page' },
     snapshot: {
       name: String, phone: String, dob: String, city: String,
       state: String, gender: String, bio: String,

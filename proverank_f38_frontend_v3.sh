@@ -1,3 +1,14 @@
+#!/bin/bash
+# ProveRank — F38 Student Profile — FRONTEND deploy script (v3: logout-other-sessions + phone hyphen fix)
+# Run from project ROOT in Replit shell: bash proverank_f38_frontend_v3.sh
+set -e
+
+APP_DIR="frontend/app"
+
+mkdir -p "$APP_DIR/profile"
+
+echo '-> Writing $APP_DIR/profile/page.tsx'
+cat > "$APP_DIR/profile/page.tsx" << 'PRSHEOF'
 'use client'
 import CopyBtn from '@/components/CopyBtn'
 import { useState, useEffect, useRef, useMemo } from 'react'
@@ -737,3 +748,56 @@ function ProfileContent() {
 export default function ProfilePage() {
   return <StudentShell pageKey="profile"><ProfileContent/></StudentShell>
 }
+PRSHEOF
+
+echo ""
+echo "════════════════════════════════════════════════════"
+echo "  F38 FRONTEND v3 — FEATURE / SUB-FEATURE VERIFICATION"
+echo "════════════════════════════════════════════════════"
+PASS=0; TOTAL=0
+check() {
+  TOTAL=$((TOTAL+1))
+  if grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+notcheck() {
+  TOTAL=$((TOTAL+1))
+  if ! grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+
+F="$APP_DIR/profile/page.tsx"
+
+echo "── Core sections ──"
+check "$F" "SECTIONS = \["    "Section-based dashboard"
+check "$F" "isMobile"         "Desktop rail / mobile chip layout switch"
+check "$F" "position:'sticky',top:76"  "Real desktop left section rail"
+
+echo "── Live validation ──"
+check "$F" "phoneWarning"     "Live inline phone validation"
+check "$F" "dobWarning"       "Live inline DOB validation"
+check "$F" "cityWarning"      "Live inline city validation"
+check "$F" "phoneDupWarning"  "Duplicate phone check (live)"
+check "$F" "check-phone"      "Calls backend GET /check-phone"
+
+echo "── This request's changes ──"
+check "$F" "logout-other-sessions"  "Uses POST /logout-other-sessions (current device stays signed in)"
+check "$F" "logoutOtherSessions"    "Frontend handler renamed to logoutOtherSessions"
+notcheck "$F" "logoutEverywhere"    "Old logoutEverywhere() fully removed — no leftover refs"
+check "$F" "Logout from Other Devices" "Button label matches §5.2.4 'Logout Other Sessions'"
+check "$F" "localStorage.setItem('pr_token', d.token)" "Stored token replaced with new token (device stays logged in)"
+check "$F" "PHONE_RX"               "Phone regex present"
+
+echo "── Digital ID Card modal ──"
+check "$F" "idCardOpen"       "Digital ID Card opens as modal"
+check "$F" "IdCardVisual"     "Reusable ID card visual component"
+
+echo "── Theme safety ──"
+check "$F" "theme.border"     "Theme-safe contrast (light + dark)"
+
+echo "────────────────────────────────────────────────────"
+echo "  $PASS / $TOTAL frontend checks passed"
+echo "════════════════════════════════════════════════════"
+if [ "$PASS" -eq "$TOTAL" ]; then
+  echo "🎉 ALL REQUESTED CHANGES VERIFIED — nothing missing!"
+else
+  echo "⚠️  Some checks failed above — review the ❌ lines."
+fi

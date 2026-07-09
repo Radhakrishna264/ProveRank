@@ -112,6 +112,10 @@ router.post('/verify-otp', async (req, res) => {
         emailVerifyOTP: null, emailVerifyOTPExpiry: null
       }
     })
+    try {
+      const { logActivity } = require('../utils/activityLogger')
+      logActivity({ userId: user._id, userName: user.name, userRole: user.role||'student', action: 'EMAIL_VERIFIED', details: 'Email verified successfully', module: 'security', status: 'success' }).catch(()=>{})
+    } catch(e) {}
 
     const token = jwt.sign(
       { id: user._id.toString(), role: user.role || 'student' },
@@ -163,7 +167,13 @@ router.post('/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.password)
     console.log(`Login attempt: ${email} | match: ${match}`)
 
-    if (!match) return res.status(401).json({ message: 'Incorrect password. Please try again.' })
+    if (!match) {
+      await User.collection.updateOne({ _id: user._id }, {
+        $inc: { failedLoginAttempts: 1 },
+        $set: { lastFailedLoginAt: new Date() }
+      }).catch(()=>{})
+      return res.status(401).json({ message: 'Incorrect password. Please try again.' })
+    }
 
     const isVerified = user.emailVerified || user.verified
     if ((user.role === 'student' || !user.role) && !isVerified) {
@@ -209,7 +219,11 @@ router.post('/login', async (req, res) => {
       { expiresIn: '7d' }
     )
     // F35.1 — Multi-device session control: new login invalidates old device
-    await User.collection.updateOne({ _id: user._id }, { $set: { activeSessionToken: token } })
+    await User.collection.updateOne({ _id: user._id }, { $set: { activeSessionToken: token, failedLoginAttempts: 0 } })
+    try {
+      const { logActivity } = require('../utils/activityLogger')
+      logActivity({ userId: user._id, userName: user.name, userRole: user.role||'student', action: 'LOGIN', details: `Login from ${city}, ${country}`, module: 'security', ipAddress: realIp, userAgent: rawUA, status: 'success' }).catch(()=>{})
+    } catch(e) {}
     res.json({ token, role: user.role || 'student', name:user.name||'',studentId:user.studentId||null,welcomeSeen:user.welcomeSeen||false,message:'Login successful' })
   } catch (err) {
     console.error('Login error:', err)
@@ -340,7 +354,29 @@ router.post('/change-password', async (req, res) => {
     }
     const hash = await bcrypt.hash(newPassword, 12)
     await User.collection.updateOne({ _id: user._id }, { $set: { password: hash } })
+    try {
+      const { logActivity } = require('../utils/activityLogger')
+      logActivity({ userId: user._id, userName: user.name, userRole: user.role||'student', action: 'PASSWORD_CHANGED', details: 'Password changed successfully', module: 'security', status: 'success' }).catch(()=>{})
+    } catch(e) {}
     res.json({ message: 'Password changed successfully!' })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// ── F38 §11.4.2.5 — Duplicate phone check (live, as-you-type) ──
+router.get('/check-phone', async (req, res) => {
+  try {
+    const auth = req.headers.authorization
+    if (!auth) return res.status(401).json({ message: 'No token' })
+    const payload = jwt.verify(auth.split(' ')[1], JWT_SECRET)
+    const mongoose = require('mongoose')
+    const phone = String(req.query.phone || '').trim().replace(/[\s-]/g, '')
+    if (!phone) return res.json({ available: true })
+    const existing = await User.collection.findOne({
+      phone, _id: { $ne: new mongoose.Types.ObjectId(payload.id) }
+    })
+    res.json({ available: !existing })
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
   }
@@ -370,22 +406,255 @@ router.get('/me', async (req, res) => {
 })
 
 // ── PATCH ME ──────────────────────────────────────────────────────
+// F38 — supports partial/section-based saves. Send req.body.__section
+// ('personal' | 'academic' | 'preferences' | 'general') to tag where the
+// change came from — used only for the internal (DB-only) history log.
 router.patch('/me', async (req, res) => {
   try {
     const auth = req.headers.authorization
     if (!auth) return res.status(401).json({ message: 'No token' })
     const payload = jwt.verify(auth.split(' ')[1], JWT_SECRET)
     const mongoose = require('mongoose')
-    const allowed = ['name','phone','dob','city','targetExam','board',
-                     'school','bio','parentEmail','goals','avatar','state','gender','timezone','targetYear','yearOfAppearing','coachingInstitute','preferences']
+    const allowed = ['name','phone','dob','city','targetExam','board','school','medium',
+                     'bio','parentEmail','goals','avatar','state','gender','timezone',
+                     'targetYear','yearOfAppearing','coachingInstitute','preferences']
+    const section = typeof req.body.__section === 'string' ? req.body.__section : 'general'
+
+    // ── F38 §3.2 / §11.4 — Smart validation ──
+    if (req.body.phone !== undefined && req.body.phone) {
+      const ph = String(req.body.phone).trim().replace(/[\s-]/g, '')
+      if (!/^(\+91)?[6-9]\d{9}$/.test(ph)) {
+        return res.status(400).json({ message: 'Invalid phone number. Use a valid 10-digit Indian mobile number.' })
+      }
+    }
+    if (req.body.dob !== undefined && req.body.dob) {
+      const d = new Date(req.body.dob)
+      if (isNaN(d.getTime()) || d > new Date() || d.getFullYear() < 1970) {
+        return res.status(400).json({ message: 'Invalid date of birth' })
+      }
+    }
+    if (req.body.name !== undefined && !String(req.body.name).trim()) {
+      return res.status(400).json({ message: 'Name cannot be empty' })
+    }
+
+    const current = await User.collection.findOne({ _id: new mongoose.Types.ObjectId(payload.id) })
+    if (!current) return res.status(404).json({ message: 'User not found' })
+
     const update = { updatedAt: new Date() }
-    allowed.forEach(k => { if (req.body[k] !== undefined) update[k] = k==='bio'?(req.body[k]||'').slice(0,160):req.body[k] })
-    const _snap={name:update.name,phone:update.phone,city:update.city,state:update.state,targetExam:update.targetExam}
+    const changes = []
+    allowed.forEach(k => {
+      if (req.body[k] !== undefined) {
+        let newVal = req.body[k]
+        if (k === 'bio') newVal = (newVal || '').slice(0, 160)
+        if (k === 'phone' && newVal) newVal = String(newVal).trim().replace(/[\s-]/g, '')
+        const oldVal = current[k] !== undefined ? current[k] : null
+        if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+          changes.push({ field: k, oldValue: oldVal, newValue: newVal })
+        }
+        update[k] = newVal
+      }
+    })
+
+    if (changes.length === 0) {
+      return res.json({ message: 'No changes to save', changedFields: [] })
+    }
+
     await User.collection.updateOne(
       { _id: new mongoose.Types.ObjectId(payload.id) },
-      { $set: update, $push: { profileHistory: { updatedAt: new Date(), snapshot: _snap } } }
+      { $set: update, $push: { profileHistory: {
+          updatedAt: new Date(),
+          updatedFields: changes.map(c => c.field),
+          changes,
+          updatedBy: 'self',
+          source: section,
+        } } }
     )
-    res.json({ message: 'Profile updated successfully' })
+
+    try {
+      const { logActivity } = require('../utils/activityLogger')
+      const fieldNames = changes.map(c => c.field)
+      let details = `Updated: ${fieldNames.join(', ')}`
+      if (fieldNames.includes('avatar')) details = 'Profile photo updated'
+      logActivity({
+        userId: payload.id, userName: current.name, userRole: current.role || 'student',
+        action: fieldNames.includes('avatar') ? 'PHOTO_UPDATED' : 'PROFILE_UPDATED',
+        details, module: section, status: 'success'
+      }).catch(() => {})
+    } catch (e) {}
+
+    res.json({ message: 'Profile updated successfully', changedFields: changes.map(c => c.field) })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// ── F38 — Overview: completion %, health score, exam stats, streak ──
+router.get('/profile-overview', async (req, res) => {
+  try {
+    const auth = req.headers.authorization
+    if (!auth) return res.status(401).json({ message: 'No token' })
+    const payload = jwt.verify(auth.split(' ')[1], JWT_SECRET)
+    const mongoose = require('mongoose')
+    const uid = new mongoose.Types.ObjectId(payload.id)
+    const user = await User.collection.findOne({ _id: uid })
+    if (!user) return res.status(404).json({ message: 'User not found' })
+
+    // ── Exam stats (best-effort — works whether Result or Attempt model holds scores) ──
+    let totalExams = 0, bestScore = 0, avgScore = 0, rankHistory = []
+    try {
+      const Result = require('../models/Result')
+      const results = await Result.find({ studentId: uid }).sort({ createdAt: 1 }).lean()
+      totalExams = results.length
+      if (results.length) {
+        const scores = results.map(r => r.score || r.totalScore || 0)
+        bestScore = Math.max(...scores)
+        avgScore = Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
+        rankHistory = results.slice(-10).map(r => ({
+          examTitle: r.examTitle || 'Exam', rank: r.rank || null,
+          score: r.score || r.totalScore || 0, date: r.createdAt
+        }))
+      }
+    } catch (e) {}
+
+    // ── Current streak — consecutive calendar days with a login ──
+    let currentStreak = 0
+    try {
+      const days = [...new Set((user.loginHistory || []).map(h => new Date(h.time || h.at).toDateString()))]
+        .map(d => new Date(d)).sort((a, b) => b - a)
+      if (days.length) {
+        let cursor = new Date(); cursor.setHours(0,0,0,0)
+        for (const d of days) {
+          const dd = new Date(d); dd.setHours(0,0,0,0)
+          const diff = Math.round((cursor - dd) / 86400000)
+          if (diff === 0 || diff === 1) { currentStreak++; cursor = dd }
+          else break
+        }
+      }
+    } catch (e) {}
+
+    // ── Profile Completion % ──
+    const fields = ['name','phone','dob','city','state','gender','bio','avatar','targetExam','board','school']
+    const filled = fields.filter(f => user[f] && String(user[f]).trim()).length
+    const completion = Math.round((filled / fields.length) * 100)
+
+    // ── Profile Health Score (0-100) — distinct trust metric ──
+    let health = 0
+    if (user.emailVerified || user.verified) health += 25
+    if (user.phone) health += 15
+    if (user.avatar) health += 15
+    if (completion >= 80) health += 25
+    else if (completion >= 50) health += 15
+    if (user.twoFactorEnabled) health += 20
+    health = Math.min(100, health)
+
+    const missing = []
+    if (!(user.emailVerified || user.verified)) missing.push({ label: 'Verify your email', href: null })
+    if (!user.phone) missing.push({ label: 'Add phone number', href: '#personal' })
+    if (!user.avatar) missing.push({ label: 'Upload profile photo', href: '#personal' })
+    if (!user.dob || !user.city) missing.push({ label: 'Complete personal details', href: '#personal' })
+    if (!user.targetExam || !user.board || !user.school) missing.push({ label: 'Complete academic profile', href: '#academic' })
+    if (!user.twoFactorEnabled) missing.push({ label: 'Enable 2FA for extra security', href: '#security' })
+
+    res.json({
+      completion, health, missing,
+      studentId: user.studentId || null, batch: user.batch || '',
+      verified: !!(user.emailVerified || user.verified),
+      stats: { totalExams, bestScore, avgScore, currentStreak, rankHistory },
+    })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// ── F38 §5 — Security overview: last login, devices, failed attempts ──
+router.get('/security-overview', async (req, res) => {
+  try {
+    const auth = req.headers.authorization
+    if (!auth) return res.status(401).json({ message: 'No token' })
+    const payload = jwt.verify(auth.split(' ')[1], JWT_SECRET)
+    const mongoose = require('mongoose')
+    const user = await User.collection.findOne({ _id: new mongoose.Types.ObjectId(payload.id) })
+    if (!user) return res.status(404).json({ message: 'User not found' })
+    const history = user.loginHistory || []
+    res.json({
+      lastLogin: history[history.length - 1] || null,
+      recentLogins: history.slice(-10).reverse(),
+      activeDeviceCount: user.activeSessionToken ? 1 : 0,
+      trustedDevices: user.trustedDevices || [],
+      failedLoginAttempts: user.failedLoginAttempts || 0,
+      lastFailedLoginAt: user.lastFailedLoginAt || null,
+      twoFactorEnabled: !!user.twoFactorEnabled,
+    })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// ── F38 §5.2.4 — Logout OTHER Sessions only (current device stays signed in) ──
+// Issues a fresh token for THIS device and invalidates the old one, so any
+// other device/browser still using the old token gets logged out, while
+// this device keeps working using the new token returned below.
+router.post('/logout-other-sessions', async (req, res) => {
+  try {
+    const auth = req.headers.authorization
+    if (!auth) return res.status(401).json({ message: 'No token' })
+    const payload = jwt.verify(auth.split(' ')[1], JWT_SECRET)
+    const mongoose = require('mongoose')
+    const user = await User.collection.findOne({ _id: new mongoose.Types.ObjectId(payload.id) })
+    if (!user) return res.status(404).json({ message: 'User not found' })
+
+    const newToken = jwt.sign(
+      { id: payload.id, role: payload.role || user.role || 'student' },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    )
+    await User.collection.updateOne(
+      { _id: new mongoose.Types.ObjectId(payload.id) },
+      { $set: { activeSessionToken: newToken } }
+    )
+    try {
+      const { logActivity } = require('../utils/activityLogger')
+      logActivity({ userId: payload.id, userName: user.name, userRole: user.role || 'student', action: 'LOGOUT_OTHER_SESSIONS', details: 'Logged out from other devices — this device remains signed in', module: 'security', status: 'success' }).catch(() => {})
+    } catch (e) {}
+
+    res.json({ token: newToken, message: 'Logged out from all other devices. This device stays signed in.' })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// ── F38 §5.2.4 — Logout from all devices INCLUDING this one ──
+router.post('/logout-everywhere', async (req, res) => {
+  try {
+    const auth = req.headers.authorization
+    if (!auth) return res.status(401).json({ message: 'No token' })
+    const payload = jwt.verify(auth.split(' ')[1], JWT_SECRET)
+    const mongoose = require('mongoose')
+    const crypto = require('crypto')
+    const marker = 'LOGGED_OUT_' + crypto.randomBytes(8).toString('hex')
+    await User.collection.updateOne(
+      { _id: new mongoose.Types.ObjectId(payload.id) },
+      { $set: { activeSessionToken: marker } }
+    )
+    try {
+      const { logActivity } = require('../utils/activityLogger')
+      logActivity({ userId: payload.id, userRole: 'student', action: 'LOGOUT_ALL_DEVICES', details: 'Logged out from all devices', module: 'security', status: 'success' }).catch(() => {})
+    } catch (e) {}
+    res.json({ message: 'Logged out from all devices. Please login again.' })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// ── F38 §7 — Student-facing activity timeline (own account only) ──
+router.get('/activity', async (req, res) => {
+  try {
+    const auth = req.headers.authorization
+    if (!auth) return res.status(401).json({ message: 'No token' })
+    const payload = jwt.verify(auth.split(' ')[1], JWT_SECRET)
+    const ActivityLog = require('../models/ActivityLog')
+    const logs = await ActivityLog.find({ userId: payload.id }).sort({ createdAt: -1 }).limit(40).lean()
+    res.json({ logs })
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
   }
@@ -555,16 +824,6 @@ router.post('/checklist/mark', async (req, res) => {
     const update = {}
     if (item === 'pyq')       update['checklist.pyqExplored']      = true
     if (item === 'analytics') update['checklist.analyticsVisited'] = true
-
-    
-    if (state            !== undefined) allowed.state            = state
-    if (gender           !== undefined) allowed.gender           = gender
-    if (timezone         !== undefined) allowed.timezone         = timezone
-    if (targetYear       !== undefined) allowed.targetYear       = targetYear
-    if (yearOfAppearing  !== undefined) allowed.yearOfAppearing  = yearOfAppearing
-    if (coachingInstitute!== undefined) allowed.coachingInstitute= coachingInstitute
-    if (preferences      !== undefined) allowed.preferences      = preferences
-    // Profile history snapshot
     await User.findByIdAndUpdate(decoded.id, { $set: update })
     res.json({ success: true })
   } catch (err) {
