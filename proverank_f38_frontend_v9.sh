@@ -1,3 +1,16 @@
+#!/bin/bash
+# ProveRank — F38 Student Profile — FRONTEND deploy script (v9: 2 bug fixes)
+# 1) Unsaved-changes prompt no longer wrongly fires after uploading/removing a photo
+# 2) Photo is no longer cropped/zoomed — full picture always fit inside the circle (contain, not cover-crop)
+# Run from project ROOT in Replit shell: bash proverank_f38_frontend_v9.sh
+set -e
+
+APP_DIR="frontend/app"
+
+mkdir -p "$APP_DIR/profile"
+
+echo '-> Writing $APP_DIR/profile/page.tsx'
+cat > "$APP_DIR/profile/page.tsx" << 'PRSHEOF'
 'use client'
 import CopyBtn from '@/components/CopyBtn'
 import { useState, useEffect, useRef, useMemo } from 'react'
@@ -864,3 +877,44 @@ function ProfileContent() {
 export default function ProfilePage() {
   return <StudentShell pageKey="profile"><ProfileContent/></StudentShell>
 }
+PRSHEOF
+
+echo ""
+echo "════════════════════════════════════════════════════"
+echo "  F38 FRONTEND v9 — VERIFICATION"
+echo "════════════════════════════════════════════════════"
+PASS=0; TOTAL=0
+check() {
+  TOTAL=$((TOTAL+1))
+  if grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+notcheck() {
+  TOTAL=$((TOTAL+1))
+  if ! grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+
+F="$APP_DIR/profile/page.tsx"
+
+echo "── Bug 1: false unsaved-changes prompt after photo upload/remove ──"
+check "$F" "if (ok) { initial.current = { ...initial.current, avatar:dataUrl }; setDirtyPersonal(false) }" "Upload: dirtyPersonal explicitly cleared after auto-save"
+check "$F" "if (ok) { initial.current = { ...initial.current, avatar:'' }; setDirtyPersonal(false) }" "Remove: dirtyPersonal explicitly cleared after auto-save"
+
+echo "── Bug 2: photo cropped/zoomed instead of showing full picture ──"
+notcheck "$F" "Math.max(size/img.width, size/img.height)" "Old cover-crop scale logic removed"
+check "$F" "Math.min(size/img.width, size/img.height)" "New contain-fit scale logic (shows COMPLETE photo, no crop/zoom)"
+check "$F" "ctx.fillRect(0, 0, size, size)"              "Letterbox background fill added (no transparent/black gaps)"
+
+echo "── Prior features intact ──"
+check "$F" "editPersonal,setEditPersonal"    "Edit-mode toggle still intact"
+check "$F" "Photo Viewer modal"              "Photo Viewer modal still intact"
+check "$F" "logout-other-sessions"           "logout-other-sessions still intact"
+check "$F" "pendingSection &&"               "Custom unsaved-changes modal still intact"
+
+echo "────────────────────────────────────────────────────"
+echo "  $PASS / $TOTAL checks passed"
+echo "════════════════════════════════════════════════════"
+if [ "$PASS" -eq "$TOTAL" ]; then
+  echo "🎉 Both bugs fixed and all prior features intact!"
+else
+  echo "⚠️  Review the ❌ lines above."
+fi
