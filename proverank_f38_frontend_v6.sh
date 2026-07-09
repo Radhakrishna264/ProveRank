@@ -1,3 +1,14 @@
+#!/bin/bash
+# ProveRank — F38 Student Profile — FRONTEND deploy script (v6: fix stuck "unsaved changes" after successful save)
+# Run from project ROOT in Replit shell: bash proverank_f38_frontend_v6.sh
+set -e
+
+APP_DIR="frontend/app"
+
+mkdir -p "$APP_DIR/profile"
+
+echo '-> Writing $APP_DIR/profile/page.tsx'
+cat > "$APP_DIR/profile/page.tsx" << 'PRSHEOF'
 'use client'
 import CopyBtn from '@/components/CopyBtn'
 import { useState, useEffect, useRef, useMemo } from 'react'
@@ -756,3 +767,35 @@ function ProfileContent() {
 export default function ProfilePage() {
   return <StudentShell pageKey="profile"><ProfileContent/></StudentShell>
 }
+PRSHEOF
+
+echo ""
+echo "════════════════════════════════════════════════════"
+echo "  F38 FRONTEND v6 — VERIFICATION"
+echo "════════════════════════════════════════════════════"
+PASS=0; TOTAL=0
+check() {
+  TOTAL=$((TOTAL+1))
+  if grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+
+F="$APP_DIR/profile/page.tsx"
+
+check "$F" "const ok = await saveSection({name,phone,dob,city,state,gender,bio,avatar,timezone}, 'personal')" "Bug fix: savePersonal captures save result"
+check "$F" "setDirtyPersonal(false)"    "Bug fix: dirtyPersonal explicitly cleared on successful save"
+check "$F" "const ok = await saveSection({targetExam" "Bug fix: saveAcademic captures save result"
+check "$F" "setDirtyAcademic(false)"    "Bug fix: dirtyAcademic explicitly cleared on successful save"
+check "$F" "const ok = await saveSection({preferences" "Bug fix: savePrefs captures save result"
+check "$F" "setDirtyPrefs(false)"       "Bug fix: dirtyPrefs explicitly cleared on successful save"
+check "$F" "setColorTheme"              "Previous fix intact: inline theme toggle in Preferences"
+check "$F" "const \[loaded, setLoaded\]" "Previous fix intact: false-dirty-on-load guard"
+check "$F" "logout-other-sessions"      "Previous feature intact: logout-other-sessions"
+
+echo "────────────────────────────────────────────────────"
+echo "  $PASS / $TOTAL checks passed"
+echo "════════════════════════════════════════════════════"
+if [ "$PASS" -eq "$TOTAL" ]; then
+  echo "🎉 Bug fixed and all prior features intact!"
+else
+  echo "⚠️  Review the ❌ lines above."
+fi
