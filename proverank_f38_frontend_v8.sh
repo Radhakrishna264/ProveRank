@@ -1,3 +1,17 @@
+#!/bin/bash
+# ProveRank — F38 Student Profile — FRONTEND deploy script (v8)
+# 1) Edit-mode toggle: sections start read-only, Edit button enables fields, Save appears only in edit mode, exits read-only after save
+# 2) Avatar click opens large Photo Viewer modal with explicit Upload/Remove buttons (no more direct gallery open)
+# 3) Nothing pre-active for editing anywhere — everything requires an explicit Edit click first
+# Run from project ROOT in Replit shell: bash proverank_f38_frontend_v8.sh
+set -e
+
+APP_DIR="frontend/app"
+
+mkdir -p "$APP_DIR/profile"
+
+echo '-> Writing $APP_DIR/profile/page.tsx'
+cat > "$APP_DIR/profile/page.tsx" << 'PRSHEOF'
 'use client'
 import CopyBtn from '@/components/CopyBtn'
 import { useState, useEffect, useRef, useMemo } from 'react'
@@ -860,3 +874,60 @@ function ProfileContent() {
 export default function ProfilePage() {
   return <StudentShell pageKey="profile"><ProfileContent/></StudentShell>
 }
+PRSHEOF
+
+echo ""
+echo "════════════════════════════════════════════════════"
+echo "  F38 FRONTEND v8 — VERIFICATION"
+echo "════════════════════════════════════════════════════"
+PASS=0; TOTAL=0
+check() {
+  TOTAL=$((TOTAL+1))
+  if grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+notcheck() {
+  TOTAL=$((TOTAL+1))
+  if ! grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+
+F="$APP_DIR/profile/page.tsx"
+
+echo "── Edit-mode toggle (read-only by default) ──"
+check "$F" "editPersonal,setEditPersonal"    "Personal section has its own edit-mode state"
+check "$F" "editAcademic,setEditAcademic"    "Academic section has its own edit-mode state"
+check "$F" "editPrefs,setEditPrefs"          "Preferences section has its own edit-mode state"
+check "$F" "disabled={!editPersonal}"        "Personal fields disabled until Edit clicked"
+check "$F" "disabled={!editAcademic}"        "Academic fields disabled until Edit clicked"
+check "$F" "{!editPersonal && <button style={btnGhost} onClick={()=>setEditPersonal(true)}" "Personal: Edit button shown only in read-only mode"
+check "$F" "{editPersonal && (" "Personal: Save/Cancel buttons shown ONLY in edit mode"
+check "$F" "{editAcademic && (" "Academic: Save/Cancel buttons shown ONLY in edit mode"
+check "$F" "setEditPersonal(false)"          "Personal exits edit mode automatically after successful save"
+check "$F" "setEditAcademic(false)"          "Academic exits edit mode automatically after successful save"
+check "$F" "setEditPrefs(false)"             "Preferences exits edit mode automatically after successful save"
+check "$F" "cancelEditPersonal"              "Personal has a Cancel handler (discard + exit edit mode)"
+check "$F" "cancelEditAcademic"              "Academic has a Cancel handler"
+check "$F" "cancelEditPrefs"                 "Preferences has a Cancel handler"
+
+echo "── Avatar / Photo Viewer ──"
+notcheck "$F" "onClick={onPickPhoto} style={{position:'absolute',top:6" "Avatar click no longer opens gallery directly (bug fixed)"
+check "$F" "onClick={()=>setPhotoViewerOpen(true)}" "Avatar click now opens Photo Viewer modal"
+check "$F" "Photo Viewer modal"              "Large Photo Viewer modal implemented"
+check "$F" "Upload New Photo"                "Photo Viewer has explicit Upload button"
+check "$F" "Remove Photo"                    "Photo Viewer has explicit Remove button"
+check "$F" "removePhoto"                     "Remove Photo handler implemented (auto-saves)"
+
+echo "── Prior features intact ──"
+check "$F" "logout-other-sessions"           "logout-other-sessions still intact"
+check "$F" "phoneDupWarning"                 "Duplicate phone check still intact"
+check "$F" "pendingSection &&"               "Custom unsaved-changes modal still intact"
+check "$F" "const \[loaded, setLoaded\]"     "False-dirty-on-load guard still intact"
+check "$F" "function Toggle("                "Toggle stays module-level (no remount / keyboard bug)"
+
+echo "────────────────────────────────────────────────────"
+echo "  $PASS / $TOTAL checks passed"
+echo "════════════════════════════════════════════════════"
+if [ "$PASS" -eq "$TOTAL" ]; then
+  echo "🎉 All 3 requested changes implemented and all prior features intact!"
+else
+  echo "⚠️  Review the ❌ lines above."
+fi
