@@ -276,9 +276,7 @@ function ProfileContent() {
         const size = 220
         const canvas = document.createElement('canvas'); canvas.width = size; canvas.height = size
         const ctx = canvas.getContext('2d')!
-        ctx.fillStyle = dm ? '#0A0E17' : '#F1F5FB'
-        ctx.fillRect(0, 0, size, size)
-        const scale = Math.min(size/img.width, size/img.height)
+        const scale = Math.max(size/img.width, size/img.height)
         const w = img.width*scale, h = img.height*scale
         ctx.drawImage(img, (size-w)/2, (size-h)/2, w, h)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
