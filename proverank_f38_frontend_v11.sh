@@ -1,3 +1,18 @@
+#!/bin/bash
+# ProveRank — F38 Student Profile — FRONTEND deploy script (v11)
+# Fix: photo appearing sideways/cropped-narrow (even in large view) — root
+# cause was EXIF orientation metadata from phone cameras being ignored by
+# the canvas draw. Now uses createImageBitmap(imageOrientation:from-image)
+# so the photo is auto-rotated correctly before being fit into the circle.
+# Run from project ROOT in Replit shell: bash proverank_f38_frontend_v11.sh
+set -e
+
+APP_DIR="frontend/app"
+
+mkdir -p "$APP_DIR/profile"
+
+echo '-> Writing $APP_DIR/profile/page.tsx'
+cat > "$APP_DIR/profile/page.tsx" << 'PRSHEOF'
 'use client'
 import CopyBtn from '@/components/CopyBtn'
 import { useState, useEffect, useRef, useMemo } from 'react'
@@ -878,3 +893,42 @@ function ProfileContent() {
 export default function ProfilePage() {
   return <StudentShell pageKey="profile"><ProfileContent/></StudentShell>
 }
+PRSHEOF
+
+echo ""
+echo "════════════════════════════════════════════════════"
+echo "  F38 FRONTEND v11 — VERIFICATION"
+echo "════════════════════════════════════════════════════"
+PASS=0; TOTAL=0
+check() {
+  TOTAL=$((TOTAL+1))
+  if grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+notcheck() {
+  TOTAL=$((TOTAL+1))
+  if ! grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+
+F="$APP_DIR/profile/page.tsx"
+
+check "$F" "createImageBitmap(file, { imageOrientation: 'from-image' }" "EXIF auto-rotation fix (createImageBitmap) added"
+notcheck "$F" "const img = new Image()"        "Old Image()+FileReader pipeline (ignored EXIF) removed"
+notcheck "$F" "reader.readAsDataURL(file)"     "Old FileReader flow removed"
+check "$F" "fileRef.current.value = ''"        "File input resets so re-selecting same photo works"
+check "$F" "catch (err) {"                     "Error handling for unsupported/failed image decode"
+
+echo "── Prior fixes intact ──"
+check "$F" "const size = 220"                  "Smaller payload size still intact"
+check "$F" "setAvatar(prevAvatar)"             "Revert-on-save-failure still intact"
+check "$F" "Math.min(size/bitmap.width, size/bitmap.height)" "Contain-fit (no crop/zoom) still intact"
+check "$F" "editPersonal,setEditPersonal"      "Edit-mode toggle still intact"
+check "$F" "logout-other-sessions"             "logout-other-sessions still intact"
+
+echo "────────────────────────────────────────────────────"
+echo "  $PASS / $TOTAL checks passed"
+echo "════════════════════════════════════════════════════"
+if [ "$PASS" -eq "$TOTAL" ]; then
+  echo "🎉 Fix applied and all prior features intact!"
+else
+  echo "⚠️  Review the ❌ lines above."
+fi
