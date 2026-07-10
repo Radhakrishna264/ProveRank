@@ -443,8 +443,8 @@ function ProfileContent() {
       <div style={{display:'flex',gap:16,alignItems:'center',flexWrap:'wrap'}}>
         <div style={{position:'relative',width:84,height:84,flexShrink:0}}>
           <CompletionRing pct={ov?.completion ?? 0} size={84}/>
-          <div onClick={()=>setPhotoViewerOpen(true)} style={{position:'absolute',top:6,left:6,width:72,height:72,borderRadius:'50%',background: avatar?`url(${avatar})`:`linear-gradient(135deg,${prim},#00D4FF)`,backgroundSize:'cover',backgroundPosition:'center',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,fontWeight:800,color:'#fff',cursor:'pointer',overflow:'hidden'}}>
-            {!avatar && initials}
+          <div onClick={()=>setPhotoViewerOpen(true)} style={{position:'absolute',top:6,left:6,width:72,height:72,borderRadius:'50%',background: avatar?'transparent':`linear-gradient(135deg,${prim},#00D4FF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,fontWeight:800,color:'#fff',cursor:'pointer',overflow:'hidden'}}>
+            {avatar ? <img src={avatar} alt="avatar" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/> : initials}
             <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.35)',opacity:0,transition:'opacity .2s',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}} className="avatar-hover">📷</div>
           </div>
           {avatarBusy && <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#fff'}}>...</div>}
@@ -527,7 +527,7 @@ function ProfileContent() {
   // ── Digital Student ID Card visual (used inline preview + modal) — §11.3 ──
   const idCardVisualEl = (
     <div style={{display:'flex',gap:16,alignItems:'center',flexWrap:'wrap',background: dm?'linear-gradient(135deg,#020816,#001830)':'linear-gradient(135deg,#EEF4FF,#DCEBFF)', borderRadius:14, padding:16, border:`1px solid ${bdr}`}}>
-      <div style={{width:56,height:56,borderRadius:'50%',background: avatar?`url(${avatar})`:`linear-gradient(135deg,${prim},#00D4FF)`,backgroundSize:'cover',backgroundPosition:'center',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:800,color:'#fff',flexShrink:0}}>{!avatar && initials}</div>
+      <div style={{width:56,height:56,borderRadius:'50%',background: avatar?'transparent':`linear-gradient(135deg,${prim},#00D4FF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:800,color:'#fff',flexShrink:0,overflow:'hidden'}}>{avatar ? <img src={avatar} alt="avatar" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/> : initials}</div>
       <div style={{flex:1,minWidth:140}}>
         <div style={{fontWeight:800,fontSize:14,color: dm?'#F1F6FC':'#0F172A'}}>{me?.name}</div>
         <div style={{fontSize:11,color: dm?'#8DA2C0':'#51607A'}}>ID: {me?.studentId||'—'} {ov?.batch?`· ${ov.batch}`:''}</div>
@@ -830,8 +830,8 @@ function ProfileContent() {
       {photoViewerOpen && (
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.75)',zIndex:280,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>setPhotoViewerOpen(false)}>
           <div onClick={e=>e.stopPropagation()} style={{maxWidth:300,width:'100%',textAlign:'center'}}>
-            <div style={{width:200,height:200,borderRadius:'50%',margin:'0 auto 22px',background: avatar?`url(${avatar})`:`linear-gradient(135deg,${prim},#00D4FF)`,backgroundSize:'cover',backgroundPosition:'center',display:'flex',alignItems:'center',justifyContent:'center',fontSize:60,fontWeight:800,color:'#fff',border:'4px solid rgba(255,255,255,0.2)'}}>
-              {!avatar && initials}
+            <div style={{width:200,height:200,borderRadius:'50%',margin:'0 auto 22px',background: avatar?'transparent':`linear-gradient(135deg,${prim},#00D4FF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:60,fontWeight:800,color:'#fff',border:'4px solid rgba(255,255,255,0.2)',overflow:'hidden'}}>
+              {avatar ? <img src={avatar} alt="avatar" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/> : initials}
               {avatarBusy && <div style={{position:'absolute'}}>...</div>}
             </div>
             <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
