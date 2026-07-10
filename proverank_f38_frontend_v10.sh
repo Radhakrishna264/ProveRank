@@ -1,3 +1,18 @@
+#!/bin/bash
+# ProveRank — F38 Student Profile — FRONTEND deploy script (v10)
+# Fix: large-view vs small-view avatar mismatch — likely caused by a failed/silent
+# server save (payload too big) leaving local UI showing an unsaved photo.
+# Now: smaller payload + local state reverts if the server save actually fails,
+# and the upload modal stays open so the result is visible immediately.
+# Run from project ROOT in Replit shell: bash proverank_f38_frontend_v10.sh
+set -e
+
+APP_DIR="frontend/app"
+
+mkdir -p "$APP_DIR/profile"
+
+echo '-> Writing $APP_DIR/profile/page.tsx'
+cat > "$APP_DIR/profile/page.tsx" << 'PRSHEOF'
 'use client'
 import CopyBtn from '@/components/CopyBtn'
 import { useState, useEffect, useRef, useMemo } from 'react'
@@ -878,3 +893,41 @@ function ProfileContent() {
 export default function ProfilePage() {
   return <StudentShell pageKey="profile"><ProfileContent/></StudentShell>
 }
+PRSHEOF
+
+echo ""
+echo "════════════════════════════════════════════════════"
+echo "  F38 FRONTEND v10 — VERIFICATION"
+echo "════════════════════════════════════════════════════"
+PASS=0; TOTAL=0
+check() {
+  TOTAL=$((TOTAL+1))
+  if grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+notcheck() {
+  TOTAL=$((TOTAL+1))
+  if ! grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+
+F="$APP_DIR/profile/page.tsx"
+
+check "$F" "const size = 220"                 "Avatar canvas shrunk to 220px (smaller payload, avoids body-size-limit issues)"
+check "$F" "canvas.toDataURL('image/jpeg', 0.7)" "JPEG quality reduced to 0.7 (smaller payload)"
+check "$F" "const prevAvatar = avatar"         "Previous avatar captured before upload attempt"
+check "$F" "setAvatar(prevAvatar)"             "Avatar reverts locally if server save actually fails (fixes large-vs-small mismatch)"
+check "$F" "Photo could not be saved"          "Clear error toast shown on save failure"
+notcheck "$F" "setPhotoViewerOpen(false); onPickPhoto()" "Modal no longer closes before upload (stays open, shows result immediately)"
+
+echo "── Prior fixes intact ──"
+check "$F" "Math.min(size/img.width, size/img.height)" "Contain-fit (no crop/zoom) still intact"
+check "$F" "editPersonal,setEditPersonal"    "Edit-mode toggle still intact"
+check "$F" "logout-other-sessions"           "logout-other-sessions still intact"
+
+echo "────────────────────────────────────────────────────"
+echo "  $PASS / $TOTAL checks passed"
+echo "════════════════════════════════════════════════════"
+if [ "$PASS" -eq "$TOTAL" ]; then
+  echo "🎉 Fix applied and all prior features intact!"
+else
+  echo "⚠️  Review the ❌ lines above."
+fi
