@@ -260,45 +260,45 @@ function ProfileContent() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [avatarBusy,setAvatarBusy]=useState(false)
   const onPickPhoto = () => fileRef.current?.click()
-  const onPhotoChange = async (e:any) => {
+  const onPhotoChange = (e:any) => {
     const file = e.target.files?.[0]; if (!file) return
     if (!file.type.startsWith('image/')) { toast?.(t('Please select an image file','कृपया इमेज फ़ाइल चुनें'),'e'); return }
     setAvatarBusy(true)
     const prevAvatar = avatar
-    try {
-      // createImageBitmap with imageOrientation:'from-image' auto-corrects
-      // EXIF rotation (phone photos are often stored landscape + a "rotate"
-      // flag — drawing them raw onto a canvas ignores that flag and was
-      // producing the sideways/cropped photo).
-      const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' } as any)
-      // Fit the WHOLE (correctly-oriented) photo inside a square canvas —
-      // no cropping/zooming — letterboxed with a neutral fill.
-      const size = 220
-      const canvas = document.createElement('canvas'); canvas.width = size; canvas.height = size
-      const ctx = canvas.getContext('2d')!
-      ctx.fillStyle = dm ? '#0A0E17' : '#F1F5FB'
-      ctx.fillRect(0, 0, size, size)
-      const scale = Math.min(size/bitmap.width, size/bitmap.height)
-      const w = bitmap.width*scale, h = bitmap.height*scale
-      ctx.drawImage(bitmap, (size-w)/2, (size-h)/2, w, h)
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
-      setAvatar(dataUrl)
-      const ok = await saveSection({avatar:dataUrl}, 'personal')
-      if (ok) {
-        initial.current = { ...initial.current, avatar:dataUrl }
-        setDirtyPersonal(false)
-      } else {
-        // Server rejected the save — revert so the page never shows a
-        // photo that isn't actually persisted.
-        setAvatar(prevAvatar)
-        toast?.(t('Photo could not be saved. Please try a smaller image.','फोटो सहेजा नहीं जा सका। कृपया छोटी इमेज आज़माएं।'),'e')
+    const img = new Image()
+    const reader = new FileReader()
+    reader.onload = (ev:any) => {
+      img.onload = async () => {
+        // Fit the WHOLE photo inside a square canvas (no cropping/zooming) —
+        // letterbox with a neutral fill so nothing gets cut off. Kept small
+        // (220px, moderate quality) so the upload never gets silently
+        // rejected/truncated by a request body-size limit.
+        const size = 220
+        const canvas = document.createElement('canvas'); canvas.width = size; canvas.height = size
+        const ctx = canvas.getContext('2d')!
+        ctx.fillStyle = dm ? '#0A0E17' : '#F1F5FB'
+        ctx.fillRect(0, 0, size, size)
+        const scale = Math.min(size/img.width, size/img.height)
+        const w = img.width*scale, h = img.height*scale
+        ctx.drawImage(img, (size-w)/2, (size-h)/2, w, h)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+        setAvatar(dataUrl)
+        const ok = await saveSection({avatar:dataUrl}, 'personal')
+        if (ok) {
+          initial.current = { ...initial.current, avatar:dataUrl }
+          setDirtyPersonal(false)
+        } else {
+          // Server rejected the save — revert so the page never shows a
+          // photo that isn't actually persisted (was causing the
+          // large-view-vs-small-view mismatch after a reload).
+          setAvatar(prevAvatar)
+          toast?.(t('Photo could not be saved. Please try a smaller image.','फोटो सहेजा नहीं जा सका। कृपया छोटी इमेज आज़माएं।'),'e')
+        }
+        setAvatarBusy(false)
       }
-    } catch (err) {
-      setAvatar(prevAvatar)
-      toast?.(t('Could not process this photo. Please try another one.','इस फोटो को प्रोसेस नहीं किया जा सका। कृपया दूसरी फोटो आज़माएं।'),'e')
+      img.src = ev.target.result
     }
-    setAvatarBusy(false)
-    if (fileRef.current) fileRef.current.value = ''
+    reader.readAsDataURL(file)
   }
   const removePhoto = async () => {
     setAvatarBusy(true)
