@@ -1,3 +1,167 @@
+#!/bin/bash
+# ProveRank — F38B Student 360° Profile Preview — BACKEND v2
+# 1) LOGIN_FAILED activity log  2) trustedDevices populated on login
+# 3) passwordResetHistory populated on forgot-password reset
+# 4) 2FA enable/disable logged  5) Audit trail matches by userId OR email/studentId
+# Run from project ROOT in Replit shell: bash proverank_f38b_backend_v2.sh
+set -e
+
+SRC_DIR="src"
+
+mkdir -p "$SRC_DIR/models" "$SRC_DIR/routes"
+
+echo '-> Writing $SRC_DIR/models/User.js'
+cat > "$SRC_DIR/models/User.js" << 'PRSHEOF'
+const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
+
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  phone: { type: String },
+  password: { type: String, required: true },
+  studentId: { type: String, unique: true, sparse: true, trim: true },
+  adminId: { type: String, unique: true, sparse: true, trim: true },
+
+  // ── F38/F39: Extended Profile Fields ──────────────────────────
+  state:              { type: String, default: '' },
+  gender:             { type: String, default: '' },
+  timezone:           { type: String, default: 'Asia/Kolkata' },
+  targetYear:         { type: String, default: '' },
+  yearOfAppearing:    { type: String, default: '' },
+  coachingInstitute:  { type: String, default: '' },
+  dob:                { type: String, default: '' },
+  city:               { type: String, default: '' },
+  bio:                { type: String, default: '', maxlength: 160 },
+  avatar:             { type: String, default: '' },
+  targetExam:         { type: String, default: '' },
+  board:              { type: String, default: '' },
+  school:             { type: String, default: '' },
+  medium:             { type: String, default: '' },
+  batch:              { type: String, default: '' },
+
+  // ── F38: 2FA (TOTP) ────────────────────────────────────────────
+  twoFactorEnabled:     { type: Boolean, default: false },
+  twoFactorSecret:      { type: String, default: null },
+  twoFactorTempSecret:  { type: String, default: null },
+
+  // ── F38: Login health / device tracking ─────────────────────────
+  failedLoginAttempts: { type: Number, default: 0 },
+  lastFailedLoginAt:   { type: Date, default: null },
+  loginCount:          { type: Number, default: 0 },
+  trustedDevices: [{
+    deviceId:   String,
+    label:      String,
+    browser:    String,
+    os:         String,
+    addedAt:    { type: Date, default: Date.now },
+    lastUsedAt: Date,
+  }],
+
+  // ── F38B §7 — Profile photo version history (Superadmin only view) ──
+  avatarHistory: [{
+    url:       String,
+    updatedAt: { type: Date, default: Date.now },
+    updatedBy: { type: String, default: 'self' },
+    source:    { type: String, default: 'profile_page' },
+  }],
+
+  // ── F38B §5 — Password change metadata (never the password itself) ──
+  passwordChangedAt:   { type: Date, default: null },
+  passwordChangeCount: { type: Number, default: 0 },
+  passwordResetHistory: [{
+    requestedAt: { type: Date, default: Date.now },
+    resetBy:     { type: String, default: 'self' },
+    method:      { type: String, default: 'otp' },
+  }],
+
+  // Profile history (F38 §9 — per-field internal audit trail, DB only, never shown to student)
+  profileHistory: [{
+    updatedAt:        { type: Date, default: Date.now },
+    updatedFields:    [String],
+    changes: [{
+      field:    String,
+      oldValue: mongoose.Schema.Types.Mixed,
+      newValue: mongoose.Schema.Types.Mixed,
+    }],
+    updatedBy: { type: String, default: 'self' },
+    source:    { type: String, default: 'profile_page' },
+    snapshot: {
+      name: String, phone: String, dob: String, city: String,
+      state: String, gender: String, bio: String,
+      targetExam: String, targetYear: String, board: String,
+      school: String, coachingInstitute: String,
+    }
+  }],
+
+  // Preferences
+  preferences: {
+    emailNotif:    { type: Boolean, default: true },
+    smsNotif:      { type: Boolean, default: false },
+    studyReminder: { type: Boolean, default: true },
+  },
+
+  welcomeSeen: { type: Boolean, default: false },
+  role: {
+    type: String,
+    enum: ['superadmin', 'admin', 'student'],
+    default: 'student'
+  },
+  termsAccepted: { type: Boolean, default: false },
+  permissions: { type: Map, of: Boolean, default: {} },
+  adminFrozen: { type: Boolean, default: false },
+  group: { type: String },
+  otp: { type: String },
+  otpExpiry: { type: Date },
+  verified: { type: Boolean, default: false },
+  profilePhoto: { type: String },
+  emailVerified: { type: Boolean, default: false },
+  
+  // OTP fields — register verify, login OTP, reset password
+  emailVerifyOTP:      { type: String, default: null },
+  emailVerifyOTPExpiry:{ type: Date,   default: null },
+  loginOTP:            { type: String, default: null },
+  loginOTPExpiry:      { type: Date,   default: null },
+  resetOTP:            { type: String, default: null },
+  resetOTPExpiry:      { type: Date,   default: null },
+  emailVerifyToken: { type: String },
+  emailVerifyExpiry: { type: Date },
+  loginHistory: [{
+    ip: String,
+    device: String,
+    time: { type: Date, default: Date.now }
+  }],
+  customFields: { type: Object },
+  banned: { type: Boolean, default: false },
+  frozen: { type: Boolean, default: false },
+  archived: { type: Boolean, default: false },
+  banReason: { type: String },
+  banExpiry: { type: Date },
+  parentEmail: { type: String },
+
+  // ── F35: Multi-device session control + Terms tracking ─────────
+  activeSessionToken: { type: String, default: null },
+  termsAccepted:      { type: Boolean, default: false },
+  termsAcceptedAt:    { type: Date,    default: null },
+  termsVersion:        { type: String, default: null },
+
+  // F37 — Checklist + XP
+  checklist: {
+    pyqExplored:      { type: Boolean, default: false },
+    analyticsVisited: { type: Boolean, default: false },
+  },
+  xp: { type: Number, default: 0 },
+
+}, { timestamps: true });
+
+// password hashing removed — done in auth.js directly;
+
+if (mongoose.models.User) delete mongoose.connection.models['User'];
+module.exports = mongoose.model('User', userSchema, 'students');
+PRSHEOF
+
+echo '-> Writing $SRC_DIR/routes/auth.js'
+cat > "$SRC_DIR/routes/auth.js" << 'PRSHEOF'
 const express = require('express')
 const router  = express.Router()
 const bcrypt  = require('bcrypt')
@@ -884,3 +1048,591 @@ router.post('/checklist/complete', async (req, res) => {
 
 module.exports = router
 // trigger redeploy Fri Jul  3 10:17:03 AM UTC 2026
+PRSHEOF
+
+echo '-> Writing $SRC_DIR/routes/twoFactor.js'
+cat > "$SRC_DIR/routes/twoFactor.js" << 'PRSHEOF'
+const express = require('express');
+const router = express.Router();
+const speakeasy = require('speakeasy');
+const qrcode = require('qrcode');
+const { verifyToken } = require('../middleware/auth');
+const User = require('../models/User');
+
+// POST /api/auth/2fa/enable
+router.post('/2fa/enable', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User nahi mila' });
+    if (user.twoFactorEnabled)
+      return res.status(400).json({ message: '2FA already enabled hai' });
+    const secret = speakeasy.generateSecret({
+      name: `ProveRank (${user.email})`, length: 20
+    });
+    await User.findByIdAndUpdate(req.user.id, { twoFactorTempSecret: secret.base32 });
+    const qrCode = await qrcode.toDataURL(secret.otpauth_url);
+    res.json({
+      success: true,
+      message: 'QR scan karo phir /2fa/verify se confirm karo',
+      secret: secret.base32,
+      qrCode
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/auth/2fa/verify
+router.post('/2fa/verify', verifyToken, async (req, res) => {
+  try {
+    const { otp } = req.body;
+    if (!otp) return res.status(400).json({ message: 'OTP required hai' });
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User nahi mila' });
+    const secret = user.twoFactorTempSecret || user.twoFactorSecret;
+    if (!secret) return res.status(400).json({ message: 'Pehle 2FA enable karo' });
+    const verified = speakeasy.totp.verify({
+      secret, encoding: 'base32', token: otp, window: 2
+    });
+    if (!verified) return res.status(400).json({ message: 'Invalid OTP' });
+    await User.findByIdAndUpdate(req.user.id, {
+      twoFactorEnabled: true,
+      twoFactorSecret: secret,
+      twoFactorTempSecret: null
+    });
+    try {
+      const { logActivity } = require('../utils/activityLogger')
+      logActivity({ userId: req.user.id, userName: user.name, userRole: req.user.role||'student', action: 'TWO_FA_ENABLED', details: 'Two-factor authentication enabled', module: 'security', status: 'success' }).catch(()=>{})
+    } catch(e) {}
+    res.json({ success: true, message: '2FA activate ho gaya!' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/auth/2fa/disable
+router.post('/2fa/disable', verifyToken, async (req, res) => {
+  try {
+    const { otp } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User nahi mila' });
+    if (!user.twoFactorEnabled)
+      return res.status(400).json({ message: '2FA already disabled hai' });
+    if (req.user.role !== 'superadmin') {
+      if (!otp) return res.status(400).json({ message: 'OTP required hai' });
+      const verified = speakeasy.totp.verify({
+        secret: user.twoFactorSecret, encoding: 'base32', token: otp, window: 2
+      });
+      if (!verified) return res.status(400).json({ message: 'Invalid OTP' });
+    }
+    await User.findByIdAndUpdate(req.user.id, {
+      twoFactorEnabled: false,
+      twoFactorSecret: null,
+      twoFactorTempSecret: null
+    });
+    try {
+      const { logActivity } = require('../utils/activityLogger')
+      logActivity({ userId: req.user.id, userName: user.name, userRole: req.user.role||'student', action: 'TWO_FA_DISABLED', details: 'Two-factor authentication disabled', module: 'security', status: 'success' }).catch(()=>{})
+    } catch(e) {}
+    res.json({ success: true, message: '2FA disable ho gaya' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/auth/2fa/validate
+router.post('/2fa/validate', verifyToken, async (req, res) => {
+  try {
+    const { otp } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user || !user.twoFactorEnabled)
+      return res.status(400).json({ message: '2FA enabled nahi hai' });
+    const verified = speakeasy.totp.verify({
+      secret: user.twoFactorSecret, encoding: 'base32', token: otp, window: 2
+    });
+    if (!verified) return res.status(400).json({ message: 'Invalid OTP' });
+    res.json({ success: true, message: '2FA validated!' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+module.exports = router;
+PRSHEOF
+
+echo '-> Writing $SRC_DIR/routes/studentProfilePreview.js'
+cat > "$SRC_DIR/routes/studentProfilePreview.js" << 'PRSHEOF'
+const express = require('express')
+const router = express.Router()
+const mongoose = require('mongoose')
+const { verifyToken, isSuperAdmin } = require('../middleware/auth')
+const User = require('../models/User')
+const ActivityLog = require('../models/ActivityLog')
+
+// ══════════════════════════════════════════════════════════════════
+// F38B — Student 360° Profile Preview (Superadmin ONLY)
+// Access control: superadmin only. Admin/Teacher/Examiner/Student all
+// blocked by the isSuperAdmin middleware below (§Access Control 1-5).
+// ══════════════════════════════════════════════════════════════════
+router.get('/:id/full-profile', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    let uid
+    try { uid = new mongoose.Types.ObjectId(req.params.id) }
+    catch (e) { return res.status(400).json({ success:false, message:'Invalid student id' }) }
+
+    const user = await User.collection.findOne({ _id: uid })
+    if (!user) return res.status(404).json({ success:false, message:'Student not found' })
+    if (user.role === 'admin' || user.role === 'superadmin') {
+      return res.status(400).json({ success:false, message:'360° preview is only available for student accounts' })
+    }
+
+    // ── §4.2 Academic Snapshot (best-effort — Result model may vary) ──
+    let totalExams=0, bestScore=0, avgScore=0, rankHistory=[]
+    try {
+      const Result = require('../models/Result')
+      const results = await Result.find({ studentId: uid }).sort({ createdAt: 1 }).lean()
+      totalExams = results.length
+      if (results.length) {
+        const scores = results.map(r => r.score || r.totalScore || 0)
+        bestScore = Math.max(...scores)
+        avgScore = Math.round((scores.reduce((a,b)=>a+b,0) / scores.length) * 10) / 10
+        rankHistory = results.slice(-10).map(r => ({
+          examTitle: r.examTitle || 'Exam', rank: r.rank || null,
+          score: r.score || r.totalScore || 0, date: r.createdAt
+        }))
+      }
+    } catch (e) {}
+
+    // ── Current streak — consecutive calendar days with a login ──
+    let currentStreak = 0
+    try {
+      const days = [...new Set((user.loginHistory || []).map(h => new Date(h.at || h.time).toDateString()))]
+        .map(d => new Date(d)).sort((a,b) => b - a)
+      if (days.length) {
+        let cursor = new Date(); cursor.setHours(0,0,0,0)
+        for (const d of days) {
+          const dd = new Date(d); dd.setHours(0,0,0,0)
+          const diff = Math.round((cursor - dd) / 86400000)
+          if (diff === 0 || diff === 1) { currentStreak++; cursor = dd }
+          else break
+        }
+      }
+    } catch (e) {}
+
+    // ── §10 Profile Completion % + Health Score (same formula as student-facing) ──
+    const fields = ['name','phone','dob','city','state','gender','bio','avatar','targetExam','board','school']
+    const filled = fields.filter(f => user[f] && String(user[f]).trim()).length
+    const completion = Math.round((filled / fields.length) * 100)
+    let health = 0
+    if (user.emailVerified || user.verified) health += 25
+    if (user.phone) health += 15
+    if (user.avatar) health += 15
+    if (completion >= 80) health += 25
+    else if (completion >= 50) health += 15
+    if (user.twoFactorEnabled) health += 20
+    health = Math.min(100, health)
+
+    // ── §8 Field Change Timeline (profileHistory, newest first) — password values masked ──
+    const profileHistory = (user.profileHistory || []).slice().reverse()
+    const fieldChangeTimeline = profileHistory.map(h => ({
+      updatedAt: h.updatedAt,
+      updatedFields: h.updatedFields || [],
+      changes: (h.changes || []).map(c => ({
+        field: c.field,
+        oldValue: c.field === 'password' ? '••••••••' : c.oldValue,
+        newValue: c.field === 'password' ? '••••••••' : c.newValue,
+      })),
+      updatedBy: h.updatedBy || 'self',
+      source: h.source || 'profile_page',
+    }))
+
+    // ── §13.5 Change Frequency Analysis — most-changed fields ──
+    const freqMap = {}
+    profileHistory.forEach(h => (h.changes || []).forEach(c => {
+      if (!freqMap[c.field]) freqMap[c.field] = { field: c.field, count: 0, lastUpdate: h.updatedAt }
+      freqMap[c.field].count++
+      if (new Date(h.updatedAt) > new Date(freqMap[c.field].lastUpdate)) freqMap[c.field].lastUpdate = h.updatedAt
+    }))
+    const changeFrequency = Object.values(freqMap)
+      .sort((a,b) => b.count - a.count)
+      .map(f => ({ ...f, riskLevel: f.count >= 5 ? 'high' : f.count >= 2 ? 'medium' : 'low' }))
+
+    // ── §7 Photo History (avatarHistory, newest first, current flagged) ──
+    const photoHistory = (user.avatarHistory || []).slice().reverse().map((p, i) => ({ ...p, current: i === 0 }))
+
+    // ── §6 Login Activity — history + derived heatmap/peak-hour ──
+    const loginHistory = (user.loginHistory || []).slice().reverse()
+    const hourCounts = {}
+    loginHistory.forEach(h => { const hr = new Date(h.at || h.time).getHours(); hourCounts[hr] = (hourCounts[hr] || 0) + 1 })
+    const peakHour = Object.keys(hourCounts).length
+      ? Number(Object.entries(hourCounts).sort((a,b) => b[1]-a[1])[0][0]) : null
+    const dailyPattern = {}
+    loginHistory.forEach(h => {
+      const day = new Date(h.at || h.time).toLocaleDateString('en-IN', { weekday: 'short' })
+      dailyPattern[day] = (dailyPattern[day] || 0) + 1
+    })
+
+    // ── §9 Audit Trail — this student's ActivityLog entries ──
+    let auditTrail = []
+    try {
+      const esc = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const orConds = [{ userId: uid }]
+      if (user.email) orConds.push({ details: { $regex: esc(user.email), $options: 'i' } })
+      if (user.studentId) orConds.push({ details: { $regex: esc(user.studentId), $options: 'i' } })
+      auditTrail = await ActivityLog.find({ $or: orConds }).sort({ createdAt: -1 }).limit(60).lean()
+    } catch (e) {}
+
+    const lastLogin = loginHistory[0] || null
+    const lastUpdated = profileHistory[0]?.updatedAt || user.updatedAt || null
+
+    res.json({
+      success: true,
+      student: {
+        _id: user._id, name: user.name, email: user.email, studentId: user.studentId || null,
+        batch: user.batch || '', targetExam: user.targetExam || '',
+        verified: !!(user.emailVerified || user.verified),
+        completion, health, lastUpdated,
+
+        // §3 Personal Details
+        personal: {
+          name: user.name, email: user.email, phone: user.phone || '', dob: user.dob || '',
+          gender: user.gender || '', state: user.state || '', city: user.city || '',
+          bio: user.bio || '', avatar: user.avatar || '',
+        },
+
+        // §4 Academic Profile
+        academic: {
+          targetExam: user.targetExam || '', targetYear: user.targetYear || '', board: user.board || '',
+          school: user.school || '', medium: user.medium || '', coachingInstitute: user.coachingInstitute || '',
+          yearOfAppearing: user.yearOfAppearing || '',
+        },
+        academicSnapshot: { totalExams, bestScore, avgScore, rankHistory, currentStreak },
+
+        // §5 Security (password itself/hash NEVER included)
+        security: {
+          passwordChangedAt: user.passwordChangedAt || null,
+          passwordChangeCount: user.passwordChangeCount || 0,
+          passwordResetHistory: user.passwordResetHistory || [],
+          twoFactorEnabled: !!user.twoFactorEnabled,
+          activeDeviceCount: user.activeSessionToken ? 1 : 0,
+          trustedDevices: user.trustedDevices || [],
+          lastLogin,
+          failedLoginAttempts: user.failedLoginAttempts || 0,
+          lastFailedLoginAt: user.lastFailedLoginAt || null,
+        },
+
+        // §6 Login Activity
+        loginActivity: {
+          history: loginHistory.slice(0, 30),
+          loginCount: user.loginCount || loginHistory.length,
+          failedLoginAttempts: user.failedLoginAttempts || 0,
+          peakHour, dailyPattern,
+        },
+
+        // §7 Photo History
+        photoHistory,
+
+        // §8 Field Change Timeline (DB-only, superadmin-only — never shown to student/admin)
+        fieldChangeTimeline,
+
+        // §13.5 Change Frequency Analysis
+        changeFrequency,
+
+        // §9 Audit Trail
+        auditTrail,
+
+        // §10 Identity & Verification
+        verification: {
+          emailVerified: !!(user.emailVerified || user.verified),
+          phoneVerified: false,
+          photoVerified: !!user.avatar,
+          healthScore: health,
+          riskIndicator: (user.failedLoginAttempts || 0) >= 5 ? 'high' : (user.failedLoginAttempts || 0) >= 2 ? 'medium' : 'low',
+        },
+
+        // §12 Quick Inspect Cards
+        quickInspect: {
+          bestScore, avgScore, totalExams, rankHistory,
+          loginCount: user.loginCount || loginHistory.length,
+          failedLogins: user.failedLoginAttempts || 0,
+          photoChanges: photoHistory.length,
+          lastActive: lastLogin?.at || lastLogin?.time || null,
+        },
+      }
+    })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+})
+
+module.exports = router
+PRSHEOF
+
+echo '-> Writing $SRC_DIR/index.js'
+cat > "$SRC_DIR/index.js" << 'PRSHEOF'
+require('dotenv').config();
+const express    = require('express');
+
+// ===== STAGE 8: Security Middleware =====
+const applySecurityMiddleware = require('./middleware/security').applySecurityMiddleware;
+const { apiLimiter, uploadLimiter } = require('./middleware/rateLimiter');
+const { checkJWTExpiry } = require('./middleware/loginProtection');
+// ========================================
+const http       = require('http');
+const cors       = require('cors');
+const helmet     = require('helmet');
+const mongoose   = require('mongoose');
+const { initSocket } = require('./config/socket');
+
+// ── Route Imports ─────────────────────────────────────────────
+const authRoutes             = require('./routes/auth');
+const adminRoutes            = require('./routes/admin');
+const examPatchRoutes = require('./routes/exam_patch');
+const examRoutes             = require('./routes/exam');
+const examExtraRoutes        = require('./routes/examExtra');
+const questionRoutes         = require('./routes/question');
+const uploadRoutes           = require('./routes/upload');
+const excelUploadRoutes      = require('./routes/excelUpload');
+const paperGeneratorRoutes   = require('./routes/paperGenerator');
+const pdfRoutes              = require('./routes/pdfRoutes');
+
+// ── New Feature Routes (load BEFORE conflicting base routes) ──
+const examFeaturesRoutes     = require('./routes/examFeatures');
+const examPaperRoutes = require('./routes/examPaper');
+const pyqBankAdminRoutes = require('./routes/pyqBankAdmin');
+const adminSystemRoutes      = require('./routes/adminSystem');
+const adminMonitoringRoutes = require('./routes/adminMonitoringRoutes');
+require('./models/AdminNotification');
+require('./models/Challenge');
+require('./models/ReEvaluation');
+require('./models/Grievance');
+require('./models/QuestionVersion');
+require('./models/QuestionError');
+require('./models/ExamTemplate');      // Feature 29 — Exam Templates
+require('./models/TemplateCategory');  // Feature 29.10 — custom categories
+require('./models/Doubt');
+const questionStatsRoutes = require('./routes/questionStatsRoutes');
+const examWizardRoutes = require('./routes/examWizardRoutes');
+const questionDeleteRoutes = require('./routes/questionDeleteRoutes');
+const adminQuestionMgmtRoutes = require('./routes/adminQuestionMgmtRoutes');
+const adminResultRoutes = require('./routes/adminResultRoutes');
+const adminManagementRoutes  = require('./routes/adminManagement');
+const studentProfilePreviewRoutes = require('./routes/studentProfilePreview'); // F38B
+const questionFeaturesRoutes = require('./routes/questionFeatures');
+const materialRoutes = require('./routes/materialRoutes');
+const twoFactorRoutes        = require('./routes/twoFactor');
+
+// ── Optional Routes (load if file exists) ────────────────────
+let questionAIRoutes, questionAdvancedRoutes, questionExtraRoutes;
+let examSubmissionRoutes, permissionTestRoutes;
+try { questionAIRoutes       = require('./routes/questionAI'); } catch(e) {}
+try { questionAdvancedRoutes = require('./routes/questionAdvanced'); } catch(e) {}
+try { questionExtraRoutes    = require('./routes/questionExtra'); } catch(e) {}
+try { examSubmissionRoutes   = require('./routes/examSubmission'); } catch(e) {}
+try { permissionTestRoutes   = require('./routes/permissionTest'); } catch(e) {}
+
+// ── App Setup ─────────────────────────────────────────────────
+const app    = express();
+const server = http.createServer(app);
+initSocket(server);
+
+app.set('trust proxy', 1);
+app.use(helmet());
+app.use(cors({
+  origin: [
+    'https://prove-rank.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// ===== STAGE 8: Apply Security =====
+applySecurityMiddleware(app);
+app.use('/api', apiLimiter);
+app.use('/api/excel', uploadLimiter);
+app.use('/api/upload', uploadLimiter);
+app.use('/api', checkJWTExpiry);
+// ====================================
+app.use(express.json({limit:'1mb'}));
+
+// ── MongoDB ───────────────────────────────────────────────────
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('MongoDB Connected:', mongoose.connection.host))
+  .catch(err => console.log('MongoDB Error:', err));
+
+// ── Health Check ──────────────────────────────────────────────
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date() });
+});
+
+// ── Auth Routes ───────────────────────────────────────────────
+app.use('/api/auth', authRoutes);
+app.use('/api/auth', twoFactorRoutes);
+
+// ── Admin Routes ──────────────────────────────────────────────
+app.use('/api', questionDeleteRoutes)
+app.use('/api', examWizardRoutes);
+app.use('/api/exam-templates', require('./routes/examTemplates')); // Feature 29 — Exam Templates
+
+app.use('/api', questionStatsRoutes);
+;
+app.use('/api/admin/manage', adminManagementRoutes);  // S37/S72/S38/S93/M4
+app.use('/api/admin/student-preview', studentProfilePreviewRoutes); // F38B — Superadmin-only 360° preview
+app.use('/api/admin', adminSystemRoutes);
+app.use('/api/admin', adminMonitoringRoutes);  // Phase 6.2
+app.use('/api/admin', adminResultRoutes);       // Phase 6.3
+app.use('/api/admin', adminQuestionMgmtRoutes); // Phase 6.4              // S66/N21
+app.use('/api/admin', adminRoutes);
+
+// ── Question Routes ───────────────────────────────────────────
+app.use('/api/materials', materialRoutes);
+app.use('/api/questions', questionFeaturesRoutes);     // AI-1/AI-2/S33/S35/MCQ/MSQ
+app.use('/api/questions', questionRoutes);
+if (questionAIRoutes)       app.use('/api/questions-advanced', questionAIRoutes);
+if (questionAdvancedRoutes) app.use('/api/questions-advanced', questionAdvancedRoutes);
+if (questionExtraRoutes)    app.use('/api/questions', questionExtraRoutes);
+
+// ── Exam Routes ───────────────────────────────────────────────
+app.use('/api/exams', examFeaturesRoutes);
+app.use('/api/exams', examRoutes);
+app.use('/api/exams-manage', require('./routes/examListing')); // Feature 33 — All Exams List/Filter/Search
+app.use('/api/exams', examPatchRoutes);
+             // S5/S75/S85/S26/S62/S31/S96
+app.use('/api/exam-paper', examPaperRoutes);
+app.use('/api/exams', examExtraRoutes);
+if (examSubmissionRoutes) app.use('/api/exams', examSubmissionRoutes);
+
+// ── Other Routes ─────────────────────────────────────────────
+app.use('/api/upload', uploadRoutes);
+app.use('/api/excel', excelUploadRoutes);
+app.use('/api/paper', paperGeneratorRoutes);
+app.use('/api/pdf', pdfRoutes);
+app.use('/api/exam-instances', require('./routes/examInstance'));
+const attemptRoutes = require('./routes/attemptRoutes');
+app.use('/api/attempts', attemptRoutes);
+if (permissionTestRoutes) app.use('/api/permission', permissionTestRoutes);
+
+// ── Start Server ──────────────────────────────────────────────
+const PORT = process.env.PORT || 3000;
+
+const adminBatchControlRoutes  = require('./routes/adminBatchControls');
+const studentBatchExtrasRoutes = require('./routes/studentBatchExtras');
+app.use('/api/admin/batch-controls',  adminBatchControlRoutes);
+app.use('/api/student/batch-extras',  studentBatchExtrasRoutes);
+
+const studentNotificationRoutes = require('./routes/studentNotificationRoutes');
+const adminNotificationRoutes = require('./routes/adminNotificationRoutes');
+app.use('/api/student/notifications', studentNotificationRoutes);
+app.use('/api/admin/notifications', adminNotificationRoutes);
+
+// ── Scheduled Banner Auto-Publish Cron (runs every minute) ──
+const cron = require('node-cron');
+cron.schedule('* * * * *', async () => {
+  try {
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) return;
+    let BannerModel;
+    try { BannerModel = mongoose.model('Banner'); } catch(e) { return; }
+    const now = new Date();
+    const toPublish = await BannerModel.find({
+      published: false,
+      scheduledAt: { $lte: now, $exists: true, $ne: null }
+    });
+    for (const b of toPublish) {
+      b.published = true;
+      await b.save();
+      console.log('Auto-published banner:', b.title, 'at', now.toISOString());
+    }
+  } catch(e) { /* silent — cron errors should not crash server */ }
+});
+
+const batchActivityRoutes = require('./routes/batchActivityRoutes');
+app.use('/api/batch-activity', batchActivityRoutes);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`ProveRank server running at http://0.0.0.0:${PORT}`);
+});
+
+// -- Result Routes (Phase 4.3)
+const sessionRoutes = require('./routes/sessionRoutes');
+const faceRoutes = require('./routes/faceRoutes');
+const audioRoutes = require('./routes/audioRoutes');
+const webcamRoutes = require('./routes/webcamRoutes');
+const antiCheatRoutes = require('./routes/antiCheatRoutes');
+const resultRoutes = require('./routes/resultRoutes');
+app.use('/api/session', sessionRoutes);
+app.use('/api/face', faceRoutes);
+app.use('/api/audio', audioRoutes);
+app.use('/api/webcam', webcamRoutes);
+app.use('/api/anticheat', antiCheatRoutes);
+app.use('/api/results', resultRoutes);
+app.use('/api/admin', require('./routes/adminDashboardRoutes'));
+const studentBatchRoutes=require('./routes/studentBatches');
+const myBatchesRoutes=require('./routes/myBatches');
+const bannerGeneratorRoutes = require('./routes/bannerGenerator');
+const adminStoreRoutes   = require('./routes/adminStore');
+const studentStoreRoutes = require('./routes/studentStore');
+const paymentRoutes = require('./routes/payment');
+const brandingRoutes = require('./routes/brandingRoutes')
+app.use('/api/admin', brandingRoutes)
+app.use('/api/my-batches',myBatchesRoutes);
+app.use('/api/admin/banners', bannerGeneratorRoutes);
+app.use('/api/student/batches',studentBatchRoutes);
+app.use('/api/admin/email', require('./routes/emailSend'))
+app.use('/api/admin/store',  adminStoreRoutes);
+app.use('/api/store/payment', paymentRoutes);
+app.use('/api/store',        studentStoreRoutes);
+
+// -- Content Forge Routes (Features 19B / 20 / 20B / 21 / 21B)
+const contentForgeRoutes = require('./routes/contentForge');
+app.use('/api/content-forge', contentForgeRoutes)
+app.use('/api/pyq-bank', pyqBankAdminRoutes);
+;
+PRSHEOF
+
+echo ""
+echo "════════════════════════════════════════════════════"
+echo "  F38B BACKEND v2 — VERIFICATION"
+echo "════════════════════════════════════════════════════"
+PASS=0; TOTAL=0
+check() {
+  TOTAL=$((TOTAL+1))
+  if grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+
+A="$SRC_DIR/routes/auth.js"
+T="$SRC_DIR/routes/twoFactor.js"
+S="$SRC_DIR/routes/studentProfilePreview.js"
+
+echo "── 1) LOGIN_FAILED event ──"
+check "$A" "action: 'LOGIN_FAILED'" "Individual LOGIN_FAILED ActivityLog entry added"
+
+echo "── 2) trustedDevices populated on login ──"
+check "$A" "createHash('md5').update(\`\${browser}|\${os}\`)" "Device fingerprint (browser+OS) computed on login"
+check "$A" "devices\[idx\] = { ...devices\[idx\], lastUsedAt: new Date() }" "Existing trusted device's lastUsedAt updated"
+check "$A" "devices.push({ deviceId, label:" "New trusted device pushed when not already known"
+check "$A" "trustedDevices: devices.slice(-20)" "trustedDevices array actually written to DB"
+
+echo "── 3) passwordResetHistory populated ──"
+check "$A" "\$push: { passwordResetHistory:" "passwordResetHistory entry pushed on forgot-password reset"
+check "$A" "action: 'PASSWORD_RESET'" "PASSWORD_RESET activity logged"
+
+echo "── 4) 2FA enable/disable logged ──"
+check "$T" "action: 'TWO_FA_ENABLED'" "2FA enable now logged (module:security)"
+check "$T" "action: 'TWO_FA_DISABLED'" "2FA disable now logged (module:security)"
+
+echo "── 5) Audit trail OR match (userId / email / studentId) ──"
+check "$S" '\$or: orConds' "Audit trail query uses \$or across userId/email/studentId"
+check "$S" "orConds.push({ details: { \\\$regex: esc(user.email)" "Matches by email inside details text"
+check "$S" "orConds.push({ details: { \\\$regex: esc(user.studentId)" "Matches by studentId inside details text"
+
+echo "────────────────────────────────────────────────────"
+echo "  $PASS / $TOTAL checks passed"
+echo "════════════════════════════════════════════════════"
+if [ "$PASS" -eq "$TOTAL" ]; then
+  echo "🎉 All 5 requested changes verified!"
+else
+  echo "⚠️  Review the ❌ lines above."
+fi

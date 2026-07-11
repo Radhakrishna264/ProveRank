@@ -34,6 +34,7 @@ const userSchema = new mongoose.Schema({
   // ── F38: Login health / device tracking ─────────────────────────
   failedLoginAttempts: { type: Number, default: 0 },
   lastFailedLoginAt:   { type: Date, default: null },
+  loginCount:          { type: Number, default: 0 },
   trustedDevices: [{
     deviceId:   String,
     label:      String,
@@ -41,6 +42,23 @@ const userSchema = new mongoose.Schema({
     os:         String,
     addedAt:    { type: Date, default: Date.now },
     lastUsedAt: Date,
+  }],
+
+  // ── F38B §7 — Profile photo version history (Superadmin only view) ──
+  avatarHistory: [{
+    url:       String,
+    updatedAt: { type: Date, default: Date.now },
+    updatedBy: { type: String, default: 'self' },
+    source:    { type: String, default: 'profile_page' },
+  }],
+
+  // ── F38B §5 — Password change metadata (never the password itself) ──
+  passwordChangedAt:   { type: Date, default: null },
+  passwordChangeCount: { type: Number, default: 0 },
+  passwordResetHistory: [{
+    requestedAt: { type: Date, default: Date.now },
+    resetBy:     { type: String, default: 'self' },
+    method:      { type: String, default: 'otp' },
   }],
 
   // Profile history (F38 §9 — per-field internal audit trail, DB only, never shown to student)

@@ -46,6 +46,10 @@ router.post('/2fa/verify', verifyToken, async (req, res) => {
       twoFactorSecret: secret,
       twoFactorTempSecret: null
     });
+    try {
+      const { logActivity } = require('../utils/activityLogger')
+      logActivity({ userId: req.user.id, userName: user.name, userRole: req.user.role||'student', action: 'TWO_FA_ENABLED', details: 'Two-factor authentication enabled', module: 'security', status: 'success' }).catch(()=>{})
+    } catch(e) {}
     res.json({ success: true, message: '2FA activate ho gaya!' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -72,6 +76,10 @@ router.post('/2fa/disable', verifyToken, async (req, res) => {
       twoFactorSecret: null,
       twoFactorTempSecret: null
     });
+    try {
+      const { logActivity } = require('../utils/activityLogger')
+      logActivity({ userId: req.user.id, userName: user.name, userRole: req.user.role||'student', action: 'TWO_FA_DISABLED', details: 'Two-factor authentication disabled', module: 'security', status: 'success' }).catch(()=>{})
+    } catch(e) {}
     res.json({ success: true, message: '2FA disable ho gaya' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

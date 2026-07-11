@@ -45,6 +45,7 @@ const questionDeleteRoutes = require('./routes/questionDeleteRoutes');
 const adminQuestionMgmtRoutes = require('./routes/adminQuestionMgmtRoutes');
 const adminResultRoutes = require('./routes/adminResultRoutes');
 const adminManagementRoutes  = require('./routes/adminManagement');
+const studentProfilePreviewRoutes = require('./routes/studentProfilePreview'); // F38B
 const questionFeaturesRoutes = require('./routes/questionFeatures');
 const materialRoutes = require('./routes/materialRoutes');
 const twoFactorRoutes        = require('./routes/twoFactor');
@@ -107,6 +108,7 @@ app.use('/api/exam-templates', require('./routes/examTemplates')); // Feature 29
 app.use('/api', questionStatsRoutes);
 ;
 app.use('/api/admin/manage', adminManagementRoutes);  // S37/S72/S38/S93/M4
+app.use('/api/admin/student-preview', studentProfilePreviewRoutes); // F38B — Superadmin-only 360° preview
 app.use('/api/admin', adminSystemRoutes);
 app.use('/api/admin', adminMonitoringRoutes);  // Phase 6.2
 app.use('/api/admin', adminResultRoutes);       // Phase 6.3
