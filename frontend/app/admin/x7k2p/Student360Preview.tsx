@@ -9,7 +9,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 //    back to sensible defaults if not provided so the component never breaks. ──
 const DEFAULT_THEME = {
   CRD: 'rgba(0,22,40,0.78)', ACC: '#4D9FFF', BOR: 'rgba(77,159,255,0.18)',
-  TS: '#E8F4FD', DIM: '#8899AA', SUC: T.SUC, DNG: '#FF4D4D', WRN: T.WRN, GOLD: T.GOLD,
+  TS: '#E8F4FD', DIM: '#8899AA', SUC: '#00C48C', DNG: '#FF4D4D', WRN: '#FFB84D', GOLD: '#FFD700',
 }
 const ThemeCtx = createContext(DEFAULT_THEME)
 
