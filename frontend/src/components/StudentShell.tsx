@@ -101,9 +101,28 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
   const [role,setRole]=useState('student')
   const [toastSt,setToastSt]=useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
   const [maint,setMaint]=useState<{enabled:boolean;message?:string}|null>(null)
+  const [unreadAnn,setUnreadAnn]=useState(0) // F42B §6.2 — bell badge sync
   const toast=useCallback((msg:string,tp:'s'|'e'|'w'='s')=>{setToastSt({msg,tp});setTimeout(()=>setToastSt(null),4000)},[])
 
   useEffect(()=>{fetch(`${API}/api/admin/maintenance`).then(r=>r.ok?r.json():null).then(d=>{if(d&&d.maintenance)setMaint(d.maintenance)}).catch(()=>{})},[])
+
+  // v2 §6.2 FIX — Bell icon badge sync: StudentShell itself polls the live
+  // unread-count API every 60s, from ANY page (not just Announcements).
+  // Replaces the old localStorage+event approach which only updated after
+  // visiting the Announcements page and could show a stale count elsewhere.
+  useEffect(()=>{
+    if(!token) return
+    let cancelled=false
+    const poll=()=>{
+      fetch(`${API}/api/announcements/unread-count`,{headers:{Authorization:`Bearer ${token}`}})
+        .then(r=>r.ok?r.json():null)
+        .then(d=>{if(!cancelled&&d)setUnreadAnn(d.count||0)})
+        .catch(()=>{})
+    }
+    poll()
+    const iv=setInterval(poll,60000)
+    return()=>{cancelled=true;clearInterval(iv)}
+  },[token])
 
   // Applies the theme class to <html> AND <body> so all legacy + new CSS overrides actually take effect
   const _applyDom=(t:ColorTheme)=>{
@@ -277,7 +296,10 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
           <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
             <button className="tbtn icon-tbtn" onClick={toggleTheme} title={dm?(lang==='en'?'Switch to Light':'लाइट थीम'):(lang==='en'?'Switch to Dark':'डार्क थीम')}>{dm?'☀️':'🌙'}</button>
             <button className="tbtn hide-xs" onClick={toggleLang}>{lang==='en'?'हि':'EN'}</button>
-            <a href="/announcements" title={lang==='en'?'Announcements':'घोषणाएं'} style={{background:'transparent',border:`1px solid ${bdr}`,borderRadius:9,width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none',fontSize:15,color:txt,flexShrink:0}}>🔔</a>
+            <a href="/announcements" title={lang==='en'?'Announcements':'घोषणाएं'} style={{background:'transparent',border:`1px solid ${bdr}`,borderRadius:9,width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none',fontSize:15,color:txt,flexShrink:0,position:'relative'}}>
+              🔔
+              {unreadAnn>0&&<span style={{position:'absolute',top:-3,right:-3,minWidth:15,height:15,padding:'0 3px',borderRadius:99,background:'#FF4D4D',color:'#fff',fontSize:9,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',border:'1.5px solid rgba(0,0,0,0.3)'}}>{unreadAnn>9?'9+':unreadAnn}</span>}
+            </a>
             <button onClick={logout} title={lang==='en'?'Sign Out':'साइन आउट'} style={{background:'transparent',border:'1px solid rgba(255,77,77,0.35)',borderRadius:9,width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#FF6B6B',flexShrink:0,transition:'all .2s'}}>
               <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             </button>

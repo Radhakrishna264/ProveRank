@@ -20,6 +20,21 @@ router.post('/maintenance', verifyToken, isSuperAdmin, async (req, res) => {
     { upsert: true }
   )
   const saved = await mongoose.connection.db.collection('settings').findOne({ key: 'maintenance' })
+  // F42A §2.4.2 — auto-announcement trigger on maintenance mode toggle
+  try {
+    const Announcement = require('../models/Announcement')
+    const User = require('../models/User')
+    const targetCount = await User.countDocuments({ role: 'student', banned: { $ne: true } })
+    await Announcement.create({
+      title: enabled ? 'Scheduled Maintenance' : 'Maintenance Complete',
+      message: enabled
+        ? (message || 'The platform will undergo scheduled maintenance shortly. Some features may be temporarily unavailable.')
+        : 'Maintenance is complete — the platform is back to normal. Thank you for your patience!',
+      type: 'maintenance', audience: { mode: 'all' }, sendVia: 'in-app',
+      pinned: enabled, status: 'sent', createdBy: req.user.id,
+      templateName: 'Maintenance Notice (auto)', targetCount,
+    })
+  } catch (e) { console.error('[F42A auto-announcement] maintenance trigger failed:', e.message) }
   res.json({ success: true, message: `Maintenance mode ${enabled ? 'ON' : 'OFF'} ho gaya`, state: saved });
 });
 

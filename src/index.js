@@ -148,8 +148,11 @@ const PORT = process.env.PORT || 3000;
 
 const adminBatchControlRoutes  = require('./routes/adminBatchControls');
 const studentBatchExtrasRoutes = require('./routes/studentBatchExtras');
+const { studentAnnouncementRoutes, adminAnnouncementRoutes } = require('./routes/announcements'); // F42A/F42B
 app.use('/api/admin/batch-controls',  adminBatchControlRoutes);
 app.use('/api/student/batch-extras',  studentBatchExtrasRoutes);
+app.use('/api/announcements', studentAnnouncementRoutes);          // F42B — student-facing
+app.use('/api/admin/announcements', adminAnnouncementRoutes);      // F42A — admin-facing
 
 const studentNotificationRoutes = require('./routes/studentNotificationRoutes');
 const adminNotificationRoutes = require('./routes/adminNotificationRoutes');

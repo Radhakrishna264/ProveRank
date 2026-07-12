@@ -1,3 +1,532 @@
+#!/bin/bash
+# ProveRank — F42A/F42B Announcements — FRONTEND v2
+# 1) 5 types (maintenance added)  2) 4 audience modes (testseries added)
+# 3) Duplicate button added alongside Resend
+# 4) Bell badge now via live 60s API polling (not localStorage/events)
+# Run from project ROOT in Replit shell: bash proverank_f42_frontend_v2.sh
+set -e
+
+ADMIN_DIR="frontend/app/admin/x7k2p"
+STUDENT_APP_DIR="frontend/app"
+COMPONENTS_DIR="frontend/src/components"
+
+mkdir -p "$ADMIN_DIR" "$STUDENT_APP_DIR/announcements" "$COMPONENTS_DIR"
+
+echo '-> Writing $ADMIN_DIR/AdminAnnouncements.tsx'
+cat > "$ADMIN_DIR/AdminAnnouncements.tsx" << 'PRSHEOF'
+'use client'
+import { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react'
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
+
+const DEFAULT_THEME = {
+  CRD: 'rgba(0,28,52,0.88)', ACC: '#4D9FFF', BOR: 'rgba(77,159,255,0.18)',
+  TS: '#E8F4FF', DIM: '#6B8FAF', SUC: '#00C48C', DNG: '#FF4D4D', WRN: '#FFB84D', GOLD: '#FFD700',
+}
+const ThemeCtx = createContext(DEFAULT_THEME)
+
+const TYPES = [
+  { v: 'exam',   l: 'Exam',   ico: '📝', col: '#4D9FFF' },
+  { v: 'update', l: 'Update', ico: '✨', col: '#00C48C' },
+  { v: 'result', l: 'Result', ico: '🏅', col: '#FFD700' },
+  { v: 'maintenance', l: 'Maintenance', ico: '🔧', col: '#A855F7' },
+  { v: 'urgent', l: 'Urgent', ico: '🚨', col: '#FF4D4D' },
+]
+const typeInfo = (v: string) => TYPES.find(t => t.v === v) || TYPES[1]
+
+function fmt(d: any) { if (!d) return '—'; try { return new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) } catch { return '—' } }
+
+function Badge({ children, col, bg }: any) {
+  const theme = useContext(ThemeCtx)
+  const c = col || theme.ACC
+  return <span style={{ fontSize: 9.5, fontWeight: 700, color: c, background: bg || `${c}22`, padding: '2px 8px', borderRadius: 6, border: `1px solid ${c}44` }}>{children}</span>
+}
+function Card({ title, icon, children, style }: any) {
+  const theme = useContext(ThemeCtx)
+  return (
+    <div style={{ background: theme.CRD, border: `1px solid ${theme.BOR}`, borderRadius: 14, padding: 18, marginBottom: 14, backdropFilter: 'blur(12px)', ...style }}>
+      {title && <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 13, color: theme.TS, display: 'flex', alignItems: 'center', gap: 7 }}>{icon} {title}</div>}
+      {children}
+    </div>
+  )
+}
+function Lbl({ children }: any) {
+  const theme = useContext(ThemeCtx)
+  return <label style={{ display: 'block', fontSize: 11, color: theme.DIM, marginBottom: 5, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase' }}>{children}</label>
+}
+
+export default function AdminAnnouncements({ token, toast, theme }: { token: string; toast?: (msg: string, tp?: 's' | 'e' | 'w') => void; theme?: Partial<typeof DEFAULT_THEME> }) {
+  const T = { ...DEFAULT_THEME, ...(theme || {}) }
+  const notify = (msg: string, tp: 's' | 'e' | 'w' = 's') => toast ? toast(msg, tp) : (typeof window !== 'undefined' && window.alert(msg))
+
+  const inp: any = { width: '100%', padding: '11px 13px', background: 'rgba(0,22,40,0.85)', border: `1.5px solid ${T.BOR}`, borderRadius: 10, color: T.TS, fontSize: 13, fontFamily: 'Inter,sans-serif', outline: 'none', boxSizing: 'border-box' }
+  const btnP: any = { background: `linear-gradient(135deg,${T.ACC},#0055CC)`, color: '#fff', border: 'none', borderRadius: 10, padding: '11px 22px', cursor: 'pointer', fontWeight: 700, fontSize: 13 }
+  const btnGhost: any = { background: 'rgba(77,159,255,0.1)', color: T.ACC, border: `1px solid ${T.BOR}`, borderRadius: 10, padding: '9px 18px', cursor: 'pointer', fontWeight: 600, fontSize: 12 }
+  const btnDng: any = { background: 'rgba(255,77,77,0.15)', color: T.DNG, border: '1px solid rgba(255,77,77,0.3)', borderRadius: 10, padding: '9px 16px', cursor: 'pointer', fontWeight: 700, fontSize: 11.5 }
+
+  // ── Compose state ──
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [title, setTitle] = useState(''); const [titleHi, setTitleHi] = useState('')
+  const [message, setMessage] = useState(''); const [messageHi, setMessageHi] = useState('')
+  const [showBilingual, setShowBilingual] = useState(false)
+  const [type, setType] = useState('update')
+  const [audienceMode, setAudienceMode] = useState<'all' | 'batch' | 'testseries' | 'students'>('all')
+  const [selBatchIds, setSelBatchIds] = useState<string[]>([])
+  const [selTestSeriesIds, setSelTestSeriesIds] = useState<string[]>([])
+  const [studentQuery, setStudentQuery] = useState('')
+  const [studentResults, setStudentResults] = useState<any[]>([])
+  const [selStudents, setSelStudents] = useState<any[]>([])
+  const [sendVia, setSendVia] = useState<'in-app' | 'email' | 'both'>('in-app')
+  const [pinned, setPinned] = useState(false)
+  const [imageUrl, setImageUrl] = useState('')
+  const [scheduleMode, setScheduleMode] = useState<'now' | 'schedule'>('now')
+  const [scheduledAt, setScheduledAt] = useState('')
+  const [expiryDate, setExpiryDate] = useState('')
+  const [sending, setSending] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const msgRef = useRef<HTMLTextAreaElement>(null)
+
+  // ── Data ──
+  const [batches, setBatches] = useState<any[]>([])
+  const [templates, setTemplates] = useState<any[]>([])
+  const [stats, setStats] = useState<any>({ totalSent: 0, thisWeek: 0, avgReadRate: 0, scheduled: 0 })
+  const [history, setHistory] = useState<any[]>([])
+  const [historyLoading, setHistoryLoading] = useState(true)
+  const [expandedDelivery, setExpandedDelivery] = useState<string | null>(null)
+  const [deliveryData, setDeliveryData] = useState<any>(null)
+
+  // ── Filters ──
+  const [fSearch, setFSearch] = useState(''); const [fType, setFType] = useState(''); const [fAudience, setFAudience] = useState('')
+  const [fDateFrom, setFDateFrom] = useState(''); const [fDateTo, setFDateTo] = useState('')
+
+  const headers = { Authorization: `Bearer ${token}` }
+  const jsonHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+
+  const loadBatches = () => fetch(`${API}/api/admin/announcements/batches`, { headers }).then(r => r.json()).then(d => setBatches(Array.isArray(d) ? d : [])).catch(() => {})
+  const loadTemplates = () => fetch(`${API}/api/admin/announcements/templates`, { headers }).then(r => r.json()).then(d => setTemplates(Array.isArray(d) ? d : [])).catch(() => {})
+  const loadStats = () => fetch(`${API}/api/admin/announcements/stats`, { headers }).then(r => r.json()).then(d => setStats(d)).catch(() => {})
+  const loadHistory = () => {
+    setHistoryLoading(true)
+    const qs = new URLSearchParams()
+    if (fSearch) qs.set('search', fSearch)
+    if (fType) qs.set('type', fType)
+    if (fAudience) qs.set('audienceMode', fAudience)
+    if (fDateFrom) qs.set('dateFrom', fDateFrom)
+    if (fDateTo) qs.set('dateTo', fDateTo)
+    fetch(`${API}/api/admin/announcements?${qs.toString()}`, { headers }).then(r => r.json()).then(d => setHistory(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setHistoryLoading(false))
+  }
+
+  useEffect(() => { if (token) { loadBatches(); loadTemplates(); loadStats(); loadHistory() } }, [token])
+  useEffect(() => { if (token) loadHistory() }, [fSearch, fType, fAudience, fDateFrom, fDateTo])
+
+  // ── Student smart-search (debounced) ──
+  useEffect(() => {
+    if (!studentQuery.trim()) { setStudentResults([]); return }
+    const h = setTimeout(() => {
+      fetch(`${API}/api/admin/announcements/students-search?q=${encodeURIComponent(studentQuery)}`, { headers }).then(r => r.json()).then(d => setStudentResults(Array.isArray(d) ? d : [])).catch(() => {})
+    }, 350)
+    return () => clearTimeout(h)
+  }, [studentQuery])
+
+  const charCount = message.replace(/<[^>]*>/g, '').length
+
+  // ── Rich text toolbar (wrap selected text) ──
+  const wrapSelection = (tag: 'b' | 'i' | 'a') => {
+    const el = msgRef.current; if (!el) return
+    const start = el.selectionStart, end = el.selectionEnd
+    const selected = message.slice(start, end) || 'text'
+    let insert = `<b>${selected}</b>`
+    if (tag === 'i') insert = `<i>${selected}</i>`
+    if (tag === 'a') { const url = window.prompt('Link URL:', 'https://') || '#'; insert = `<a href="${url}" target="_blank">${selected}</a>` }
+    const next = message.slice(0, start) + insert + message.slice(end)
+    setMessage(next)
+    setTimeout(() => el.focus(), 0)
+  }
+
+  const applyTemplate = (tpl: any) => { setType(tpl.type); setTitle(tpl.title); setMessage(tpl.message) }
+
+  const resetCompose = () => {
+    setEditingId(null); setTitle(''); setTitleHi(''); setMessage(''); setMessageHi(''); setShowBilingual(false)
+    setType('update'); setAudienceMode('all'); setSelBatchIds([]); setSelTestSeriesIds([]); setSelStudents([]); setStudentQuery(''); setStudentResults([])
+    setSendVia('in-app'); setPinned(false); setImageUrl(''); setScheduleMode('now'); setScheduledAt(''); setExpiryDate('')
+  }
+
+  const buildAudience = () => {
+    if (audienceMode === 'batch') return { mode: 'batch', batchIds: selBatchIds }
+    if (audienceMode === 'testseries') return { mode: 'testseries', testSeriesIds: selTestSeriesIds }
+    if (audienceMode === 'students') return { mode: 'students', studentIds: selStudents.map(s => s._id) }
+    return { mode: 'all' }
+  }
+
+  const doSend = async (asDraft = false) => {
+    if (!title.trim() || !message.trim()) { notify('Title and message are required', 'e'); return }
+    if (audienceMode === 'batch' && selBatchIds.length === 0) { notify('Select at least one batch', 'e'); return }
+    if (audienceMode === 'testseries' && selTestSeriesIds.length === 0) { notify('Select at least one test series', 'e'); return }
+    if (audienceMode === 'students' && selStudents.length === 0) { notify('Select at least one student', 'e'); return }
+    setSending(true)
+    try {
+      const body: any = {
+        title, titleHi, message, messageHi, type, sendVia, pinned, imageUrl,
+        audience: buildAudience(),
+        expiryDate: expiryDate || null,
+        saveAsDraft: asDraft,
+        scheduledAt: scheduleMode === 'schedule' ? scheduledAt : null,
+      }
+      const url = editingId ? `${API}/api/admin/announcements/${editingId}` : `${API}/api/admin/announcements`
+      const method = editingId ? 'PUT' : 'POST'
+      const r = await fetch(url, { method, headers: jsonHeaders, body: JSON.stringify(body) })
+      const d = await r.json()
+      if (!r.ok) { notify(d.message || 'Failed', 'e'); setSending(false); return }
+      notify(d.message || 'Success', 's')
+      resetCompose(); loadHistory(); loadStats()
+    } catch (e) { notify('Network error', 'e') }
+    setSending(false)
+  }
+
+  const doEdit = (a: any) => {
+    setEditingId(a._id); setTitle(a.title); setTitleHi(a.titleHi || ''); setMessage(a.message); setMessageHi(a.messageHi || '')
+    setShowBilingual(!!a.titleHi || !!a.messageHi)
+    setType(a.type); setPinned(!!a.pinned); setImageUrl(a.imageUrl || ''); setSendVia(a.sendVia || 'in-app')
+    setExpiryDate(a.expiryDate ? String(a.expiryDate).slice(0, 10) : '')
+    const mode = a.audience?.mode || 'all'
+    setAudienceMode(mode)
+    setSelBatchIds(mode === 'batch' ? (a.audience.batchIds || []).map((b: any) => b._id || b) : [])
+    setSelTestSeriesIds(mode === 'testseries' ? (a.audience.testSeriesIds || []).map((b: any) => b._id || b) : [])
+    setSelStudents([])
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const doDelete = async (id: string) => {
+    if (!window.confirm('Delete this announcement permanently?')) return
+    try {
+      const r = await fetch(`${API}/api/admin/announcements/${id}`, { method: 'DELETE', headers })
+      if (r.ok) { notify('Deleted', 's'); loadHistory(); loadStats() } else notify('Failed', 'e')
+    } catch (e) { notify('Network error', 'e') }
+  }
+
+  const doResend = async (id: string) => {
+    try {
+      const r = await fetch(`${API}/api/admin/announcements/${id}/resend`, { method: 'POST', headers })
+      const d = await r.json()
+      if (r.ok) { notify(d.message || 'Resent', 's'); loadHistory(); loadStats() } else notify(d.message || 'Failed', 'e')
+    } catch (e) { notify('Network error', 'e') }
+  }
+
+  // v2 §4 — Duplicate as DRAFT (does not send) — distinct from Resend (sends immediately)
+  const doDuplicate = async (id: string) => {
+    try {
+      const r = await fetch(`${API}/api/admin/announcements/${id}/duplicate`, { method: 'POST', headers })
+      const d = await r.json()
+      if (r.ok) { notify(d.message || 'Duplicated as draft', 's'); loadHistory() } else notify(d.message || 'Failed', 'e')
+    } catch (e) { notify('Network error', 'e') }
+  }
+
+  const toggleDelivery = async (id: string) => {
+    if (expandedDelivery === id) { setExpandedDelivery(null); return }
+    setExpandedDelivery(id)
+    try { const r = await fetch(`${API}/api/admin/announcements/${id}/delivery`, { headers }); setDeliveryData(await r.json()) } catch (e) {}
+  }
+
+  const cardStyle = { display: 'flex', flexDirection: 'column' as const, gap: 10 }
+
+  return (
+    <ThemeCtx.Provider value={T}>
+      <div>
+        <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 22, fontWeight: 700, color: T.TS, margin: '0 0 4px' }}>📢 Announcements</div>
+        <div style={{ fontSize: 12, color: T.DIM, marginBottom: 16 }}>Send broadcasts to all students or specific batches</div>
+
+        {/* §1.1.3 PageHero-style banner */}
+        <div style={{ background: `linear-gradient(135deg, rgba(77,159,255,0.1), rgba(0,20,40,0.4))`, border: `1px solid ${T.BOR}`, borderRadius: 16, padding: '20px 22px', marginBottom: 16, display: 'flex', gap: 14, alignItems: 'center' }}>
+          <div style={{ fontSize: 34 }}>📢</div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: T.TS }}>Platform Broadcast Center</div>
+            <div style={{ fontSize: 11.5, color: T.DIM, marginTop: 3 }}>Send announcements via in-app notifications, email, or both. Target all students, specific batches, or individual students. Schedule for later or save as a draft.</div>
+          </div>
+        </div>
+
+        {/* §3.4 Stats bar */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 10, marginBottom: 16 }}>
+          {[
+            { l: 'Total Sent', v: stats.totalSent, c: T.ACC, i: '📤' },
+            { l: 'This Week', v: stats.thisWeek, c: T.SUC, i: '📅' },
+            { l: 'Avg. Read Rate', v: `${stats.avgReadRate}%`, c: T.GOLD, i: '👁️' },
+            { l: 'Scheduled', v: stats.scheduled, c: T.WRN, i: '⏰' },
+          ].map((s, i) => (
+            <div key={i} style={{ background: T.CRD, border: `1px solid ${T.BOR}`, borderRadius: 14, padding: '14px 10px', textAlign: 'center' }}>
+              <div style={{ fontSize: 18 }}>{s.i}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: s.c, marginTop: 4 }}>{s.v}</div>
+              <div style={{ fontSize: 9.5, color: T.DIM, marginTop: 2, fontWeight: 600 }}>{s.l}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* §1.2/§2.1/§3.1 COMPOSE CARD */}
+        <Card title={editingId ? '✏️ Edit Announcement' : '✍️ Compose Announcement'} icon="">
+          {/* Templates quick-fill (§2.4.1) */}
+          {!editingId && templates.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+              {templates.map((tpl, i) => (
+                <button key={i} onClick={() => applyTemplate(tpl)} style={{ ...btnGhost, fontSize: 10.5, padding: '6px 12px' }}>📋 {tpl.name}</button>
+              ))}
+            </div>
+          )}
+
+          {/* Type selector — 4 colored pills (§3.1.1) */}
+          <Lbl>Type / Category</Lbl>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+            {TYPES.map(tp => (
+              <button key={tp.v} onClick={() => setType(tp.v)} style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 99,
+                border: `1.5px solid ${type === tp.v ? tp.col : T.BOR}`,
+                background: type === tp.v ? `${tp.col}22` : 'transparent',
+                boxShadow: type === tp.v ? `0 0 14px ${tp.col}55` : 'none',
+                color: type === tp.v ? tp.col : T.DIM, fontWeight: 700, fontSize: 12, cursor: 'pointer',
+              }}>{tp.ico} {tp.l}</button>
+            ))}
+          </div>
+
+          {/* Title (+ bilingual toggle §2.1.7) */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Lbl>Title</Lbl>
+            <button onClick={() => setShowBilingual(!showBilingual)} style={{ ...btnGhost, fontSize: 10, padding: '4px 10px', marginBottom: 5 }}>🇮🇳/🇬🇧 {showBilingual ? 'Hide Hindi' : 'Add Hindi'}</button>
+          </div>
+          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Announcement title…" style={{ ...inp, marginBottom: showBilingual ? 8 : 14 }} />
+          {showBilingual && <input value={titleHi} onChange={e => setTitleHi(e.target.value)} placeholder="शीर्षक (हिंदी में)…" style={{ ...inp, marginBottom: 14 }} />}
+
+          {/* Audience selector — visual cards (§1.2.2, §2.1.9, §3.1.2) — v2: 4 modes */}
+          <Lbl>Target Audience</Lbl>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+            {[{ v: 'all', l: '🌍 All Students' }, { v: 'batch', l: '🏫 Batches' }, { v: 'testseries', l: '🎯 Test Series' }, { v: 'students', l: '👤 Specific Students' }].map(a => (
+              <button key={a.v} onClick={() => setAudienceMode(a.v as any)} style={{
+                padding: '8px 14px', borderRadius: 10, border: `1.5px solid ${audienceMode === a.v ? T.ACC : T.BOR}`,
+                background: audienceMode === a.v ? 'rgba(77,159,255,0.15)' : 'transparent',
+                color: audienceMode === a.v ? T.ACC : T.DIM, fontWeight: 700, fontSize: 11.5, cursor: 'pointer',
+              }}>{a.l}</button>
+            ))}
+          </div>
+          {audienceMode === 'batch' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, marginBottom: 14, maxHeight: 220, overflowY: 'auto', padding: 4 }}>
+              {batches.length === 0 && <div style={{ fontSize: 11, color: T.DIM }}>No batches found.</div>}
+              {batches.map(b => {
+                const on = selBatchIds.includes(b._id)
+                return (
+                  <div key={b._id} onClick={() => setSelBatchIds(on ? selBatchIds.filter(x => x !== b._id) : [...selBatchIds, b._id])} style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+                    border: `1.5px solid ${on ? T.ACC : T.BOR}`, background: on ? 'rgba(77,159,255,0.1)' : 'rgba(255,255,255,0.02)',
+                  }}>
+                    <input type="checkbox" checked={on} readOnly style={{ accentColor: T.ACC }} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: T.TS, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>🏫 {b.name}</div>
+                      <div style={{ fontSize: 10, color: T.DIM }}>{b.studentCount} students · {b.examType}</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {audienceMode === 'testseries' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, marginBottom: 14, maxHeight: 220, overflowY: 'auto', padding: 4 }}>
+              {batches.length === 0 && <div style={{ fontSize: 11, color: T.DIM }}>No test series found.</div>}
+              {batches.map(b => {
+                const on = selTestSeriesIds.includes(b._id)
+                return (
+                  <div key={b._id} onClick={() => setSelTestSeriesIds(on ? selTestSeriesIds.filter(x => x !== b._id) : [...selTestSeriesIds, b._id])} style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+                    border: `1.5px solid ${on ? T.ACC : T.BOR}`, background: on ? 'rgba(77,159,255,0.1)' : 'rgba(255,255,255,0.02)',
+                  }}>
+                    <input type="checkbox" checked={on} readOnly style={{ accentColor: T.ACC }} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: T.TS, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>🎯 {b.name}</div>
+                      <div style={{ fontSize: 10, color: T.DIM }}>{b.studentCount} students · {b.examType}</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {audienceMode === 'students' && (
+            <div style={{ marginBottom: 14 }}>
+              <input value={studentQuery} onChange={e => setStudentQuery(e.target.value)} placeholder="🔍 Search by name, email, or student ID…" style={inp} />
+              {studentResults.length > 0 && (
+                <div style={{ marginTop: 6, maxHeight: 160, overflowY: 'auto', border: `1px solid ${T.BOR}`, borderRadius: 10 }}>
+                  {studentResults.map(s => (
+                    <div key={s._id} onClick={() => { if (!selStudents.find(x => x._id === s._id)) setSelStudents([...selStudents, s]); setStudentQuery(''); setStudentResults([]) }} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 12, color: T.TS, borderBottom: `1px solid ${T.BOR}` }}>
+                      {s.name} <span style={{ color: T.DIM }}>· {s.email} {s.studentId ? `· ${s.studentId}` : ''}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {selStudents.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                  {selStudents.map(s => (
+                    <span key={s._id} style={{ fontSize: 10.5, background: 'rgba(77,159,255,0.12)', color: T.ACC, padding: '4px 10px', borderRadius: 99, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {s.name} <span onClick={() => setSelStudents(selStudents.filter(x => x._id !== s._id))} style={{ cursor: 'pointer', fontWeight: 800 }}>✕</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Send Via + Pin */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+            <div>
+              <Lbl>Send Via</Lbl>
+              <select value={sendVia} onChange={e => setSendVia(e.target.value as any)} style={inp}>
+                <option value="in-app">In-App Only</option>
+                <option value="email">Email Only</option>
+                <option value="both">In-App + Email</option>
+              </select>
+            </div>
+            <div>
+              <Lbl>Priority</Lbl>
+              <button onClick={() => setPinned(!pinned)} style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, background: pinned ? 'rgba(255,215,0,0.12)' : inp.background, borderColor: pinned ? T.GOLD : T.BOR, color: pinned ? T.GOLD : T.TS, fontWeight: 700 }}>
+                📌 {pinned ? 'Pinned — shows at top' : 'Pin this announcement'}
+              </button>
+            </div>
+          </div>
+
+          {/* Schedule toggle (§2.1.3, §3.1.4) */}
+          <Lbl>When to Send</Lbl>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+            <button onClick={() => setScheduleMode('now')} style={{ flex: 1, padding: '9px 0', borderRadius: 10, border: `1.5px solid ${scheduleMode === 'now' ? T.SUC : T.BOR}`, background: scheduleMode === 'now' ? 'rgba(0,196,140,0.12)' : 'transparent', color: scheduleMode === 'now' ? T.SUC : T.DIM, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>🟢 Send Now</button>
+            <button onClick={() => setScheduleMode('schedule')} style={{ flex: 1, padding: '9px 0', borderRadius: 10, border: `1.5px solid ${scheduleMode === 'schedule' ? T.ACC : T.BOR}`, background: scheduleMode === 'schedule' ? 'rgba(77,159,255,0.12)' : 'transparent', color: scheduleMode === 'schedule' ? T.ACC : T.DIM, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>🔵 Schedule</button>
+          </div>
+          {scheduleMode === 'schedule' && (
+            <input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} style={{ ...inp, marginBottom: 14 }} />
+          )}
+
+          {/* Expiry date (§2.1.8) + Image URL (§2.1.6) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+            <div><Lbl>Expiry Date (optional)</Lbl><input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} style={inp} /></div>
+            <div><Lbl>Image/Banner URL (optional)</Lbl><input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://…" style={inp} /></div>
+          </div>
+
+          {/* Message + rich text toolbar (§2.1.5) + char counter (§3.1.3) */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Lbl>Message *</Lbl>
+            <span style={{ fontSize: 10, color: T.DIM }}>{charCount} chars</span>
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+            <button onClick={() => wrapSelection('b')} style={{ ...btnGhost, padding: '4px 10px', fontWeight: 800 }}>B</button>
+            <button onClick={() => wrapSelection('i')} style={{ ...btnGhost, padding: '4px 10px', fontStyle: 'italic' }}>I</button>
+            <button onClick={() => wrapSelection('a')} style={{ ...btnGhost, padding: '4px 10px' }}>🔗 Link</button>
+          </div>
+          <textarea ref={msgRef} value={message} onChange={e => setMessage(e.target.value)} placeholder="Write your announcement here… (supports bold/italic/links)" rows={5} style={{ ...inp, resize: 'vertical', marginBottom: showBilingual ? 8 : 14 }} />
+          {showBilingual && <textarea value={messageHi} onChange={e => setMessageHi(e.target.value)} placeholder="संदेश (हिंदी में)…" rows={4} style={{ ...inp, resize: 'vertical', marginBottom: 14 }} />}
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button onClick={() => setPreviewOpen(true)} style={btnGhost}>👁️ Preview</button>
+            <button onClick={() => doSend(true)} disabled={sending} style={btnGhost}>💾 Save Draft</button>
+            <button onClick={() => doSend(false)} disabled={sending} style={{ ...btnP, flex: 1 }}>
+              {sending ? 'Sending…' : scheduleMode === 'schedule' ? '⏰ Schedule Announcement' : '📢 Send Announcement'}
+            </button>
+            {editingId && <button onClick={resetCompose} style={btnDng}>Cancel Edit</button>}
+          </div>
+        </Card>
+
+        {/* §2.2 Sent History + Search/Filter */}
+        <Card title="📜 Sent Announcements" icon="">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8, marginBottom: 14 }}>
+            <input value={fSearch} onChange={e => setFSearch(e.target.value)} placeholder="🔍 Search…" style={inp} />
+            <select value={fType} onChange={e => setFType(e.target.value)} style={inp}>
+              <option value="">All Types</option>
+              {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
+            </select>
+            <select value={fAudience} onChange={e => setFAudience(e.target.value)} style={inp}>
+              <option value="">All Audiences</option>
+              <option value="all">All Students</option>
+              <option value="batch">Batch</option>
+              <option value="testseries">Test Series</option>
+              <option value="students">Specific Students</option>
+            </select>
+            <input type="date" value={fDateFrom} onChange={e => setFDateFrom(e.target.value)} style={inp} />
+            <input type="date" value={fDateTo} onChange={e => setFDateTo(e.target.value)} style={inp} />
+          </div>
+
+          {historyLoading ? (
+            <div style={{ textAlign: 'center', padding: 30, color: T.DIM, fontSize: 12 }}>Loading…</div>
+          ) : history.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '30px 0' }}>
+              <div style={{ fontSize: 34, marginBottom: 8, opacity: 0.5 }}>🔕</div>
+              <div style={{ fontSize: 12.5, color: T.DIM }}>No announcements sent yet</div>
+            </div>
+          ) : history.map(a => {
+            const ti = typeInfo(a.type)
+            const audLabel = a.audience?.mode === 'all' ? 'All Students' : a.audience?.mode === 'batch' ? `${(a.audience.batchIds || []).length} batch(es)` : a.audience?.mode === 'testseries' ? `${(a.audience.testSeriesIds || []).length} test series` : `${(a.audience.studentIds || []).length} student(s)`
+            return (
+              <div key={a._id} style={{
+                borderLeft: `4px solid ${a.type === 'urgent' ? T.DNG : a.pinned ? T.GOLD : ti.col}`,
+                background: 'rgba(255,255,255,0.02)', borderRadius: 10, padding: '12px 14px', marginBottom: 10, position: 'relative',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <Badge col={ti.col}>{ti.ico} {ti.l}</Badge>
+                    {a.pinned && <Badge col={T.GOLD}>📌 Pinned</Badge>}
+                    {a.status === 'scheduled' && <Badge col={T.WRN}>⏰ Scheduled</Badge>}
+                    {a.status === 'draft' && <Badge col={T.DIM}>📝 Draft</Badge>}
+                    <span style={{ fontWeight: 700, fontSize: 13, color: T.TS }}>{a.title}</span>
+                  </div>
+                  <span style={{ fontSize: 10.5, color: T.DIM }}>{fmt(a.createdAt)}</span>
+                </div>
+                <div style={{ fontSize: 11.5, color: T.DIM, marginTop: 6, maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} dangerouslySetInnerHTML={{ __html: a.message }} />
+                <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap', fontSize: 10.5, color: T.DIM }}>
+                  <span>👥 {audLabel}</span>
+                  <span>📨 {a.sendVia}</span>
+                  <span>👁️ {a.readCount}/{a.targetCount} read</span>
+                  {a.ackCount > 0 && <span>👍 {a.ackCount} acknowledged</span>}
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <button onClick={() => doEdit(a)} style={{ ...btnGhost, fontSize: 10, padding: '5px 10px' }}>✏️ Edit</button>
+                  <button onClick={() => doResend(a._id)} style={{ ...btnGhost, fontSize: 10, padding: '5px 10px' }}>🔄 Resend</button>
+                  <button onClick={() => doDuplicate(a._id)} style={{ ...btnGhost, fontSize: 10, padding: '5px 10px' }}>📄 Duplicate</button>
+                  <button onClick={() => toggleDelivery(a._id)} style={{ ...btnGhost, fontSize: 10, padding: '5px 10px' }}>📊 Delivery</button>
+                  <button onClick={() => doDelete(a._id)} style={{ ...btnDng, fontSize: 10, padding: '5px 10px' }}>🗑️ Delete</button>
+                </div>
+                {expandedDelivery === a._id && deliveryData && (
+                  <div style={{ marginTop: 10, padding: 10, background: 'rgba(77,159,255,0.05)', borderRadius: 8, fontSize: 11, color: T.TS, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                    <span>✅ Email Sent: {deliveryData.emailStats?.sent || 0}</span>
+                    <span>📬 Delivered: {deliveryData.emailStats?.delivered || 0}</span>
+                    <span>❌ Failed: {deliveryData.emailStats?.failed || 0}</span>
+                    <span>👁️ Read: {deliveryData.readCount}/{deliveryData.targetCount}</span>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </Card>
+      </div>
+
+      {/* §2.1.4 / §3.3 Preview Modal — exact replica of student card */}
+      {previewOpen && (
+        <div onClick={() => setPreviewOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ maxWidth: 380, width: '100%' }}>
+            <div style={{ color: '#fff', fontWeight: 700, marginBottom: 10, textAlign: 'center' }}>👁️ Student Preview</div>
+            <div style={{
+              background: T.CRD, borderRadius: 14, border: `1px solid ${T.BOR}`,
+              borderLeft: `5px solid ${typeInfo(type).col}`, padding: 16, boxShadow: pinned ? `0 0 20px rgba(255,215,0,0.15)` : 'none',
+            }}>
+              {imageUrl && <img src={imageUrl} alt="" style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 10, marginBottom: 10 }} onError={(e: any) => e.target.style.display = 'none'} />}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <Badge col={typeInfo(type).col}>{typeInfo(type).ico} {typeInfo(type).l}</Badge>
+                {pinned && <span style={{ fontSize: 14 }}>📌</span>}
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: T.ACC, display: 'inline-block' }} />
+              </div>
+              <div style={{ fontWeight: 800, fontSize: 14.5, color: T.TS, marginBottom: 6 }}>{title || 'Announcement title…'}</div>
+              <div style={{ fontSize: 12.5, color: T.DIM, lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: message || 'Your message will appear here…' }} />
+              <div style={{ fontSize: 10, color: T.DIM, marginTop: 10 }}>Just now</div>
+            </div>
+            <button onClick={() => setPreviewOpen(false)} style={{ ...btnGhost, width: '100%', marginTop: 12 }}>Close Preview</button>
+          </div>
+        </div>
+      )}
+    </ThemeCtx.Provider>
+  )
+}
+PRSHEOF
+
+echo '-> Writing $ADMIN_DIR/page.tsx'
+cat > "$ADMIN_DIR/page.tsx" << 'PRSHEOF'
 'use client'
 import CreateExamWizard from './CreateExamWizard'
 import QBankStatsDashboard from './QBankStatsDashboard'
@@ -5421,3 +5950,679 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 </div>
   )
 }// deploy Sun May 31 01:52:47 AM UTC 2026
+PRSHEOF
+
+echo '-> Writing $STUDENT_APP_DIR/announcements/page.tsx'
+cat > "$STUDENT_APP_DIR/announcements/page.tsx" << 'PRSHEOF'
+'use client'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import StudentShell, { useShell, C } from '@/src/components/StudentShell'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
+
+const TYPE_META: Record<string, { ico: string; col: string; en: string; hi: string }> = {
+  exam:   { ico: '📝', col: '#4D9FFF', en: 'Exam',   hi: 'परीक्षा' },
+  update: { ico: '✨', col: '#00C48C', en: 'Update', hi: 'अपडेट' },
+  result: { ico: '🏅', col: '#FFD700', en: 'Result', hi: 'परिणाम' },
+  maintenance: { ico: '🔧', col: '#A855F7', en: 'Maintenance', hi: 'रखरखाव' },
+  urgent: { ico: '🚨', col: '#FF4D4D', en: 'Urgent', hi: 'अत्यावश्यक' },
+}
+const FILTERS = ['all', 'exam', 'update', 'result', 'maintenance', 'urgent']
+
+function relTime(d: string, lang: 'en' | 'hi') {
+  const diff = Date.now() - new Date(d).getTime()
+  const m = Math.floor(diff / 60000), h = Math.floor(diff / 3600000), day = Math.floor(diff / 86400000)
+  if (m < 1) return lang === 'en' ? 'Just now' : 'अभी अभी'
+  if (m < 60) return lang === 'en' ? `${m}m ago` : `${m} मिनट पहले`
+  if (h < 24) return lang === 'en' ? `${h}h ago` : `${h} घंटे पहले`
+  if (day < 7) return lang === 'en' ? `${day}d ago` : `${day} दिन पहले`
+  return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function sanitizeClient(html: string) {
+  if (!html) return ''
+  let s = String(html).replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '')
+  s = s.replace(/<(?!\/?(b|strong|i|em|u|br|p|a)(\s|>|\/))[^>]*>/gi, '')
+  s = s.replace(/\son\w+\s*=\s*"[^"]*"/gi, '').replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+  return s
+}
+
+function extractUrl(text: string) { const m = String(text).match(/https?:\/\/[^\s<"]+/i); return m ? m[0] : null }
+
+function extractDate(text: string) {
+  const months = 'January|February|March|April|May|June|July|August|September|October|November|December'
+  let m = text.match(new RegExp(`\\b(${months})\\s+(\\d{1,2}),?\\s+(\\d{4})\\b`, 'i'))
+  if (m) return new Date(`${m[1]} ${m[2]}, ${m[3]}`)
+  m = text.match(new RegExp(`\\b(\\d{1,2})\\s+(${months})\\s+(\\d{4})\\b`, 'i'))
+  if (m) return new Date(`${m[2]} ${m[1]}, ${m[3]}`)
+  return null
+}
+function downloadICS(title: string, date: Date) {
+  const dt = date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
+  const ics = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nSUMMARY:${title}\nDTSTART:${dt}\nDTEND:${dt}\nEND:VEVENT\nEND:VCALENDAR`
+  const blob = new Blob([ics], { type: 'text/calendar' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href = url; a.download = `${title}.ics`; a.click()
+  URL.revokeObjectURL(url)
+}
+
+function SkeletonCard({ dm }: { dm: boolean }) {
+  return (
+    <div style={{ background: dm ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', borderRadius: 14, padding: 16, marginBottom: 12, overflow: 'hidden', position: 'relative' }}>
+      <div style={{ height: 14, width: '40%', background: dm ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', borderRadius: 6, marginBottom: 10 }} />
+      <div style={{ height: 10, width: '90%', background: dm ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)', borderRadius: 6, marginBottom: 6 }} />
+      <div style={{ height: 10, width: '70%', background: dm ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)', borderRadius: 6 }} />
+      <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg, transparent, ${dm ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'}, transparent)`, animation: 'annShimmer 1.4s infinite' }} />
+    </div>
+  )
+}
+
+function AnnouncementsContent() {
+  const { lang, darkMode: dm, token, theme } = useShell()
+  const t = (en: string, hi: string) => lang === 'en' ? en : hi
+  const txt = theme.text, sub = theme.sub, bdr = theme.border, prim = theme.primary
+
+  const [notices, setNotices] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filterType, setFilterType] = useState('all')
+  const [sortMode, setSortMode] = useState<'newest' | 'pinned'>('pinned')
+  const [search, setSearch] = useState('')
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [soundEnabled, setSoundEnabled] = useState(true)
+
+  useEffect(() => { try { setSoundEnabled(localStorage.getItem('pr_ann_sound') !== 'off') } catch {} }, [])
+
+  const load = () => {
+    if (!token) return
+    fetch(`${API}/api/announcements`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : [])
+      .then(d => {
+        const list = Array.isArray(d) ? d : []
+        setNotices(list)
+        setLoading(false)
+
+        // v2 §6.2 — Bell badge is now synced independently by StudentShell
+        // polling GET /api/announcements/unread-count every 60s from any
+        // page. No localStorage/event bridging needed here anymore.
+
+        // §6.1 Push notification for genuinely new unread items
+        try {
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            const notified = JSON.parse(localStorage.getItem('pr_notified_ann_ids') || '[]')
+            const fresh = list.filter((n: any) => !n.isRead && !notified.includes(n._id))
+            fresh.slice(0, 3).forEach((n: any) => {
+              try { new Notification(n.title, { body: n.message.replace(/<[^>]*>/g, '').slice(0, 100), icon: '/favicon.ico' }) } catch {}
+            })
+            if (fresh.length) localStorage.setItem('pr_notified_ann_ids', JSON.stringify([...notified, ...fresh.map((n: any) => n._id)].slice(-200)))
+          }
+        } catch {}
+
+        // §6.7 Sound/vibration on urgent unread
+        try {
+          const urgentUnread = list.some((n: any) => n.type === 'urgent' && !n.isRead)
+          if (urgentUnread && soundEnabled) {
+            const audio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=')
+            audio.play().catch(() => {})
+            if (navigator.vibrate) navigator.vibrate([80, 40, 80])
+          }
+        } catch {}
+      })
+      .catch(() => { setNotices([]); setLoading(false) })
+  }
+  useEffect(() => { load() }, [token])
+
+  // §6.1 request Notification permission once, quietly
+  useEffect(() => {
+    try { if (typeof Notification !== 'undefined' && Notification.permission === 'default') Notification.requestPermission() } catch {}
+  }, [])
+
+  const markRead = (id: string) => {
+    setNotices(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n))
+    fetch(`${API}/api/announcements/${id}/read`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {})
+  }
+  const markAllRead = () => {
+    setNotices(prev => prev.map(n => ({ ...n, isRead: true })))
+    fetch(`${API}/api/announcements/read-all`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {})
+  }
+  const doAck = (id: string) => {
+    setNotices(prev => prev.map(n => n._id === id ? { ...n, isAcked: true } : n))
+    fetch(`${API}/api/announcements/${id}/ack`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {})
+  }
+  const onCardClick = (n: any) => {
+    if (!n.isRead) { markRead(n._id); return }
+    setExpandedIds(prev => { const s = new Set(prev); s.has(n._id) ? s.delete(n._id) : s.add(n._id); return s })
+  }
+  const toggleSound = () => {
+    const next = !soundEnabled; setSoundEnabled(next)
+    try { localStorage.setItem('pr_ann_sound', next ? 'on' : 'off') } catch {}
+  }
+
+  // §3.9 expiry filter (defensive, backend already filters) + search/type/sort
+  const now = Date.now()
+  const visible = useMemo(() => {
+    let list = notices.filter(n => !n.expiryDate || new Date(n.expiryDate).getTime() >= now)
+    if (filterType !== 'all') list = list.filter(n => (n.type || 'update') === filterType)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      list = list.filter(n => (n.title || '').toLowerCase().includes(q) || (lang === 'hi' && n.titleHi || '').toLowerCase().includes(q))
+    }
+    const arr = [...list]
+    if (sortMode === 'pinned') arr.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || +new Date(b.createdAt) - +new Date(a.createdAt))
+    else arr.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+    return arr
+  }, [notices, filterType, search, sortMode, lang])
+
+  const pinnedList = visible.filter(n => n.pinned)
+  const unpinnedList = sortMode === 'pinned' ? visible.filter(n => !n.pinned) : visible
+  const totalCount = notices.length
+  const unreadCount = notices.filter(n => !n.isRead).length
+  const urgentCount = notices.filter(n => n.type === 'urgent' && (!n.expiryDate || new Date(n.expiryDate).getTime() >= now)).length
+
+  const Card = ({ n }: { n: any }) => {
+    const meta = TYPE_META[n.type || 'update'] || TYPE_META.update
+    const isExpanded = expandedIds.has(n._id)
+    const displayTitle = lang === 'hi' && n.titleHi ? n.titleHi : n.title
+    const displayMsg = lang === 'hi' && n.messageHi ? n.messageHi : n.message
+    const plainMsg = displayMsg.replace(/<[^>]*>/g, '')
+    const isLong = plainMsg.length > 180
+    const linkUrl = extractUrl(plainMsg)
+    const examDate = n.type === 'exam' ? extractDate(plainMsg) : null
+
+    return (
+      <div
+        onClick={() => onCardClick(n)}
+        style={{
+          background: dm ? 'rgba(0,22,40,0.7)' : 'rgba(255,255,255,0.92)',
+          border: `1px solid ${bdr}`,
+          borderLeft: `${n.isRead ? 4 : 5}px solid ${meta.col}`,
+          borderRadius: 14, padding: 0, marginBottom: 12, cursor: 'pointer',
+          opacity: n.isRead ? 0.85 : 1,
+          boxShadow: n.pinned ? `0 0 0 1px ${C.gold}22, 0 4px 18px rgba(0,0,0,0.1)` : n.type === 'urgent' && !n.isRead ? `0 0 16px ${meta.col}33` : '0 2px 10px rgba(0,0,0,0.08)',
+          animation: n.type === 'urgent' && !n.isRead ? 'annUrgentPulse 2s infinite' : 'none',
+          overflow: 'hidden', position: 'relative',
+          backgroundImage: n.pinned ? 'linear-gradient(135deg, rgba(251,191,36,0.06), transparent)' : 'none',
+        }}
+      >
+        {n.pinned && <div style={{ position: 'absolute', top: 10, right: 12, fontSize: 16, transform: 'rotate(-15deg)' }}>📌</div>}
+        {n.imageUrl && <img src={n.imageUrl} alt="" style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: '13px 13px 0 0' }} onError={(e: any) => e.target.style.display = 'none'} />}
+        <div style={{ padding: '14px 16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 7 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 16 }}>{meta.ico}</span>
+              <span style={{ fontWeight: n.isRead ? 600 : 800, fontSize: 13.5, color: txt }}>{displayTitle}</span>
+              {!n.isRead && <span style={{ width: 7, height: 7, borderRadius: '50%', background: prim, display: 'inline-block' }} />}
+            </div>
+            <span style={{ fontSize: 10, color: sub, whiteSpace: 'nowrap' }}>{relTime(n.createdAt, lang)}</span>
+          </div>
+
+          <div
+            style={{ fontSize: 12.5, color: sub, lineHeight: 1.7, ...( !isExpanded && isLong ? { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' } : {}) }}
+            dangerouslySetInnerHTML={{ __html: sanitizeClient(displayMsg) }}
+          />
+          {isLong && <span style={{ fontSize: 11, color: prim, fontWeight: 700, marginTop: 4, display: 'inline-block' }}>{isExpanded ? t('Show less','कम दिखाएं') : t('Read more →','और पढ़ें →')}</span>}
+
+          {linkUrl && (
+            <div onClick={e => e.stopPropagation()} style={{ marginTop: 10, border: `1px solid ${bdr}`, borderRadius: 10, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14 }}>🔗</span>
+              <a href={linkUrl} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: prim, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{linkUrl}</a>
+            </div>
+          )}
+
+          <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            {!n.isAcked ? (
+              <button onClick={() => doAck(n._id)} style={{ fontSize: 10.5, fontWeight: 700, color: prim, background: theme.chipBg, border: `1px solid ${bdr}`, borderRadius: 99, padding: '5px 12px', cursor: 'pointer' }}>👍 {t('Got it','समझ गया')}</button>
+            ) : (
+              <span style={{ fontSize: 10.5, color: theme.isDark ? '#00C48C' : '#00A876', fontWeight: 700 }}>✓ {t('Acknowledged','स्वीकृत')}</span>
+            )}
+            {examDate && !isNaN(examDate.getTime()) && (
+              <button onClick={() => downloadICS(displayTitle, examDate!)} style={{ fontSize: 10.5, fontWeight: 700, color: prim, background: theme.chipBg, border: `1px solid ${bdr}`, borderRadius: 99, padding: '5px 12px', cursor: 'pointer' }}>📅 {t('Add to Calendar','कैलेंडर में जोड़ें')}</button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ animation: 'fadeIn .4s ease', maxWidth: 720, margin: '0 auto' }}>
+      <style>{`
+        @keyframes annShimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        @keyframes annUrgentPulse { 0%,100% { box-shadow: 0 0 10px rgba(255,77,77,0.25); } 50% { box-shadow: 0 0 20px rgba(255,77,77,0.5); } }
+      `}</style>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 22, fontWeight: 700, color: txt, margin: '0 0 4px' }}>📢 {t('Announcements', 'घोषणाएं')}</div>
+          <div style={{ fontSize: 12.5, color: sub, marginBottom: 14 }}>{t('Official notices, exam updates & important messages', 'आधिकारिक सूचनाएं, परीक्षा अपडेट और महत्वपूर्ण संदेश')}</div>
+        </div>
+        <button onClick={toggleSound} title={t('Toggle urgent sound/vibration','अत्यावश्यक ध्वनि टॉगल करें')} style={{ background: theme.chipBg, border: `1px solid ${bdr}`, borderRadius: 9, width: 34, height: 34, cursor: 'pointer', fontSize: 14 }}>{soundEnabled ? '🔔' : '🔕'}</button>
+      </div>
+
+      {/* §1.2 Stats chips */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: sub, background: theme.chipBg, padding: '6px 13px', borderRadius: 99 }}>{t('Total','कुल')}: {totalCount}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: prim, background: theme.chipBg, padding: '6px 13px', borderRadius: 99, boxShadow: unreadCount > 0 ? `0 0 10px ${prim}44` : 'none' }}>{t('Unread','अपठित')}: {unreadCount}</span>
+        {urgentCount > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#FF4D4D', background: 'rgba(255,77,77,0.12)', padding: '6px 13px', borderRadius: 99, animation: 'annUrgentPulse 2s infinite' }}>{t('Urgent','अत्यावश्यक')}: {urgentCount}</span>}
+        {unreadCount > 0 && <button onClick={markAllRead} style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: prim, background: 'transparent', border: `1px solid ${bdr}`, borderRadius: 99, padding: '6px 13px', cursor: 'pointer' }}>✓ {t('Mark all as read','सभी को पढ़ा हुआ चिह्नित करें')}</button>}
+      </div>
+
+      {/* §1.3 Filter pills + sort */}
+      <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 4, marginBottom: 8 }}>
+        {FILTERS.map(f => {
+          const meta = f === 'all' ? null : TYPE_META[f]
+          const active = filterType === f
+          const col = meta?.col || prim
+          return (
+            <button key={f} onClick={() => setFilterType(f)} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 99, border: `1.5px solid ${active ? col : bdr}`, background: active ? `${col}1a` : 'transparent', boxShadow: active ? `0 0 10px ${col}44` : 'none', color: active ? col : sub, fontWeight: 700, fontSize: 11.5, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              {meta ? `${meta.ico} ${t(meta.en, meta.hi)}` : t('All', 'सभी')}
+            </button>
+          )
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center' }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('🔍 Search announcements…', '🔍 घोषणाएं खोजें…')} style={{ flex: 1, background: theme.chipBg, border: `1px solid ${bdr}`, borderRadius: 10, padding: '9px 12px', color: txt, fontSize: 12.5, outline: 'none' }} />
+        <button onClick={() => setSortMode(sortMode === 'pinned' ? 'newest' : 'pinned')} style={{ background: theme.chipBg, border: `1px solid ${bdr}`, borderRadius: 10, padding: '9px 14px', color: prim, fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          {sortMode === 'pinned' ? `📌 ${t('Pinned First','पिन किए हुए पहले')}` : `🕐 ${t('Newest First','नवीनतम पहले')}`}
+        </button>
+      </div>
+
+      {loading ? (
+        <>{[1, 2, 3].map(i => <SkeletonCard key={i} dm={dm} />)}</>
+      ) : visible.length === 0 ? (
+        notices.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '50px 20px' }}>
+            <svg width="80" height="80" viewBox="0 0 80 80" fill="none" style={{ opacity: 0.4, marginBottom: 12 }}>
+              <path d="M15 30 Q15 15 30 15 L50 15 Q65 15 65 30 L65 48 Q65 62 50 62 L40 62 L22 74 L22 62 L30 62 Q15 62 15 48 Z" stroke={sub} strokeWidth="2" fill="none" />
+              <text x="46" y="26" fontSize="14" fill={sub}>z z</text>
+            </svg>
+            <div style={{ fontSize: 13, color: sub }}>{t('No announcements yet. Check back soon!', 'अभी तक कोई घोषणा नहीं। जल्द ही वापस देखें!')}</div>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '30px 20px', fontSize: 12.5, color: sub }}>{t('No announcements match this filter', 'इस फ़िल्टर से कोई घोषणा मेल नहीं खाती')}</div>
+        )
+      ) : (
+        <>
+          {pinnedList.length > 0 && sortMode === 'pinned' && (
+            <>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: C.gold, marginBottom: 8 }}>📌 {t('Pinned', 'पिन की गई')}</div>
+              {pinnedList.map(n => <Card key={n._id} n={n} />)}
+            </>
+          )}
+          {unpinnedList.map(n => <Card key={n._id} n={n} />)}
+        </>
+      )}
+    </div>
+  )
+}
+
+export default function AnnouncementsPage() {
+  return <StudentShell pageKey="announcements"><AnnouncementsContent /></StudentShell>
+}
+PRSHEOF
+
+echo '-> Writing $COMPONENTS_DIR/StudentShell.tsx'
+cat > "$COMPONENTS_DIR/StudentShell.tsx" << 'PRSHEOF'
+'use client'
+import React,{createContext,useContext,useState,useEffect,useCallback,useRef,ReactNode}from 'react'
+import{useRouter}from 'next/navigation'
+
+const API=process.env.NEXT_PUBLIC_API_URL||'https://proverank.onrender.com'
+const _gt=():string=>{try{return localStorage.getItem('pr_token')||''}catch{return''}}
+const _gr=():string=>{try{return localStorage.getItem('pr_role')||'student'}catch{return'student'}}
+const _ca=():void=>{try{localStorage.removeItem('pr_token');localStorage.removeItem('pr_role')}catch{}}
+
+export const C={primary:'#4D9FFF',card:'rgba(0,22,40,0.82)',cardL:'rgba(255,255,255,0.92)',border:'rgba(77,159,255,0.22)',borderL:'rgba(77,159,255,0.4)',text:'#E8F4FF',textL:'#0F172A',sub:'#8DA2C0',subL:'#51607A',success:'#00C48C',danger:'#FF4D4D',gold:'#FFD700',warn:'#FFB84D',purple:'#A78BFA',pink:'#FF6B9D'}
+
+export type ColorTheme='light'|'dark'
+export interface ShellCtx{lang:'en'|'hi';darkMode:boolean;colorTheme:ColorTheme;theme:any;setColorTheme:(t:ColorTheme)=>void;user:any;toast:(m:string,t?:'s'|'e'|'w')=>void;token:string;role:string}
+const ShellCtx=createContext<ShellCtx>({lang:'en',darkMode:true,colorTheme:'dark',theme:{primary:'#4D9FFF'},setColorTheme:()=>{},user:null,toast:()=>{},token:'',role:'student'})
+export const useShell=()=>useContext(ShellCtx)
+
+export function PRLogo({size=40}:{size?:number}){
+  const b=size*0.94,p=Math.round(b*0.63),r=Math.round(b*0.63),f=Math.round(p*0.52),rd=Math.round(p*0.28)
+  return(<div style={{position:'relative',width:b,height:b,flexShrink:0,display:'inline-flex'}}><div style={{position:'absolute',top:0,left:0,width:p,height:p,borderRadius:rd,background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:f,fontWeight:900,fontFamily:'Inter,sans-serif',color:'#030810',boxShadow:'0 4px 16px rgba(77,159,255,0.4)'}}>P</div><div style={{position:'absolute',bottom:0,right:0,width:r,height:r,borderRadius:rd,background:'rgba(0,212,255,0.1)',border:'1.5px solid rgba(0,212,255,0.45)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:f,fontWeight:900,fontFamily:'Inter,sans-serif',color:'#00D4FF',backdropFilter:'blur(8px)'}}>R</div></div>)
+}
+
+function GalaxyBg(){
+  const ref=useRef<HTMLCanvasElement>(null)
+  useEffect(()=>{
+    const canvas=ref.current;if(!canvas)return
+    const ctx=canvas.getContext('2d');if(!ctx)return
+    const resize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight};resize()
+    const stars=Array.from({length:220},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.6+0.2,op:Math.random()*0.7+0.1,tw:Math.random()*0.018+0.004,ph:Math.random()*Math.PI*2,col:Math.random()>0.85?'rgba(255,215,100,':'rgba(200,218,255,'}))
+    const parts=Array.from({length:65},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*1.8+0.4,op:Math.random()*.25+.04}))
+    const spiral:any[]=[];for(let a=0;a<2;a++)for(let i=0;i<80;i++){const t=i/80,angle=a*Math.PI+t*Math.PI*3,rad=t*Math.min(canvas.width,canvas.height)*0.22;spiral.push({x:canvas.width/2+rad*Math.cos(angle)+(Math.random()-.5)*30,y:canvas.height/2+rad*Math.sin(angle)+(Math.random()-.5)*30,r:Math.random()*1.2+0.3,op:Math.random()*0.3+0.05})}
+    let sx=-100,sy=-100,sA=false,sT=0,sVx=0,sVy=0
+    const shoot=()=>{sx=Math.random()*canvas.width*.6;sy=Math.random()*canvas.height*.25;sVx=3+Math.random()*4;sVy=1+Math.random()*2;sA=true;sT=0;setTimeout(shoot,3000+Math.random()*7000)}
+    setTimeout(shoot,2500)
+    let animId:number
+    const draw=()=>{
+      ctx.clearRect(0,0,canvas.width,canvas.height)
+      ;[{x:canvas.width*.08,y:canvas.height*.18,r:220,c:'rgba(77,159,255,0.05)'},{x:canvas.width*.88,y:canvas.height*.72,r:280,c:'rgba(167,139,250,0.04)'},{x:canvas.width*.5,y:canvas.height*.5,r:180,c:'rgba(255,100,157,0.02)'},{x:canvas.width*.4,y:canvas.height*.85,r:200,c:'rgba(0,196,140,0.03)'}].forEach(n=>{const g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r);g.addColorStop(0,n.c);g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,Math.PI*2);ctx.fill()})
+      spiral.forEach(s=>{ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle='rgba(180,210,255,'+s.op+')';ctx.fill()})
+      stars.forEach(s=>{s.ph+=s.tw;const op=s.op*(0.55+0.45*Math.sin(s.ph));ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle=s.col+op+')';ctx.fill()})
+      if(sA){sT+=0.05;sx+=sVx;sy+=sVy;if(sT<1){const tail=80,grd=ctx.createLinearGradient(sx-tail*sVx/5,sy-tail*sVy/5,sx,sy);grd.addColorStop(0,'rgba(255,255,255,0)');grd.addColorStop(1,'rgba(255,255,255,0.85)');ctx.strokeStyle=grd;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(sx-tail*sVx/5,sy-tail*sVy/5);ctx.lineTo(sx,sy);ctx.stroke();const gl=ctx.createRadialGradient(sx,sy,0,sx,sy,4);gl.addColorStop(0,'rgba(255,255,255,0.6)');gl.addColorStop(1,'transparent');ctx.fillStyle=gl;ctx.beginPath();ctx.arc(sx,sy,4,0,Math.PI*2);ctx.fill()}else sA=false;if(sx>canvas.width+100||sy>canvas.height+100)sA=false}
+      parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0;if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle='rgba(77,159,255,'+p.op+')';ctx.fill()})
+      for(let i=0;i<parts.length;i++)for(let j=i+1;j<parts.length;j++){const dx=parts[i].x-parts[j].x,dy=parts[i].y-parts[j].y,d=Math.sqrt(dx*dx+dy*dy);if(d<110){ctx.beginPath();ctx.moveTo(parts[i].x,parts[i].y);ctx.lineTo(parts[j].x,parts[j].y);ctx.strokeStyle='rgba(77,159,255,'+(0.07*(1-d/110))+')';ctx.lineWidth=.5;ctx.stroke()}}
+      animId=requestAnimationFrame(draw)
+    }
+    draw();window.addEventListener('resize',resize)
+    return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',resize)}
+  },[])
+  return <canvas ref={ref} style={{position:'fixed',inset:0,pointerEvents:'none',zIndex:0}}/>
+}
+
+// ── Navigation — grouped for a cleaner sidebar (all existing features kept, none removed) ──
+const NAV_GROUPS=[
+  {label:'Overview',labelHi:'अवलोकन',items:[
+    {id:'dashboard',icon:'📊',en:'Dashboard',hi:'डैशबोर्ड',href:'/dashboard'},
+  ]},
+  {label:'Practice',labelHi:'अभ्यास',items:[
+    {id:'my-exams',icon:'📝',en:'My Exams',hi:'मेरी परीक्षाएं',href:'/my-exams'},
+    {id:'mini-tests',icon:'⚡',en:'Mini Tests',hi:'मिनी टेस्ट',href:'/mini-tests'},
+    {id:'pyq-bank',icon:'📚',en:'PYQ Bank',hi:'पिछले वर्ष के प्रश्न',href:'/pyq-bank'},
+    {id:'revision',icon:'🧠',en:'Smart Revision',hi:'स्मार्ट रिवीजन',href:'/revision'},
+  ]},
+  {label:'Results & Progress',labelHi:'परिणाम और प्रगति',items:[
+    {id:'results',icon:'📈',en:'Results',hi:'परिणाम',href:'/results'},
+    {id:'analytics',icon:'📉',en:'Analytics',hi:'विश्लेषण',href:'/analytics'},
+    {id:'attempt-history',icon:'🕐',en:'Attempt History',hi:'परीक्षा इतिहास',href:'/attempt-history'},
+    {id:'goals',icon:'🎯',en:'My Goals',hi:'मेरे लक्ष्य',href:'/goals'},
+    {id:'compare',icon:'⚖️',en:'Compare',hi:'तुलना करें',href:'/dashboard/compare'},
+    {id:'batch-compare',icon:'📊',en:'Batch Compare',hi:'बैच तुलना',href:'/dashboard/batch-compare'},
+    {id:'leaderboard',icon:'🏆',en:'Leaderboard',hi:'लीडरबोर्ड',href:'/leaderboard'},
+    {id:'certificate',icon:'🎖️',en:'Certificates',hi:'प्रमाणपत्र',href:'/certificate'},
+  ]},
+  {label:'Batches & Store',labelHi:'बैच और स्टोर',items:[
+    {id:'my-batches',icon:'📚',en:'My Batches',hi:'मेरे बैच',href:'/dashboard/my-batches'},
+    {id:'test-series',icon:'📚',en:'Test Series',hi:'टेस्ट सीरीज',href:'/dashboard/test-series'},
+    {id:'store',icon:'🛒',en:'Store',hi:'स्टोर',href:'/dashboard/store'},
+  ]},
+  {label:'Communication',labelHi:'संचार',items:[
+    {id:'announcements',icon:'📢',en:'Announcements',hi:'घोषणाएं',href:'/announcements'},
+    {id:'doubt',icon:'💬',en:'Doubt & Query',hi:'संदेह और प्रश्न',href:'/doubt'},
+    {id:'parent-portal',icon:'👨‍👩‍👧',en:'Parent Portal',hi:'अभिभावक पोर्टल',href:'/parent-portal'},
+    {id:'support',icon:'🛟',en:'Support',hi:'सहायता',href:'/support'},
+  ]},
+  {label:'Account',labelHi:'खाता',items:[
+    {id:'admit-card',icon:'🪪',en:'Admit Card',hi:'प्रवेश पत्र',href:'/admit-card'},
+    
+    {id:'profile',icon:'👤',en:'Profile',hi:'प्रोफ़ाइल',href:'/profile'},
+  ]},
+]
+
+// Pages that must keep their own existing immersive dark/galaxy look — untouched regardless of the user's Light/Dark choice
+const IMMERSIVE_PAGES=['test-series','batches','my-batches','store']
+
+export default function StudentShell({pageKey,children}:{pageKey:string;children:ReactNode}){
+  const router=useRouter()
+  const [mounted,setMounted]=useState(false)
+  const [lang,setLang]=useState<'en'|'hi'>('en')
+  const [colorTheme,setColorThemeState]=useState<ColorTheme>('dark')
+  const [side,setSide]=useState(false)
+  const [user,setUser]=useState<any>(null)
+  const [token,setToken]=useState('')
+  const [role,setRole]=useState('student')
+  const [toastSt,setToastSt]=useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
+  const [maint,setMaint]=useState<{enabled:boolean;message?:string}|null>(null)
+  const [unreadAnn,setUnreadAnn]=useState(0) // F42B §6.2 — bell badge sync
+  const toast=useCallback((msg:string,tp:'s'|'e'|'w'='s')=>{setToastSt({msg,tp});setTimeout(()=>setToastSt(null),4000)},[])
+
+  useEffect(()=>{fetch(`${API}/api/admin/maintenance`).then(r=>r.ok?r.json():null).then(d=>{if(d&&d.maintenance)setMaint(d.maintenance)}).catch(()=>{})},[])
+
+  // v2 §6.2 FIX — Bell icon badge sync: StudentShell itself polls the live
+  // unread-count API every 60s, from ANY page (not just Announcements).
+  // Replaces the old localStorage+event approach which only updated after
+  // visiting the Announcements page and could show a stale count elsewhere.
+  useEffect(()=>{
+    if(!token) return
+    let cancelled=false
+    const poll=()=>{
+      fetch(`${API}/api/announcements/unread-count`,{headers:{Authorization:`Bearer ${token}`}})
+        .then(r=>r.ok?r.json():null)
+        .then(d=>{if(!cancelled&&d)setUnreadAnn(d.count||0)})
+        .catch(()=>{})
+    }
+    poll()
+    const iv=setInterval(poll,60000)
+    return()=>{cancelled=true;clearInterval(iv)}
+  },[token])
+
+  // Applies the theme class to <html> AND <body> so all legacy + new CSS overrides actually take effect
+  const _applyDom=(t:ColorTheme)=>{
+    try{
+      const h=document.documentElement,b=document.body
+      h.classList.remove('white-theme','dark-theme','teal-theme','light-theme')
+      b.classList.remove('white-theme','dark-theme','teal-theme','light-theme')
+      h.classList.add(t+'-theme');b.classList.add(t+'-theme')
+      h.setAttribute('data-color-theme',t)
+    }catch{}
+  }
+  const _migrate=(v:string|null):ColorTheme=>{
+    if(v==='white')return'light'
+    if(v==='teal')return'dark'
+    return(v==='light'||v==='dark')?v:'dark'
+  }
+
+  useEffect(()=>{
+    const tk=_gt();if(!tk){router.replace('/login');return}
+    setToken(tk);setRole(_gr())
+    try{
+      const sl=localStorage.getItem('pr_lang') as 'en'|'hi'|null;if(sl)setLang(sl)
+      const ct=_migrate(localStorage.getItem('pr_color_theme'))
+      setColorThemeState(ct);_applyDom(ct)
+    }catch{}
+    const _onTh=(e:StorageEvent)=>{if(e.key==='pr_color_theme'&&e.newValue){const v=_migrate(e.newValue);setColorThemeState(v);_applyDom(v)}}
+    window.addEventListener('storage',_onTh)
+    fetch(`${API}/api/auth/me`,{headers:{Authorization:`Bearer ${tk}`}}).then(r=>r.ok?r.json():null).then(d=>{if(d?._id)setUser(d)}).catch(()=>{})
+    setMounted(true)
+    return()=>window.removeEventListener('storage',_onTh)
+  },[router])
+
+  if(!mounted)return null
+  const userEmail=user?.email||(typeof window!=='undefined'?localStorage.getItem('pr_email')||'':'')
+  const isWhitelisted=!!(userEmail&&maint?.allowedEmails?.some((e:string)=>e.trim().toLowerCase()===userEmail.trim().toLowerCase()))
+  if(maint?.enabled===true&&!isWhitelisted){
+    return(
+      <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'linear-gradient(135deg,#0a0a1a,#0d1b2a)',color:'#fff',fontFamily:'Inter,sans-serif',textAlign:'center',padding:'24px'}}>
+        <div style={{fontSize:64,marginBottom:20}}>🔧</div>
+        <div style={{fontSize:24,fontWeight:700,color:'#4D9FFF',marginBottom:10}}>ProveRank</div>
+        <div style={{fontSize:18,fontWeight:600,marginBottom:14}}>Platform Under Maintenance</div>
+        <div style={{color:'#aaa',maxWidth:360,lineHeight:1.7,fontSize:14,marginBottom:32}}>{maint.message||'We are upgrading the platform. Please check back shortly.'}</div>
+        <button onClick={()=>{_ca();router.replace('/login')}} style={{background:'linear-gradient(135deg,#4D9FFF,#0066cc)',color:'#fff',border:'none',borderRadius:10,padding:'13px 32px',fontSize:15,fontWeight:700,cursor:'pointer'}}>← Back to Login</button>
+      </div>
+    )
+  }
+
+  // ── 2-Theme System: Light & Dark (only) ──
+  const _TH:Record<ColorTheme,any>={
+    light:{
+      shellBg:'radial-gradient(ellipse at 15% 0%,#FFFFFF 0%,#F3F7FF 55%,#E9F1FF 100%)',
+      headerBg:'rgba(255,255,255,0.88)',sidebarBg:'rgba(255,255,255,0.97)',
+      primary:'#2563EB',text:'#0F172A',sub:'#51607A',
+      border:'rgba(37,99,235,0.14)',navActive:'rgba(37,99,235,0.10)',
+      isDark:false,showGalaxy:false,hexC:'rgba(37,99,235,0.035)',
+      brandGrad:'#2563EB',logoTag:'#374151',
+      chipBg:'rgba(37,99,235,0.06)',
+    },
+    dark:{
+      shellBg:'radial-gradient(ellipse at 20% 0%,#0C1220 0%,#070A12 55%,#040609 100%)',
+      headerBg:'rgba(10,14,22,0.85)',sidebarBg:'rgba(8,11,18,0.97)',
+      primary:'#4D9FFF',text:'#F1F6FC',sub:'#8DA2C0',
+      border:'rgba(77,159,255,0.14)',navActive:'rgba(77,159,255,0.14)',
+      isDark:true,showGalaxy:true,hexC:'rgba(77,159,255,0.03)',
+      brandGrad:'linear-gradient(90deg,#4D9FFF 0%,#FFFFFF 60%,#4D9FFF 100%)',logoTag:'#8DA2C0',
+      chipBg:'rgba(77,159,255,0.07)',
+    },
+  }
+  const _immersiveDef={
+    shellBg:'#020816',headerBg:'rgba(0,5,18,.95)',sidebarBg:'rgba(0,5,18,.97)',
+    primary:'#4D9FFF',text:'#E8F4FF',sub:'#6B8FAF',
+    border:C.border,navActive:'rgba(77,159,255,.16)',
+    isDark:true,showGalaxy:true,hexC:'rgba(77,159,255,.022)',
+    brandGrad:'linear-gradient(90deg,#4D9FFF 0%,#FFFFFF 60%,#4D9FFF 100%)',logoTag:'#6B8FAF',
+    chipBg:'rgba(77,159,255,0.07)',
+  }
+  const _isImmersive=IMMERSIVE_PAGES.includes(pageKey)
+  const th=_isImmersive?_immersiveDef:(_TH[colorTheme]||_TH.dark)
+  const dm=th.isDark
+  const setColorTheme=(t:ColorTheme)=>{setColorThemeState(t);_applyDom(t);try{localStorage.setItem('pr_color_theme',t);window.dispatchEvent(new StorageEvent('storage',{key:'pr_color_theme',newValue:t}))}catch{}}
+  const bdr=th.border,txt=th.text,sub=th.sub
+  const toggleLang=()=>{const n=lang==='en'?'hi':'en';setLang(n);try{localStorage.setItem('pr_lang',n)}catch{}}
+  const toggleTheme=()=>setColorTheme(colorTheme==='dark'?'light':'dark')
+  const logout=()=>{_ca();router.replace('/login')}
+
+  return(
+    <ShellCtx.Provider value={{lang,darkMode:dm,colorTheme:_isImmersive?'dark':colorTheme,theme:th,setColorTheme,user,toast,token,role}}>
+      <div data-color-theme={_isImmersive?'dark':colorTheme} style={{minHeight:'100vh',background:th.shellBg,color:txt,fontFamily:'Inter,sans-serif',position:'relative',width:'100%',maxWidth:'100vw',overflowX:'hidden'}}>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap');
+          @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+          @keyframes gradMove{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+          *{box-sizing:border-box}
+          ::-webkit-scrollbar{width:4px}
+          ::-webkit-scrollbar-thumb{background:rgba(77,159,255,.4);border-radius:4px}
+          .nav-lnk:hover{background:${dm?'rgba(77,159,255,.14)':'rgba(37,99,235,.08)'}!important;color:${th.primary}!important}
+          .btn-p{background:linear-gradient(135deg,${th.primary},${dm?'#0055CC':'#1D4ED8'});color:#fff;border:none;border-radius:10px;padding:11px 22px;cursor:pointer;font-weight:700;font-size:13px;font-family:Inter,sans-serif}
+          .tbtn{padding:6px 13px;border-radius:20px;border:1.5px solid ${bdr};background:${th.chipBg};color:${txt};font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;backdrop-filter:blur(8px);transition:all .2s;white-space:nowrap}
+          .tbtn:hover{border-color:${th.primary};background:${dm?'rgba(77,159,255,.18)':'rgba(37,99,235,.14)'}}
+          .icon-tbtn{width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;font-size:15px;border-radius:9px}
+          input,select,textarea{color-scheme:${dm?'dark':'light'}}
+          .pr-shell-main{padding:16px 14px 64px;width:100%;max-width:100%}
+          .pr-shell-main.immersive{padding:0 0 56px}
+          .pr-shell-main *{max-width:100%}
+          .pr-shell-main img,.pr-shell-main svg,.pr-shell-main video,.pr-shell-main table{max-width:100%}
+          @media(min-width:769px){.pr-shell-main:not(.immersive){padding:24px 32px 72px}}
+          @media(max-width:360px){.hide-xs{display:none!important}}
+          @keyframes silverShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+          @keyframes greenBadge{0%,100%{box-shadow:0 0 4px rgba(0,196,140,0.35),inset 0 0 4px rgba(0,196,140,0.1)}50%{box-shadow:0 0 12px rgba(0,196,140,0.75),inset 0 0 8px rgba(0,255,136,0.2)}}
+          @media(min-width:480px){.pr-brand-center{position:absolute!important;left:50%!important;transform:translateX(-50%)!important;z-index:1}}
+          @media(max-width:768px){div[style*="display:flex"][style*="flexWrap"]{row-gap:8px}}
+        `}</style>
+        {th.showGalaxy&&<GalaxyBg/>}
+        <div aria-hidden style={{position:'fixed',top:-70,left:-70,fontSize:320,color:th.hexC,pointerEvents:'none',zIndex:0,lineHeight:1,userSelect:'none'}}>⬡</div>
+        <div aria-hidden style={{position:'fixed',bottom:-70,right:-70,fontSize:320,color:th.hexC,pointerEvents:'none',zIndex:0,lineHeight:1,userSelect:'none'}}>⬡</div>
+        {toastSt&&<div style={{position:'fixed',top:0,left:0,right:0,zIndex:9999,padding:'14px 24px',fontWeight:700,fontSize:13,textAlign:'center',animation:'fadeIn .3s ease',background:toastSt.tp==='s'?'linear-gradient(90deg,#00C48C,#00a87a)':toastSt.tp==='w'?'linear-gradient(90deg,#FFB84D,#e6a200)':'linear-gradient(90deg,#FF4D4D,#cc0000)',color:toastSt.tp==='w'?'#000':'#fff'}}>{toastSt.tp==='e'?'❌':toastSt.tp==='w'?'⚠️':'✅'} {toastSt.msg}</div>}
+        {side&&<div onClick={()=>setSide(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',zIndex:49,backdropFilter:'blur(3px)'}}/>}
+
+        {/* ── SIDEBAR ─────────────────────────────────────────── */}
+        <div style={{position:'fixed',top:0,left:0,width:280,maxWidth:'86vw',height:'100dvh',background:th.sidebarBg,borderRight:`1px solid ${bdr}`,zIndex:50,overflowY:'auto',display:'flex',flexDirection:'column',transform:side?'translateX(0)':'translateX(-100%)',transition:'transform .28s cubic-bezier(.4,0,.2,1)',backdropFilter:'blur(24px)',boxShadow:side?'12px 0 40px rgba(0,0,0,.35)':'none'}}>
+          <div style={{padding:'18px 16px 14px',borderBottom:`1px solid ${bdr}`,position:'sticky',top:0,background:th.sidebarBg,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0}}>
+              <PRLogo size={36}/>
+              <div style={{minWidth:0}}>
+                <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'gradMove 5s ease infinite'}:{color:'#2563EB'})}}>ProveRank</div>
+                <div style={{fontSize:10,color:th.logoTag,fontWeight:600,marginTop:1,whiteSpace:'nowrap'}}>{role==='parent'?(lang==='en'?'Parent Panel':'अभिभावक पैनल'):(lang==='en'?'Student Panel':'छात्र पैनल')}</div>
+              </div>
+            </div>
+            <button onClick={()=>setSide(false)} aria-label="Close menu" style={{background:'transparent',border:`1px solid ${bdr}`,borderRadius:8,width:30,height:30,color:sub,cursor:'pointer',fontSize:15,lineHeight:1,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+          </div>
+          <div style={{padding:'10px 10px 4px',flex:1,overflowY:'auto'}}>
+            {NAV_GROUPS.map(g=>(
+              <div key={g.label} style={{marginBottom:14}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:sub,padding:'4px 10px',opacity:.8}}>{lang==='en'?g.label:g.labelHi}</div>
+                {g.items.map(n=>{
+                  const active=pageKey===n.id
+                  return(<a key={n.id} href={n.href} className="nav-lnk" onClick={()=>setSide(false)} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 10px',borderRadius:10,textDecoration:'none',color:active?th.primary:txt,background:active?th.navActive:'transparent',fontWeight:active?700:500,fontSize:13.5,marginBottom:2,transition:'all .18s'}}>
+                    <span style={{fontSize:16,width:22,textAlign:'center',flexShrink:0,opacity:active?1:.85}}>{n.icon}</span>
+                    <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{lang==='en'?n.en:n.hi}</span>
+                    {active&&<span style={{marginLeft:'auto',width:6,height:6,borderRadius:'50%',background:th.primary,flexShrink:0}}/>}
+                  </a>)
+                })}
+              </div>
+            ))}
+          </div>
+          <div style={{padding:'12px 14px 16px',borderTop:`1px solid ${bdr}`,flexShrink:0}}>
+            <div style={{display:'flex',gap:6,marginBottom:10}}>
+              <button className="tbtn" onClick={toggleTheme} style={{flex:1,justifyContent:'center',display:'flex',alignItems:'center',gap:5}}>{dm?'☀️':'🌙'} {dm?(lang==='en'?'Light':'लाइट'):(lang==='en'?'Dark':'डार्क')}</button>
+              <button className="tbtn" onClick={toggleLang} style={{flex:1}}>{lang==='en'?'हि':'EN'}</button>
+            </div>
+            <div style={{padding:'10px 12px',background:th.chipBg,borderRadius:12,border:`1px solid ${bdr}`,textAlign:'center'}}>
+              <div style={{fontSize:10,color:C.success,fontWeight:700}}>🟢 {lang==='en'?'All Systems Live':'सभी सिस्टम लाइव'}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── HEADER ──────────────────────────────────────────── */}
+        <div style={{position:'sticky',top:0,zIndex:40,background:th.headerBg,backdropFilter:'blur(20px)',borderBottom:`1px solid ${bdr}`,minHeight:58,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 10px 0 8px',gap:8,boxShadow:dm?'0 2px 20px rgba(0,0,0,.35)':'0 2px 14px rgba(37,99,235,.06)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
+            <button onClick={()=>setSide(true)} aria-label="Open menu" style={{background:dm?'rgba(255,255,255,0.05)':'rgba(37,99,235,0.06)',border:`1px solid ${bdr}`,color:txt,fontSize:19,cursor:'pointer',width:36,height:36,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}} title="Menu">☰</button>
+            <div style={{display:'flex',alignItems:'center',gap:7,minWidth:0}}>
+              <PRLogo size={28}/>
+              <div style={{minWidth:0}}>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+                  <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:14.5,lineHeight:1,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:{color:'#2563EB'})}}>ProveRank</div>
+                  <div style={{fontSize:7,fontWeight:800,letterSpacing:1.4,whiteSpace:'nowrap',padding:'1px 7px',borderRadius:20,border:'1.5px solid rgba(0,196,140,0.7)',background:'linear-gradient(90deg,#00A86B,#00FF88,#00C48C,#00FF88,#00A86B)',backgroundSize:'300% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'silverShimmer 2.5s linear infinite, greenBadge 2s ease-in-out infinite'}}>{lang==='en'?'STUDENT':'छात्र'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+            <button className="tbtn icon-tbtn" onClick={toggleTheme} title={dm?(lang==='en'?'Switch to Light':'लाइट थीम'):(lang==='en'?'Switch to Dark':'डार्क थीम')}>{dm?'☀️':'🌙'}</button>
+            <button className="tbtn hide-xs" onClick={toggleLang}>{lang==='en'?'हि':'EN'}</button>
+            <a href="/announcements" title={lang==='en'?'Announcements':'घोषणाएं'} style={{background:'transparent',border:`1px solid ${bdr}`,borderRadius:9,width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none',fontSize:15,color:txt,flexShrink:0,position:'relative'}}>
+              🔔
+              {unreadAnn>0&&<span style={{position:'absolute',top:-3,right:-3,minWidth:15,height:15,padding:'0 3px',borderRadius:99,background:'#FF4D4D',color:'#fff',fontSize:9,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',border:'1.5px solid rgba(0,0,0,0.3)'}}>{unreadAnn>9?'9+':unreadAnn}</span>}
+            </a>
+            <button onClick={logout} title={lang==='en'?'Sign Out':'साइन आउट'} style={{background:'transparent',border:'1px solid rgba(255,77,77,0.35)',borderRadius:9,width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#FF6B6B',flexShrink:0,transition:'all .2s'}}>
+              <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </button>
+          </div>
+        </div>
+
+        {/* ── PAGE CONTENT ────────────────────────────────────── */}
+        <div className={`pr-shell-main${_isImmersive?' immersive':''}`} style={{position:'relative',zIndex:2,animation:'fadeIn .4s ease',background:'transparent',boxSizing:'border-box'}}>{children}</div>
+      </div>
+    </ShellCtx.Provider>
+  )
+}
+PRSHEOF
+
+echo ""
+echo "════════════════════════════════════════════════════"
+echo "  F42A/F42B FRONTEND v2 — VERIFICATION"
+echo "════════════════════════════════════════════════════"
+PASS=0; TOTAL=0
+check() {
+  TOTAL=$((TOTAL+1))
+  if grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+notcheck() {
+  TOTAL=$((TOTAL+1))
+  if ! grep -q "$2" "$1" 2>/dev/null; then echo "✅ $3"; PASS=$((PASS+1)); else echo "❌ $3"; fi
+}
+
+A="$ADMIN_DIR/AdminAnnouncements.tsx"
+S="$STUDENT_APP_DIR/announcements/page.tsx"
+SH="$COMPONENTS_DIR/StudentShell.tsx"
+
+echo "── 1) 5 types ──"
+check "$A" "v: 'maintenance', l: 'Maintenance'" "Admin: Maintenance type pill added"
+check "$S" "maintenance: { ico:" "Student: Maintenance type metadata added"
+check "$S" "'all', 'exam', 'update', 'result', 'maintenance', 'urgent'" "Student: Maintenance filter pill added"
+
+echo "── 2) 4 audience modes ──"
+check "$A" "'testseries' | 'students'" "Admin: audienceMode type includes testseries"
+check "$A" "selTestSeriesIds" "Admin: separate Test Series selection state"
+check "$A" "🎯 Test Series" "Admin: Test Series audience button"
+check "$A" "audienceMode === 'testseries' &&" "Admin: Test Series picker UI renders"
+
+echo "── 3) Duplicate vs Resend ──"
+check "$A" "doDuplicate" "Admin: doDuplicate handler added"
+check "$A" "📄 Duplicate" "Admin: Duplicate button shown in history list"
+check "$A" "🔄 Resend" "Admin: Resend button still present separately"
+
+echo "── 4) Bell badge — live polling fix ──"
+check "$SH" "api/announcements/unread-count" "StudentShell polls unread-count API directly"
+check "$SH" "setInterval(poll,60000)" "Polling interval is 60s as requested"
+notcheck "$SH" "pr-unread-changed" "Old custom-event bell sync removed from StudentShell"
+notcheck "$S" "pr_unread_announcements" "Old localStorage bell sync removed from student page"
+notcheck "$S" "pr-unread-changed" "Old custom event dispatch removed from student page"
+
+echo "────────────────────────────────────────────────────"
+echo "  $PASS / $TOTAL frontend checks passed"
+echo "════════════════════════════════════════════════════"
+if [ "$PASS" -eq "$TOTAL" ]; then
+  echo "🎉 All requested v2 changes verified!"
+else
+  echo "⚠️  Review the ❌ lines above."
+fi
