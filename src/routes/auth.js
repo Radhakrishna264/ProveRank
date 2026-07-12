@@ -484,15 +484,29 @@ router.patch('/me', async (req, res) => {
       return res.json({ message: 'No changes to save', changedFields: [] })
     }
 
+    const pushOps = { profileHistory: {
+        updatedAt: new Date(),
+        updatedFields: changes.map(c => c.field),
+        changes,
+        updatedBy: 'self',
+        source: section,
+      } }
+
+    // F38B §7 — keep a version history of every profile photo change
+    // (restored — this was accidentally dropped in the v2 rewrite)
+    const avatarChange = changes.find(c => c.field === 'avatar')
+    if (avatarChange) {
+      pushOps.avatarHistory = {
+        url: avatarChange.newValue,
+        updatedAt: new Date(),
+        updatedBy: 'self',
+        source: section,
+      }
+    }
+
     await User.collection.updateOne(
       { _id: new mongoose.Types.ObjectId(payload.id) },
-      { $set: update, $push: { profileHistory: {
-          updatedAt: new Date(),
-          updatedFields: changes.map(c => c.field),
-          changes,
-          updatedBy: 'self',
-          source: section,
-        } } }
+      { $set: update, $push: pushOps }
     )
 
     try {
