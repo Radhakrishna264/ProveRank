@@ -1,14 +1,19 @@
 #!/bin/bash
 # ══════════════════════════════════════════════════════════════════
 # ProveRank — FPR1 BATCH MANAGEMENT ULTRA SaaS — FRONTEND INSTALLER
+# v2 — BUGFIX: React error #310 (hooks order in Pricing tab),
+#      detail-page refresh persistence, "Batch Manager"->"Batch Management" text
 # Run from your project ROOT on Replit:  bash fpr1_frontend_install.sh
 # Safe to re-run (idempotent) — will not duplicate existing patches.
 # ══════════════════════════════════════════════════════════════════
 set -e
-echo "🚀 ProveRank FPR1 — Batch Manager Ultra SaaS — FRONTEND install starting..."
+echo "🚀 ProveRank FPR1 — Batch Management Ultra SaaS — FRONTEND install (v2 bugfix) starting..."
 
 # ── Auto-detect admin panel directory (contains page.tsx with Batches tab) ──
 ADMIN_DIR=$(grep -rl "══ BATCHES ══" --include="page.tsx" . 2>/dev/null | grep -v node_modules | head -1 | xargs -I{} dirname {})
+if [ -z "$ADMIN_DIR" ]; then
+  ADMIN_DIR=$(grep -rl "BatchManagerUltra" --include="page.tsx" . 2>/dev/null | grep -v node_modules | head -1 | xargs -I{} dirname {})
+fi
 if [ -z "$ADMIN_DIR" ]; then
   ADMIN_DIR=$(find . -type d -path "*admin/x7k2p" -not -path "*/node_modules/*" 2>/dev/null | head -1)
 fi
@@ -25,7 +30,7 @@ if [ ! -f "$PAGE_FILE" ]; then
   exit 1
 fi
 
-# ── 1) Create BatchManagerUltra.tsx (component) ──
+# ── 1) Create/Update BatchManagerUltra.tsx (component) — overwritten with bugfixed version ──
 cat > "$ADMIN_DIR/BatchManagerUltra.tsx" << 'PRVRNK_EOF_MARKER'
 'use client'
 // ══════════════════════════════════════════════════════════════════
@@ -107,7 +112,9 @@ export default function BatchManagerUltra({ token, API }: { token: string; API: 
   const [showFilters, setShowFilters] = useState(false)
   const [sort, setSort] = useState('newest')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [detailId, setDetailId] = useState<string | null>(null)
+  const [detailId, setDetailId] = useState<string | null>(() => {
+    try { return typeof window !== 'undefined' ? localStorage.getItem('pr_bm_detailId') : null } catch (e) { return null }
+  })
   const [showCreate, setShowCreate] = useState(false)
   const [presets, setPresets] = useState<any[]>([])
   const [toast, setToast] = useState('')
@@ -133,6 +140,13 @@ export default function BatchManagerUltra({ token, API }: { token: string; API: 
   }, [q, filters, sort])
 
   useEffect(() => { loadBatches() }, [loadBatches])
+
+  useEffect(() => {
+    try {
+      if (detailId) localStorage.setItem('pr_bm_detailId', detailId)
+      else localStorage.removeItem('pr_bm_detailId')
+    } catch (e) { /* localStorage unavailable */ }
+  }, [detailId])
 
   useEffect(() => {
     fetch(base + '/filter-presets', { headers: authHeaders }).then(r => r.json()).then(d => setPresets(d.presets || [])).catch(() => {})
@@ -527,12 +541,26 @@ function StudentAddTransferModal({ base, authHeaders, batchId, mode, batches, on
 function BatchDetail({ id, base, authHeaders, onBack, isMobile, showToast, allBatches }: any) {
   const [tab, setTab] = useState('overview')
   const [detail, setDetail] = useState<any>(null)
+  const [notFound, setNotFound] = useState(false)
   const [modal, setModal] = useState<'' | 'add' | 'transfer'>('')
 
   const load = useCallback(() => {
-    fetch(base + '/' + id, { headers: authHeaders }).then(r => r.json()).then(d => setDetail(d)).catch(() => {})
+    fetch(base + '/' + id, { headers: authHeaders })
+      .then(r => { if (!r.ok) throw new Error('not-found'); return r.json() })
+      .then(d => { if (d.error) throw new Error(d.error); setDetail(d) })
+      .catch(() => setNotFound(true))
   }, [id])
   useEffect(() => { load() }, [load])
+
+  if (notFound) {
+    return (
+      <div style={{ textAlign: 'center', padding: '50px 20px' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>⚠️</div>
+        <div style={{ color: '#F87171', fontWeight: 700, marginBottom: 10 }}>This batch could not be found. It may have been deleted.</div>
+        <button style={bp} onClick={onBack}>← Back to Batch Management</button>
+      </div>
+    )
+  }
 
   const tabs = [
     ['overview', '📊 Overview'], ['students', '👥 Students'], ['exams', '📝 Exams'], ['pricing', '💰 Pricing'],
@@ -545,7 +573,7 @@ function BatchDetail({ id, base, authHeaders, onBack, isMobile, showToast, allBa
 
   return (
     <div>
-      <button style={{ ...bs, marginBottom: 10 }} onClick={onBack}>← Back to Batch Manager</button>
+      <button style={{ ...bs, marginBottom: 10 }} onClick={onBack}>← Back to Batch Management</button>
 
       <div style={{ ...cs, background: `linear-gradient(135deg,${CRD2},${CRD})` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
@@ -710,12 +738,12 @@ function ExamsTab({ base, authHeaders, id, showToast }: any) {
 // ── 9) PRICING TAB ──
 function PricingTab({ base, authHeaders, id, showToast }: any) {
   const [data, setData] = useState<any>(null)
+  const [form, setForm] = useState<any>(null)
   const load = useCallback(() => fetch(base + '/' + id + '/pricing', { headers: authHeaders }).then(r => r.json()).then(setData).catch(() => {}), [])
   useEffect(() => { load() }, [load])
-  if (!data) return <EmptyMsg text="⟳ Loading pricing…" />
+  useEffect(() => { if (data?.pricing) setForm(data.pricing) }, [data])
+  if (!data || !form) return <EmptyMsg text="⟳ Loading pricing…" />
   const p = data.pricing
-  const [form, setForm] = useState<any>(p)
-  useEffect(() => setForm(p), [data])
   const save = async () => { const r = await fetch(base + '/' + id + '/pricing', { method: 'PUT', headers: authHeaders, body: JSON.stringify(form) }); const d = await r.json(); if (d.success) { showToast('✅ Pricing updated'); load() } else showToast('⚠️ ' + d.error) }
   const toggleLock = async () => { await fetch(base + '/' + id + '/pricing/lock', { method: 'PUT', headers: authHeaders }); load() }
 
@@ -959,10 +987,10 @@ function AuditTab({ base, authHeaders, id }: any) {
   )
 }
 PRVRNK_EOF_MARKER
-echo "✅ Created/Updated BatchManagerUltra.tsx"
+echo "✅ Created/Updated BatchManagerUltra.tsx (bugfixed)"
 
 # ── 2) Patch page.tsx — add import (idempotent) ──
-cp "$PAGE_FILE" "$PAGE_FILE.bak_fpr1"
+cp "$PAGE_FILE" "$PAGE_FILE.bak_fpr1_v2"
 if grep -q "import BatchManagerUltra from './BatchManagerUltra'" "$PAGE_FILE"; then
   echo "⏭️  Import already present — skipping"
 else
@@ -1003,7 +1031,7 @@ else
     else
       echo "❌ Safety check failed after block replace — restoring backup, no changes applied"
       rm -f "$PAGE_FILE.new_fpr1"
-      cp "$PAGE_FILE.bak_fpr1" "$PAGE_FILE"
+      cp "$PAGE_FILE.bak_fpr1_v2" "$PAGE_FILE"
     fi
   fi
 fi
@@ -1016,11 +1044,11 @@ fi
 
 
 # ══════════════════════════════════════════════════════════════════
-# ✅ FINAL VERIFICATION CHECKLIST — FRONTEND (FPR1 Batch Manager Ultra)
+# ✅ FINAL VERIFICATION CHECKLIST — FRONTEND (FPR1 Batch Management Ultra)
 # ══════════════════════════════════════════════════════════════════
 echo ""
 echo "═══════════════════════════════════════════════════════════"
-echo "  ✅ FPR1 BATCH MANAGER — FRONTEND VERIFICATION CHECKLIST"
+echo "  ✅ FPR1 BATCH MANAGEMENT — FRONTEND VERIFICATION CHECKLIST"
 echo "═══════════════════════════════════════════════════════════"
 CFILE="$ADMIN_DIR/BatchManagerUltra.tsx"
 PASS=0; FAIL=0
@@ -1033,7 +1061,7 @@ check() {
   fi
 }
 
-check "1) Batch Manager Home (cards + entry point)"               "function BatchManagerUltra" "$CFILE"
+check "1) Batch Management Home (cards + entry point)"            "function BatchManagerUltra" "$CFILE"
 check "2) Status Summary Strip (active/paused/archived/draft)"    "Status Summary Strip" "$CFILE"
 check "3) Smart Search Bar"                                       "Search batch, code, exam, student" "$CFILE"
 check "4) Smart Filter Bar (status/exam/price/students/dates)"    "Filters {showFilters" "$CFILE"
@@ -1080,15 +1108,19 @@ check "44) Toast / Confirmation Feedback System"                     "showToast"
 check "45) Admin Theme Matched (glassmorphism dark palette)"        "const ACC  = '#4D9FFF'" "$CFILE"
 check "46) page.tsx — BatchManagerUltra Imported"                    "import BatchManagerUltra from './BatchManagerUltra'" "$PAGE_FILE"
 check "47) page.tsx — Batches Tab Wired to New Component"            "<BatchManagerUltra token={token} API={API}" "$PAGE_FILE"
+check "48) BUGFIX — Pricing Tab Hooks-Order Fixed (React #310)"      "if (!data || !form) return" "$CFILE"
+check "49) BUGFIX — Detail Page Persists on Refresh (localStorage)"  "pr_bm_detailId" "$CFILE"
+check "50) BUGFIX — Stale/Deleted Batch Detail Fallback"             "notFound" "$CFILE"
+check "51) BUGFIX — Naming Consistency ('Batch Management' everywhere)" "Back to Batch Management" "$CFILE"
 
 echo "═══════════════════════════════════════════════════════════"
 echo "  RESULT: $PASS PASSED / $((PASS+FAIL)) TOTAL"
 if [ "$FAIL" -eq 0 ]; then
-  echo "  🎉 ALL FRONTEND FPR1 FEATURES SUCCESSFULLY IMPLEMENTED ✅"
+  echo "  🎉 ALL FRONTEND FPR1 FEATURES + BUGFIXES SUCCESSFULLY IMPLEMENTED ✅"
 else
   echo "  ⚠️  $FAIL item(s) need attention — see ❌ above"
 fi
 echo "═══════════════════════════════════════════════════════════"
 echo ""
-echo "🧹 Backups saved as *.bak_fpr1 next to originals (safe to delete once verified working)."
-echo "👉 Next: Restart your Next.js dev server (or redeploy) and open Admin Panel → Batch Manager tab to test live."
+echo "🧹 Backups saved as *.bak_fpr1_v2 next to originals (safe to delete once verified working)."
+echo "👉 Next: Restart your Next.js dev server (or redeploy) and open Admin Panel → Batch Management tab to test live."

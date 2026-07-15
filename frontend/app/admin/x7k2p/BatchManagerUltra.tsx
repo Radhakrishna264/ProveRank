@@ -78,7 +78,9 @@ export default function BatchManagerUltra({ token, API }: { token: string; API: 
   const [showFilters, setShowFilters] = useState(false)
   const [sort, setSort] = useState('newest')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [detailId, setDetailId] = useState<string | null>(null)
+  const [detailId, setDetailId] = useState<string | null>(() => {
+    try { return typeof window !== 'undefined' ? localStorage.getItem('pr_bm_detailId') : null } catch (e) { return null }
+  })
   const [showCreate, setShowCreate] = useState(false)
   const [presets, setPresets] = useState<any[]>([])
   const [toast, setToast] = useState('')
@@ -104,6 +106,13 @@ export default function BatchManagerUltra({ token, API }: { token: string; API: 
   }, [q, filters, sort])
 
   useEffect(() => { loadBatches() }, [loadBatches])
+
+  useEffect(() => {
+    try {
+      if (detailId) localStorage.setItem('pr_bm_detailId', detailId)
+      else localStorage.removeItem('pr_bm_detailId')
+    } catch (e) { /* localStorage unavailable */ }
+  }, [detailId])
 
   useEffect(() => {
     fetch(base + '/filter-presets', { headers: authHeaders }).then(r => r.json()).then(d => setPresets(d.presets || [])).catch(() => {})
@@ -498,12 +507,26 @@ function StudentAddTransferModal({ base, authHeaders, batchId, mode, batches, on
 function BatchDetail({ id, base, authHeaders, onBack, isMobile, showToast, allBatches }: any) {
   const [tab, setTab] = useState('overview')
   const [detail, setDetail] = useState<any>(null)
+  const [notFound, setNotFound] = useState(false)
   const [modal, setModal] = useState<'' | 'add' | 'transfer'>('')
 
   const load = useCallback(() => {
-    fetch(base + '/' + id, { headers: authHeaders }).then(r => r.json()).then(d => setDetail(d)).catch(() => {})
+    fetch(base + '/' + id, { headers: authHeaders })
+      .then(r => { if (!r.ok) throw new Error('not-found'); return r.json() })
+      .then(d => { if (d.error) throw new Error(d.error); setDetail(d) })
+      .catch(() => setNotFound(true))
   }, [id])
   useEffect(() => { load() }, [load])
+
+  if (notFound) {
+    return (
+      <div style={{ textAlign: 'center', padding: '50px 20px' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>⚠️</div>
+        <div style={{ color: '#F87171', fontWeight: 700, marginBottom: 10 }}>This batch could not be found. It may have been deleted.</div>
+        <button style={bp} onClick={onBack}>← Back to Batch Management</button>
+      </div>
+    )
+  }
 
   const tabs = [
     ['overview', '📊 Overview'], ['students', '👥 Students'], ['exams', '📝 Exams'], ['pricing', '💰 Pricing'],
@@ -516,7 +539,7 @@ function BatchDetail({ id, base, authHeaders, onBack, isMobile, showToast, allBa
 
   return (
     <div>
-      <button style={{ ...bs, marginBottom: 10 }} onClick={onBack}>← Back to Batch Manager</button>
+      <button style={{ ...bs, marginBottom: 10 }} onClick={onBack}>← Back to Batch Management</button>
 
       <div style={{ ...cs, background: `linear-gradient(135deg,${CRD2},${CRD})` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
@@ -681,12 +704,12 @@ function ExamsTab({ base, authHeaders, id, showToast }: any) {
 // ── 9) PRICING TAB ──
 function PricingTab({ base, authHeaders, id, showToast }: any) {
   const [data, setData] = useState<any>(null)
+  const [form, setForm] = useState<any>(null)
   const load = useCallback(() => fetch(base + '/' + id + '/pricing', { headers: authHeaders }).then(r => r.json()).then(setData).catch(() => {}), [])
   useEffect(() => { load() }, [load])
-  if (!data) return <EmptyMsg text="⟳ Loading pricing…" />
+  useEffect(() => { if (data?.pricing) setForm(data.pricing) }, [data])
+  if (!data || !form) return <EmptyMsg text="⟳ Loading pricing…" />
   const p = data.pricing
-  const [form, setForm] = useState<any>(p)
-  useEffect(() => setForm(p), [data])
   const save = async () => { const r = await fetch(base + '/' + id + '/pricing', { method: 'PUT', headers: authHeaders, body: JSON.stringify(form) }); const d = await r.json(); if (d.success) { showToast('✅ Pricing updated'); load() } else showToast('⚠️ ' + d.error) }
   const toggleLock = async () => { await fetch(base + '/' + id + '/pricing/lock', { method: 'PUT', headers: authHeaders }); load() }
 
