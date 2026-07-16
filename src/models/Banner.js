@@ -1,0 +1,55 @@
+const mongoose = require('mongoose');
+
+const BannerSchema = new mongoose.Schema({
+  // ── Legacy fields (preserved for backward compatibility) ──
+  batchId: { type: String, default: '' },
+  batchName: { type: String, default: '' },
+  title: { type: String, required: true },
+  tagline: { type: String, default: '' },
+  examType: { type: String, default: 'NEET' },
+  price: { type: String, default: '' },
+  totalTests: { type: String, default: '' },
+  duration: { type: String, default: '' },
+  validity: { type: String, default: '' },
+  highlights: [{ type: String }],
+  ctaText: { type: String, default: 'Enroll Now' },
+  badge: { type: String, default: 'none' },
+  template: { type: String, default: 'classic' },
+  primaryColor: { type: String, default: '#4D9FFF' },
+  secondaryColor: { type: String, default: '#00D4FF' },
+  textColor: { type: String, default: '#FFFFFF' },
+  accentColor: { type: String, default: '#FFD700' },
+  fontStyle: { type: String, default: 'modern' },
+  bgImage: { type: String, default: '' },
+  published: { type: Boolean, default: false },
+  scheduledAt: { type: Date },
+  versions: [{
+    data: { type: mongoose.Schema.Types.Mixed },
+    savedAt: { type: Date, default: Date.now },
+    label: { type: String, default: '' }
+  }],
+  analytics: {
+    views: { type: Number, default: 0 },
+    clicks: { type: Number, default: 0 },
+    enrolls: { type: Number, default: 0 }
+  },
+  createdBy: { type: String, default: '' },
+
+  // ── FPR3 Ultra SaaS Publish-Gate fields ──
+  linkedBatchId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  linkedType: { type: String, default: 'none', enum: ['batch', 'series', 'none'] },
+  status: { type: String, default: 'draft', enum: ['draft', 'ready', 'scheduled', 'published', 'archived', 'removed', 'replaced'] },
+  syncState: { type: String, default: 'synced', enum: ['synced', 'pending_sync', 'conflict', 'manual_override', 'ready_to_publish'] },
+  qualityScore: { type: Number, default: 0 },
+  tags: [{ type: String }],
+  autoPublish: { type: Boolean, default: false },
+  timezone: { type: String, default: 'Asia/Kolkata' },
+  replacedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Banner', default: null },
+  replacedFrom: { type: mongoose.Schema.Types.ObjectId, ref: 'Banner', default: null },
+  removedAt: { type: Date, default: null },
+  approvedAt: { type: Date, default: null },
+  approvedBy: { type: String, default: '' },
+  fieldLocks: [{ type: String }],
+}, { timestamps: true });
+
+module.exports = mongoose.models.Banner || mongoose.model('Banner', BannerSchema);

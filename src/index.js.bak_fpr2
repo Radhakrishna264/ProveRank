@@ -215,8 +215,6 @@ app.use('/api/admin/banners', bannerGeneratorRoutes);
 app.use('/api/student/batches',studentBatchRoutes);
 app.use('/api/admin/email', require('./routes/emailSend'))
 app.use('/api/admin/store',  adminStoreRoutes);
-const testSeriesManagerUltraRoutes = require('./routes/testSeriesManagerUltra');
-app.use('/api/admin/test-series-manager', testSeriesManagerUltraRoutes);
 app.use('/api/store/payment', paymentRoutes);
 app.use('/api/store',        studentStoreRoutes);
 

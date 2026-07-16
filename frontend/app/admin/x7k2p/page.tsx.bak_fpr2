@@ -1,6 +1,5 @@
 'use client'
 import BatchManagerUltra from './BatchManagerUltra'
-import TestSeriesManagerUltra from './TestSeriesManagerUltra'
 import CreateExamWizard from './CreateExamWizard'
 import QBankStatsDashboard from './QBankStatsDashboard'
 import PreviewAllQuestions from './PreviewAllQuestions'
@@ -353,7 +352,7 @@ const NAV_TABS=[
   {label:'All Exams',tab:'exams',icon:'📋'},{label:'Create Exam',tab:'create_exam',icon:'➕'},
   {label:'Question Bank',tab:'questions',icon:'📚'},{label:'Smart Generator',tab:'smart_gen',icon:'🤖'},
   {label:'PYQ Bank',tab:'pyq',icon:'📜'},{label:'Bulk Upload',tab:'bulk_upload',icon:'📤'},
-  {label:'All Students',tab:'students',icon:'👥'},{label:'Batch Manager',tab:'batches',icon:'🗂️'},{label:'Test Series Management',tab:'test_series',icon:'📚'},
+  {label:'All Students',tab:'students',icon:'👥'},{label:'Batch Manager',tab:'batches',icon:'🗂️'},
   {label:'Results',tab:'results',icon:'🏆'},{label:'Leaderboard',tab:'leaderboard',icon:'🥇'},
   {label:'Analytics',tab:'analytics',icon:'📈'},{label:'Anti-Cheat',tab:'anticheat',icon:'🛡️'},
   {label:'Grievances',tab:'grievances',icon:'⚖️'},{label:'Announcements',tab:'announcements',icon:'📢'},
@@ -786,7 +785,7 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
     {id:'notes',l:'📚 Materials ('+notes.length+')'},
     {id:'analytics',l:'📈 Analytics'},
     {id:'announce',l:'📢 Announce'},
-    {id:'banner-generator',label:'🖼️ Banner Management',href:'/admin/x7k2p/banner-generator'},
+    {id:'banner-generator',label:'🎨 Creative Studio',href:'/admin/x7k2p/banner-generator'},
     {id:'settings',l:'⚙️ Settings'},
   ]
 
@@ -2287,7 +2286,6 @@ const confirmAndAdd=useCallback(async()=>{
     {id:'pyq_bank',ico:'📚',lbl:'PYQ Bank',grp:'Questions'},
     {id:'students',ico:'👥',lbl:'Students',grp:'Students'},
     {id:'batches',ico:'📦',lbl:'Batches',grp:'Students'},
-    {id:'test_series',ico:'📚',lbl:'Test Series Management',grp:'Students'},
     {id:'admins',ico:'🛡️',lbl:'Admins',grp:'Admin'},
     {id:'permissions',ico:'🔐',lbl:'Permissions',grp:'Admin'},
     {id:'results',ico:'📈',lbl:'Results',grp:'Results'},
@@ -2319,7 +2317,7 @@ const confirmAndAdd=useCallback(async()=>{
     {id:'changelog',ico:'📝',lbl:'Changelog',grp:'Tools'},
     {id:'parent_portal',ico:'👨‍👩‍👧',lbl:'Parent Portal',grp:'Tools'},
   {id:'store',ico:'🛒',lbl:'Store Management',grp:'Tools'},
-    {id:'creative_studio',ico:'🖼️',lbl:'Banner Management',grp:'Settings',alwaysShow:true},
+    {id:'creative_studio',ico:'🎨',lbl:'Creative Studio',grp:'Creative',alwaysShow:true},
   ]
 
   const navGroups=[...new Set(NAV.map(n=>n.grp))]
@@ -2332,7 +2330,7 @@ const confirmAndAdd=useCallback(async()=>{
     ai_questions:['smart_gen'],
     pyq_access:['pyq_bank'],
     view_students:['students'],ban_student:['students'],impersonate:['students'],
-    batch_transfer:['batches','test_series'],
+    batch_transfer:['batches'],
     view_results:['results'],
     view_leaderboard:['leaderboard'],
     view_analytics:['analytics'],
@@ -4197,7 +4195,6 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 
           {/* == BATCHES == (FPR1 Ultra SaaS Upgrade) */}
           {tab==='batches'&&(<BatchManagerUltra token={token} API={API}/>)}
-          {tab==='test_series'&&(<TestSeriesManagerUltra token={token} API={API}/>)}
                     {/* ══ ADMINS ══ */}
           {showProfileModal&&(
                 <div onClick={()=>setShowProfileModal(false)} style={{position:'fixed' as const,top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.82)',backdropFilter:'blur(6px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:16}}>

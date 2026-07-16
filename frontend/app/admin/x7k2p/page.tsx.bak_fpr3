@@ -786,7 +786,7 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
     {id:'notes',l:'📚 Materials ('+notes.length+')'},
     {id:'analytics',l:'📈 Analytics'},
     {id:'announce',l:'📢 Announce'},
-    {id:'banner-generator',label:'🖼️ Banner Management',href:'/admin/x7k2p/banner-generator'},
+    {id:'banner-generator',label:'🎨 Creative Studio',href:'/admin/x7k2p/banner-generator'},
     {id:'settings',l:'⚙️ Settings'},
   ]
 
@@ -2319,7 +2319,7 @@ const confirmAndAdd=useCallback(async()=>{
     {id:'changelog',ico:'📝',lbl:'Changelog',grp:'Tools'},
     {id:'parent_portal',ico:'👨‍👩‍👧',lbl:'Parent Portal',grp:'Tools'},
   {id:'store',ico:'🛒',lbl:'Store Management',grp:'Tools'},
-    {id:'creative_studio',ico:'🖼️',lbl:'Banner Management',grp:'Settings',alwaysShow:true},
+    {id:'creative_studio',ico:'🎨',lbl:'Creative Studio',grp:'Creative',alwaysShow:true},
   ]
 
   const navGroups=[...new Set(NAV.map(n=>n.grp))]

@@ -15,18 +15,6 @@ type Banner = {
   versions?: { data: object; savedAt: string; label: string }[]
   analytics?: { views: number; clicks: number; enrolls: number }
   createdAt?: string
-  // ── FPR3 fields ──
-  linkedType?: 'batch' | 'series' | 'none'
-  linkedBatchId?: string
-  status?: 'draft' | 'ready' | 'scheduled' | 'published' | 'archived' | 'removed' | 'replaced'
-  syncState?: 'synced' | 'pending_sync' | 'conflict' | 'manual_override' | 'ready_to_publish'
-  qualityScore?: number
-  tags?: string[]
-  approvedAt?: string
-  approvedBy?: string
-  removedAt?: string
-  replacedBy?: string
-  replacedFrom?: string
 }
 
 export default function BannerGeneratorPage() {
@@ -43,9 +31,7 @@ const EMPTY: Banner = {
   highlights: ['', '', ''], ctaText: 'Enroll Now', badge: 'none',
   template: 'classic', primaryColor: '#4D9FFF', secondaryColor: '#00D4FF',
   textColor: '#FFFFFF', accentColor: '#FFD700', fontStyle: 'modern',
-  bgImage: '', published: false,
-  linkedType: 'none', linkedBatchId: '', status: 'draft', syncState: 'synced',
-  qualityScore: 0, tags: []
+  bgImage: '', published: false
 }
 
 const TEMPLATES = [
@@ -195,7 +181,7 @@ const ILLUSTRATIONS = [
 ]
 
 // ── Live Banner Preview ──
-function BannerPreview({ b, size = 'card', previewRef }: { b: Banner; size?: 'card' | 'wide' | 'square' | 'mobile'; previewRef?: React.RefObject<HTMLDivElement> }) {
+function BannerPreview({ b, size = 'card', previewRef }: { b: Banner; size?: 'card' | 'wide' | 'square'; previewRef?: React.RefObject<HTMLDivElement> }) {
   const tpl = TEMPLATES.find(t => t.id === b.template) || TEMPLATES[0]
   const font = FONTS.find(f => f.id === b.fontStyle) || FONTS[0]
   const isLight = b.template === 'minimal'
@@ -293,12 +279,10 @@ function IllustrationLibrary({ onSelect, onClose }: { onSelect: (url: string) =>
 function BannerGeneratorInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [tab, setTab] = useState<'overview' | 'gate' | 'editor' | 'library' | 'analytics' | 'audit'>('overview')
+  const [tab, setTab] = useState<'editor' | 'library'>('editor')
   const [form, setForm] = useState<Banner>(EMPTY)
   const [banners, setBanners] = useState<Banner[]>([])
   const [batches, setBatches] = useState<any[]>([])
-  const [seriesList, setSeriesList] = useState<any[]>([])
-  const [linkType, setLinkType] = useState<'batch' | 'series' | 'none'>('none')
   const [tok, setTok] = useState('')
   const [saving, setSaving] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -316,14 +300,6 @@ function BannerGeneratorInner() {
   const mobileRef = useRef<HTMLDivElement>(null)
   const [showAllVariants, setShowAllVariants] = useState(false)
   const [downloadingVariant, setDownloadingVariant] = useState<string|null>(null)
-  // ── FPR3 state ──
-  const [overviewData, setOverviewData] = useState<any>(null)
-  const [gateItems, setGateItems] = useState<any[]>([])
-  const [syncQueue, setSyncQueue] = useState<any[]>([])
-  const [bulkSelected, setBulkSelected] = useState<string[]>([])
-  const [analyticsSummary, setAnalyticsSummary] = useState<any>(null)
-  const [auditLog, setAuditLog] = useState<any[]>([])
-  const [libraryFilter, setLibraryFilter] = useState<string>('')
 
   const downloadVariant = async (ref: React.RefObject<HTMLDivElement>, label: string) => {
     setDownloadingVariant(label)
@@ -349,19 +325,11 @@ function BannerGeneratorInner() {
 
   useEffect(() => {
     const t = localStorage.getItem('pr_token') || ''
-    setTok(t); fetchBanners(t); fetchBatches(t); fetchSeriesList(t)
-    fetchOverview(t); fetchSyncQueue(t); fetchAnalyticsSummary(t)
+    setTok(t); fetchBanners(t); fetchBatches(t)
     const bId = searchParams.get('batchId')
     const bName = searchParams.get('batchName')
-    const sId = searchParams.get('seriesId')
-    const sName = searchParams.get('seriesName')
     if (bId && bName) {
-      setLinkType('batch')
-      setForm(prev => ({ ...prev, batchId: bId, batchName: bName, title: bName, linkedType: 'batch', linkedBatchId: bId }))
-    }
-    if (sId && sName) {
-      setLinkType('series')
-      setForm(prev => ({ ...prev, batchId: sId, batchName: sName, title: sName, linkedType: 'series', linkedBatchId: sId }))
+      setForm(prev => ({ ...prev, batchId: bId, batchName: bName, title: bName }))
     }
   }, [])
 
@@ -376,110 +344,9 @@ function BannerGeneratorInner() {
 
   const fetchBatches = async (t: string) => {
     try {
-      const r = await fetch(`${API}/api/admin/batch-controls`, { headers: { Authorization: `Bearer ${t}` } })
+      const r = await fetch(`${API}/api/admin/batches`, { headers: { Authorization: `Bearer ${t}` } })
       const d = await r.json(); setBatches(d.batches || [])
     } catch { }
-  }
-
-  const fetchSeriesList = async (t: string) => {
-    try {
-      const r = await fetch(`${API}/api/admin/test-series-manager`, { headers: { Authorization: `Bearer ${t}` } })
-      const d = await r.json(); setSeriesList(d.testSeries || [])
-    } catch { }
-  }
-
-  const fetchOverview = async (t: string) => {
-    try {
-      const r = await fetch(`${API}/api/admin/banners/overview`, { headers: { Authorization: `Bearer ${t}` } })
-      const d = await r.json(); setOverviewData(d.overview || null)
-    } catch { }
-  }
-
-  const fetchSyncQueue = async (t: string) => {
-    try {
-      const r = await fetch(`${API}/api/admin/banners/sync-queue`, { headers: { Authorization: `Bearer ${t}` } })
-      const d = await r.json(); setSyncQueue(d.pending || [])
-    } catch { }
-  }
-
-  const fetchAnalyticsSummary = async (t: string) => {
-    try {
-      const r = await fetch(`${API}/api/admin/banners/analytics/summary`, { headers: { Authorization: `Bearer ${t}` } })
-      const d = await r.json(); setAnalyticsSummary(d.summary || null)
-    } catch { }
-  }
-
-  const fetchAudit = async (id: string) => {
-    try {
-      const r = await fetch(`${API}/api/admin/banners/audit/${id}`, { headers: { Authorization: `Bearer ${tok}` } })
-      const d = await r.json(); setAuditLog(d.audit || [])
-    } catch { }
-  }
-
-  const refreshAll = () => { fetchBanners(tok); fetchOverview(tok); fetchSyncQueue(tok) }
-
-  const approveBanner = async (id: string) => {
-    try {
-      const r = await fetch(`${API}/api/admin/banners/${id}/approve`, { method: 'POST', headers: { Authorization: `Bearer ${tok}` } })
-      const d = await r.json()
-      if (d.success) { showToast('Banner approved ✅'); refreshAll() }
-    } catch { showToast('Error') }
-  }
-
-  const removeBannerFlow = async (id: string) => {
-    if (!window.confirm('Remove this banner? It can be restored later from Overview.')) return
-    try {
-      await fetch(`${API}/api/admin/banners/${id}/remove`, { method: 'POST', headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Removed from Banner Management' }) })
-      showToast('Banner removed 🗑️'); refreshAll()
-    } catch { showToast('Error') }
-  }
-
-  const restoreRemovedBanner = async (id: string) => {
-    try {
-      const r = await fetch(`${API}/api/admin/banners/${id}/restore-removed`, { method: 'POST', headers: { Authorization: `Bearer ${tok}` } })
-      const d = await r.json()
-      if (d.success) { showToast('Banner restored ✅'); refreshAll() }
-    } catch { showToast('Error') }
-  }
-
-  const replaceBannerFlow = async (id: string) => {
-    if (!window.confirm('Create a replacement draft for this banner? The old one will be archived as replaced.')) return
-    try {
-      const r = await fetch(`${API}/api/admin/banners/${id}/replace`, { method: 'POST', headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'Replacement Draft' }) })
-      const d = await r.json()
-      if (d.success) { showToast('Replacement draft created ✅'); loadBanner(d.banner); refreshAll() }
-    } catch { showToast('Error') }
-  }
-
-  const syncBannerNow = async (b: Banner) => {
-    try {
-      const r = await fetch(`${API}/api/admin/banners/${b._id}/sync`, { method: 'POST', headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
-      const d = await r.json()
-      if (d.success) { showToast('Banner synced ✅'); refreshAll() }
-    } catch { showToast('Error') }
-  }
-
-  const toggleBulkSelect = (id: string) => setBulkSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
-  const bulkAction = async (action: 'publish' | 'archive' | 'duplicate') => {
-    if (bulkSelected.length === 0) return
-    try {
-      const r = await fetch(`${API}/api/admin/banners/bulk`, { method: 'POST', headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: bulkSelected, action }) })
-      const d = await r.json()
-      showToast(`✅ ${d.affected || 0} banner(s) ${action}d`); setBulkSelected([]); refreshAll()
-    } catch { showToast('Error') }
-  }
-
-  const buildPublishGateItems = () => {
-    const items: any[] = []
-    batches.forEach(b => {
-      const linkedBanner = banners.find(bn => bn.linkedType === 'batch' && bn.linkedBatchId === b._id && bn.status !== 'removed')
-      items.push({ id: b._id, name: b.name, type: 'batch', banner: linkedBanner || null })
-    })
-    seriesList.forEach(s => {
-      const linkedBanner = banners.find(bn => bn.linkedType === 'series' && bn.linkedBatchId === s._id && bn.status !== 'removed')
-      items.push({ id: s._id, name: s.name, type: 'series', banner: linkedBanner || null })
-    })
-    return items
   }
 
   const upd = (k: keyof Banner, v: any) => setForm(prev => ({ ...prev, [k]: v }))
@@ -500,7 +367,7 @@ function BannerGeneratorInner() {
     } catch { showToast('Network error') } finally { setSaving(false) }
   }
 
-  const loadBanner = (b: Banner) => { setForm(b); setEditId(b._id!); setLinkType((b.linkedType as any) || 'none'); setTab('editor') }
+  const loadBanner = (b: Banner) => { setForm(b); setEditId(b._id!); setTab('editor') }
   const togglePublish = async (id: string) => {
     try {
       const r = await fetch(`${API}/api/admin/banners/${id}/publish`, { method: 'POST', headers: { Authorization: `Bearer ${tok}` } })
@@ -610,102 +477,20 @@ function BannerGeneratorInner() {
       <div data-no-print style={{ background: darkMode ? 'rgba(10,14,26,0.96)' : 'rgba(255,255,255,0.96)', backdropFilter: 'blur(20px)', borderBottom: `1px solid ${BORDER}`, padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 50 }}>
         <button onClick={() => router.push('/admin/x7k2p')} style={{ background: 'rgba(77,159,255,0.1)', border: '1px solid rgba(77,159,255,0.2)', borderRadius: 10, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#4D9FFF', fontSize: 20 }}>←</button>
         <div>
-          <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 17, fontWeight: 700, background: 'linear-gradient(90deg,#4D9FFF,#00D4FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>🖼️ Banner Management</div>
-          <div style={{ fontSize: 10, color: SUB }}>Branding — ProveRank</div>
+          <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 17, fontWeight: 700, background: 'linear-gradient(90deg,#4D9FFF,#00D4FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>🎨 Banner Generator</div>
+          <div style={{ fontSize: 10, color: SUB }}>Creative Studio — ProveRank</div>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           <button onClick={() => setDarkMode(d => !d)} style={{ background: 'rgba(77,159,255,0.1)', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '6px 12px', cursor: 'pointer', color: TEXT, fontSize: 12 }}>{darkMode ? '☀️ Light' : '🌙 Dark'}</button>
-          <div style={{ display: 'flex', gap: 1, background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', borderRadius: 10, padding: 3, flexWrap: 'wrap' }}>
-            {(['overview', 'gate', 'editor', 'library', 'analytics', 'audit'] as const).map(t => (
-              <button key={t} onClick={() => { setTab(t); if (t === 'audit' && editId) fetchAudit(editId) }} style={{ padding: '6px 12px', borderRadius: 8, background: tab === t ? 'linear-gradient(135deg,#4D9FFF,#00D4FF)' : 'transparent', border: 'none', color: tab === t ? '#fff' : SUB, fontWeight: tab === t ? 700 : 400, cursor: 'pointer', fontSize: 11 }}>
-                {t === 'overview' ? '📊 Overview' : t === 'gate' ? '🚦 Publish Gate' : t === 'editor' ? '✏️ Editor' : t === 'library' ? `🗂️ Library (${banners.length})` : t === 'analytics' ? '📈 Analytics' : '🕐 Audit'}
+          <div style={{ display: 'flex', gap: 1, background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', borderRadius: 10, padding: 3 }}>
+            {(['editor', 'library'] as const).map(t => (
+              <button key={t} onClick={() => setTab(t)} style={{ padding: '6px 14px', borderRadius: 8, background: tab === t ? 'linear-gradient(135deg,#4D9FFF,#00D4FF)' : 'transparent', border: 'none', color: tab === t ? '#fff' : SUB, fontWeight: tab === t ? 700 : 400, cursor: 'pointer', fontSize: 11 }}>
+                {t === 'editor' ? '✏️ Editor' : `🗂️ Library (${banners.length})`}
               </button>
             ))}
           </div>
         </div>
       </div>
-
-      {/* ── OVERVIEW TAB (FPR3) ── */}
-      {tab === 'overview' && (
-        <div style={{ maxWidth: 1300, margin: '0 auto', padding: '20px 16px 80px' }}>
-          <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 22, fontWeight: 700, color: TEXT, marginBottom: 20 }}>📊 Banner Overview</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 12, marginBottom: 20 }}>
-            {[
-              ['Total', overviewData?.total, '#4D9FFF'], ['Draft', overviewData?.draft, '#9B59B6'],
-              ['Ready', overviewData?.ready, '#E67E22'], ['Published', overviewData?.published, '#27AE60'],
-              ['Scheduled', overviewData?.scheduled, '#00D4FF'], ['Removed', overviewData?.removed, '#E74C3C'],
-              ['Linked Batches', overviewData?.linkedBatches, '#7DD3FC'], ['Linked Series', overviewData?.linkedSeries, '#FDE68A']
-            ].map(([l, v, c]: any) => (
-              <div key={l} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 14, textAlign: 'center' }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: c }}>{v ?? 0}</div>
-                <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase' }}>{l}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
-            <button onClick={() => { setForm(EMPTY); setEditId(null); setLinkType('none'); setTab('editor') }} style={{ padding: '10px 18px', background: 'linear-gradient(135deg,#4D9FFF,#00D4FF)', border: 'none', borderRadius: 12, color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 12 }}>➕ Create Banner</button>
-            <button onClick={() => setTab('library')} style={{ padding: '10px 18px', background: 'rgba(77,159,255,0.1)', border: `1px solid ${BORDER}`, borderRadius: 12, color: '#4D9FFF', fontWeight: 700, cursor: 'pointer', fontSize: 12 }}>🗂️ Open Library</button>
-            <button onClick={() => setTab('gate')} style={{ padding: '10px 18px', background: 'rgba(230,126,34,0.1)', border: `1px solid ${BORDER}`, borderRadius: 12, color: '#E67E22', fontWeight: 700, cursor: 'pointer', fontSize: 12 }}>🚦 View Publish Gate</button>
-            <button onClick={() => setTab('analytics')} style={{ padding: '10px 18px', background: 'rgba(39,174,96,0.1)', border: `1px solid ${BORDER}`, borderRadius: 12, color: '#27AE60', fontWeight: 700, cursor: 'pointer', fontSize: 12 }}>📈 Open Analytics</button>
-          </div>
-          {syncQueue.length > 0 && (
-            <div style={{ background: CARD, border: '1px solid rgba(230,126,34,0.3)', borderRadius: 16, padding: 18, marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, fontSize: 13, color: '#E67E22', marginBottom: 10 }}>⚠️ Sync Queue — {syncQueue.length} banner(s) need re-sync</div>
-              {syncQueue.map(b => (
-                <div key={b._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${BORDER}` }}>
-                  <span style={{ fontSize: 12, color: TEXT }}>{b.title} <span style={{ fontSize: 10, color: SUB }}>({b.syncState})</span></span>
-                  <button onClick={() => loadBanner(b)} style={{ padding: '5px 12px', background: 'rgba(77,159,255,0.12)', border: 'none', borderRadius: 8, color: '#4D9FFF', cursor: 'pointer', fontSize: 11 }}>Open</button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 18 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: TEXT, marginBottom: 10 }}>🕐 Recently Edited</div>
-            {(overviewData?.recentlyEdited || []).length === 0 ? <div style={{ fontSize: 12, color: SUB }}>No banners yet.</div> :
-              overviewData.recentlyEdited.map((b: any) => (
-                <div key={b._id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${BORDER}`, fontSize: 12, color: SUB }}>
-                  <span>{b.title}</span><span>{b.status} · {new Date(b.updatedAt).toLocaleDateString()}</span>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── PUBLISH GATE TAB (FPR3) ── */}
-      {tab === 'gate' && (
-        <div style={{ maxWidth: 1300, margin: '0 auto', padding: '20px 16px 80px' }}>
-          <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 22, fontWeight: 700, color: TEXT, marginBottom: 8 }}>🚦 Publish Gate</div>
-          <div style={{ fontSize: 12, color: SUB, marginBottom: 20 }}>Every Batch / Test Series must have a ready banner before it can launch. Items below need action.</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 14 }}>
-            {buildPublishGateItems().map(item => {
-              const b = item.banner
-              const ready = b && (['ready', 'scheduled', 'published'].includes(b.status) || b.published)
-              return (
-                <div key={item.type + item.id} style={{ background: CARD, border: `1px solid ${ready ? 'rgba(39,174,96,0.3)' : 'rgba(231,76,60,0.3)'}`, borderRadius: 14, padding: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ fontSize: 10, color: SUB }}>{item.type === 'batch' ? '📦 Batch' : '📚 Test Series'}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: ready ? '#27AE60' : '#E74C3C' }}>{ready ? '✅ Launch Allowed' : '⛔ Launch Blocked'}</span>
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: TEXT, marginBottom: 8 }}>{item.name}</div>
-                  {b ? (
-                    <div style={{ fontSize: 11, color: SUB, marginBottom: 10 }}>Banner: {b.title} · Status: {b.status} · Quality: {b.qualityScore || 0}/100</div>
-                  ) : (
-                    <div style={{ fontSize: 11, color: '#E74C3C', marginBottom: 10 }}>No banner created yet.</div>
-                  )}
-                  <button onClick={() => {
-                    if (b) { loadBanner(b) } else {
-                      setForm({ ...EMPTY, batchId: item.id, batchName: item.name, title: item.name, linkedType: item.type, linkedBatchId: item.id })
-                      setLinkType(item.type); setEditId(null); setTab('editor')
-                    }
-                  }} style={{ width: '100%', padding: '8px', background: ready ? 'rgba(77,159,255,0.1)' : 'linear-gradient(135deg,#E74C3C,#C0392B)', border: 'none', borderRadius: 10, color: ready ? '#4D9FFF' : '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
-                    {b ? '✏️ Open Banner Builder' : '➕ Auto-Generate Banner Draft'}
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       {/* ── EDITOR TAB ── */}
       {tab === 'editor' && (
@@ -714,59 +499,19 @@ function BannerGeneratorInner() {
           {/* LEFT — Form */}
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-            {/* Batch / Series Link */}
+            {/* Batch Link */}
             <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 18, backdropFilter: 'blur(16px)' }}>
-              <div style={{ fontWeight: 700, fontSize: 13, color: '#4D9FFF', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 14 }}>🔗 Link Batch / Test Series</div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                {(['none', 'batch', 'series'] as const).map(lt => (
-                  <button key={lt} onClick={() => { setLinkType(lt); if (lt === 'none') { upd('batchId', ''); upd('batchName', ''); upd('linkedType', 'none'); upd('linkedBatchId', '') } else { upd('linkedType', lt) } }}
-                    style={{ flex: 1, padding: '7px', borderRadius: 10, border: `1px solid ${linkType === lt ? '#4D9FFF' : BORDER}`, background: linkType === lt ? 'rgba(77,159,255,0.15)' : 'transparent', color: linkType === lt ? '#4D9FFF' : SUB, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
-                    {lt === 'none' ? '⭕ No Link' : lt === 'batch' ? '📦 Batch' : '📚 Test Series'}
-                  </button>
-                ))}
-              </div>
-              {linkType === 'batch' && (
-                <>
-                  <label style={labelStyle}>Link to Batch</label>
-                  <select value={form.batchId} onChange={e => {
-                    const b = batches.find(bt => bt._id === e.target.value)
-                    upd('batchId', e.target.value); upd('linkedBatchId', e.target.value); upd('linkedType', 'batch')
-                    if (b) { upd('batchName', b.name); upd('title', b.name); upd('examType', b.examType || 'NEET'); upd('price', String(b.effectivePrice ?? b.price ?? '')) }
-                  }} style={{ ...inpStyle, marginBottom: 10 }}>
-                    <option value="">— Select a batch —</option>
-                    {batches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-                  </select>
-                  {form.batchId && <div style={{ fontSize: 10, color: '#27AE60' }}>✅ Linked: {form.batchName}</div>}
-                </>
-              )}
-              {linkType === 'series' && (
-                <>
-                  <label style={labelStyle}>Link to Test Series</label>
-                  <select value={form.batchId} onChange={e => {
-                    const s = seriesList.find(st => st._id === e.target.value)
-                    upd('batchId', e.target.value); upd('linkedBatchId', e.target.value); upd('linkedType', 'series')
-                    if (s) { upd('batchName', s.name); upd('title', s.name); upd('examType', s.examType || 'NEET'); upd('price', String(s.effectivePrice ?? s.price ?? '')) }
-                  }} style={{ ...inpStyle, marginBottom: 10 }}>
-                    <option value="">— Select a test series —</option>
-                    {seriesList.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-                  </select>
-                  {form.batchId && <div style={{ fontSize: 10, color: '#27AE60' }}>✅ Linked: {form.batchName}</div>}
-                </>
-              )}
-              {linkType !== 'none' && form.batchId && (
-                <button onClick={() => syncBannerNow(form)} disabled={!editId} title={!editId ? 'Save banner first to enable sync' : ''}
-                  style={{ marginTop: 8, width: '100%', padding: '7px', background: 'rgba(155,89,182,0.1)', border: '1px solid rgba(155,89,182,0.25)', borderRadius: 10, color: editId ? '#9B59B6' : SUB, cursor: editId ? 'pointer' : 'not-allowed', fontSize: 11, fontWeight: 700 }}>
-                  🔄 Re-Sync from Linked {linkType === 'batch' ? 'Batch' : 'Test Series'}
-                </button>
-              )}
-              {editId && (
-                <div style={{ marginTop: 10, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 10, color: SUB }}>Quality Score:</span>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: (form.qualityScore || 0) >= 70 ? '#27AE60' : (form.qualityScore || 0) >= 40 ? '#E67E22' : '#E74C3C' }}>{form.qualityScore || 0}/100</span>
-                  <span style={{ fontSize: 10, background: 'rgba(77,159,255,0.1)', color: '#4D9FFF', padding: '2px 8px', borderRadius: 20, marginLeft: 'auto' }}>{form.status || 'draft'}</span>
-                  {form.status === 'draft' && <button onClick={() => approveBanner(editId)} style={{ padding: '4px 10px', background: 'rgba(39,174,96,0.12)', border: '1px solid rgba(39,174,96,0.3)', borderRadius: 8, color: '#27AE60', cursor: 'pointer', fontSize: 10, fontWeight: 700 }}>✅ Approve</button>}
-                </div>
-              )}
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#4D9FFF', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 14 }}>🔗 Batch Link</div>
+              <label style={labelStyle}>Link to Batch</label>
+              <select value={form.batchId} onChange={e => {
+                const b = batches.find(bt => bt._id === e.target.value)
+                upd('batchId', e.target.value)
+                if (b) { upd('batchName', b.name); upd('title', b.name); upd('examType', b.examType || 'NEET') }
+              }} style={{ ...inpStyle, marginBottom: 10 }}>
+                <option value="">— No batch linked —</option>
+                {batches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+              </select>
+              {form.batchId && <div style={{ fontSize: 10, color: '#27AE60' }}>✅ Linked: {form.batchName}</div>}
             </div>
 
             {/* Content */}
@@ -1062,22 +807,7 @@ function BannerGeneratorInner() {
       {/* ── LIBRARY TAB ── */}
       {tab === 'library' && (
         <div style={{ maxWidth: 1300, margin: '0 auto', padding: '20px 16px 80px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
-            <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 22, fontWeight: 700, color: TEXT }}>🗂️ Banner Library</div>
-            <select value={libraryFilter} onChange={e => setLibraryFilter(e.target.value)} style={{ ...inpStyle, width: 180 }}>
-              <option value="">All Statuses</option>
-              {['draft', 'ready', 'scheduled', 'published', 'archived', 'removed', 'replaced'].map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          {bulkSelected.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 10 }}>
-              <span style={{ fontSize: 12, color: TEXT }}>{bulkSelected.length} selected</span>
-              <button onClick={() => bulkAction('publish')} style={{ padding: '5px 12px', background: 'rgba(39,174,96,0.12)', border: 'none', borderRadius: 8, color: '#27AE60', cursor: 'pointer', fontSize: 11 }}>🟢 Publish</button>
-              <button onClick={() => bulkAction('archive')} style={{ padding: '5px 12px', background: 'rgba(230,126,34,0.12)', border: 'none', borderRadius: 8, color: '#E67E22', cursor: 'pointer', fontSize: 11 }}>📦 Archive</button>
-              <button onClick={() => bulkAction('duplicate')} style={{ padding: '5px 12px', background: 'rgba(155,89,182,0.12)', border: 'none', borderRadius: 8, color: '#9B59B6', cursor: 'pointer', fontSize: 11 }}>⧉ Duplicate</button>
-              <button onClick={() => setBulkSelected([])} style={{ padding: '5px 12px', background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 8, color: SUB, cursor: 'pointer', fontSize: 11, marginLeft: 'auto' }}>✕ Clear</button>
-            </div>
-          )}
+          <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 22, fontWeight: 700, color: TEXT, marginBottom: 20 }}>🗂️ Banner Library</div>
           {banners.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: SUB }}>
               <div style={{ fontSize: 56, marginBottom: 16 }}>🎨</div>
@@ -1087,25 +817,19 @@ function BannerGeneratorInner() {
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: 20 }}>
-              {banners.filter(b => !libraryFilter || b.status === libraryFilter).map(b => {
-                const statusColors: any = { draft: '#9B59B6', ready: '#E67E22', scheduled: '#00D4FF', published: '#27AE60', archived: '#7f8c8d', removed: '#E74C3C', replaced: '#7f8c8d' }
-                const st = b.status || (b.published ? 'published' : 'draft')
-                return (
-                <div key={b._id} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 18, overflow: 'hidden', backdropFilter: 'blur(16px)', transition: 'all 0.2s', animation: 'slideUp 0.4s ease', opacity: st === 'removed' ? 0.55 : 1 }}>
-                  <div style={{ padding: 16, position: 'relative' }}>
-                    <input type="checkbox" checked={bulkSelected.includes(b._id!)} onChange={() => toggleBulkSelect(b._id!)} style={{ position: 'absolute', top: 24, left: 24, zIndex: 2 }} />
+              {banners.map(b => (
+                <div key={b._id} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 18, overflow: 'hidden', backdropFilter: 'blur(16px)', transition: 'all 0.2s', animation: 'slideUp 0.4s ease' }}>
+                  <div style={{ padding: 16 }}>
                     <BannerPreview b={b} size="card" />
                   </div>
                   <div style={{ padding: '0 16px 14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 11, background: `${statusColors[st]}22`, color: statusColors[st], padding: '2px 8px', borderRadius: 20, fontWeight: 700, textTransform: 'capitalize' }}>{st}</span>
-                      {b.linkedType && b.linkedType !== 'none' && <span style={{ fontSize: 10, background: 'rgba(77,159,255,0.1)', color: '#4D9FFF', padding: '2px 8px', borderRadius: 20 }}>{b.linkedType === 'batch' ? '📦 Batch' : '📚 Series'}</span>}
-                      {b.syncState && b.syncState !== 'synced' && <span style={{ fontSize: 10, background: 'rgba(230,126,34,0.12)', color: '#E67E22', padding: '2px 8px', borderRadius: 20 }}>⚠️ {b.syncState}</span>}
-                      <span style={{ fontSize: 10, color: SUB, marginLeft: 'auto' }}>Q: {b.qualityScore || 0}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11, background: b.published ? 'rgba(39,174,96,0.15)' : 'rgba(231,76,60,0.1)', color: b.published ? '#27AE60' : '#E74C3C', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>{b.published ? '🟢 Live' : '⭕ Draft'}</span>
+                      {b.scheduledAt && !b.published && new Date(b.scheduledAt) > new Date() && (
+                        <span style={{ fontSize: 10, background: 'rgba(230,126,34,0.12)', color: '#E67E22', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>⏰ Scheduled: {new Date(b.scheduledAt).toLocaleDateString()}</span>
+                      )}
+                      <span style={{ fontSize: 10, color: SUB, marginLeft: 'auto' }}>{new Date(b.createdAt || '').toLocaleDateString()}</span>
                     </div>
-                    {b.scheduledAt && !b.published && new Date(b.scheduledAt) > new Date() && (
-                      <div style={{ fontSize: 10, background: 'rgba(230,126,34,0.12)', color: '#E67E22', padding: '2px 8px', borderRadius: 20, fontWeight: 700, display: 'inline-block', marginBottom: 8 }}>⏰ Scheduled: {new Date(b.scheduledAt).toLocaleDateString()}</div>
-                    )}
                     {b.analytics && (
                       <div style={{ display: 'flex', gap: 10, marginBottom: 10, fontSize: 10, color: SUB }}>
                         <span>👁️ {b.analytics.views}</span>
@@ -1120,78 +844,11 @@ function BannerGeneratorInner() {
                       <button onClick={() => copyShareLink(b)} style={{ padding: '7px 10px', background: 'rgba(39,174,96,0.08)', border: '1px solid rgba(39,174,96,0.2)', borderRadius: 10, color: '#27AE60', cursor: 'pointer', fontSize: 11 }}>🔗</button>
                       <button onClick={() => deleteBanner(b._id!)} style={{ padding: '7px 10px', background: 'rgba(231,76,60,0.08)', border: '1px solid rgba(231,76,60,0.2)', borderRadius: 10, color: '#E74C3C', cursor: 'pointer', fontSize: 11 }}>🗑️</button>
                     </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                      {st === 'draft' && <button onClick={() => approveBanner(b._id!)} style={{ flex: 1, padding: '6px', background: 'rgba(39,174,96,0.1)', border: '1px solid rgba(39,174,96,0.25)', borderRadius: 10, color: '#27AE60', cursor: 'pointer', fontSize: 10 }}>✅ Approve</button>}
-                      {st === 'removed' ? (
-                        <button onClick={() => restoreRemovedBanner(b._id!)} style={{ flex: 1, padding: '6px', background: 'rgba(77,159,255,0.1)', border: '1px solid rgba(77,159,255,0.25)', borderRadius: 10, color: '#4D9FFF', cursor: 'pointer', fontSize: 10 }}>♻️ Restore</button>
-                      ) : (
-                        <button onClick={() => removeBannerFlow(b._id!)} style={{ flex: 1, padding: '6px', background: 'rgba(231,76,60,0.06)', border: '1px solid rgba(231,76,60,0.15)', borderRadius: 10, color: '#E74C3C', cursor: 'pointer', fontSize: 10 }}>🗑️ Remove</button>
-                      )}
-                      {b.linkedType && b.linkedType !== 'none' && <button onClick={() => replaceBannerFlow(b._id!)} style={{ flex: 1, padding: '6px', background: 'rgba(230,126,34,0.08)', border: '1px solid rgba(230,126,34,0.2)', borderRadius: 10, color: '#E67E22', cursor: 'pointer', fontSize: 10 }}>🔁 Replace</button>}
-                    </div>
                   </div>
-                </div>
-              )})}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── ANALYTICS TAB (FPR3) ── */}
-      {tab === 'analytics' && (
-        <div style={{ maxWidth: 1300, margin: '0 auto', padding: '20px 16px 80px' }}>
-          <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 22, fontWeight: 700, color: TEXT, marginBottom: 20 }}>📈 Banner Analytics</div>
-          {!analyticsSummary ? <div style={{ color: SUB, fontSize: 12 }}>Loading analytics…</div> : (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 12, marginBottom: 20 }}>
-                {[['Total Views', analyticsSummary.totalViews, '#4D9FFF'], ['Total Clicks', analyticsSummary.totalClicks, '#00D4FF'],
-                ['Total Enrolls', analyticsSummary.totalEnrolls, '#27AE60'], ['Click Rate', analyticsSummary.clickRate + '%', '#E67E22'],
-                ['Conversion Rate', analyticsSummary.conversionRate + '%', '#9B59B6']].map(([l, v, c]: any) => (
-                  <div key={l} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 14, textAlign: 'center' }}>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: c }}>{v}</div>
-                    <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase' }}>{l}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 18, marginBottom: 16 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: TEXT, marginBottom: 10 }}>🏆 Template Performance Leaderboard</div>
-                {Object.entries(analyticsSummary.byTemplate || {}).sort((a: any, b: any) => b[1].views - a[1].views).map(([tpl, s]: any) => (
-                  <div key={tpl} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${BORDER}`, fontSize: 12, color: SUB }}>
-                    <span style={{ textTransform: 'capitalize' }}>{tpl} ({s.count})</span><span>{s.views} views · {s.clicks} clicks</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 18, marginBottom: 16 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: TEXT, marginBottom: 10 }}>🖱️ CTA Performance Comparison</div>
-                {Object.entries(analyticsSummary.byCta || {}).map(([cta, s]: any) => (
-                  <div key={cta} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${BORDER}`, fontSize: 12, color: SUB }}>
-                    <span>{cta}</span><span>{s.views} views · {s.clicks} clicks</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 18 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: TEXT, marginBottom: 10 }}>⚖️ Batch vs Test Series Performance</div>
-                <div style={{ fontSize: 12, color: SUB }}>📦 Batch Banners: {analyticsSummary.batchVsSeries?.batch || 0} views · 📚 Series Banners: {analyticsSummary.batchVsSeries?.series || 0} views</div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ── AUDIT TAB (FPR3) ── */}
-      {tab === 'audit' && (
-        <div style={{ maxWidth: 1300, margin: '0 auto', padding: '20px 16px 80px' }}>
-          <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 22, fontWeight: 700, color: TEXT, marginBottom: 8 }}>🕐 Audit Trail</div>
-          <div style={{ fontSize: 12, color: SUB, marginBottom: 20 }}>{editId ? `Showing history for: ${form.title}` : 'Open a banner from the Editor or Library to view its audit trail.'}</div>
-          <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 18 }}>
-            {auditLog.length === 0 ? <div style={{ color: SUB, fontSize: 12 }}>No audit records{editId ? ' for this banner yet.' : '.'}</div> :
-              auditLog.map((a, i) => (
-                <div key={i} style={{ padding: '8px 0', borderBottom: `1px solid ${BORDER}`, fontSize: 11.5 }}>
-                  <div style={{ color: TEXT, fontWeight: 600 }}>{a.action}{a.reason ? ` — ${a.reason}` : ''}</div>
-                  <div style={{ color: SUB }}>{a.performedByName || 'System'} · {new Date(a.timestamp).toLocaleString()}</div>
                 </div>
               ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>

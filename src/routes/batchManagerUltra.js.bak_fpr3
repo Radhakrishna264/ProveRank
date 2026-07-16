@@ -82,18 +82,6 @@ function effectivePrice(b) {
   return b.discountPrice || b.price || 0;
 }
 
-// -- FPR3 Publish Gate: block launch (lifecycleStatus -> 'active') without a ready banner --
-async function checkBannerGate(batchId) {
-  try {
-    let Banner;
-    try { Banner = mongoose.model('Banner'); } catch (e) { Banner = require('../models/Banner'); }
-    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: batchId, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
-    if (!banner) return { ready: false, reason: 'No banner has been created for this batch yet. Open Banner Management to generate one before launching.' };
-    const ready = (['ready', 'scheduled', 'published'].includes(banner.status) || banner.published);
-    return { ready, reason: ready ? '' : 'Banner draft is not marked ready/approved yet. Open Banner Management to complete it before launching.', bannerId: banner._id };
-  } catch (e) { return { ready: true, reason: '' }; }
-}
-
 async function findStudentByIdOrEmail({ studentId, email }) {
   if (studentId) {
     let user = null;
@@ -772,10 +760,6 @@ router.put('/:id/controls', auth, isAdmin, async (req, res) => {
   try {
     const batch = await Batch.findById(req.params.id);
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    if (req.body.lifecycleStatus === 'active' && batch.lifecycleStatus !== 'active') {
-      const gate = await checkBannerGate(batch._id);
-      if (!gate.ready) return res.status(423).json({ error: gate.reason, gate: 'launch_blocked' });
-    }
     const fields = ['isSpotlight', 'isBundle', 'allowFreeTrial', 'allowEMI', 'lifecycleStatus', 'enrollmentRule', 'visibility', 'seatLimit', 'accessPolicy', 'joinCode'];
     for (const f of fields) {
       if (req.body[f] !== undefined) {
@@ -796,10 +780,6 @@ router.put('/:id/controls/pause', auth, isAdmin, async (req, res) => {
     const batch = await Batch.findById(req.params.id);
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
     const wasPaused = batch.lifecycleStatus === 'paused';
-    if (wasPaused) {
-      const gate = await checkBannerGate(batch._id);
-      if (!gate.ready) return res.status(423).json({ error: gate.reason, gate: 'launch_blocked' });
-    }
     batch.lifecycleStatus = wasPaused ? 'active' : 'paused';
     batch.enrollmentRule = wasPaused ? 'open' : 'invite_only';
     batch.isSpotlight = wasPaused ? batch.isSpotlight : false;
@@ -991,32 +971,6 @@ router.get('/:id/export-snapshot', auth, isAdmin, async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="batch-${batch.batchCode || batch._id}-snapshot.json"`);
     res.send(JSON.stringify(batch, null, 2));
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// -- FPR3 Banner Panel (Batch Detail page integration) --
-router.get('/:id/banner-panel', auth, isAdmin, async (req, res) => {
-  try {
-    let Banner;
-    try { Banner = mongoose.model('Banner'); } catch (e) { Banner = require('../models/Banner'); }
-    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id }).sort({ createdAt: -1 }).lean();
-    const gate = await checkBannerGate(req.params.id);
-    res.json({ banner: banner || null, gate });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post('/:id/banner-panel/regenerate', auth, isAdmin, async (req, res) => {
-  try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    let Banner;
-    try { Banner = mongoose.model('Banner'); } catch (e) { Banner = require('../models/Banner'); }
-    const draft = await Banner.create({
-      title: batch.name, linkedBatchId: batch._id, linkedType: 'batch',
-      examType: batch.examType, price: String(effectivePrice(batch) || ''), status: 'draft',
-      syncState: 'synced', published: false, createdBy: req.user.id
-    });
-    res.json({ success: true, banner: draft });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
