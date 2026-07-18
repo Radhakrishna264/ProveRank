@@ -2286,7 +2286,7 @@ const confirmAndAdd=useCallback(async()=>{
     {id:'creation_studio',ico:'⚡',lbl:'Content Forge',grp:'Questions'},
     {id:'pyq_bank',ico:'📚',lbl:'PYQ Bank',grp:'Questions'},
     {id:'students',ico:'👥',lbl:'Students',grp:'Students'},
-    {id:'batches',ico:'📦',lbl:'Batch Management',grp:'Students'},
+    {id:'batches',ico:'📦',lbl:'Batches',grp:'Students'},
     {id:'test_series',ico:'📚',lbl:'Test Series Management',grp:'Students'},
     {id:'admins',ico:'🛡️',lbl:'Admins',grp:'Admin'},
     {id:'permissions',ico:'🔐',lbl:'Permissions',grp:'Admin'},
