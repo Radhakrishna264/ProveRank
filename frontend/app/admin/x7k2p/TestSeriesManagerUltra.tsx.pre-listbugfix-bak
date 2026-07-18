@@ -99,7 +99,7 @@ export default function TestSeriesManagerUltra({ token, API }: { token: string; 
       if (sort) params.set('sort', sort)
       const r = await fetch(base + '?' + params.toString(), { headers: authHeaders })
       const d = await r.json()
-      setSeriesList(d.testSeries || d.series || [])
+      setSeriesList(d.series || [])
       setSummary(d.summary || {})
     } catch (e) { showToast('⚠️ Failed to load series') }
     setLoading(false)
