@@ -4,38 +4,6 @@ import { useRouter } from 'next/navigation'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 
-// ── Theme system (FPR4: replaces old locked-dark immersive background) ──
-type PageTheme = 'light' | 'dark'
-function usePageTheme(): PageTheme {
-  const [theme, setTheme] = useState<PageTheme>('dark')
-  useEffect(() => {
-    const read = () => {
-      try { setTheme((localStorage.getItem('pr_color_theme') as PageTheme) || 'dark') } catch { setTheme('dark') }
-    }
-    read()
-    const onStorage = (e: StorageEvent) => { if (!e.key || e.key === 'pr_color_theme') read() }
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  }, [])
-  return theme
-}
-const THEME_VARS: Record<PageTheme, Record<string, string>> = {
-  dark: {
-    '--pr-bg': 'radial-gradient(ellipse at 20% 0%,#0C1220 0%,#070A12 55%,#040609 100%)',
-    '--pr-card-rgb': '4,12,30',
-    '--pr-header-rgb': '2,8,22',
-    '--pr-sub-rgb': '160,200,240',
-    '--pr-text': '#F1F6FC',
-  },
-  light: {
-    '--pr-bg': 'radial-gradient(ellipse at 15% 0%,#FFFFFF 0%,#F3F7FF 55%,#E9F1FF 100%)',
-    '--pr-card-rgb': '255,255,255',
-    '--pr-header-rgb': '255,255,255',
-    '--pr-sub-rgb': '71,85,105',
-    '--pr-text': '#0F172A',
-  },
-}
-
 type Batch = {
   _id: string; name: string; description: string; examType: string;
   price: number; discountPrice: number; isFree: boolean; thumbnail: string;
@@ -44,23 +12,19 @@ type Batch = {
   allowFreeTrial: boolean; trialDays: number; isBundle: boolean; validity: number;
   rating: number; isEnrolled?: boolean; isWishlisted?: boolean; createdAt: string;
   allowEMI?: boolean; difficulty?: string; subject?: string;
-  effectivePrice?: number; discountPct?: number; fitScore?: number;
-  isPriceWatched?: boolean; priceDropped?: boolean; watchedPrice?: number|null;
-  teacherAssigned?: string; seatLimit?: number;
 }
 type AcSuggestion = { _id: string; name: string; examType: string; isFree: boolean }
 type Notif = { _id: string; title: string; message: string; isRead: boolean; createdAt: string; link?: string }
 
 const ECOLS: Record<string, string> = {
-  NEET: '#4D9FFF', 'NEET UG': '#4D9FFF', JEE: '#9B59B6', 'JEE MAINS': '#9B59B6', 'JEE ADVANCE': '#7D3C98',
-  CUET: '#27AE60', 'CUET UG': '#27AE60', 'CUET PG': '#1E8449', 'SSC CGL': '#E67E22', 'IIT JAM': '#00D4FF',
+  NEET: '#4D9FFF', JEE: '#9B59B6', CUET: '#27AE60',
   'Class 11': '#E67E22', 'Class 12': '#E74C3C',
   Foundation: '#00D4FF', 'Crash Course': '#FF6B6B', Other: '#7F8C8D'
 }
-const CATS = ['All','NEET UG','JEE MAINS','JEE ADVANCE','CUET UG','CUET PG','SSC CGL','IIT JAM']
+const CATS = ['All','NEET','JEE','CUET','Class 11','Class 12','Foundation','Crash Course']
 const CICONS: Record<string,string> = {
-  All:'🌟','NEET UG':'🩺','JEE MAINS':'⚙️','JEE ADVANCE':'🛠️','CUET UG':'📖','CUET PG':'📚','SSC CGL':'🏛️','IIT JAM':'🔬',
-  NEET:'🩺',JEE:'⚙️',CUET:'📖','Class 11':'📗','Class 12':'📘',Foundation:'🏛️','Crash Course':'🚀'
+  All:'🌟',NEET:'🩺',JEE:'⚙️',CUET:'📖',
+  'Class 11':'📗','Class 12':'📘',Foundation:'🏛️','Crash Course':'🚀'
 }
 const QUOTES = [
   { q:"Champions aren't made in gyms. They are made from something deep inside them.", a:"Muhammad Ali" },
@@ -89,6 +53,56 @@ function PRLogo({ size = 36 }: { size?: number }) {
     <div style={{ position:'relative', width:b, height:b, flexShrink:0, display:'inline-flex' }}>
       <div style={{ position:'absolute', top:0, left:0, width:p, height:p, borderRadius:r, background:'linear-gradient(135deg,#4D9FFF,#00D4FF)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:f, fontWeight:900, fontFamily:'Inter,sans-serif', color:'#030810' }}>P</div>
       <div style={{ position:'absolute', bottom:0, right:0, width:p, height:p, borderRadius:r, background:'rgba(0,212,255,0.15)', border:'1.5px solid rgba(0,212,255,0.45)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:f, fontWeight:900, fontFamily:'Inter,sans-serif', color:'#00D4FF' }}>R</div>
+    </div>
+  )
+}
+
+function MilkyWayCanvas() {
+  const r = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const cv = r.current; if (!cv) return
+    const ctx = cv.getContext('2d'); if (!ctx) return
+    let af: number, t = 0
+    const resize = () => { cv.width = window.innerWidth; cv.height = window.innerHeight }
+    resize(); window.addEventListener('resize', resize)
+    const stars = Array.from({ length: 1100 }, () => {
+      const cls = Math.random()
+      return { x:Math.random(), y:Math.random(), r:cls<0.005?2.4:cls<0.02?1.5:cls<0.08?0.9:0.42, phase:Math.random()*Math.PI*2, spd:0.3+Math.random()*3, col:cls<0.003?'#9BB0FF':cls<0.015?'#CAD7FF':cls<0.06?'#F8F7FF':'#FFF4EA', inArm:Math.random()<0.55 }
+    })
+    const draw = () => {
+      t += 0.003; const W=cv.width,H=cv.height,cx=W/2,cy=H*0.44
+      ctx.clearRect(0,0,W,H); ctx.fillStyle='#020816'; ctx.fillRect(0,0,W,H)
+      const mw=ctx.createLinearGradient(0,H*0.2,W,H*0.8)
+      mw.addColorStop(0,'transparent'); mw.addColorStop(0.5,'rgba(140,155,220,0.055)'); mw.addColorStop(1,'transparent')
+      ctx.fillStyle=mw; ctx.fillRect(0,0,W,H)
+      const sz=Math.min(W,H)
+      const core=ctx.createRadialGradient(cx,cy,0,cx,cy,sz*0.18)
+      core.addColorStop(0,'rgba(255,215,120,0.15)'); core.addColorStop(0.4,'rgba(255,170,70,0.07)'); core.addColorStop(1,'transparent')
+      ctx.fillStyle=core; ctx.fillRect(0,0,W,H)
+      stars.forEach(s => {
+        const x=s.x*W,y=s.y*H,tw=0.3+0.7*Math.abs(Math.sin(t*s.spd+s.phase)),alpha=s.inArm?tw*0.72:tw*0.5
+        if(s.r>1.3){const gl=ctx.createRadialGradient(x,y,0,x,y,s.r*3.2);gl.addColorStop(0,'rgba(255,255,255,0.18)');gl.addColorStop(1,'transparent');ctx.fillStyle=gl;ctx.beginPath();ctx.arc(x,y,s.r*3.2,0,Math.PI*2);ctx.fill()}
+        ctx.beginPath();ctx.arc(x,y,s.r,0,Math.PI*2)
+        const hex=Math.round(alpha*255).toString(16).padStart(2,'0')
+        ctx.fillStyle=s.col+hex;ctx.fill()
+      })
+      af=requestAnimationFrame(draw)
+    }
+    draw(); return () => { cancelAnimationFrame(af); window.removeEventListener('resize',resize) }
+  },[])
+  return <canvas ref={r} style={{ position:'fixed', inset:0, zIndex:0, pointerEvents:'none' }} />
+}
+
+function SolarSystem() {
+  const planets=[{sz:7,col:'#9E9E9E',o:110,dur:47,dl:0},{sz:13,col:'radial-gradient(circle at 35% 35%,#F5D5A0,#C4A265)',o:170,dur:35,dl:-8},{sz:14,col:'radial-gradient(circle at 35% 35%,#5BC8FA,#1565C0)',o:240,dur:29,dl:-14},{sz:9,col:'radial-gradient(circle at 35% 35%,#FF7043,#BF360C)',o:308,dur:24,dl:-20}]
+  return (
+    <div style={{ position:'fixed',top:'42%',left:'50%',transform:'translate(-50%,-50%)',zIndex:1,pointerEvents:'none',width:0,height:0 }}>
+      <div style={{ position:'absolute',width:24,height:24,marginLeft:-12,marginTop:-12,borderRadius:'50%',background:'radial-gradient(circle at 40% 40%,#FFF9C4,#FFD600,#FF8F00)',boxShadow:'0 0 34px rgba(255,200,0,0.5)' }} />
+      {planets.map((p,i)=>(
+        <div key={i} style={{ position:'absolute',width:p.o*2,height:p.o*2,marginLeft:-p.o,marginTop:-p.o,borderRadius:'50%',border:'1px solid rgba(77,159,255,0.05)',animation:`orb ${p.dur}s linear infinite`,animationDelay:`${p.dl}s` }}>
+          <div style={{ position:'absolute',top:-p.sz/2,left:'50%',marginLeft:-p.sz/2,width:p.sz,height:p.sz,borderRadius:'50%',background:p.col }} />
+        </div>
+      ))}
     </div>
   )
 }
@@ -155,14 +169,14 @@ function NotificationBell({ tok }: { tok: string | null }) {
         {unread>0&&<div style={{ position:'absolute',top:-4,right:-4,width:18,height:18,borderRadius:'50%',background:'linear-gradient(135deg,#E74C3C,#FF6B6B)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:900,color:'#fff',border:'2px solid #020816' }}>{unread>9?'9+':unread}</div>}
       </button>
       {open&&(
-        <div style={{ position:'absolute',top:44,right:0,width:300,maxHeight:380,background:'rgba(var(--pr-card-rgb),0.99)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:16,overflow:'hidden',zIndex:200,boxShadow:'0 20px 60px rgba(0,0,0,0.6)',backdropFilter:'blur(24px)',animation:'slideUp 0.2s ease' }}>
+        <div style={{ position:'absolute',top:44,right:0,width:300,maxHeight:380,background:'rgba(4,12,30,0.99)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:16,overflow:'hidden',zIndex:200,boxShadow:'0 20px 60px rgba(0,0,0,0.6)',backdropFilter:'blur(24px)',animation:'slideUp 0.2s ease' }}>
           <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(77,159,255,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between' }}>
-            <span style={{ fontWeight:700,fontSize:12,color:'var(--pr-text)' }}>🔔 Notifications</span>
+            <span style={{ fontWeight:700,fontSize:12,color:'#F0F8FF' }}>🔔 Notifications</span>
             {unread>0&&<button onClick={markAllRead} style={{ background:'transparent',border:'none',color:'#4D9FFF',fontSize:10,cursor:'pointer',fontWeight:600 }}>Mark all read</button>}
           </div>
           <div style={{ overflowY:'auto',maxHeight:320 }}>
             {notifs.length===0?(
-              <div style={{ padding:'28px 16px',textAlign:'center',color:'rgba(var(--pr-sub-rgb),0.4)',fontSize:12 }}>No notifications yet</div>
+              <div style={{ padding:'28px 16px',textAlign:'center',color:'rgba(160,200,240,0.4)',fontSize:12 }}>No notifications yet</div>
             ):notifs.map(n=>(
               <div key={n._id} onClick={()=>markRead(n._id,n.link)}
                 style={{ padding:'12px 14px',borderBottom:'1px solid rgba(77,159,255,0.06)',cursor:'pointer',background:n.isRead?'transparent':'rgba(77,159,255,0.05)',transition:'background 0.2s' }}
@@ -171,9 +185,9 @@ function NotificationBell({ tok }: { tok: string | null }) {
                 <div style={{ display:'flex',gap:8,alignItems:'flex-start' }}>
                   {!n.isRead&&<div style={{ width:7,height:7,borderRadius:'50%',background:'#4D9FFF',flexShrink:0,marginTop:4 }} />}
                   <div style={{ flex:1 }}>
-                    <div style={{ fontSize:12,fontWeight:n.isRead?400:700,color:'var(--pr-text)',marginBottom:3 }}>{n.title}</div>
-                    <div style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)',lineHeight:1.5 }}>{n.message}</div>
-                    <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.3)',marginTop:4 }}>{new Date(n.createdAt).toLocaleDateString()}</div>
+                    <div style={{ fontSize:12,fontWeight:n.isRead?400:700,color:'#F0F8FF',marginBottom:3 }}>{n.title}</div>
+                    <div style={{ fontSize:11,color:'rgba(160,200,240,0.6)',lineHeight:1.5 }}>{n.message}</div>
+                    <div style={{ fontSize:10,color:'rgba(160,200,240,0.3)',marginTop:4 }}>{new Date(n.createdAt).toLocaleDateString()}</div>
                   </div>
                 </div>
               </div>
@@ -219,13 +233,13 @@ function EMIModal({ batch, tok, onClose, onSuccess }: { batch: Batch; tok: strin
 
   return (
     <div style={{ position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.88)',display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}>
-      <div style={{ background:'rgba(var(--pr-card-rgb),0.99)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:22,padding:26,maxWidth:380,width:'100%',backdropFilter:'blur(30px)',boxShadow:'0 30px 80px rgba(0,0,0,0.6)' }}>
+      <div style={{ background:'rgba(4,12,30,0.99)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:22,padding:26,maxWidth:380,width:'100%',backdropFilter:'blur(30px)',boxShadow:'0 30px 80px rgba(0,0,0,0.6)' }}>
         <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18 }}>
-          <div style={{ fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:'var(--pr-text)' }}>💳 Payment Options</div>
-          <button onClick={onClose} style={{ background:'transparent',border:'none',color:'rgba(var(--pr-sub-rgb),0.5)',cursor:'pointer',fontSize:22 }}>×</button>
+          <div style={{ fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:'#F0F8FF' }}>💳 Payment Options</div>
+          <button onClick={onClose} style={{ background:'transparent',border:'none',color:'rgba(160,200,240,0.5)',cursor:'pointer',fontSize:22 }}>×</button>
         </div>
-        <div style={{ fontSize:13,color:'rgba(var(--pr-sub-rgb),0.6)',marginBottom:6,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis' }}>{batch.name}</div>
-        <div style={{ fontSize:22,fontWeight:900,color:'var(--pr-text)',fontFamily:'Playfair Display,serif',marginBottom:20 }}>₹{price}</div>
+        <div style={{ fontSize:13,color:'rgba(160,200,240,0.6)',marginBottom:6,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis' }}>{batch.name}</div>
+        <div style={{ fontSize:22,fontWeight:900,color:'#F0F8FF',fontFamily:'Playfair Display,serif',marginBottom:20 }}>₹{price}</div>
         <button onClick={handlePayFull} disabled={loading}
           style={{ width:'100%',padding:'13px',background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',border:'none',borderRadius:13,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:13,marginBottom:16,boxShadow:'0 6px 20px rgba(77,159,255,0.35)' }}>
           {loading?'Processing...':'💰 Pay Full Amount ₹'+price}
@@ -234,15 +248,15 @@ function EMIModal({ batch, tok, onClose, onSuccess }: { batch: Batch; tok: strin
           <>
             <div style={{ display:'flex',alignItems:'center',gap:10,marginBottom:14 }}>
               <div style={{ flex:1,height:1,background:'rgba(77,159,255,0.15)' }} />
-              <span style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.4)',fontWeight:600,textTransform:'uppercase',letterSpacing:1 }}>or pay in EMI</span>
+              <span style={{ fontSize:10,color:'rgba(160,200,240,0.4)',fontWeight:600,textTransform:'uppercase',letterSpacing:1 }}>or pay in EMI</span>
               <div style={{ flex:1,height:1,background:'rgba(77,159,255,0.15)' }} />
             </div>
             <div style={{ display:'flex',gap:8,marginBottom:14 }}>
               {plans.map(p=>(
                 <button key={p.months} onClick={()=>setPlan(p.months)}
                   style={{ flex:1,padding:'10px 6px',borderRadius:12,border:`1px solid ${plan===p.months?'rgba(0,212,255,0.5)':'rgba(77,159,255,0.15)'}`,background:plan===p.months?'rgba(0,212,255,0.1)':'rgba(77,159,255,0.05)',cursor:'pointer',transition:'all 0.2s' }}>
-                  <div style={{ fontSize:11,fontWeight:700,color:plan===p.months?'#00D4FF':'rgba(var(--pr-sub-rgb),0.5)' }}>{p.label}</div>
-                  <div style={{ fontSize:13,fontWeight:900,color:plan===p.months?'var(--pr-text)':'rgba(var(--pr-sub-rgb),0.4)',marginTop:2 }}>₹{p.monthly}<span style={{ fontSize:9 }}>/mo</span></div>
+                  <div style={{ fontSize:11,fontWeight:700,color:plan===p.months?'#00D4FF':'rgba(160,200,240,0.5)' }}>{p.label}</div>
+                  <div style={{ fontSize:13,fontWeight:900,color:plan===p.months?'#F0F8FF':'rgba(160,200,240,0.4)',marginTop:2 }}>₹{p.monthly}<span style={{ fontSize:9 }}>/mo</span></div>
                 </button>
               ))}
             </div>
@@ -275,21 +289,21 @@ function ReviewModal({ batchId, batchName, tok, onClose }: { batchId:string; bat
   }
   return (
     <div style={{ position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}>
-      <div style={{ background:'rgba(var(--pr-card-rgb),0.99)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:22,padding:26,maxWidth:380,width:'100%',backdropFilter:'blur(30px)' }}>
+      <div style={{ background:'rgba(4,12,30,0.99)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:22,padding:26,maxWidth:380,width:'100%',backdropFilter:'blur(30px)' }}>
         {done?(
           <div style={{ textAlign:'center',padding:'20px 0' }}>
             <div style={{ fontSize:52,marginBottom:14 }}>⭐</div>
-            <div style={{ fontFamily:'Playfair Display,serif',fontSize:18,fontWeight:700,color:'var(--pr-text)',marginBottom:8 }}>Review Submitted!</div>
-            <div style={{ fontSize:12,color:'rgba(var(--pr-sub-rgb),0.6)',marginBottom:20 }}>Pending admin approval.</div>
+            <div style={{ fontFamily:'Playfair Display,serif',fontSize:18,fontWeight:700,color:'#F0F8FF',marginBottom:8 }}>Review Submitted!</div>
+            <div style={{ fontSize:12,color:'rgba(160,200,240,0.6)',marginBottom:20 }}>Pending admin approval.</div>
             <button onClick={onClose} style={{ background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',border:'none',borderRadius:12,padding:'11px 28px',color:'#fff',fontWeight:700,cursor:'pointer' }}>Done</button>
           </div>
         ):(
           <>
             <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18 }}>
-              <div style={{ fontFamily:'Playfair Display,serif',fontSize:16,fontWeight:700,color:'var(--pr-text)' }}>Rate this Batch</div>
-              <button onClick={onClose} style={{ background:'transparent',border:'none',color:'rgba(var(--pr-sub-rgb),0.5)',cursor:'pointer',fontSize:20 }}>×</button>
+              <div style={{ fontFamily:'Playfair Display,serif',fontSize:16,fontWeight:700,color:'#F0F8FF' }}>Rate this Batch</div>
+              <button onClick={onClose} style={{ background:'transparent',border:'none',color:'rgba(160,200,240,0.5)',cursor:'pointer',fontSize:20 }}>×</button>
             </div>
-            <div style={{ fontSize:12,color:'rgba(var(--pr-sub-rgb),0.55)',marginBottom:16,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis' }}>{batchName}</div>
+            <div style={{ fontSize:12,color:'rgba(160,200,240,0.55)',marginBottom:16,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis' }}>{batchName}</div>
             <div style={{ display:'flex',gap:8,justifyContent:'center',marginBottom:18 }}>
               {[1,2,3,4,5].map(i=>(
                 <span key={i} onClick={()=>setRating(i)} onMouseEnter={()=>setHov(i)} onMouseLeave={()=>setHov(0)}
@@ -297,9 +311,9 @@ function ReviewModal({ batchId, batchName, tok, onClose }: { batchId:string; bat
               ))}
             </div>
             <textarea value={comment} onChange={e=>setComment(e.target.value)} placeholder="Share your experience (optional)..." rows={3}
-              style={{ width:'100%',padding:'10px 12px',background:'rgba(255,255,255,0.04)',border:'1px solid rgba(77,159,255,0.15)',borderRadius:12,color:'var(--pr-text)',fontSize:12,resize:'none',marginBottom:16,fontFamily:'Inter,sans-serif' }} />
+              style={{ width:'100%',padding:'10px 12px',background:'rgba(255,255,255,0.04)',border:'1px solid rgba(77,159,255,0.15)',borderRadius:12,color:'#F0F8FF',fontSize:12,resize:'none',marginBottom:16,fontFamily:'Inter,sans-serif' }} />
             <button onClick={submit} disabled={loading||!rating}
-              style={{ width:'100%',padding:'12px',background:rating?'linear-gradient(135deg,#4D9FFF,#00D4FF)':'rgba(77,159,255,0.15)',border:'none',borderRadius:12,color:rating?'#fff':'rgba(var(--pr-sub-rgb),0.4)',fontWeight:700,cursor:rating?'pointer':'not-allowed',fontSize:13 }}>
+              style={{ width:'100%',padding:'12px',background:rating?'linear-gradient(135deg,#4D9FFF,#00D4FF)':'rgba(77,159,255,0.15)',border:'none',borderRadius:12,color:rating?'#fff':'rgba(160,200,240,0.4)',fontWeight:700,cursor:rating?'pointer':'not-allowed',fontSize:13 }}>
               {loading?'Submitting...':'⭐ Submit Review'}
             </button>
           </>
@@ -310,10 +324,10 @@ function ReviewModal({ batchId, batchName, tok, onClose }: { batchId:string; bat
 }
 
 // ── BATCH CARD ──
-function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onReview, onPreview, showPriceWatch }: {
+function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onReview }: {
   b:Batch; tok:string|null; onUpdate:()=>void;
   compareList?:Batch[]; toggleCompare?:(b:Batch)=>void;
-  onBuy?:(b:Batch)=>void; onReview?:(b:Batch)=>void; onPreview?:(b:Batch)=>void; showPriceWatch?:boolean;
+  onBuy?:(b:Batch)=>void; onReview?:(b:Batch)=>void;
 }) {
   const [loading,setLoading]=useState(false)
   const [hov,setHov]=useState(false)
@@ -336,17 +350,11 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
     await fetch(`${API}/api/student/batches/${b._id}/wishlist`,{method:'POST',headers:{Authorization:`Bearer ${tok}`}})
     onUpdate()
   }
-  const togglePriceWatch=async()=>{
-    if(!tok)return alert('Please login')
-    await fetch(`${API}/api/student/batch-ultra/${b._id}/price-watch`,{method:'POST',headers:{Authorization:`Bearer ${tok}`}})
-    onUpdate()
-  }
   return (
     <div onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
-      style={{ background:'rgba(var(--pr-card-rgb),0.95)',border:`1px solid ${hov?ec+'50':ec+'18'}`,borderRadius:20,overflow:'hidden',backdropFilter:'blur(22px)',position:'relative',transition:'all 0.3s',transform:hov?'translateY(-5px)':'none',boxShadow:hov?`0 20px 50px ${ec}18`:'0 4px 18px rgba(0,10,40,0.4)' }}>
+      style={{ background:'rgba(4,12,30,0.95)',border:`1px solid ${hov?ec+'50':ec+'18'}`,borderRadius:20,overflow:'hidden',backdropFilter:'blur(22px)',position:'relative',transition:'all 0.3s',transform:hov?'translateY(-5px)':'none',boxShadow:hov?`0 20px 50px ${ec}18`:'0 4px 18px rgba(0,10,40,0.4)' }}>
       <div style={{ position:'absolute',top:10,left:10,zIndex:5,display:'flex',flexDirection:'column',gap:4 }}>
         {isNew&&<span style={{ background:'linear-gradient(135deg,#27AE60,#1E8449)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:20 }}>✨ NEW</span>}
-        {typeof b.fitScore==='number'&&b.fitScore>=70&&<span style={{ background:'linear-gradient(135deg,#00D4FF,#0090B0)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:20 }}>🎯 {b.fitScore}% Fit</span>}
         {b.enrolledCount>100&&<span style={{ background:'linear-gradient(135deg,#E67E22,#CA6F1E)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:20 }}>🔥 HOT</span>}
         {b.isBundle&&<span style={{ background:'linear-gradient(135deg,#9B59B6,#7D3C98)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:20 }}>📦 BUNDLE</span>}
         {b.allowEMI&&<span style={{ background:'linear-gradient(135deg,#00D4FF,#0090B0)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:20 }}>💳 EMI</span>}
@@ -358,10 +366,9 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
         </button>
       )}
       <button onClick={toggleWish} style={{ position:'absolute',top:10,right:10,zIndex:5,background:'rgba(0,0,20,0.6)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'50%',width:36,height:36,cursor:'pointer',fontSize:15,display:'flex',alignItems:'center',justifyContent:'center' }}>{b.isWishlisted?'❤️':'🤍'}</button>
-      {onPreview&&<button onClick={e=>{e.stopPropagation();onPreview(b)}} style={{ position:'absolute',top:52,right:10,zIndex:5,background:'rgba(0,0,20,0.6)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'50%',width:32,height:32,cursor:'pointer',fontSize:13,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff' }}>👁️</button>}
       <div style={{ height:140,background:b.thumbnail?`url(${b.thumbnail}) center/cover`:`linear-gradient(135deg,${ec}12,${ec}05,rgba(2,8,22,0.9))`,position:'relative',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden' }}>
         <div style={{ position:'absolute',inset:0,background:'linear-gradient(180deg,transparent 30%,rgba(4,12,30,0.95))',zIndex:1 }} />
-        {!b.thumbnail&&<span style={{ fontSize:46,filter:`drop-shadow(0 0 16px ${ec})`,zIndex:2,opacity:0.88 }}>{CICONS[b.examType]||'📚'}</span>}
+        {!b.thumbnail&&<span style={{ fontSize:46,filter:`drop-shadow(0 0 16px ${ec})`,zIndex:2,opacity:0.88 }}>{b.examType==='NEET'?'🩺':b.examType==='JEE'?'⚙️':b.examType==='CUET'?'📖':b.examType==='Crash Course'?'🚀':'📚'}</span>}
         {isFlash&&b.flashSaleEndTime&&<div style={{ position:'absolute',bottom:0,left:0,right:0,background:'rgba(200,40,40,0.92)',padding:'4px 0',textAlign:'center',fontSize:10,fontWeight:700,color:'#fff',zIndex:3 }}>⚡ Flash: <FlashTimer end={b.flashSaleEndTime} /></div>}
         {b.isEnrolled&&<div style={{ position:'absolute',inset:0,background:'rgba(39,174,96,0.16)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2 }}><span style={{ background:'rgba(39,174,96,0.9)',color:'#fff',padding:'5px 14px',borderRadius:20,fontSize:11,fontWeight:800 }}>✅ Enrolled</span></div>}
       </div>
@@ -370,25 +377,19 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
           <span style={{ background:`${ec}16`,color:ec,fontSize:9,fontWeight:700,padding:'3px 9px',borderRadius:20,border:`1px solid ${ec}25` }}>{b.examType}</span>
           <span style={{ background:b.isFree?'rgba(39,174,96,0.13)':'rgba(230,126,34,0.13)',color:b.isFree?'#27AE60':'#E67E22',fontSize:9,fontWeight:700,padding:'3px 9px',borderRadius:20 }}>{b.isFree?'🆓 FREE':b.allowFreeTrial?`🎯 ${b.trialDays}-Day Trial`:'💎 PAID'}</span>
         </div>
-        <div style={{ fontSize:14,fontWeight:700,color:'var(--pr-text)',marginBottom:4,fontFamily:'Playfair Display,serif',lineHeight:1.4,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical' }}>{b.name}</div>
-        <div style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.55)',lineHeight:1.5,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',marginBottom:9 }}>{b.description||'Premium test series — NCERT based, expert curated.'}</div>
+        <div style={{ fontSize:14,fontWeight:700,color:'#F0F8FF',marginBottom:4,fontFamily:'Playfair Display,serif',lineHeight:1.4,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical' }}>{b.name}</div>
+        <div style={{ fontSize:11,color:'rgba(180,210,240,0.55)',lineHeight:1.5,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',marginBottom:9 }}>{b.description||'Premium test series — NCERT based, expert curated.'}</div>
         <Stars r={b.rating} />
         <div style={{ display:'flex',gap:7,marginTop:7,flexWrap:'wrap' }}>
           {[{i:'📝',v:`${b.totalTests} Tests`},{i:'👥',v:b.enrolledCount.toLocaleString()},{i:'📅',v:`${b.validity}d`}].map((it,idx)=>(
-            <span key={idx} style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.45)' }}>{it.i} {it.v}</span>
+            <span key={idx} style={{ fontSize:10,color:'rgba(180,210,240,0.45)' }}>{it.i} {it.v}</span>
           ))}
         </div>
         <div style={{ display:'flex',alignItems:'center',gap:7,margin:'9px 0 11px' }}>
           {b.isFree
             ?<span style={{ fontSize:21,fontWeight:900,color:'#27AE60',fontFamily:'Playfair Display,serif' }}>FREE</span>
-            :<><span style={{ fontSize:21,fontWeight:900,color:'var(--pr-text)',fontFamily:'Playfair Display,serif' }}>₹{finalPrice}</span>{disc>0&&<span style={{ fontSize:11,color:'rgba(255,255,255,0.26)',textDecoration:'line-through' }}>₹{b.price}</span>}{disc>0&&<span style={{ fontSize:9,background:'rgba(39,174,96,0.16)',color:'#27AE60',padding:'2px 7px',borderRadius:20,fontWeight:700 }}>{disc}% OFF</span>}</>}
+            :<><span style={{ fontSize:21,fontWeight:900,color:'#F0F8FF',fontFamily:'Playfair Display,serif' }}>₹{finalPrice}</span>{disc>0&&<span style={{ fontSize:11,color:'rgba(255,255,255,0.26)',textDecoration:'line-through' }}>₹{b.price}</span>}{disc>0&&<span style={{ fontSize:9,background:'rgba(39,174,96,0.16)',color:'#27AE60',padding:'2px 7px',borderRadius:20,fontWeight:700 }}>{disc}% OFF</span>}</>}
         </div>
-        {b.priceDropped&&<div style={{ fontSize:10,color:'#27AE60',fontWeight:700,marginBottom:8 }}>📉 Price dropped since you watched!</div>}
-        {showPriceWatch&&!b.isFree&&(
-          <button onClick={togglePriceWatch} style={{ width:'100%',padding:'6px',marginBottom:8,background:b.isPriceWatched?'rgba(0,212,255,0.12)':'rgba(77,159,255,0.05)',border:`1px solid ${b.isPriceWatched?'rgba(0,212,255,0.35)':'rgba(77,159,255,0.12)'}`,borderRadius:10,color:b.isPriceWatched?'#00D4FF':'rgba(var(--pr-sub-rgb),0.5)',cursor:'pointer',fontSize:10,fontWeight:700 }}>
-            {b.isPriceWatched?'👁️ Watching Price':'🔔 Watch Price'}
-          </button>
-        )}
         {b.isEnrolled?(
           <div style={{ display:'flex',gap:6 }}>
             <button style={{ flex:1,padding:'10px',background:`linear-gradient(135deg,${ec}20,${ec}10)`,border:`1px solid ${ec}40`,borderRadius:11,color:ec,fontWeight:700,cursor:'pointer',fontSize:11 }}>Go to Batch →</button>
@@ -408,96 +409,12 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
   )
 }
 
-// ── QUICK PREVIEW MODAL (FPR4) ──
-function QuickPreviewModal({ batchId, tok, onClose, onBuy, onEnrollUpdate }: { batchId:string; tok:string|null; onClose:()=>void; onBuy:(b:Batch)=>void; onEnrollUpdate:()=>void }) {
-  const [detail,setDetail]=useState<any>(null)
-  const [loading,setLoading]=useState(true)
-  useEffect(()=>{
-    setLoading(true)
-    const h=tok?{Authorization:`Bearer ${tok}`}:{} as Record<string,string>
-    fetch(`${API}/api/student/batches/${batchId}`,{headers:h}).then(r=>r.json()).then(d=>setDetail(d.batch)).finally(()=>setLoading(false))
-    fetch(`${API}/api/student/batch-ultra/${batchId}/preview-track`,{method:'POST'}).catch(()=>{})
-  },[batchId])
-  const enroll=async()=>{
-    if(!tok)return alert('Please login')
-    await fetch(`${API}/api/student/batches/${batchId}/enroll`,{method:'POST',headers:{Authorization:`Bearer ${tok}`}})
-    onEnrollUpdate();onClose()
-  }
-  if(loading||!detail)return(
-    <div style={{ position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center' }}>
-      <div style={{ color:'var(--pr-text)',fontSize:13 }}>Loading preview…</div>
-    </div>
-  )
-  const b=detail
-  const ec=ECOLS[b.examType]||'#4D9FFF'
-  const finalPrice=b.effectivePrice??(b.discountPrice||b.price)
-  return (
-    <div onClick={onClose} style={{ position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}>
-      <div onClick={e=>e.stopPropagation()} style={{ background:'rgba(var(--pr-card-rgb),0.99)',border:`1px solid ${ec}30`,borderRadius:22,padding:24,maxWidth:440,width:'100%',maxHeight:'88vh',overflowY:'auto',backdropFilter:'blur(30px)' }}>
-        <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14 }}>
-          <div>
-            <span style={{ background:`${ec}16`,color:ec,fontSize:9,fontWeight:700,padding:'3px 9px',borderRadius:20 }}>{b.examType}</span>
-            <div style={{ fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:'var(--pr-text)',marginTop:8 }}>{b.name}</div>
-          </div>
-          <button onClick={onClose} style={{ background:'transparent',border:'none',color:'rgba(var(--pr-sub-rgb),0.6)',cursor:'pointer',fontSize:22 }}>×</button>
-        </div>
-        <Stars r={b.rating||0} />
-        <div style={{ display:'flex',gap:10,flexWrap:'wrap',margin:'10px 0' }}>
-          <span style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)' }}>📝 {b.totalTests} Tests</span>
-          <span style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)' }}>📅 {b.validity}d validity</span>
-          <span style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)' }}>👥 {(b.enrolledCount||0).toLocaleString()} enrolled</span>
-          {typeof b.fitScore==='number'&&<span style={{ fontSize:11,color:'#00D4FF',fontWeight:700 }}>🎯 {b.fitScore}% Fit for you</span>}
-        </div>
-        <div style={{ fontSize:22,fontWeight:900,color:'var(--pr-text)',fontFamily:'Playfair Display,serif',marginBottom:12 }}>
-          {b.isFree?'FREE':`₹${finalPrice}`}{b.discountPct>0&&<span style={{ fontSize:11,color:'#27AE60',marginLeft:8 }}>{b.discountPct}% OFF</span>}
-        </div>
-        {b.syllabusCoveragePct!==undefined&&(
-          <div style={{ marginBottom:14 }}>
-            <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.5)',marginBottom:4,textTransform:'uppercase',fontWeight:700 }}>📚 Syllabus Coverage</div>
-            <div style={{ height:6,background:'rgba(77,159,255,0.1)',borderRadius:4,overflow:'hidden' }}><div style={{ height:'100%',width:`${b.syllabusCoveragePct}%`,background:ec }} /></div>
-          </div>
-        )}
-        {b.studyLoadPerWeek>0&&<div style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)',marginBottom:10 }}>⏱️ Study Load: ~{b.studyLoadPerWeek} test(s)/week</div>}
-        {b.instructorHighlight&&(
-          <div style={{ background:'rgba(77,159,255,0.06)',border:'1px solid rgba(77,159,255,0.15)',borderRadius:12,padding:10,marginBottom:12,fontSize:11,color:'rgba(var(--pr-sub-rgb),0.75)' }}>👨‍🏫 {b.instructorHighlight}</div>
-        )}
-        {b.socialProof&&(
-          <div style={{ display:'flex',gap:14,marginBottom:14,fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)' }}>
-            <span>⭐ {b.socialProof.rating} ({b.socialProof.ratingCount} reviews)</span>
-            <span>👥 {b.socialProof.enrolledCount} students</span>
-          </div>
-        )}
-        {b.faqPreview&&b.faqPreview.length>0&&(
-          <div style={{ marginBottom:16 }}>
-            <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.5)',marginBottom:6,textTransform:'uppercase',fontWeight:700 }}>❓ FAQ</div>
-            {b.faqPreview.map((f:any,i:number)=>(
-              <div key={i} style={{ marginBottom:8 }}>
-                <div style={{ fontSize:11,fontWeight:700,color:'var(--pr-text)' }}>{f.q}</div>
-                <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.55)' }}>{f.a}</div>
-              </div>
-            ))}
-          </div>
-        )}
-        <div style={{ display:'flex',gap:8 }}>
-          {b.isEnrolled?(
-            <button style={{ flex:1,padding:'11px',background:`linear-gradient(135deg,${ec}30,${ec}15)`,border:`1px solid ${ec}50`,borderRadius:12,color:ec,fontWeight:700,cursor:'pointer',fontSize:12 }}>Go to Batch →</button>
-          ):b.isFree?(
-            <button onClick={enroll} style={{ flex:1,padding:'11px',background:'linear-gradient(135deg,#27AE60,#1E8449)',border:'none',borderRadius:12,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:12 }}>🚀 Enroll Free</button>
-          ):(
-            <button onClick={()=>{onClose();onBuy(b)}} style={{ flex:1,padding:'11px',background:`linear-gradient(135deg,${ec},${ec}BB)`,border:'none',borderRadius:12,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:12 }}>🛒 Buy ₹{finalPrice}</button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function EmptyState() {
   return (
     <div style={{ textAlign:'center',padding:'55px 16px' }}>
       <div style={{ fontSize:72,marginBottom:18,display:'inline-block',animation:'floatBob 3s ease infinite' }}>🚀</div>
       <div style={{ fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:700,background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',marginBottom:10 }}>Batches Launching Soon!</div>
-      <div style={{ fontSize:12,color:'rgba(var(--pr-sub-rgb),0.6)',maxWidth:360,margin:'0 auto 24px',lineHeight:1.8 }}>Premium Test Series will appear here once created by the Admin.</div>
+      <div style={{ fontSize:12,color:'rgba(160,200,240,0.6)',maxWidth:360,margin:'0 auto 24px',lineHeight:1.8 }}>Premium Test Series will appear here once created by the Admin.</div>
     </div>
   )
 }
@@ -513,7 +430,7 @@ export default function TestSeriesPage() {
   const [cat,setCat]=useState('All')
   const [sort,setSort]=useState('newest')
   const [filterOpen,setFilterOpen]=useState(false)
-  const [filters,setFilters]=useState({ isFree:'', batchType:'', difficulty:'', subject:'', language:'', offerType:'', flashSaleActive:'', emiEligible:'', enrollmentState:'' })
+  const [filters,setFilters]=useState({ isFree:'', batchType:'', difficulty:'', subject:'', language:'' })
   const [priceRange,setPriceRange]=useState([0,5000])
   const [tab,setTab]=useState<'all'|'enrolled'|'wishlist'>('all')
   const [tok,setTok]=useState<string|null>(null)
@@ -526,7 +443,6 @@ export default function TestSeriesPage() {
   const [isDesktop,setIsDesktop]=useState(false)
   const [reviewBatch,setReviewBatch]=useState<Batch|null>(null)
   const [buyBatch,setBuyBatch]=useState<Batch|null>(null)
-  const [previewBatchId,setPreviewBatchId]=useState<string|null>(null)
 
   const toggleCompare=(b:Batch)=>setCompareList(prev=>prev.find(x=>x._id===b._id)?prev.filter(x=>x._id!==b._id):prev.length>=3?prev:[...prev,b])
 
@@ -570,10 +486,6 @@ export default function TestSeriesPage() {
       if(filters.difficulty)p.set('difficulty',filters.difficulty)
       if(filters.subject)p.set('subject',filters.subject)
       if(filters.language)p.set('language',filters.language)
-      if(filters.offerType)p.set('offerType',filters.offerType)
-      if(filters.flashSaleActive)p.set('flashSaleActive',filters.flashSaleActive)
-      if(filters.emiEligible)p.set('emiEligible',filters.emiEligible)
-      if(filters.enrollmentState)p.set('enrollmentState',filters.enrollmentState)
       p.set('minPrice',priceRange[0].toString())
       p.set('maxPrice',priceRange[1].toString())
       const token=localStorage.getItem('pr_token')
@@ -597,14 +509,14 @@ export default function TestSeriesPage() {
 
   const FilterContent=()=>(
     <>
-      <div style={{ fontWeight:700,fontSize:11,color:'rgba(var(--pr-sub-rgb),0.5)',textTransform:'uppercase',letterSpacing:1,marginBottom:14 }}>🔧 Filters</div>
+      <div style={{ fontWeight:700,fontSize:11,color:'rgba(160,200,240,0.5)',textTransform:'uppercase',letterSpacing:1,marginBottom:14 }}>🔧 Filters</div>
 
       {/* Price Range Slider */}
       <div style={{ marginBottom:18 }}>
-        <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Price Range</div>
+        <div style={{ fontSize:10,color:'rgba(160,200,240,0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Price Range</div>
         <div style={{ display:'flex',justifyContent:'space-between',marginBottom:6 }}>
-          <span style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.6)' }}>₹{priceRange[0]}</span>
-          <span style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.6)' }}>₹{priceRange[1]}</span>
+          <span style={{ fontSize:10,color:'rgba(160,200,240,0.6)' }}>₹{priceRange[0]}</span>
+          <span style={{ fontSize:10,color:'rgba(160,200,240,0.6)' }}>₹{priceRange[1]}</span>
         </div>
         <input type="range" min={0} max={5000} step={100} value={priceRange[1]}
           onChange={e=>setPriceRange([priceRange[0],Number(e.target.value)])}
@@ -613,128 +525,95 @@ export default function TestSeriesPage() {
           {[{v:[0,5000],l:'All'},{v:[0,0],l:'🆓 Free'},{v:[1,499],l:'Under ₹500'},{v:[500,999],l:'₹500-999'},{v:[1000,5000],l:'₹1000+'}].map((o,i)=>{
             const active=priceRange[0]===o.v[0]&&priceRange[1]===o.v[1]
             return <button key={i} onClick={()=>setPriceRange(o.v as [number,number])}
-              style={{ padding:'4px 9px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(var(--pr-sub-rgb),0.42)' }}>{o.l}</button>
+              style={{ padding:'4px 9px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(160,200,240,0.42)' }}>{o.l}</button>
           })}
         </div>
       </div>
 
       {/* Free/Paid */}
       <div style={{ marginBottom:18 }}>
-        <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Price Type</div>
+        <div style={{ fontSize:10,color:'rgba(160,200,240,0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Price Type</div>
         <div style={{ display:'flex',gap:5,flexWrap:'wrap' }}>
           {[{v:'',l:'All'},{v:'true',l:'🆓 Free'},{v:'false',l:'💎 Paid'}].map(o=>{
             const active=filters.isFree===o.v
             return <button key={o.v} onClick={()=>setFilters(prev=>({...prev,isFree:o.v}))}
-              style={{ padding:'5px 10px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(var(--pr-sub-rgb),0.42)' }}>{o.l}</button>
+              style={{ padding:'5px 10px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(160,200,240,0.42)' }}>{o.l}</button>
           })}
         </div>
       </div>
 
       {/* Format */}
       <div style={{ marginBottom:18 }}>
-        <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Format</div>
+        <div style={{ fontSize:10,color:'rgba(160,200,240,0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Format</div>
         <div style={{ display:'flex',gap:5,flexWrap:'wrap' }}>
           {[{v:'',l:'Any'},{v:'Live',l:'🔴 Live'},{v:'Recorded',l:'📹 Recorded'},{v:'Both',l:'🔄 Both'}].map(o=>{
             const active=filters.batchType===o.v
             return <button key={o.v} onClick={()=>setFilters(prev=>({...prev,batchType:o.v}))}
-              style={{ padding:'5px 10px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(var(--pr-sub-rgb),0.42)' }}>{o.l}</button>
+              style={{ padding:'5px 10px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(160,200,240,0.42)' }}>{o.l}</button>
           })}
         </div>
       </div>
 
       {/* Difficulty */}
       <div style={{ marginBottom:18 }}>
-        <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Difficulty</div>
+        <div style={{ fontSize:10,color:'rgba(160,200,240,0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Difficulty</div>
         <div style={{ display:'flex',gap:5,flexWrap:'wrap' }}>
           {[{v:'',l:'All'},{v:'Easy',l:'🟢 Easy'},{v:'Medium',l:'🟡 Medium'},{v:'Hard',l:'🔴 Hard'},{v:'Mixed',l:'🔀 Mixed'}].map(o=>{
             const active=filters.difficulty===o.v
             return <button key={o.v} onClick={()=>setFilters(prev=>({...prev,difficulty:o.v}))}
-              style={{ padding:'5px 10px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(var(--pr-sub-rgb),0.42)' }}>{o.l}</button>
+              style={{ padding:'5px 10px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(160,200,240,0.42)' }}>{o.l}</button>
           })}
         </div>
       </div>
 
       {/* Subject */}
       <div style={{ marginBottom:18 }}>
-        <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Subject</div>
+        <div style={{ fontSize:10,color:'rgba(160,200,240,0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Subject</div>
         <div style={{ display:'flex',gap:5,flexWrap:'wrap' }}>
           {[{v:'',l:'All'},{v:'Physics',l:'⚛️ Physics'},{v:'Chemistry',l:'🧪 Chemistry'},{v:'Biology',l:'🧬 Biology'},{v:'Mathematics',l:'📐 Maths'}].map(o=>{
             const active=filters.subject===o.v
             return <button key={o.v} onClick={()=>setFilters(prev=>({...prev,subject:o.v}))}
-              style={{ padding:'5px 10px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(var(--pr-sub-rgb),0.42)' }}>{o.l}</button>
+              style={{ padding:'5px 10px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(160,200,240,0.42)' }}>{o.l}</button>
           })}
         </div>
       </div>
 
       {/* Language */}
       <div style={{ marginBottom:18 }}>
-        <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Language</div>
+        <div style={{ fontSize:10,color:'rgba(160,200,240,0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Language</div>
         <div style={{ display:'flex',gap:5,flexWrap:'wrap' }}>
           {[{v:'',l:'Any'},{v:'Hindi',l:'🇮🇳 Hindi'},{v:'English',l:'🇬🇧 English'},{v:'Hindi + English',l:'🔤 Bilingual'}].map(o=>{
             const active=filters.language===o.v
             return <button key={o.v} onClick={()=>setFilters(prev=>({...prev,language:o.v}))}
-              style={{ padding:'5px 10px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(var(--pr-sub-rgb),0.42)' }}>{o.l}</button>
-          })}
-        </div>
-      </div>
-
-      {/* Quick Toggles: Flash Sale Active / EMI Eligible (FPR4) */}
-      <div style={{ marginBottom:18,display:'flex',gap:8,flexWrap:'wrap' }}>
-        <button onClick={()=>setFilters(prev=>({...prev,flashSaleActive:prev.flashSaleActive?'':'true'}))}
-          style={{ padding:'6px 11px',borderRadius:20,fontSize:10,cursor:'pointer',background:filters.flashSaleActive?'rgba(231,76,60,0.15)':'rgba(77,159,255,0.05)',border:`1px solid ${filters.flashSaleActive?'rgba(231,76,60,0.4)':'rgba(77,159,255,0.1)'}`,color:filters.flashSaleActive?'#E74C3C':'rgba(var(--pr-sub-rgb),0.42)' }}>⚡ Flash Sale Live</button>
-        <button onClick={()=>setFilters(prev=>({...prev,emiEligible:prev.emiEligible?'':'true'}))}
-          style={{ padding:'6px 11px',borderRadius:20,fontSize:10,cursor:'pointer',background:filters.emiEligible?'rgba(0,212,255,0.15)':'rgba(77,159,255,0.05)',border:`1px solid ${filters.emiEligible?'rgba(0,212,255,0.4)':'rgba(77,159,255,0.1)'}`,color:filters.emiEligible?'#00D4FF':'rgba(var(--pr-sub-rgb),0.42)' }}>💳 EMI Eligible</button>
-      </div>
-
-      {/* Offer Type (FPR4) */}
-      <div style={{ marginBottom:18 }}>
-        <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Offer Type</div>
-        <div style={{ display:'flex',gap:5,flexWrap:'wrap' }}>
-          {[{v:'',l:'Any'},{v:'trial',l:'🎯 Free Trial'},{v:'bundle',l:'📦 Bundle'},{v:'spotlight',l:'⭐ Spotlight'},{v:'emi',l:'💳 EMI'},{v:'flashsale',l:'⚡ Flash Sale'}].map(o=>{
-            const active=filters.offerType===o.v
-            return <button key={o.v} onClick={()=>setFilters(prev=>({...prev,offerType:o.v}))}
-              style={{ padding:'5px 10px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(var(--pr-sub-rgb),0.42)' }}>{o.l}</button>
-          })}
-        </div>
-      </div>
-
-      {/* Enrollment State (FPR4) */}
-      <div style={{ marginBottom:18 }}>
-        <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Enrollment State</div>
-        <div style={{ display:'flex',gap:5,flexWrap:'wrap' }}>
-          {[{v:'',l:'Any'},{v:'open',l:'🟢 Open'},{v:'full',l:'🔴 Full'}].map(o=>{
-            const active=filters.enrollmentState===o.v
-            return <button key={o.v} onClick={()=>setFilters(prev=>({...prev,enrollmentState:o.v}))}
-              style={{ padding:'5px 10px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(var(--pr-sub-rgb),0.42)' }}>{o.l}</button>
+              style={{ padding:'5px 10px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(160,200,240,0.42)' }}>{o.l}</button>
           })}
         </div>
       </div>
 
       {/* Sort */}
       <div style={{ marginBottom:8 }}>
-        <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Sort By</div>
+        <div style={{ fontSize:10,color:'rgba(160,200,240,0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Sort By</div>
         <div style={{ display:'flex',gap:5,flexWrap:'wrap' }}>
-          {[{v:'newest',l:'🆕 Newest'},{v:'popular',l:'🔥 Popular'},{v:'enrolled',l:'👥 Most Enrolled'},{v:'rating',l:'⭐ Top Rated'},{v:'price_low',l:'💰 Low Price'},{v:'price_high',l:'💎 High Price'},{v:'discount',l:'🏷️ Highest Discount'}].map(o=>{
+          {[{v:'newest',l:'🆕 Newest'},{v:'popular',l:'🔥 Popular'},{v:'rating',l:'⭐ Top Rated'},{v:'price_low',l:'💰 Low Price'},{v:'price_high',l:'💎 High Price'}].map(o=>{
             const active=sort===o.v
             return <button key={o.v} onClick={()=>setSort(o.v)}
-              style={{ padding:'5px 10px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(var(--pr-sub-rgb),0.42)' }}>{o.l}</button>
+              style={{ padding:'5px 10px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(160,200,240,0.42)' }}>{o.l}</button>
           })}
         </div>
       </div>
 
       {/* Reset */}
-      <button onClick={()=>{setFilters({isFree:'',batchType:'',difficulty:'',subject:'',language:'',offerType:'',flashSaleActive:'',emiEligible:'',enrollmentState:''});setPriceRange([0,5000]);setSort('newest')}}
+      <button onClick={()=>{setFilters({isFree:'',batchType:'',difficulty:'',subject:'',language:''});setPriceRange([0,5000]);setSort('newest')}}
         style={{ width:'100%',padding:'8px',background:'rgba(231,76,60,0.07)',border:'1px solid rgba(231,76,60,0.18)',borderRadius:10,color:'#E74C3C',cursor:'pointer',fontSize:10,fontWeight:700,marginTop:4 }}>
         🗑 Reset All Filters
       </button>
     </>
   )
 
-  const pageTheme = usePageTheme()
-  const vars = THEME_VARS[pageTheme]
-
   return (
-    <div style={{ minHeight:'100vh',color:'var(--pr-text)',fontFamily:'Inter,sans-serif',position:'relative',overflowX:'hidden',background:'var(--pr-bg)', ...(vars as any) }}>
+    <div style={{ minHeight:'100vh',color:'#F0F8FF',fontFamily:'Inter,sans-serif',position:'relative',overflowX:'hidden',background:'transparent' }}>
+      <MilkyWayCanvas />
+      <SolarSystem />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap');
         @keyframes floatBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-13px)}}
@@ -751,12 +630,12 @@ export default function TestSeriesPage() {
       `}</style>
 
       {/* STICKY TOP BAR */}
-      <div style={{ position:'sticky',top:0,zIndex:50,background:'rgba(var(--pr-header-rgb),0.94)',backdropFilter:'blur(22px)',borderBottom:'1px solid rgba(77,159,255,0.1)',padding:'10px 14px',display:'flex',alignItems:'center',gap:10 }}>
+      <div style={{ position:'sticky',top:0,zIndex:50,background:'rgba(2,8,22,0.94)',backdropFilter:'blur(22px)',borderBottom:'1px solid rgba(77,159,255,0.1)',padding:'10px 14px',display:'flex',alignItems:'center',gap:10 }}>
         <button onClick={()=>router.back()} style={{ background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:10,width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#4D9FFF',fontSize:20,flexShrink:0 }} onMouseEnter={e=>(e.currentTarget.style.background='rgba(77,159,255,0.2)')} onMouseLeave={e=>(e.currentTarget.style.background='rgba(77,159,255,0.1)')}>←</button>
         <PRLogo size={32} />
         <div>
-          <div style={{ fontFamily:'Playfair Display,serif',fontSize:14,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF,#00D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent' }}>Batches & Test Series</div>
-          <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.42)' }}>NEET / JEE / CUET</div>
+          <div style={{ fontFamily:'Playfair Display,serif',fontSize:14,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF,#00D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent' }}>Test Series & Batches</div>
+          <div style={{ fontSize:10,color:'rgba(160,200,240,0.42)' }}>NEET / JEE / CUET</div>
         </div>
         <div style={{ flex:1 }} />
         <NotificationBell tok={tok} />
@@ -767,32 +646,15 @@ export default function TestSeriesPage() {
         <div style={{ padding:'22px 18px 20px',marginBottom:16,textAlign:'center',animation:'slideUp 0.5s ease' }}>
           <div style={{ display:'flex',alignItems:'center',gap:12,marginBottom:4,justifyContent:'center' }}>
             <span style={{ fontSize:34,filter:'drop-shadow(0 0 13px rgba(77,159,255,0.5))' }}>🎓</span>
-            <div style={{ fontFamily:'Playfair Display,serif',fontSize:25,fontWeight:700,background:'linear-gradient(135deg,#4D9FFF 0%,#00D4FF 45%,#9B59B6 100%)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundSize:'200%',animation:'gradShift 6s ease infinite' }}>Batches & Test Series</div>
+            <div style={{ fontFamily:'Playfair Display,serif',fontSize:25,fontWeight:700,background:'linear-gradient(135deg,#4D9FFF 0%,#00D4FF 45%,#9B59B6 100%)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundSize:'200%',animation:'gradShift 6s ease infinite' }}>Test Series & Batches</div>
           </div>
-        </div>
-
-        {/* HERO QUICK STATS STRIP (FPR4) */}
-        <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(90px,1fr))',gap:8,marginBottom:16 }}>
-          {[
-            {l:'Available',v:batches.length,c:'#4D9FFF'},
-            {l:'Enrolled',v:batches.filter(b=>b.isEnrolled).length,c:'#27AE60'},
-            {l:'Wishlisted',v:batches.filter(b=>b.isWishlisted).length,c:'#E74C3C'},
-            {l:'Spotlight',v:spotlights.length,c:'#FFD700'},
-            {l:'Live Offers',v:batches.filter(b=>b.flashSaleEndTime&&new Date(b.flashSaleEndTime)>new Date()).length,c:'#FF6B6B'},
-            {l:'Comparing',v:compareList.length,c:'#9B59B6'},
-          ].map(s=>(
-            <div key={s.l} style={{ background:'rgba(var(--pr-card-rgb),0.85)',border:`1px solid ${s.c}20`,borderRadius:12,padding:'8px 6px',textAlign:'center' }}>
-              <div style={{ fontSize:16,fontWeight:800,color:s.c }}>{s.v}</div>
-              <div style={{ fontSize:8.5,color:'rgba(var(--pr-sub-rgb),0.5)',textTransform:'uppercase',letterSpacing:0.4 }}>{s.l}</div>
-            </div>
-          ))}
         </div>
 
         {/* CATEGORY STRIP */}
         <div style={{ display:'flex',gap:7,overflowX:'auto',paddingBottom:7,marginBottom:14,scrollbarWidth:'none' }}>
           {CATS.map(c=>{
             const active=cat===c
-            return <button key={c} onClick={()=>setCat(c)} style={{ flexShrink:0,padding:'8px 15px',borderRadius:22,background:active?'linear-gradient(135deg,#4D9FFF,#00D4FF)':'rgba(77,159,255,0.07)',border:active?'none':'1px solid rgba(77,159,255,0.13)',color:active?'#fff':'rgba(var(--pr-sub-rgb),0.62)',fontWeight:active?700:400,cursor:'pointer',fontSize:11,transition:'all 0.2s',whiteSpace:'nowrap',boxShadow:active?'0 4px 13px rgba(77,159,255,0.26)':'none' }}>{CICONS[c]} {c}</button>
+            return <button key={c} onClick={()=>setCat(c)} style={{ flexShrink:0,padding:'8px 15px',borderRadius:22,background:active?'linear-gradient(135deg,#4D9FFF,#00D4FF)':'rgba(77,159,255,0.07)',border:active?'none':'1px solid rgba(77,159,255,0.13)',color:active?'#fff':'rgba(160,200,240,0.62)',fontWeight:active?700:400,cursor:'pointer',fontSize:11,transition:'all 0.2s',whiteSpace:'nowrap',boxShadow:active?'0 4px 13px rgba(77,159,255,0.26)':'none' }}>{CICONS[c]} {c}</button>
           })}
         </div>
 
@@ -801,10 +663,10 @@ export default function TestSeriesPage() {
           <div style={{ marginBottom:20 }}>
             <div style={{ display:'flex',alignItems:'center',gap:7,marginBottom:11 }}>
               <span style={{ fontSize:17 }}>⭐</span>
-              <span style={{ fontFamily:'Playfair Display,serif',fontSize:16,fontWeight:700,color:'var(--pr-text)' }}>Spotlight Picks</span>
+              <span style={{ fontFamily:'Playfair Display,serif',fontSize:16,fontWeight:700,color:'#F0F8FF' }}>Spotlight Picks</span>
             </div>
             <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:14 }}>
-              {spotlights.map(b=><BatchCard key={b._id} b={b} tok={tok} onUpdate={fetchBatches} onBuy={handleBuy} onReview={setReviewBatch} onPreview={x=>setPreviewBatchId(x._id)} />)}
+              {spotlights.map(b=><BatchCard key={b._id} b={b} tok={tok} onUpdate={fetchBatches} onBuy={handleBuy} onReview={setReviewBatch} />)}
             </div>
           </div>
         )}
@@ -812,7 +674,7 @@ export default function TestSeriesPage() {
         {/* TABS */}
         <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:7,marginBottom:13 }}>
           {(['all','enrolled','wishlist'] as const).map(t=>(
-            <button key={t} onClick={()=>setTab(t)} style={{ padding:'10px',borderRadius:12,background:tab===t?'rgba(77,159,255,0.13)':'rgba(var(--pr-card-rgb),0.8)',border:`1px solid ${tab===t?'rgba(77,159,255,0.36)':'rgba(77,159,255,0.1)'}`,color:tab===t?'#4D9FFF':'rgba(var(--pr-sub-rgb),0.42)',fontWeight:tab===t?700:400,cursor:'pointer',fontSize:11,backdropFilter:'blur(12px)' }}>
+            <button key={t} onClick={()=>setTab(t)} style={{ padding:'10px',borderRadius:12,background:tab===t?'rgba(77,159,255,0.13)':'rgba(4,12,30,0.8)',border:`1px solid ${tab===t?'rgba(77,159,255,0.36)':'rgba(77,159,255,0.1)'}`,color:tab===t?'#4D9FFF':'rgba(160,200,240,0.42)',fontWeight:tab===t?700:400,cursor:'pointer',fontSize:11,backdropFilter:'blur(12px)' }}>
               {t==='all'?'🌟 All':t==='enrolled'?'✅ My Batches':'❤️ Wishlist'}
             </button>
           ))}
@@ -823,7 +685,7 @@ export default function TestSeriesPage() {
 
           {/* DESKTOP STICKY SIDEBAR */}
           {isDesktop&&(
-            <div style={{ width:220,flexShrink:0,position:'sticky',top:70,background:'rgba(var(--pr-card-rgb),0.97)',border:'1px solid rgba(77,159,255,0.12)',borderRadius:18,padding:'18px 16px',backdropFilter:'blur(22px)',boxShadow:'0 10px 40px rgba(0,10,40,0.35)',animation:'slideUp 0.4s ease',maxHeight:'calc(100vh - 90px)',overflowY:'auto' }}>
+            <div style={{ width:220,flexShrink:0,position:'sticky',top:70,background:'rgba(4,12,30,0.97)',border:'1px solid rgba(77,159,255,0.12)',borderRadius:18,padding:'18px 16px',backdropFilter:'blur(22px)',boxShadow:'0 10px 40px rgba(0,10,40,0.35)',animation:'slideUp 0.4s ease',maxHeight:'calc(100vh - 90px)',overflowY:'auto' }}>
               <FilterContent />
             </div>
           )}
@@ -834,18 +696,18 @@ export default function TestSeriesPage() {
               <div style={{ flex:1,minWidth:150,position:'relative' }}>
                 <span style={{ position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:12,opacity:0.42,zIndex:2 }}>🔍</span>
                 <input value={search} onChange={e=>setSearch(e.target.value)} onFocus={()=>acSuggestions.length>0&&setShowAc(true)} onBlur={()=>setTimeout(()=>setShowAc(false),200)}
-                  placeholder="Search batches..." style={{ width:'100%',padding:'10px 10px 10px 32px',background:'rgba(var(--pr-card-rgb),0.9)',border:'1px solid rgba(77,159,255,0.13)',borderRadius:12,color:'var(--pr-text)',fontSize:12,backdropFilter:'blur(12px)' }} />
+                  placeholder="Search batches..." style={{ width:'100%',padding:'10px 10px 10px 32px',background:'rgba(4,12,30,0.9)',border:'1px solid rgba(77,159,255,0.13)',borderRadius:12,color:'#F0F8FF',fontSize:12,backdropFilter:'blur(12px)' }} />
                 {showAc&&acSuggestions.length>0&&(
-                  <div style={{ position:'absolute',top:'100%',left:0,right:0,marginTop:4,background:'rgba(var(--pr-card-rgb),0.99)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:12,overflow:'hidden',zIndex:100,boxShadow:'0 12px 40px rgba(0,0,0,0.5)',backdropFilter:'blur(24px)',animation:'slideUp 0.18s ease' }}>
+                  <div style={{ position:'absolute',top:'100%',left:0,right:0,marginTop:4,background:'rgba(4,12,30,0.99)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:12,overflow:'hidden',zIndex:100,boxShadow:'0 12px 40px rgba(0,0,0,0.5)',backdropFilter:'blur(24px)',animation:'slideUp 0.18s ease' }}>
                     {acSuggestions.map(s=>(
                       <div key={s._id} onClick={()=>{setSearch(s.name);setShowAc(false)}}
                         style={{ padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:10,borderBottom:'1px solid rgba(77,159,255,0.06)',transition:'background 0.15s' }}
                         onMouseEnter={e=>(e.currentTarget.style.background='rgba(77,159,255,0.08)')}
                         onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                        <span style={{ fontSize:16 }}>{CICONS[s.examType]||'📚'}</span>
+                        <span style={{ fontSize:16 }}>{s.examType==='NEET'?'🩺':s.examType==='JEE'?'⚙️':'📚'}</span>
                         <div>
-                          <div style={{ fontSize:12,color:'var(--pr-text)',fontWeight:600 }}>{s.name}</div>
-                          <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.45)' }}>{s.examType} · {s.isFree?'Free':'Paid'}</div>
+                          <div style={{ fontSize:12,color:'#F0F8FF',fontWeight:600 }}>{s.name}</div>
+                          <div style={{ fontSize:10,color:'rgba(160,200,240,0.45)' }}>{s.examType} · {s.isFree?'Free':'Paid'}</div>
                         </div>
                       </div>
                     ))}
@@ -853,13 +715,13 @@ export default function TestSeriesPage() {
                 )}
               </div>
               {!isDesktop&&(
-                <button onClick={()=>setFilterOpen(o=>!o)} style={{ padding:'10px 12px',background:filterOpen?'rgba(77,159,255,0.13)':'rgba(var(--pr-card-rgb),0.9)',border:`1px solid ${filterOpen?'rgba(77,159,255,0.36)':'rgba(77,159,255,0.13)'}`,borderRadius:12,color:'#4D9FFF',cursor:'pointer',fontSize:11,fontWeight:600 }}>⚙️ Filter</button>
+                <button onClick={()=>setFilterOpen(o=>!o)} style={{ padding:'10px 12px',background:filterOpen?'rgba(77,159,255,0.13)':'rgba(4,12,30,0.9)',border:`1px solid ${filterOpen?'rgba(77,159,255,0.36)':'rgba(77,159,255,0.13)'}`,borderRadius:12,color:'#4D9FFF',cursor:'pointer',fontSize:11,fontWeight:600 }}>⚙️ Filter</button>
               )}
             </div>
 
             {/* MOBILE FILTER */}
             {!isDesktop&&filterOpen&&(
-              <div style={{ background:'rgba(var(--pr-card-rgb),0.97)',border:'1px solid rgba(77,159,255,0.14)',borderRadius:15,padding:15,marginBottom:12,backdropFilter:'blur(22px)',animation:'slideUp 0.22s ease' }}>
+              <div style={{ background:'rgba(4,12,30,0.97)',border:'1px solid rgba(77,159,255,0.14)',borderRadius:15,padding:15,marginBottom:12,backdropFilter:'blur(22px)',animation:'slideUp 0.22s ease' }}>
                 <FilterContent />
               </div>
             )}
@@ -867,13 +729,13 @@ export default function TestSeriesPage() {
             {/* BATCH GRID */}
             {loading?(
               <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:16 }}>
-                {[1,2,3,4].map(i=><div key={i} style={{ height:380,background:'rgba(var(--pr-card-rgb),0.8)',borderRadius:20,border:'1px solid rgba(77,159,255,0.06)',animation:'shimmer 1.5s ease infinite',animationDelay:`${i*0.14}s` }} />)}
+                {[1,2,3,4].map(i=><div key={i} style={{ height:380,background:'rgba(4,12,30,0.8)',borderRadius:20,border:'1px solid rgba(77,159,255,0.06)',animation:'shimmer 1.5s ease infinite',animationDelay:`${i*0.14}s` }} />)}
               </div>
             ):batches.length===0?<EmptyState />:(
               <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:16 }}>
                 {batches.map((b,i)=>(
                   <div key={b._id} style={{ animation:`slideUp ${0.28+i*0.04}s ease both` }}>
-                    <BatchCard b={b} tok={tok} onUpdate={fetchBatches} compareList={compareList} toggleCompare={toggleCompare} onBuy={handleBuy} onReview={setReviewBatch} onPreview={x=>setPreviewBatchId(x._id)} showPriceWatch={tab==='wishlist'} />
+                    <BatchCard b={b} tok={tok} onUpdate={fetchBatches} compareList={compareList} toggleCompare={toggleCompare} onBuy={handleBuy} onReview={setReviewBatch} />
                   </div>
                 ))}
               </div>
@@ -884,10 +746,10 @@ export default function TestSeriesPage() {
               <div style={{ marginTop:40 }}>
                 <div style={{ display:'flex',alignItems:'center',gap:8,marginBottom:14 }}>
                   <span style={{ fontSize:18 }}>💡</span>
-                  <span style={{ fontFamily:'Playfair Display,serif',fontSize:15,fontWeight:700,color:'var(--pr-text)' }}>Recommended For You</span>
+                  <span style={{ fontFamily:'Playfair Display,serif',fontSize:15,fontWeight:700,color:'#F0F8FF' }}>Recommended For You</span>
                 </div>
                 <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:14 }}>
-                  {recommendations.map(b=><BatchCard key={b._id} b={b} tok={tok} onUpdate={fetchBatches} onBuy={handleBuy} onReview={setReviewBatch} onPreview={x=>setPreviewBatchId(x._id)} />)}
+                  {recommendations.map(b=><BatchCard key={b._id} b={b} tok={tok} onUpdate={fetchBatches} onBuy={handleBuy} onReview={setReviewBatch} />)}
                 </div>
               </div>
             )}
@@ -902,7 +764,7 @@ export default function TestSeriesPage() {
                 <div style={{ fontSize:30,filter:`drop-shadow(0 0 11px ${f.c}80)`,flexShrink:0 }}>{f.icon}</div>
                 <div>
                   <div style={{ fontWeight:700,color:f.c,fontSize:12,marginBottom:4,fontFamily:'Playfair Display,serif' }}>{f.t}</div>
-                  <div style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.58)',lineHeight:1.7 }}>{f.f}</div>
+                  <div style={{ fontSize:11,color:'rgba(180,210,240,0.58)',lineHeight:1.7 }}>{f.f}</div>
                 </div>
               </div>
             ))}
@@ -910,16 +772,16 @@ export default function TestSeriesPage() {
         </div>
 
         {/* WHY PROVERANK */}
-        <div style={{ marginTop:42,background:'rgba(var(--pr-card-rgb),0.97)',border:'1px solid rgba(77,159,255,0.12)',borderRadius:20,padding:'24px 16px',backdropFilter:'blur(22px)' }}>
+        <div style={{ marginTop:42,background:'rgba(4,12,30,0.97)',border:'1px solid rgba(77,159,255,0.12)',borderRadius:20,padding:'24px 16px',backdropFilter:'blur(22px)' }}>
           <div style={{ textAlign:'center',marginBottom:20 }}>
-            <div style={{ fontFamily:'Playfair Display,serif',fontSize:19,fontWeight:700,color:'var(--pr-text)',marginBottom:3 }}>✨ Why Choose ProveRank?</div>
+            <div style={{ fontFamily:'Playfair Display,serif',fontSize:19,fontWeight:700,color:'#F0F8FF',marginBottom:3 }}>✨ Why Choose ProveRank?</div>
           </div>
           <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:10 }}>
             {[{i:'🤖',t:'AI Analytics',d:'Weak area detection\nSmart revision',c:'#9B59B6'},{i:'🔒',t:'Anti-Cheat',d:'Webcam · Face AI\nIP Lock',c:'#E74C3C'},{i:'📊',t:'Live Ranks',d:'Real-time AIR\nPercentile',c:'#27AE60'},{i:'📄',t:'OMR + PDFs',d:'Bubble sheet\nCertificates',c:'#E67E22'},{i:'🆓',t:'100% Free',d:'Free hosting\nNo charges',c:'#00D4FF'}].map((f,i)=>(
-              <div key={i} style={{ background:'rgba(var(--pr-card-rgb),0.72)',border:`1px solid ${f.c}14`,borderRadius:14,padding:'14px 10px',textAlign:'center',transition:'all 0.3s' }} onMouseEnter={e=>{(e.currentTarget as HTMLDivElement).style.transform='translateY(-3px)';(e.currentTarget as HTMLDivElement).style.borderColor=f.c+'36'}} onMouseLeave={e=>{(e.currentTarget as HTMLDivElement).style.transform='';(e.currentTarget as HTMLDivElement).style.borderColor=f.c+'14'}}>
+              <div key={i} style={{ background:'rgba(4,12,30,0.72)',border:`1px solid ${f.c}14`,borderRadius:14,padding:'14px 10px',textAlign:'center',transition:'all 0.3s' }} onMouseEnter={e=>{(e.currentTarget as HTMLDivElement).style.transform='translateY(-3px)';(e.currentTarget as HTMLDivElement).style.borderColor=f.c+'36'}} onMouseLeave={e=>{(e.currentTarget as HTMLDivElement).style.transform='';(e.currentTarget as HTMLDivElement).style.borderColor=f.c+'14'}}>
                 <div style={{ fontSize:26,marginBottom:8,filter:`drop-shadow(0 0 6px ${f.c}75)` }}>{f.i}</div>
                 <div style={{ fontWeight:700,color:f.c,fontSize:11,marginBottom:4 }}>{f.t}</div>
-                <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.46)',lineHeight:1.62,whiteSpace:'pre-line' }}>{f.d}</div>
+                <div style={{ fontSize:10,color:'rgba(160,200,240,0.46)',lineHeight:1.62,whiteSpace:'pre-line' }}>{f.d}</div>
               </div>
             ))}
           </div>
@@ -929,21 +791,21 @@ export default function TestSeriesPage() {
         <div style={{ padding:'24px 4px 8px',display:'flex',alignItems:'center',gap:13 }}>
           <span style={{ fontSize:26,flexShrink:0 }}>💫</span>
           <div>
-            <div style={{ fontSize:13,color:'rgba(var(--pr-sub-rgb),0.72)',fontStyle:'italic',lineHeight:1.65,fontFamily:'Playfair Display,serif' }}>"{currentQuote.q}"</div>
+            <div style={{ fontSize:13,color:'rgba(200,220,240,0.72)',fontStyle:'italic',lineHeight:1.65,fontFamily:'Playfair Display,serif' }}>"{currentQuote.q}"</div>
             <div style={{ fontSize:11,color:'#4D9FFF',fontWeight:700,marginTop:5 }}>— {currentQuote.a}</div>
           </div>
         </div>
 
         {/* COMPARE TRAY */}
         {compareList.length>=1&&(
-          <div style={{ position:'fixed',bottom:0,left:0,right:0,zIndex:200,background:'rgba(var(--pr-card-rgb),0.98)',borderTop:`1px solid ${compareList.length===3?'rgba(155,89,182,0.5)':'rgba(77,159,255,0.2)'}`,backdropFilter:'blur(24px)',padding:'12px 16px' }}>
+          <div style={{ position:'fixed',bottom:0,left:0,right:0,zIndex:200,background:'rgba(4,12,30,0.98)',borderTop:`1px solid ${compareList.length===3?'rgba(155,89,182,0.5)':'rgba(77,159,255,0.2)'}`,backdropFilter:'blur(24px)',padding:'12px 16px' }}>
             <div style={{ maxWidth:1200,margin:'0 auto',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap' }}>
-              <span style={{ fontSize:12,color:'rgba(var(--pr-sub-rgb),0.6)',flexShrink:0 }}>⚖️ <strong style={{ color:'#9B59B6' }}>{compareList.length}</strong>/3</span>
+              <span style={{ fontSize:12,color:'rgba(160,200,240,0.6)',flexShrink:0 }}>⚖️ <strong style={{ color:'#9B59B6' }}>{compareList.length}</strong>/3</span>
               <div style={{ display:'flex',gap:6,flex:1,overflow:'hidden' }}>
                 {compareList.map(b=><span key={b._id} style={{ fontSize:11,background:'rgba(155,89,182,0.15)',border:'1px solid rgba(155,89,182,0.3)',borderRadius:20,padding:'4px 10px',color:'#9B59B6',maxWidth:110,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',flexShrink:0 }}>{b.name}</span>)}
               </div>
               <button onClick={()=>setCompareList([])} style={{ background:'rgba(231,76,60,0.1)',border:'1px solid rgba(231,76,60,0.2)',borderRadius:8,padding:'7px 10px',color:'#E74C3C',cursor:'pointer',fontSize:11,fontWeight:600,flexShrink:0 }}>Clear</button>
-              {compareList.length>=2?<button onClick={()=>router.push('/dashboard/batch-compare?ids='+compareList.map(b=>b._id).join(','))} style={{ background:'linear-gradient(135deg,#9B59B6,#7D3C98)',border:'none',borderRadius:10,padding:'9px 16px',color:'#fff',fontWeight:700,cursor:'pointer',fontSize:12,flexShrink:0 }}>Compare Now →</button>:<span style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.4)',flexShrink:0 }}>+{2-compareList.length} more needed</span>}
+              {compareList.length>=2?<button onClick={()=>router.push('/dashboard/batch-compare?ids='+compareList.map(b=>b._id).join(','))} style={{ background:'linear-gradient(135deg,#9B59B6,#7D3C98)',border:'none',borderRadius:10,padding:'9px 16px',color:'#fff',fontWeight:700,cursor:'pointer',fontSize:12,flexShrink:0 }}>Compare Now →</button>:<span style={{ fontSize:11,color:'rgba(160,200,240,0.4)',flexShrink:0 }}>+{2-compareList.length} more needed</span>}
             </div>
           </div>
         )}
@@ -952,7 +814,6 @@ export default function TestSeriesPage() {
       {/* MODALS */}
       {reviewBatch&&tok&&<ReviewModal batchId={reviewBatch._id} batchName={reviewBatch.name} tok={tok} onClose={()=>setReviewBatch(null)} />}
       {buyBatch&&tok&&<EMIModal batch={buyBatch} tok={tok} onClose={()=>setBuyBatch(null)} onSuccess={fetchBatches} />}
-      {previewBatchId&&<QuickPreviewModal batchId={previewBatchId} tok={tok} onClose={()=>setPreviewBatchId(null)} onBuy={setBuyBatch} onEnrollUpdate={fetchBatches} />}
     </div>
   )
 }

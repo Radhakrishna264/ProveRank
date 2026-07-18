@@ -1,3 +1,27 @@
+#!/bin/bash
+# ══════════════════════════════════════════════════════════════════
+# ProveRank — FPR5 MY BATCHES / TEST SERIES HUB — BACKEND INSTALLER
+# Run from your project ROOT on Replit:  bash fpr5_backend_install.sh
+# Safe to re-run (idempotent). Best run AFTER fpr4_backend_install.sh.
+# ══════════════════════════════════════════════════════════════════
+set -e
+echo "🚀 ProveRank FPR5 — My Batches Hub — BACKEND install starting..."
+
+MODELS_DIR=$(find . -maxdepth 6 -type f -name "Batch.js" -not -path "*/node_modules/*" 2>/dev/null | head -1 | xargs -I{} dirname {})
+ROUTES_DIR=$(find . -maxdepth 6 -type f -name "myBatches.js" -not -path "*/node_modules/*" 2>/dev/null | head -1 | xargs -I{} dirname {})
+BACKEND_ROOT=$(find . -maxdepth 4 -type f -iname "index.js" -not -path "*/node_modules/*" 2>/dev/null -exec grep -l "app.use('/api/my-batches'" {} \; | head -1 | xargs -I{} dirname {})
+
+if [ -z "$MODELS_DIR" ]; then MODELS_DIR="./backend/models"; echo "⚠️  models dir not auto-detected — defaulting to $MODELS_DIR"; fi
+if [ -z "$ROUTES_DIR" ]; then ROUTES_DIR="./backend/routes"; echo "⚠️  routes dir not auto-detected — defaulting to $ROUTES_DIR"; fi
+if [ -z "$BACKEND_ROOT" ]; then BACKEND_ROOT="./backend"; echo "⚠️  backend root not auto-detected — defaulting to $BACKEND_ROOT"; fi
+
+mkdir -p "$MODELS_DIR" "$ROUTES_DIR"
+echo "📁 Models dir : $MODELS_DIR"
+echo "📁 Routes dir : $ROUTES_DIR"
+
+# ── 1) Overwrite routes/myBatches.js (FPR5 search/filter/sort/renewal/certificate/compare/milestones) ──
+cp "$ROUTES_DIR/myBatches.js" "$ROUTES_DIR/myBatches.js.bak_fpr5" 2>/dev/null || true
+cat > "$ROUTES_DIR/myBatches.js" << 'PRVRNK_EOF_MARKER'
 const express=require('express');
 const router=express.Router();
 const mongoose=require('mongoose');
@@ -301,3 +325,53 @@ router.get('/:batchId/leaderboard', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 module.exports=router;
+PRVRNK_EOF_MARKER
+node --check "$ROUTES_DIR/myBatches.js" && echo "✅ Updated myBatches.js (syntax verified)" || { echo "❌ syntax error — restoring backup"; cp "$ROUTES_DIR/myBatches.js.bak_fpr5" "$ROUTES_DIR/myBatches.js" 2>/dev/null; exit 1; }
+
+# ══════════════════════════════════════════════════════════════════
+# ✅ FINAL VERIFICATION CHECKLIST — BACKEND (FPR5 My Batches Hub)
+# ══════════════════════════════════════════════════════════════════
+echo ""
+echo "═══════════════════════════════════════════════════════════"
+echo "  ✅ FPR5 MY BATCHES HUB — BACKEND VERIFICATION CHECKLIST"
+echo "═══════════════════════════════════════════════════════════"
+MBFILE="$ROUTES_DIR/myBatches.js"
+PASS=0; FAIL=0
+check() {
+  DESC="$1"; PATTERN="$2"; FILE="$3"
+  if grep -q "$PATTERN" "$FILE" 2>/dev/null; then
+    echo "✅ $DESC"; PASS=$((PASS+1))
+  else
+    echo "❌ $DESC"; FAIL=$((FAIL+1))
+  fi
+}
+
+check "1) Search (name/exam/subject/instructor)"                  "b.name.*toLowerCase" "$MBFILE"
+check "2) Filter — Active/Completed/Free/Paid/Expiring/Certificate/Streak/Progress/Rating" "filter==='expiring_soon'" "$MBFILE"
+check "3) Sort — Progress/Score/Streak/Expiry/Rating/Newest/Recent" "sort==='progress'" "$MBFILE"
+check "4) Enriched Stats — Progress/Forecast/Health Score"        "function buildEnriched" "$MBFILE"
+check "5) Progress Forecast Calculation"                           "forecastDays" "$MBFILE"
+check "6) Batch/Series Health Score Calculation"                   "healthScore:" "$MBFILE"
+check "7) Renewal State Detection (active/expiring/expired)"       "renewalState:" "$MBFILE"
+check "8) Hero Stats Endpoint (enriched — streak/renewal/avg progress)" "router.get('/stats'" "$MBFILE"
+check "9) Access Tracking + Daily Streak Logic"                    "router.post('/:id/access'" "$MBFILE"
+check "10) Enrollment Meta Bootstrap Endpoint"                      "router.post('/enroll-meta'" "$MBFILE"
+check "11) Wishlist Endpoint (dedicated, fixes broken tab)"        "router.get('/wishlist'" "$MBFILE"
+check "12) One-Tap Renew Endpoint"                                  "router.post('/:id/renew'" "$MBFILE"
+check "13) Renewal State + History Endpoint"                        "router.get('/:id/renewal'" "$MBFILE"
+check "14) Certificate Eligibility + Missing Requirements Endpoint" "router.get('/:id/certificate-status'" "$MBFILE"
+check "15) Compare Enrolled Batches Endpoint"                        "router.get('/compare'" "$MBFILE"
+check "16) Achievement Milestones Endpoint"                          "router.get('/:id/milestones'" "$MBFILE"
+check "17) Combined Activity Feed Endpoint (across all enrolled)"   "router.get('/activity-feed'" "$MBFILE"
+check "18) Batch Leaderboard Endpoint (preserved)"                   "router.get('/:batchId/leaderboard'" "$MBFILE"
+
+echo "═══════════════════════════════════════════════════════════"
+echo "  RESULT: $PASS PASSED / $((PASS+FAIL)) TOTAL"
+if [ "$FAIL" -eq 0 ]; then
+  echo "  🎉 ALL BACKEND FPR5 FEATURES SUCCESSFULLY IMPLEMENTED ✅"
+else
+  echo "  ⚠️  $FAIL item(s) need attention — see ❌ above"
+fi
+echo "═══════════════════════════════════════════════════════════"
+echo ""
+echo "👉 Next: Restart your backend then run fpr5_frontend_install.sh"

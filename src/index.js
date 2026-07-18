@@ -225,3 +225,6 @@ const contentForgeRoutes = require('./routes/contentForge');
 app.use('/api/content-forge', contentForgeRoutes)
 app.use('/api/pyq-bank', pyqBankAdminRoutes);
 ;
+
+const studentBatchUltraRoutes = require('./routes/studentBatchUltra');
+app.use('/api/student/batch-ultra', studentBatchUltraRoutes);

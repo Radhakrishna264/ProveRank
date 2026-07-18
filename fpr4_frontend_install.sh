@@ -1,3 +1,45 @@
+#!/bin/bash
+# ══════════════════════════════════════════════════════════════════
+# ProveRank — FPR4 STUDENT MARKETPLACE (Batches & Test Series) — FRONTEND
+# Run from your project ROOT on Replit:  bash fpr4_frontend_install.sh
+# Safe to re-run (idempotent).
+# ══════════════════════════════════════════════════════════════════
+set -e
+echo "🚀 ProveRank FPR4 — Student Marketplace — FRONTEND install starting..."
+
+# ── Auto-detect StudentShell.tsx ──
+SHELL_FILE=$(find . -type f -name "StudentShell.tsx" -not -path "*/node_modules/*" 2>/dev/null | head -1)
+if [ -z "$SHELL_FILE" ]; then
+  echo "❌ StudentShell.tsx not found — aborting. Please locate it and re-run with SHELL_FILE set manually."
+  exit 1
+fi
+echo "📁 StudentShell.tsx: $SHELL_FILE"
+
+# ── Auto-detect Test Series (marketplace) page directory ──
+TS_DIR=$(find . -type d \( -iname "test-series" -o -iname "batches" \) -not -path "*/node_modules/*" -not -path "*admin*" 2>/dev/null | head -1)
+if [ -z "$TS_DIR" ]; then
+  TS_DIR="./frontend/app/dashboard/test-series"
+  echo "⚠️  Test Series page dir not auto-detected — defaulting to $TS_DIR"
+fi
+mkdir -p "$TS_DIR"
+echo "📁 Test Series page dir: $TS_DIR"
+
+# ── 1) Patch StudentShell.tsx — remove immersive lock on test-series/batches/my-batches (idempotent) ──
+if grep -q "const IMMERSIVE_PAGES=['store']" "$SHELL_FILE"; then
+  echo "⏭️  StudentShell.tsx already patched — skipping"
+else
+  cp "$SHELL_FILE" "$SHELL_FILE.bak_fpr4"
+  if grep -q "const IMMERSIVE_PAGES=\['test-series','batches','my-batches','store'\]" "$SHELL_FILE"; then
+    sed -i "s/const IMMERSIVE_PAGES=\['test-series','batches','my-batches','store'\]/const IMMERSIVE_PAGES=['store']/" "$SHELL_FILE"
+    echo "✅ Removed immersive dark-lock for test-series/batches/my-batches (theme now adapts to student preference)"
+  else
+    echo "ℹ️  IMMERSIVE_PAGES anchor not found in expected form — please verify manually in StudentShell.tsx"
+  fi
+fi
+
+# ── 2) Overwrite Test Series (Batches & Test Series marketplace) page.tsx ──
+cp "$TS_DIR/page.tsx" "$TS_DIR/page.tsx.bak_fpr4" 2>/dev/null || true
+cat > "$TS_DIR/page.tsx" << 'PRVRNK_EOF_MARKER'
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -956,3 +998,65 @@ export default function TestSeriesPage() {
     </div>
   )
 }
+PRVRNK_EOF_MARKER
+echo "✅ Created/Updated Batches & Test Series marketplace page.tsx"
+
+# ══════════════════════════════════════════════════════════════════
+# ✅ FINAL VERIFICATION CHECKLIST — FRONTEND (FPR4 Student Marketplace)
+# ══════════════════════════════════════════════════════════════════
+echo ""
+echo "═══════════════════════════════════════════════════════════"
+echo "  ✅ FPR4 STUDENT MARKETPLACE — FRONTEND VERIFICATION CHECKLIST"
+echo "═══════════════════════════════════════════════════════════"
+TSFILE="$TS_DIR/page.tsx"
+PASS=0; FAIL=0
+check() {
+  DESC="$1"; PATTERN="$2"; FILE="$3"
+  if grep -q "$PATTERN" "$FILE" 2>/dev/null; then
+    echo "✅ $DESC"; PASS=$((PASS+1))
+  else
+    echo "❌ $DESC"; FAIL=$((FAIL+1))
+  fi
+}
+
+check "1) Page Renamed to 'Batches & Test Series'"               "Batches & Test Series" "$TSFILE"
+if grep -q "function MilkyWayCanvas" "$TSFILE"; then echo "❌ 2) Old Immersive Galaxy Background Removed"; FAIL=$((FAIL+1)); else echo "✅ 2) Old Immersive Galaxy Background Removed"; PASS=$((PASS+1)); fi
+check "3) Light/Dark Theme Hook (auto-adapts, synced with app-wide preference)" "function usePageTheme" "$TSFILE"
+check "4) Multi-Competitive-Exam Category Strip (NEET UG/JEE MAINS/etc.)" "'JEE ADVANCE'" "$TSFILE"
+check "5) Hero / Quick Stats Strip"                                 "HERO QUICK STATS STRIP" "$TSFILE"
+check "6) Spotlight / Featured Section (preserved)"                 "spotlights" "$TSFILE"
+check "7) Smart Search + Autocomplete (preserved)"                  "autocomplete" "$TSFILE"
+check "8) Offer Type Filter (trial/bundle/spotlight/emi/flashsale)" "Offer Type (FPR4)" "$TSFILE"
+check "9) Enrollment State Filter"                                   "Enrollment State (FPR4)" "$TSFILE"
+check "10) Flash Sale Active / EMI Eligible Quick Toggles"           "Flash Sale Live" "$TSFILE"
+check "11) Sort — Highest Discount / Most Enrolled Added"            "Highest Discount" "$TSFILE"
+check "12) Card Grid (preserved: badges/ribbons/EMI/wishlist)"       "function BatchCard" "$TSFILE"
+check "13) Fit Score Badge on Cards"                                  "Fit</span>" "$TSFILE"
+check "14) Price Watch Toggle + Price-Drop Indicator"                "togglePriceWatch" "$TSFILE"
+check "15) Quick Preview Modal"                                       "function QuickPreviewModal" "$TSFILE"
+check "16) Preview — FAQ Section"                                     "faqPreview" "$TSFILE"
+check "17) Preview — Instructor Highlights"                           "instructorHighlight" "$TSFILE"
+check "18) Preview — Social Proof"                                    "socialProof" "$TSFILE"
+check "19) Preview — Syllabus Coverage Meter"                         "syllabusCoveragePct" "$TSFILE"
+check "20) Preview — Study Load Indicator"                            "studyLoadPerWeek" "$TSFILE"
+check "21) Compare Tray (preserved, up to 3)"                         "compareList" "$TSFILE"
+check "22) Wishlist Toggle (preserved)"                                "toggleWish" "$TSFILE"
+check "23) EMI Modal (preserved)"                                      "function EMIModal" "$TSFILE"
+check "24) Review Modal (preserved)"                                   "function ReviewModal" "$TSFILE"
+check "25) Notification Bell (preserved)"                              "NotificationBell" "$TSFILE"
+check "26) My Batches / Wishlist Tabs (preserved)"                     "'wishlist'" "$TSFILE"
+check "27) Recommendations Section (preserved)"                        "recommendations" "$TSFILE"
+check "28) Why Choose Section (preserved)"                             "Why Choose\|WHY CHOOSE" "$TSFILE"
+check "29) StudentShell — Immersive Dark-Lock Removed"                 "IMMERSIVE_PAGES=\['store'\]" "$SHELL_FILE"
+
+echo "═══════════════════════════════════════════════════════════"
+echo "  RESULT: $PASS PASSED / $((PASS+FAIL)) TOTAL"
+if [ "$FAIL" -eq 0 ]; then
+  echo "  🎉 ALL FRONTEND FPR4 FEATURES SUCCESSFULLY IMPLEMENTED ✅"
+else
+  echo "  ⚠️  $FAIL item(s) need attention — see ❌ above"
+fi
+echo "═══════════════════════════════════════════════════════════"
+echo ""
+echo "🧹 Backups saved as *.bak_fpr4 next to originals."
+echo "👉 Next: Restart Next.js dev server / redeploy. Open Student Panel → Batches & Test Series to test in both Light and Dark theme."

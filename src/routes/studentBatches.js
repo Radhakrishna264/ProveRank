@@ -18,29 +18,91 @@ const auth=(req,res,next)=>{
   catch(e){res.status(401).json({error:'Invalid token'});}
 };
 
+function effectivePrice(b){
+  if(b.flashSalePrice&&b.flashSaleEndTime&&new Date(b.flashSaleEndTime)>new Date())return b.flashSalePrice;
+  return b.discountPrice||b.price||0;
+}
+function discountPct(b){
+  const base=b.price||0,eff=effectivePrice(b);
+  if(!base||base<=eff)return 0;
+  return Math.round(((base-eff)/base)*100);
+}
+// Fit score: simple heuristic combining exam-type match with student's targetExam,
+// difficulty preference proxy, and popularity — always 0-100, never blocks rendering if profile missing.
+function computeFitScore(b,user){
+  let score=50;
+  if(user&&user.targetExam){
+    if((b.examType||'').toLowerCase()===String(user.targetExam).toLowerCase())score+=30;
+    else score-=10;
+  }
+  if(b.rating)score+=Math.round((b.rating-3)*5);
+  if(b.enrolledCount>100)score+=10; else if(b.enrolledCount>20)score+=5;
+  if(b.isSpotlight)score+=5;
+  return Math.max(0,Math.min(100,score));
+}
+
 // GET /api/student/batches
 router.get('/',optAuth,async(req,res)=>{
   try{
-    const{examType,isFree,search,sort='newest',category,subject}=req.query;
+    const{
+      examType,isFree,search,sort='newest',category,subject,
+      batchType,difficulty,language,minPrice,maxPrice,
+      offerType,flashSaleActive,emiEligible,enrollmentState
+    }=req.query;
     const filter={status:'active'};
     if(examType)filter.examType=examType;
     if(isFree!==undefined)filter.isFree=isFree==='true';
     if(category)filter.category=category;
     if(subject)filter.subject=subject;
+    if(batchType)filter.batchType=batchType;
+    if(difficulty)filter.difficulty=difficulty;
+    if(language)filter.language=language;
     if(search)filter.name={$regex:search,$options:'i'};
+    if(minPrice||maxPrice){
+      filter.price={};
+      if(minPrice)filter.price.$gte=Number(minPrice);
+      if(maxPrice)filter.price.$lte=Number(maxPrice);
+    }
+    if(emiEligible==='true')filter.allowEMI=true;
+    if(flashSaleActive==='true')filter.flashSaleEndTime={$gte:new Date()};
+    if(offerType==='trial')filter.allowFreeTrial=true;
+    else if(offerType==='bundle')filter.isBundle=true;
+    else if(offerType==='spotlight')filter.isSpotlight=true;
+    else if(offerType==='emi')filter.allowEMI=true;
+    else if(offerType==='flashsale')filter.flashSaleEndTime={$gte:new Date()};
+    if(enrollmentState==='full')filter.$expr={$and:[{$gt:['$seatLimit',0]},{$gte:['$enrolledCount','$seatLimit']}]};
+
     let sortObj={createdAt:-1};
-    if(sort==='popular')sortObj={enrolledCount:-1};
+    if(sort==='popular'||sort==='enrolled')sortObj={enrolledCount:-1};
     else if(sort==='price_low')sortObj={price:1};
     else if(sort==='price_high')sortObj={price:-1};
     else if(sort==='rating')sortObj={rating:-1};
-    const batches=await Batch.find(filter).sort(sortObj).lean();
-    let enrolledIds=[],wishlistIds=[];
+
+    let batches=await Batch.find(filter).sort(sortObj).lean();
+
+    if(sort==='discount')batches=batches.sort((a,b)=>discountPct(b)-discountPct(a));
+
+    let enrolledIds=[],wishlistIds=[],priceWatchMap={},user=null;
     if(req.user){
-      const user=await User.collection.findOne({_id:new mongoose.Types.ObjectId(req.user.id)});
+      user=await User.collection.findOne({_id:new mongoose.Types.ObjectId(req.user.id)});
       enrolledIds=(user?.enrolledBatches||[]).map(id=>id.toString());
       wishlistIds=(user?.wishlistBatches||[]).map(id=>id.toString());
+      (user?.priceWatch||[]).forEach(pw=>{priceWatchMap[pw.batchId?.toString()]=pw.watchedPrice;});
     }
-    const result=batches.map(b=>({...b,isEnrolled:enrolledIds.includes(b._id.toString()),isWishlisted:wishlistIds.includes(b._id.toString())}));
+    const result=batches.map(b=>{
+      const eff=effectivePrice(b);
+      const watched=priceWatchMap[b._id.toString()];
+      return{
+        ...b,
+        isEnrolled:enrolledIds.includes(b._id.toString()),
+        isWishlisted:wishlistIds.includes(b._id.toString()),
+        effectivePrice:eff,
+        discountPct:discountPct(b),
+        fitScore:computeFitScore(b,user),
+        isPriceWatched:watched!==undefined,
+        priceDropped:watched!==undefined&&eff<watched
+      };
+    });
     res.json({batches:result,total:result.length});
   }catch(e){console.error(e);res.status(500).json({error:e.message});}
 });
@@ -60,8 +122,14 @@ router.get('/wishlist',auth,async(req,res)=>{
   try{
     const user=await User.collection.findOne({_id:new mongoose.Types.ObjectId(req.user.id)});
     const ids=user?.wishlistBatches||[];
+    const priceWatch=user?.priceWatch||[];
     const batches=await Batch.find({_id:{$in:ids}}).lean();
-    res.json({batches});
+    const result=batches.map(b=>{
+      const pw=priceWatch.find(x=>x.batchId?.toString()===b._id.toString());
+      const eff=effectivePrice(b);
+      return{...b,effectivePrice:eff,discountPct:discountPct(b),isPriceWatched:!!pw,priceDropped:!!pw&&eff<pw.watchedPrice,watchedPrice:pw?pw.watchedPrice:null};
+    });
+    res.json({batches:result});
   }catch(e){res.status(500).json({error:e.message});}
 });
 
@@ -70,7 +138,30 @@ router.get('/:id',optAuth,async(req,res)=>{
   try{
     const batch=await Batch.findById(req.params.id).lean();
     if(!batch)return res.status(404).json({error:'Not found'});
-    res.json({batch});
+    let user=null;
+    if(req.user){
+      user=await User.collection.findOne({_id:new mongoose.Types.ObjectId(req.user.id)});
+    }
+    const totalTests=batch.totalTests||0;
+    const validityDays=batch.validity||365;
+    const studyLoadPerWeek=totalTests>0?Math.max(1,Math.round((totalTests/(validityDays/7)))):0;
+    res.json({
+      batch:{
+        ...batch,
+        effectivePrice:effectivePrice(batch),
+        discountPct:discountPct(batch),
+        fitScore:computeFitScore(batch,user),
+        instructorHighlight:batch.teacherAssigned?`Faculty: ${batch.teacherAssigned} — subject expert, curates ${batch.subject||'this'} content for ${batch.examType||'this exam'} aspirants.`:'',
+        faqPreview:[
+          {q:'Can I access this on mobile?',a:'Yes, fully accessible on the ProveRank mobile web app.'},
+          {q:'Is there a refund policy?',a:'Refunds are handled per platform policy — contact support within 7 days.'},
+          {q:'Do I get a certificate?',a:batch.totalTests>0?'Yes, on completing all tests in this batch.':'Certificate availability depends on batch configuration.'}
+        ],
+        socialProof:{enrolledCount:batch.enrolledCount||0,rating:batch.rating||0,ratingCount:batch.ratingCount||0},
+        syllabusCoveragePct:Math.min(100,Math.round(((batch.totalTests||0)/60)*100))||(batch.totalTests?100:0),
+        studyLoadPerWeek
+      }
+    });
   }catch(e){res.status(500).json({error:e.message});}
 });
 
@@ -93,8 +184,11 @@ router.post('/:id/wishlist',auth,async(req,res)=>{
     const wishlist=user?.wishlistBatches||[];
     const bObjId=new mongoose.Types.ObjectId(req.params.id);
     const isW=wishlist.some(id=>id.toString()===req.params.id);
-    if(isW){await User.collection.updateOne({_id:new mongoose.Types.ObjectId(req.user.id)},{$pull:{wishlistBatches:bObjId}});}
-    else{await User.collection.updateOne({_id:new mongoose.Types.ObjectId(req.user.id)},{$addToSet:{wishlistBatches:bObjId}});}
+    if(isW){
+      await User.collection.updateOne({_id:new mongoose.Types.ObjectId(req.user.id)},{$pull:{wishlistBatches:bObjId,priceWatch:{batchId:bObjId}}});
+    }else{
+      await User.collection.updateOne({_id:new mongoose.Types.ObjectId(req.user.id)},{$addToSet:{wishlistBatches:bObjId}});
+    }
     res.json({success:true,isWishlisted:!isW});
   }catch(e){res.status(500).json({error:e.message});}
 });

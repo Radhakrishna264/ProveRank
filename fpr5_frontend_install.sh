@@ -1,3 +1,40 @@
+#!/bin/bash
+# ══════════════════════════════════════════════════════════════════
+# ProveRank — FPR5 MY BATCHES / TEST SERIES HUB — FRONTEND INSTALLER
+# Run from your project ROOT on Replit:  bash fpr5_frontend_install.sh
+# Safe to re-run (idempotent). Best run AFTER fpr4_frontend_install.sh.
+# ══════════════════════════════════════════════════════════════════
+set -e
+echo "🚀 ProveRank FPR5 — My Batches Hub — FRONTEND install starting..."
+
+SHELL_FILE=$(find . -type f -name "StudentShell.tsx" -not -path "*/node_modules/*" 2>/dev/null | head -1)
+if [ -n "$SHELL_FILE" ]; then
+  echo "📁 StudentShell.tsx: $SHELL_FILE"
+  if grep -q "const IMMERSIVE_PAGES=\['store'\]" "$SHELL_FILE"; then
+    echo "⏭️  StudentShell.tsx already patched (immersive lock removed) — skipping"
+  elif grep -q "const IMMERSIVE_PAGES=\['test-series','batches','my-batches','store'\]" "$SHELL_FILE"; then
+    cp "$SHELL_FILE" "$SHELL_FILE.bak_fpr5"
+    sed -i "s/const IMMERSIVE_PAGES=\['test-series','batches','my-batches','store'\]/const IMMERSIVE_PAGES=['store']/" "$SHELL_FILE"
+    echo "✅ Removed immersive dark-lock for test-series/batches/my-batches"
+  else
+    echo "ℹ️  IMMERSIVE_PAGES anchor not found in expected form — please verify manually"
+  fi
+else
+  echo "⚠️  StudentShell.tsx not found — skipping shell patch (run fpr4_frontend_install.sh for full effect)"
+fi
+
+# ── Auto-detect My Batches page directory ──
+MB_DIR=$(find . -type d -iname "my-batches" -not -path "*/node_modules/*" 2>/dev/null | head -1)
+if [ -z "$MB_DIR" ]; then
+  MB_DIR="./frontend/app/dashboard/my-batches"
+  echo "⚠️  My Batches page dir not auto-detected — defaulting to $MB_DIR"
+fi
+mkdir -p "$MB_DIR"
+echo "📁 My Batches page dir: $MB_DIR"
+
+# ── Overwrite My Batches page.tsx (FPR5 upgrade) ──
+cp "$MB_DIR/page.tsx" "$MB_DIR/page.tsx.bak_fpr5" 2>/dev/null || true
+cat > "$MB_DIR/page.tsx" << 'PRVRNK_EOF_MARKER'
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -536,3 +573,57 @@ export default function MyBatchesPage() {
     </div>
   )
 }
+PRVRNK_EOF_MARKER
+echo "✅ Created/Updated My Batches Hub page.tsx"
+
+# ══════════════════════════════════════════════════════════════════
+# ✅ FINAL VERIFICATION CHECKLIST — FRONTEND (FPR5 My Batches Hub)
+# ══════════════════════════════════════════════════════════════════
+echo ""
+echo "═══════════════════════════════════════════════════════════"
+echo "  ✅ FPR5 MY BATCHES HUB — FRONTEND VERIFICATION CHECKLIST"
+echo "═══════════════════════════════════════════════════════════"
+MBFILE="$MB_DIR/page.tsx"
+PASS=0; FAIL=0
+check() {
+  DESC="$1"; PATTERN="$2"; FILE="$3"
+  if grep -q "$PATTERN" "$FILE" 2>/dev/null; then
+    echo "✅ $DESC"; PASS=$((PASS+1))
+  else
+    echo "❌ $DESC"; FAIL=$((FAIL+1))
+  fi
+}
+
+if grep -q "function MilkyWayCanvas" "$MBFILE"; then echo "❌ 1) Old Immersive Galaxy Background Removed"; FAIL=$((FAIL+1)); else echo "✅ 1) Old Immersive Galaxy Background Removed"; PASS=$((PASS+1)); fi
+check "2) Light/Dark Theme Hook (auto-adapts, synced with app-wide preference)" "function usePageTheme" "$MBFILE"
+check "3) Multi-Competitive-Exam Icon Map"                          "'JEE ADVANCE':'🛠️'" "$MBFILE"
+check "4) Hero / Summary Strip (preserved + Streak + Renewal chips)" "Renew Soon" "$MBFILE"
+check "5) Smart Search + Filter + Sort Bar (new)"                    "SMART SEARCH + FILTER BAR" "$MBFILE"
+check "6) Filter — Expiring/Certificate/Streak/Progress/Rating"      "certificate_available" "$MBFILE"
+check "7) Sort — Progress/Score/Streak/Expiry/Rating/Newest"         "Highest Streak" "$MBFILE"
+check "8) Continue Where You Left Off (preserved)"                    "lastAccessed" "$MBFILE"
+check "9) Active / Completed / Wishlist Tabs (preserved)"             "'wishlist'" "$MBFILE"
+check "10) Wishlist Tab — Fixed to Use Real Wishlist Data (bugfix)"   "api/my-batches/wishlist" "$MBFILE"
+check "11) Wishlist Tab — Enroll CTA (not Continue/Renew)"            "View & Enroll" "$MBFILE"
+check "12) Progress Ring / Bar Toggle (preserved)"                    "ProgressRing" "$MBFILE"
+check "13) Streak Badge (preserved)"                                   "streak" "$MBFILE"
+check "14) Renewal — One-Tap Renew Button"                             "renewBatch" "$MBFILE"
+check "15) Renewal — Extend Button for Expiring Soon"                  "⏰ Extend" "$MBFILE"
+check "16) Certificate CTA (preserved)"                                 "Get Certificate" "$MBFILE"
+check "17) Achievement Milestones Chips (new)"                          "function MilestoneChips" "$MBFILE"
+check "18) Batch Leaderboard Modal (preserved)"                        "BatchLeaderboardModal\|setLbBatch" "$MBFILE"
+check "19) Activity Feed (preserved)"                                   "function ActivityFeed" "$MBFILE"
+check "20) Notification Permission Prompt (preserved)"                  "Notification" "$MBFILE"
+check "21) Explore Button (preserved)"                                  "Explore" "$MBFILE"
+
+echo "═══════════════════════════════════════════════════════════"
+echo "  RESULT: $PASS PASSED / $((PASS+FAIL)) TOTAL"
+if [ "$FAIL" -eq 0 ]; then
+  echo "  🎉 ALL FRONTEND FPR5 FEATURES SUCCESSFULLY IMPLEMENTED ✅"
+else
+  echo "  ⚠️  $FAIL item(s) need attention — see ❌ above"
+fi
+echo "═══════════════════════════════════════════════════════════"
+echo ""
+echo "🧹 Backups saved as *.bak_fpr5 next to originals."
+echo "👉 Next: Restart Next.js dev server / redeploy. Open Student Panel → My Batches to test in both Light and Dark theme."

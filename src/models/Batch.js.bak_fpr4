@@ -2,7 +2,7 @@ const mongoose=require('mongoose');
 const BatchSchema=new mongoose.Schema({
   name:{type:String,required:true},
   description:{type:String,default:''},
-  examType:{type:String,default:'NEET',enum:['NEET','NEET UG','JEE','JEE MAINS','JEE ADVANCE','CUET','CUET UG','CUET PG','SSC CGL','IIT JAM','Class 11','Class 12','Foundation','Crash Course','Other']},
+  examType:{type:String,default:'NEET',enum:['NEET','JEE','CUET','Class 11','Class 12','Foundation','Crash Course','Other']},
   category:{type:String,default:'Full Syllabus'},
   price:{type:Number,default:0},
   discountPrice:{type:Number,default:0},
@@ -59,6 +59,5 @@ const BatchSchema=new mongoose.Schema({
   examMeta:[{examId:{type:mongoose.Schema.Types.ObjectId,ref:'Exam'},required:Boolean,locked:Boolean,featured:Boolean,hidden:Boolean,priority:{type:Number,default:0}}],
   enrollments:[{student:{type:mongoose.Schema.Types.ObjectId,ref:'User'},status:{type:String,default:'active',enum:['active','inactive']},joinedAt:{type:Date,default:Date.now}}],
   renameHistory:[{oldName:String,newName:String,changedBy:String,changedAt:{type:Date,default:Date.now}}],
-  previewCount:{type:Number,default:0},
 },{timestamps:true});
 module.exports=mongoose.model('Batch',BatchSchema);

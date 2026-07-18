@@ -150,6 +150,8 @@ const adminBatchControlRoutes  = require('./routes/adminBatchControls');
 const studentBatchExtrasRoutes = require('./routes/studentBatchExtras');
 const { studentAnnouncementRoutes, adminAnnouncementRoutes } = require('./routes/announcements'); // F42A/F42B
 app.use('/api/admin/batch-controls',  adminBatchControlRoutes);
+const batchManagerUltraRoutes = require('./routes/batchManagerUltra');
+app.use('/api/admin/batch-manager', batchManagerUltraRoutes);
 app.use('/api/student/batch-extras',  studentBatchExtrasRoutes);
 app.use('/api/announcements', studentAnnouncementRoutes);          // F42B — student-facing
 app.use('/api/admin/announcements', adminAnnouncementRoutes);      // F42A — admin-facing
@@ -213,6 +215,8 @@ app.use('/api/admin/banners', bannerGeneratorRoutes);
 app.use('/api/student/batches',studentBatchRoutes);
 app.use('/api/admin/email', require('./routes/emailSend'))
 app.use('/api/admin/store',  adminStoreRoutes);
+const testSeriesManagerUltraRoutes = require('./routes/testSeriesManagerUltra');
+app.use('/api/admin/test-series-manager', testSeriesManagerUltraRoutes);
 app.use('/api/store/payment', paymentRoutes);
 app.use('/api/store',        studentStoreRoutes);
 

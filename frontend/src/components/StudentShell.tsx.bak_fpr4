@@ -88,7 +88,7 @@ const NAV_GROUPS=[
 ]
 
 // Pages that must keep their own existing immersive dark/galaxy look — untouched regardless of the user's Light/Dark choice
-const IMMERSIVE_PAGES=['store']
+const IMMERSIVE_PAGES=['test-series','batches','my-batches','store']
 
 export default function StudentShell({pageKey,children}:{pageKey:string;children:ReactNode}){
   const router=useRouter()
