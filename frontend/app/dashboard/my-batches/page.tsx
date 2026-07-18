@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import StudentShell from '@/src/components/StudentShell'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 
@@ -306,6 +307,7 @@ export default function MyBatchesPage() {
   const inp={padding:'8px 12px',background:'rgba(var(--pr-sub-rgb),0.08)',border:`1px solid ${BORDER}`,borderRadius:10,color:TEXT,fontSize:12,outline:'none' as const}
 
   return (
+    <StudentShell pageKey="my-batches">
     <div style={{minHeight:'100vh',color:TEXT,fontFamily:'Inter,sans-serif',position:'relative',overflowX:'hidden',background:BG, ...(vars as any)}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700;800&display=swap');
@@ -527,5 +529,6 @@ export default function MyBatchesPage() {
 
       </div>
     </div>
+    </StudentShell>
   )
 }

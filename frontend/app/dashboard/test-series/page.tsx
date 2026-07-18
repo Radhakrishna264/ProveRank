@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import StudentShell from '@/src/components/StudentShell'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 
@@ -735,6 +736,7 @@ export default function TestSeriesPage() {
   const vars = THEME_VARS[pageTheme]
 
   return (
+    <StudentShell pageKey="test-series">
     <div style={{ minHeight:'100vh',color:'var(--pr-text)',fontFamily:'Inter,sans-serif',position:'relative',overflowX:'hidden',background:'var(--pr-bg)', ...(vars as any) }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap');
@@ -933,5 +935,6 @@ export default function TestSeriesPage() {
       {buyBatch&&tok&&<EMIModal batch={buyBatch} tok={tok} onClose={()=>setBuyBatch(null)} onSuccess={fetchBatches} />}
       {previewBatchId&&<QuickPreviewModal batchId={previewBatchId} tok={tok} onClose={()=>setPreviewBatchId(null)} onBuy={setBuyBatch} onEnrollUpdate={fetchBatches} />}
     </div>
+    </StudentShell>
   )
 }
