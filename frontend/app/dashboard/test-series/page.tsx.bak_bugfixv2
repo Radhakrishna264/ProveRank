@@ -524,7 +524,6 @@ export default function TestSeriesPage() {
   const [showAc,setShowAc]=useState(false)
   const [recommendations,setRecommendations]=useState<Batch[]>([])
   const [isDesktop,setIsDesktop]=useState(false)
-  const [desktopFilterOpen,setDesktopFilterOpen]=useState(false)
   const [reviewBatch,setReviewBatch]=useState<Batch|null>(null)
   const [buyBatch,setBuyBatch]=useState<Batch|null>(null)
   const [previewBatchId,setPreviewBatchId]=useState<string|null>(null)
@@ -752,10 +751,20 @@ export default function TestSeriesPage() {
       `}</style>
 
       {/* STICKY TOP BAR */}
+      <div style={{ position:'sticky',top:0,zIndex:50,background:'rgba(var(--pr-header-rgb),0.94)',backdropFilter:'blur(22px)',borderBottom:'1px solid rgba(77,159,255,0.1)',padding:'10px 14px',display:'flex',alignItems:'center',gap:10 }}>
+        <button onClick={()=>router.back()} style={{ background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:10,width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#4D9FFF',fontSize:20,flexShrink:0 }} onMouseEnter={e=>(e.currentTarget.style.background='rgba(77,159,255,0.2)')} onMouseLeave={e=>(e.currentTarget.style.background='rgba(77,159,255,0.1)')}>←</button>
+        <PRLogo size={32} />
+        <div>
+          <div style={{ fontFamily:'Playfair Display,serif',fontSize:14,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF,#00D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent' }}>Batches & Test Series</div>
+          <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.42)' }}>NEET / JEE / CUET</div>
+        </div>
+        <div style={{ flex:1 }} />
+        <NotificationBell tok={tok} />
+      </div>
+
       <div style={{ position:'relative',zIndex:2,padding:'14px 14px 80px',maxWidth:1300,margin:'0 auto' }}>
         {/* HERO */}
-        <div style={{ padding:'22px 18px 20px',marginBottom:16,textAlign:'center',animation:'slideUp 0.5s ease',position:'relative' }}>
-          <div style={{ position:'absolute',top:8,right:8 }}><NotificationBell tok={tok} /></div>
+        <div style={{ padding:'22px 18px 20px',marginBottom:16,textAlign:'center',animation:'slideUp 0.5s ease' }}>
           <div style={{ display:'flex',alignItems:'center',gap:12,marginBottom:4,justifyContent:'center' }}>
             <span style={{ fontSize:34,filter:'drop-shadow(0 0 13px rgba(77,159,255,0.5))' }}>🎓</span>
             <div style={{ fontFamily:'Playfair Display,serif',fontSize:25,fontWeight:700,background:'linear-gradient(135deg,#4D9FFF 0%,#00D4FF 45%,#9B59B6 100%)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundSize:'200%',animation:'gradShift 6s ease infinite' }}>Batches & Test Series</div>
@@ -812,8 +821,8 @@ export default function TestSeriesPage() {
         {/* LAYOUT */}
         <div style={{ display:isDesktop?'flex':'block',gap:22,alignItems:'flex-start' }}>
 
-          {/* DESKTOP STICKY SIDEBAR (hidden by default — toggle via Filter button) */}
-          {isDesktop&&desktopFilterOpen&&(
+          {/* DESKTOP STICKY SIDEBAR */}
+          {isDesktop&&(
             <div style={{ width:220,flexShrink:0,position:'sticky',top:70,background:'rgba(var(--pr-card-rgb),0.97)',border:'1px solid rgba(77,159,255,0.12)',borderRadius:18,padding:'18px 16px',backdropFilter:'blur(22px)',boxShadow:'0 10px 40px rgba(0,10,40,0.35)',animation:'slideUp 0.4s ease',maxHeight:'calc(100vh - 90px)',overflowY:'auto' }}>
               <FilterContent />
             </div>
@@ -845,9 +854,6 @@ export default function TestSeriesPage() {
               </div>
               {!isDesktop&&(
                 <button onClick={()=>setFilterOpen(o=>!o)} style={{ padding:'10px 12px',background:filterOpen?'rgba(77,159,255,0.13)':'rgba(var(--pr-card-rgb),0.9)',border:`1px solid ${filterOpen?'rgba(77,159,255,0.36)':'rgba(77,159,255,0.13)'}`,borderRadius:12,color:'#4D9FFF',cursor:'pointer',fontSize:11,fontWeight:600 }}>⚙️ Filter</button>
-              )}
-              {isDesktop&&(
-                <button onClick={()=>setDesktopFilterOpen(o=>!o)} style={{ padding:'10px 14px',background:desktopFilterOpen?'rgba(77,159,255,0.13)':'rgba(var(--pr-card-rgb),0.9)',border:`1px solid ${desktopFilterOpen?'rgba(77,159,255,0.36)':'rgba(77,159,255,0.13)'}`,borderRadius:12,color:'#4D9FFF',cursor:'pointer',fontSize:11,fontWeight:600,whiteSpace:'nowrap' }}>⚙️ {desktopFilterOpen?'Hide Filters':'Filters'}</button>
               )}
             </div>
 
@@ -885,6 +891,21 @@ export default function TestSeriesPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* NCERT FACTS */}
+        <div style={{ marginTop:50,padding:'0 4px' }}>
+          <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(230px,1fr))',gap:26,maxWidth:640,margin:'0 auto' }}>
+            {FACTS.map((f,i)=>(
+              <div key={i} style={{ display:'flex',gap:13,alignItems:'flex-start',animation:`slideUp ${1.1+i*0.12}s ease` }}>
+                <div style={{ fontSize:30,filter:`drop-shadow(0 0 11px ${f.c}80)`,flexShrink:0 }}>{f.icon}</div>
+                <div>
+                  <div style={{ fontWeight:700,color:f.c,fontSize:12,marginBottom:4,fontFamily:'Playfair Display,serif' }}>{f.t}</div>
+                  <div style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.58)',lineHeight:1.7 }}>{f.f}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

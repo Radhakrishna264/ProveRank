@@ -240,11 +240,9 @@ export default function MyBatchesPage() {
     if(!tok)return
     setRenewingId(id)
     try{
-      const r=await fetch(`${API}/api/my-batches/${id}/renew`,{method:'POST',headers:{Authorization:`Bearer ${tok}`}})
-      const d=await r.json()
-      if(!r.ok){alert(d.error||'Renewal failed');return}
+      await fetch(`${API}/api/my-batches/${id}/renew`,{method:'POST',headers:{Authorization:`Bearer ${tok}`}})
       await fetchData(tok)
-    }catch{alert('Renewal failed. Please try again.')}finally{setRenewingId(null)}
+    }catch{}finally{setRenewingId(null)}
   }
 
   useEffect(()=>{
@@ -319,15 +317,24 @@ export default function MyBatchesPage() {
       {lbBatch&&tok&&<BatchLeaderboardModal batchId={lbBatch.id} batchName={lbBatch.name} tok={tok} onClose={()=>setLbBatch(null)}/>}
 
       {/* STICKY TOP BAR */}
-      <div style={{position:'relative',zIndex:2,padding:'14px 14px 80px',maxWidth:900,margin:'0 auto'}}>
-        {/* Page toolbar (progress view toggle + explore) */}
-        <div style={{display:'flex',justifyContent:'flex-end',gap:7,alignItems:'center',marginBottom:10}}>
+      <div style={{position:'sticky',top:0,zIndex:50,background:'rgba(var(--pr-card-rgb),0.96)',backdropFilter:'blur(22px)',borderBottom:`1px solid ${BORDER}`,padding:'10px 14px',display:'flex',alignItems:'center',gap:10}}>
+        <button onClick={()=>router.back()} style={{background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:10,width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#4D9FFF',fontSize:20,flexShrink:0}}>←</button>
+        <div style={{flex:1}}>
+          <div style={{fontFamily:'Playfair Display,serif',fontSize:15,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF,#00D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>My Batches</div>
+          <div style={{fontSize:10,color:SUB}}>Your enrolled test series</div>
+        </div>
+        <div style={{display:'flex',gap:7,alignItems:'center'}}>
+          {/* Progress View Toggle */}
           <button onClick={()=>setProgressView(v=>v==='ring'?'bar':'ring')}
             style={{background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.2)',borderRadius:9,padding:'5px 10px',cursor:'pointer',color:'#4D9FFF',fontSize:10,fontWeight:700}}>
             {progressView==='ring'?'📊 Bar':'⭕ Ring'}
           </button>
+          <button onClick={()=>{const next=pageTheme==='dark'?'light':'dark';try{localStorage.setItem('pr_color_theme',next);window.dispatchEvent(new StorageEvent('storage',{key:'pr_color_theme',newValue:next}))}catch{}}} style={{background:'rgba(77,159,255,0.1)',border:`1px solid ${BORDER}`,borderRadius:9,padding:'5px 9px',cursor:'pointer',color:TEXT,fontSize:12}}>{pageTheme==='dark'?'☀️':'🌙'}</button>
           <button onClick={()=>router.push('/dashboard/test-series')} style={{background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',border:'none',borderRadius:10,padding:'7px 12px',cursor:'pointer',color:'#fff',fontSize:11,fontWeight:700,flexShrink:0}}>+ Explore</button>
         </div>
+      </div>
+
+      <div style={{position:'relative',zIndex:2,padding:'14px 14px 80px',maxWidth:900,margin:'0 auto'}}>
 
         {/* NOTIFICATION BANNER */}
         {isClient&&!notifAsked&&typeof window!=='undefined'&&'Notification' in window&&(
