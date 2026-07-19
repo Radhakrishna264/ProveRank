@@ -76,8 +76,10 @@ function computeHealthScore(series, studentCount, testCount) {
 }
 
 function effectivePrice(b) {
-  if (b.discountPrice && (!b.discountValidTill || new Date(b.discountValidTill) >= new Date())) return b.discountPrice;
-  return b.price || 0;
+  if (b.flashSalePrice && b.flashSaleEndTime && new Date(b.flashSaleEndTime) > new Date()) return b.flashSalePrice;
+  if (b.limitedTimePrice) return b.limitedTimePrice;
+  if (b.earlyBirdPrice) return b.earlyBirdPrice;
+  return b.discountPrice || b.price || 0;
 }
 
 // ── FPR3 Publish Gate: block launch (lifecycleStatus -> 'active') without a ready banner ──
@@ -596,7 +598,14 @@ router.get('/:id/pricing', auth, isAdmin, async (req, res) => {
       pricing: {
         basePrice: series.price || 0,
         discountPrice: series.discountPrice || null,
-        discountValidTill: series.discountValidTill || null,
+        bundlePrice: series.bundlePrice || null,
+        earlyBirdPrice: series.earlyBirdPrice || null,
+        limitedTimePrice: series.limitedTimePrice || null,
+        flashSalePrice: series.flashSalePrice || null,
+        flashSaleEndTime: series.flashSaleEndTime || null,
+        couponCode: series.couponCode || '',
+        allowFreeTrial: !!series.allowFreeTrial,
+        trialDays: series.trialDays || 0,
         priceLocked: !!series.priceLocked,
         effectivePrice: effectivePrice(series)
       },
@@ -604,7 +613,7 @@ router.get('/:id/pricing', auth, isAdmin, async (req, res) => {
       forecast: {
         expectedIncome: effectivePrice(series) * Math.max(studentCount, 1) * 1.15,
         conversionEstimate: Math.min(95, 20 + studentCount * 2),
-        offerPerformance: (series.isSpotlight || series.isBundle) ? 'High' : 'Moderate'
+        offerPerformance: (series.isSpotlight || series.isBundle || series.allowFreeTrial) ? 'High' : 'Moderate'
       }
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -617,7 +626,7 @@ router.put('/:id/pricing', auth, isAdmin, async (req, res) => {
     if (series.priceLocked && !req.body.forceUnlock) {
       return res.status(423).json({ error: 'Price is locked. Unlock before editing.' });
     }
-    const fields = ['price', 'discountPrice'];
+    const fields = ['price', 'discountPrice', 'bundlePrice', 'earlyBirdPrice', 'limitedTimePrice', 'couponCode', 'allowFreeTrial', 'trialDays'];
     series.priceHistory = series.priceHistory || [];
     for (const f of fields) {
       if (req.body[f] !== undefined && String(series[f]) !== String(req.body[f])) {
@@ -625,8 +634,9 @@ router.put('/:id/pricing', auth, isAdmin, async (req, res) => {
         series[f] = req.body[f];
       }
     }
-    if (req.body.discountValidTill !== undefined) {
-      series.discountValidTill = req.body.discountValidTill ? new Date(req.body.discountValidTill) : null;
+    if (req.body.flashSalePrice !== undefined) {
+      series.flashSalePrice = req.body.flashSalePrice;
+      series.flashSaleEndTime = req.body.flashSaleEndTime ? new Date(req.body.flashSaleEndTime) : series.flashSaleEndTime;
     }
     await series.save();
     await logAudit({ seriesId: series._id, field: 'pricing', action: 'pricing_updated', newValue: req.body, changedBy: req.user.id, changedByName: req.user.name });

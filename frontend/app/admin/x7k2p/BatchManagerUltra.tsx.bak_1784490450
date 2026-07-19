@@ -705,29 +705,27 @@ function PricingTab({ base, authHeaders, id, showToast }: any) {
   useEffect(() => { if (data?.pricing) setForm(data.pricing) }, [data])
   if (!data || !form) return <EmptyMsg text="⟳ Loading pricing…" />
   const p = data.pricing
-  const saveAndLock = async () => {
-    const r = await fetch(base + '/' + id + '/pricing', { method: 'PUT', headers: authHeaders, body: JSON.stringify({ price: form.basePrice, discountPrice: form.discountPrice, discountValidTill: form.discountValidTill }) })
-    const d = await r.json()
-    if (d.success) {
-      if (!p.priceLocked) await fetch(base + '/' + id + '/pricing/lock', { method: 'PUT', headers: authHeaders })
-      showToast('✅ Price saved & locked')
-      load()
-    } else showToast('⚠️ ' + d.error)
-  }
-  const unlock = async () => { await fetch(base + '/' + id + '/pricing/lock', { method: 'PUT', headers: authHeaders }); showToast('🔓 Price unlocked'); load() }
+  const save = async () => { const r = await fetch(base + '/' + id + '/pricing', { method: 'PUT', headers: authHeaders, body: JSON.stringify(form) }); const d = await r.json(); if (d.success) { showToast('✅ Pricing updated'); load() } else showToast('⚠️ ' + d.error) }
+  const toggleLock = async () => { await fetch(base + '/' + id + '/pricing/lock', { method: 'PUT', headers: authHeaders }); load() }
 
   return (
     <div>
       <div style={{ ...cs, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: 12, color: TS }}>{p.priceLocked ? '🔒 Price Locked' : '🔓 Price Unlocked'}</span>
-        {p.priceLocked && <button style={bs} onClick={unlock}>Unlock</button>}
+        <button style={bs} onClick={toggleLock}>{p.priceLocked ? 'Unlock' : 'Lock'} Price</button>
       </div>
       <div style={{ ...cs, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 }}>
-        <div><label style={lbl}>Base Price ₹</label><input style={inp} type="number" disabled={p.priceLocked} value={form.basePrice} onChange={e => setForm({ ...form, price: e.target.value, basePrice: e.target.value })} /></div>
-        <div><label style={lbl}>Discount Price ₹</label><input style={inp} type="number" disabled={p.priceLocked} value={form.discountPrice || ''} onChange={e => setForm({ ...form, discountPrice: e.target.value })} /></div>
-        <div><label style={lbl}>Discount Valid Till</label><input style={inp} type="date" disabled={p.priceLocked} value={form.discountValidTill ? String(form.discountValidTill).slice(0, 10) : ''} onChange={e => setForm({ ...form, discountValidTill: e.target.value })} /></div>
+        <div><label style={lbl}>Base Price ₹</label><input style={inp} type="number" value={form.basePrice} onChange={e => setForm({ ...form, price: e.target.value, basePrice: e.target.value })} /></div>
+        <div><label style={lbl}>Discount Price ₹</label><input style={inp} type="number" value={form.discountPrice || ''} onChange={e => setForm({ ...form, discountPrice: e.target.value })} /></div>
+        <div><label style={lbl}>Bundle Price ₹</label><input style={inp} type="number" value={form.bundlePrice || ''} onChange={e => setForm({ ...form, bundlePrice: e.target.value })} /></div>
+        <div><label style={lbl}>Early Bird Price ₹</label><input style={inp} type="number" value={form.earlyBirdPrice || ''} onChange={e => setForm({ ...form, earlyBirdPrice: e.target.value })} /></div>
+        <div><label style={lbl}>Limited Time Price ₹</label><input style={inp} type="number" value={form.limitedTimePrice || ''} onChange={e => setForm({ ...form, limitedTimePrice: e.target.value })} /></div>
+        <div><label style={lbl}>Coupon Code</label><input style={inp} value={form.couponCode || ''} onChange={e => setForm({ ...form, couponCode: e.target.value })} /></div>
       </div>
-      <button style={bp} onClick={saveAndLock} disabled={p.priceLocked}>🔒 Save & Lock Price</button>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', margin: '4px 0 14px' }}>
+        <Toggle on={!!form.allowFreeTrial} onChange={v => setForm({ ...form, allowFreeTrial: v })} label="Free Trial" />
+      </div>
+      <button style={bp} onClick={save}>💾 Save Pricing</button>
 
       <div style={{ ...cs, marginTop: 16 }}>
         <div style={{ fontWeight: 700, marginBottom: 6, color: TS }}>💡 Revenue Forecast</div>
