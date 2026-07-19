@@ -1,3 +1,32 @@
+#!/bin/bash
+# ══════════════════════════════════════════════════════════════════
+# FIX: Enrolled Test Series not showing on "My Batches & Test Series"
+# page, even though student is enrolled (visible on the browse page).
+#
+# ROOT CAUSE: src/routes/myBatches.js only ever queries the Batch
+# model for every route (list, renew, renewal, certificate-status,
+# milestones, compare, wishlist). Since a previous fix made TestSeries
+# enrollment also push the series id into user.enrolledBatches, those
+# ids exist in the array — but Batch.find({_id:{$in:ids}}) silently
+# skips any id that isn't actually a Batch document, so enrolled
+# series just vanish from every "My Batches" route.
+#
+# FIX: Merge TestSeries (normalized to Batch's shape) into the same
+# id-driven queries. Detail routes (renew/renewal/certificate-status/
+# milestones) fall back to TestSeries when Batch.findById misses.
+# stats/access/enroll-meta/leaderboard routes are already id-agnostic
+# and untouched.
+# ══════════════════════════════════════════════════════════════════
+
+set -e
+cd ~/workspace
+
+FILE="src/routes/myBatches.js"
+if [ ! -f "$FILE" ]; then echo "❌ Not found: $FILE"; exit 1; fi
+cp "$FILE" "${FILE}.bak_$(date +%s)"
+
+echo "=== Rewriting $FILE ==="
+cat > "$FILE" << 'ENDOFFILE'
 const express=require('express');
 const router=express.Router();
 const mongoose=require('mongoose');
@@ -336,3 +365,10 @@ router.get('/:batchId/leaderboard', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 module.exports=router;
+ENDOFFILE
+
+echo "✅ Rewritten"
+grep -n "TestSeries\|findEnrolledDoc" "$FILE"
+
+echo ""
+echo "✅ DONE. Git push karke Render pe deploy karo, phir My Batches & Test Series page refresh karke check karo — enrolled series bhi dikhni chahiye."

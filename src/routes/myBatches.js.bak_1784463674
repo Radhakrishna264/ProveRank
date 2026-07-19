@@ -2,7 +2,6 @@ const express=require('express');
 const router=express.Router();
 const mongoose=require('mongoose');
 const Batch=require('../models/Batch');
-const TestSeries=require('../models/TestSeries');
 const User=require('../models/User');
 const jwt=require('jsonwebtoken');
 const JWT=process.env.JWT_SECRET||'proverank_jwt_super_secret_key_2024';
@@ -15,27 +14,6 @@ const auth=(req,res,next)=>{
   try{req.user=jwt.verify(h.split(' ')[1],JWT);next();}
   catch(e){res.status(401).json({error:'Invalid token'});}
 };
-
-// ── FPR6: normalize a TestSeries doc to look like a Batch doc so the
-// existing "My Batches" UI can render it without frontend changes. ──
-function normalizeSeries(s){
-  return{
-    ...s,
-    _kind:'series',
-    batchType:s.seriesType||'Recorded',
-    enrolledCount:s.enrolledCount||(s.students?s.students.length:0)||0,
-    validity:s.validity||365
-  };
-}
-
-// Fetch a single enrolled item by id, trying Batch first then TestSeries.
-async function findEnrolledDoc(id){
-  let doc=await Batch.findById(id).lean();
-  if(doc)return doc;
-  doc=await TestSeries.findById(id).lean();
-  if(doc)return normalizeSeries(doc);
-  return null;
-}
 
 // Enrollment meta schema (stored in user doc)
 // enrolledBatchesMeta: [{batchId, enrolledAt, expiresAt, progress, testsCompleted, lastAccessedAt, streak, streakLastDate, avgScore, bestRank}]
@@ -69,7 +47,7 @@ function buildEnriched(b,m,now){
   };
 }
 
-// GET /api/my-batches — all enrolled batches + series with meta (+ search/filter/sort — FPR5)
+// GET /api/my-batches — all enrolled batches with meta (+ search/filter/sort — FPR5)
 router.get('/',auth,async(req,res)=>{
   try{
     const{q,filter,sort}=req.query;
@@ -77,9 +55,6 @@ router.get('/',auth,async(req,res)=>{
     const ids=(user?.enrolledBatches||[]);
     const meta=user?.enrolledBatchesMeta||[];
     let batches=await Batch.find({_id:{$in:ids},status:'active'}).lean();
-    let series=await TestSeries.find({_id:{$in:ids}}).lean();
-    series=series.map(normalizeSeries);
-    batches=batches.concat(series);
     if(q)batches=batches.filter(b=>(b.name||'').toLowerCase().includes(q.toLowerCase())||(b.examType||'').toLowerCase().includes(q.toLowerCase())||(b.subject||'').toLowerCase().includes(q.toLowerCase())||(b.teacherAssigned||'').toLowerCase().includes(q.toLowerCase()));
     const now=new Date();
     let result=batches.map(b=>{
@@ -111,7 +86,6 @@ router.get('/',auth,async(req,res)=>{
 });
 
 // GET /api/my-batches/stats — summary stats (enriched — FPR5 hero strip)
-// (id-agnostic: works for both Batch and TestSeries ids already, no change needed)
 router.get('/stats',auth,async(req,res)=>{
   try{
     const user=await User.collection.findOne({_id:new mongoose.Types.ObjectId(req.user.id)});
@@ -140,7 +114,6 @@ router.get('/stats',auth,async(req,res)=>{
 });
 
 // POST /api/my-batches/:id/access — update last accessed + streak
-// (id-agnostic: no change needed)
 router.post('/:id/access',auth,async(req,res)=>{
   try{
     const userId=new mongoose.Types.ObjectId(req.user.id);
@@ -166,7 +139,6 @@ router.post('/:id/access',auth,async(req,res)=>{
 });
 
 // POST /api/my-batches/enroll-meta — store enrollment meta when enrolling
-// (id-agnostic: no change needed)
 router.post('/enroll-meta',auth,async(req,res)=>{
   try{
     const{batchId,validity=365}=req.body;
@@ -184,15 +156,13 @@ router.post('/enroll-meta',auth,async(req,res)=>{
   }catch(e){res.status(500).json({error:e.message});}
 });
 
-// GET /api/my-batches/wishlist — wishlist batches + series (separate from test-series wishlist UI)
+// GET /api/my-batches/wishlist — wishlist batches (separate from test-series wishlist UI)
 router.get('/wishlist',auth,async(req,res)=>{
   try{
     const user=await User.collection.findOne({_id:new mongoose.Types.ObjectId(req.user.id)});
     const ids=user?.wishlistBatches||[];
     const batches=await Batch.find({_id:{$in:ids}}).lean();
-    let series=await TestSeries.find({_id:{$in:ids}}).lean();
-    series=series.map(normalizeSeries);
-    res.json({batches:batches.concat(series)});
+    res.json({batches});
   }catch(e){res.status(500).json({error:e.message});}
 });
 
@@ -200,8 +170,8 @@ router.get('/wishlist',auth,async(req,res)=>{
 router.post('/:id/renew',auth,async(req,res)=>{
   try{
     const userId=new mongoose.Types.ObjectId(req.user.id);
-    const doc=await findEnrolledDoc(req.params.id);
-    if(!doc)return res.status(404).json({error:'Batch not found'});
+    const batch=await Batch.findById(req.params.id).lean();
+    if(!batch)return res.status(404).json({error:'Batch not found'});
     const user=await User.collection.findOne({_id:userId});
     let meta=user?.enrolledBatchesMeta||[];
     const idx=meta.findIndex(m=>m.batchId?.toString()===req.params.id);
@@ -209,7 +179,7 @@ router.post('/:id/renew',auth,async(req,res)=>{
     // Only an already-enrolled student may renew; otherwise reject.
     if(idx<0)return res.status(404).json({error:'You are not enrolled in this batch — enroll first before renewing'});
     const now=new Date();
-    const validityDays=doc.validity||365;
+    const validityDays=batch.validity||365;
     const newExpiry=new Date(now.getTime()+validityDays*86400000);
     meta[idx].renewalHistory=meta[idx].renewalHistory||[];
     meta[idx].renewalHistory.push({renewedAt:now,previousExpiry:meta[idx].expiresAt||null,newExpiry});
@@ -222,8 +192,8 @@ router.post('/:id/renew',auth,async(req,res)=>{
 // GET /api/my-batches/:id/renewal — renewal state + price
 router.get('/:id/renewal',auth,async(req,res)=>{
   try{
-    const doc=await findEnrolledDoc(req.params.id);
-    if(!doc)return res.status(404).json({error:'Batch not found'});
+    const batch=await Batch.findById(req.params.id).lean();
+    if(!batch)return res.status(404).json({error:'Batch not found'});
     const user=await User.collection.findOne({_id:new mongoose.Types.ObjectId(req.user.id)});
     const meta=(user?.enrolledBatchesMeta||[]).find(m=>m.batchId?.toString()===req.params.id)||{};
     const now=new Date();
@@ -231,7 +201,7 @@ router.get('/:id/renewal',auth,async(req,res)=>{
     res.json({
       renewalState:daysLeft===0?'expired':daysLeft!==null&&daysLeft<=7?'expiring_soon':'active',
       daysLeft, expiresAt:meta.expiresAt||null,
-      price:doc.isFree?0:(doc.discountPrice||doc.price||0),
+      price:batch.isFree?0:(batch.discountPrice||batch.price||0),
       renewalHistory:meta.renewalHistory||[]
     });
   }catch(e){res.status(500).json({error:e.message});}
@@ -240,11 +210,11 @@ router.get('/:id/renewal',auth,async(req,res)=>{
 // GET /api/my-batches/:id/certificate-status
 router.get('/:id/certificate-status',auth,async(req,res)=>{
   try{
-    const doc=await findEnrolledDoc(req.params.id);
-    if(!doc)return res.status(404).json({error:'Batch not found'});
+    const batch=await Batch.findById(req.params.id).lean();
+    if(!batch)return res.status(404).json({error:'Batch not found'});
     const user=await User.collection.findOne({_id:new mongoose.Types.ObjectId(req.user.id)});
     const meta=(user?.enrolledBatchesMeta||[]).find(m=>m.batchId?.toString()===req.params.id)||{};
-    const totalTests=doc.totalTests||0;
+    const totalTests=batch.totalTests||0;
     const testsCompleted=meta.testsCompleted||0;
     const progress=totalTests>0?Math.round((testsCompleted/totalTests)*100):0;
     res.json({
@@ -256,17 +226,14 @@ router.get('/:id/certificate-status',auth,async(req,res)=>{
   }catch(e){res.status(500).json({error:e.message});}
 });
 
-// GET /api/my-batches/compare?ids=a,b — compare 2 enrolled batches/series
+// GET /api/my-batches/compare?ids=a,b — compare 2 enrolled batches
 router.get('/compare',auth,async(req,res)=>{
   try{
     const ids=(req.query.ids||'').split(',').filter(Boolean);
     if(ids.length<2)return res.status(400).json({error:'Provide at least 2 ids'});
     const user=await User.collection.findOne({_id:new mongoose.Types.ObjectId(req.user.id)});
     const meta=user?.enrolledBatchesMeta||[];
-    let batches=await Batch.find({_id:{$in:ids}}).lean();
-    let series=await TestSeries.find({_id:{$in:ids}}).lean();
-    series=series.map(normalizeSeries);
-    batches=batches.concat(series);
+    const batches=await Batch.find({_id:{$in:ids}}).lean();
     const now=new Date();
     const rows=batches.map(b=>{
       const m=meta.find(x=>x.batchId?.toString()===b._id.toString())||{};
@@ -279,12 +246,12 @@ router.get('/compare',auth,async(req,res)=>{
 // GET /api/my-batches/:id/milestones — achievement milestones
 router.get('/:id/milestones',auth,async(req,res)=>{
   try{
-    const doc=await findEnrolledDoc(req.params.id);
-    if(!doc)return res.status(404).json({error:'Batch not found'});
+    const batch=await Batch.findById(req.params.id).lean();
+    if(!batch)return res.status(404).json({error:'Batch not found'});
     const user=await User.collection.findOne({_id:new mongoose.Types.ObjectId(req.user.id)});
     const meta=(user?.enrolledBatchesMeta||[]).find(m=>m.batchId?.toString()===req.params.id)||{};
     const testsCompleted=meta.testsCompleted||0;
-    const totalTests=doc.totalTests||0;
+    const totalTests=batch.totalTests||0;
     const progress=totalTests>0?Math.round((testsCompleted/totalTests)*100):0;
     const milestones=[
       {label:'First Test',achieved:testsCompleted>=1},
@@ -299,7 +266,6 @@ router.get('/:id/milestones',auth,async(req,res)=>{
 });
 
 // GET /api/my-batches/activity-feed — combined activity feed across all enrolled batches
-// (BatchActivity is admin-authored per Batch only — series won't have entries yet; unchanged)
 router.get('/activity-feed',auth,async(req,res)=>{
   try{
     if(!BatchActivity)return res.json({activity:[]});
@@ -310,8 +276,7 @@ router.get('/activity-feed',auth,async(req,res)=>{
   }catch(e){res.status(500).json({error:e.message});}
 });
 
-// GET /api/my-batches/:batchId/leaderboard — batch/series-specific leaderboard
-// (id-agnostic: matched purely via enrolledBatchesMeta.batchId, no change needed)
+// GET /api/my-batches/:batchId/leaderboard — batch-specific leaderboard
 router.get('/:batchId/leaderboard', auth, async (req, res) => {
   try {
     const batchId = req.params.batchId;
