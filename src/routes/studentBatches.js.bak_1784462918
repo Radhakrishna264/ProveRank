@@ -2,7 +2,6 @@ const express=require('express');
 const router=express.Router();
 const mongoose=require('mongoose');
 const Batch=require('../models/Batch');
-const TestSeries=require('../models/TestSeries');
 const User=require('../models/User');
 const jwt=require('jsonwebtoken');
 const JWT=process.env.JWT_SECRET||'proverank_jwt_super_secret_key_2024';
@@ -28,6 +27,8 @@ function discountPct(b){
   if(!base||base<=eff)return 0;
   return Math.round(((base-eff)/base)*100);
 }
+// Fit score: simple heuristic combining exam-type match with student's targetExam,
+// difficulty preference proxy, and popularity — always 0-100, never blocks rendering if profile missing.
 function computeFitScore(b,user){
   let score=50;
   if(user&&user.targetExam){
@@ -40,25 +41,7 @@ function computeFitScore(b,user){
   return Math.max(0,Math.min(100,score));
 }
 
-// ── FPR5: normalize a TestSeries doc to look like a Batch doc so the
-// existing student UI (BatchCard etc.) can render it without any
-// frontend changes. TestSeries schema already mirrors Batch field
-// names almost 1:1 — only seriesType -> batchType needs remapping. ──
-function normalizeSeries(s){
-  return{
-    ...s,
-    _kind:'series',
-    batchType:s.seriesType||'Recorded',
-    enrolledCount:s.enrolledCount||(s.students?s.students.length:0)||0,
-    validity:s.validity||365
-  };
-}
-
-function baseSeriesFilter(){
-  return{ lifecycleStatus:'active', visibility:{$ne:'private'}, isTemplate:{$ne:true} };
-}
-
-// GET /api/student/batches  (now also returns published Test Series, merged in)
+// GET /api/student/batches
 router.get('/',optAuth,async(req,res)=>{
   try{
     const{
@@ -66,7 +49,6 @@ router.get('/',optAuth,async(req,res)=>{
       batchType,difficulty,language,minPrice,maxPrice,
       offerType,flashSaleActive,emiEligible,enrollmentState
     }=req.query;
-
     const filter={status:'active'};
     if(examType)filter.examType=examType;
     if(isFree!==undefined)filter.isFree=isFree==='true';
@@ -88,26 +70,6 @@ router.get('/',optAuth,async(req,res)=>{
     else if(offerType==='flashsale')filter.flashSaleEndTime={$gte:new Date()};
     if(enrollmentState==='full')filter.$expr={$and:[{$gt:['$seatLimit',0]},{$gte:['$enrolledCount','$seatLimit']}]};
 
-    // ── Series filter mirrors the Batch filter above, mapped to TestSeries fields ──
-    const seriesFilter=baseSeriesFilter();
-    if(examType)seriesFilter.examType=examType;
-    if(isFree!==undefined)seriesFilter.isFree=isFree==='true';
-    if(subject)seriesFilter.subject=subject;
-    if(batchType)seriesFilter.seriesType=batchType;
-    if(difficulty)seriesFilter.difficulty=difficulty;
-    if(language)seriesFilter.language=language;
-    if(search)seriesFilter.name={$regex:search,$options:'i'};
-    if(minPrice||maxPrice){
-      seriesFilter.price={};
-      if(minPrice)seriesFilter.price.$gte=Number(minPrice);
-      if(maxPrice)seriesFilter.price.$lte=Number(maxPrice);
-    }
-    if(flashSaleActive==='true')seriesFilter.flashSaleEndTime={$gte:new Date()};
-    if(offerType==='trial')seriesFilter.allowFreeTrial=true;
-    else if(offerType==='bundle')seriesFilter.isBundle=true;
-    else if(offerType==='spotlight')seriesFilter.isSpotlight=true;
-    else if(offerType==='flashsale')seriesFilter.flashSaleEndTime={$gte:new Date()};
-
     let sortObj={createdAt:-1};
     if(sort==='popular'||sort==='enrolled')sortObj={enrolledCount:-1};
     else if(sort==='price_low')sortObj={price:1};
@@ -115,12 +77,8 @@ router.get('/',optAuth,async(req,res)=>{
     else if(sort==='rating')sortObj={rating:-1};
 
     let batches=await Batch.find(filter).sort(sortObj).lean();
-    let series=await TestSeries.find(seriesFilter).sort(sortObj).lean();
-    series=series.map(normalizeSeries);
-    batches=batches.concat(series);
 
     if(sort==='discount')batches=batches.sort((a,b)=>discountPct(b)-discountPct(a));
-    else if(sort==='newest')batches=batches.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
 
     let enrolledIds=[],wishlistIds=[],priceWatchMap={},user=null;
     if(req.user){
@@ -153,9 +111,7 @@ router.get('/my',auth,async(req,res)=>{
     const user=await User.collection.findOne({_id:new mongoose.Types.ObjectId(req.user.id)});
     const ids=user?.enrolledBatches||[];
     const batches=await Batch.find({_id:{$in:ids},status:'active'}).lean();
-    let series=await TestSeries.find({_id:{$in:ids},...baseSeriesFilter()}).lean();
-    series=series.map(normalizeSeries);
-    res.json({batches:batches.concat(series)});
+    res.json({batches});
   }catch(e){res.status(500).json({error:e.message});}
 });
 
@@ -166,10 +122,7 @@ router.get('/wishlist',auth,async(req,res)=>{
     const ids=user?.wishlistBatches||[];
     const priceWatch=user?.priceWatch||[];
     const batches=await Batch.find({_id:{$in:ids}}).lean();
-    let series=await TestSeries.find({_id:{$in:ids}}).lean();
-    series=series.map(normalizeSeries);
-    const merged=batches.concat(series);
-    const result=merged.map(b=>{
+    const result=batches.map(b=>{
       const pw=priceWatch.find(x=>x.batchId?.toString()===b._id.toString());
       const eff=effectivePrice(b);
       return{...b,effectivePrice:eff,discountPct:discountPct(b),isPriceWatched:!!pw,priceDropped:!!pw&&eff<pw.watchedPrice,watchedPrice:pw?pw.watchedPrice:null};
@@ -178,14 +131,10 @@ router.get('/wishlist',auth,async(req,res)=>{
   }catch(e){res.status(500).json({error:e.message});}
 });
 
-// GET /api/student/batches/:id  (Batch first, TestSeries fallback)
+// GET /api/student/batches/:id
 router.get('/:id',optAuth,async(req,res)=>{
   try{
-    let batch=await Batch.findById(req.params.id).lean();
-    if(!batch){
-      const s=await TestSeries.findById(req.params.id).lean();
-      if(s)batch=normalizeSeries(s);
-    }
+    const batch=await Batch.findById(req.params.id).lean();
     if(!batch)return res.status(404).json({error:'Not found'});
     let user=null;
     if(req.user){
@@ -214,30 +163,19 @@ router.get('/:id',optAuth,async(req,res)=>{
   }catch(e){res.status(500).json({error:e.message});}
 });
 
-// POST /api/student/batches/:id/enroll  (Batch first, TestSeries fallback)
+// POST /api/student/batches/:id/enroll
 router.post('/:id/enroll',auth,async(req,res)=>{
   try{
-    let doc=await Batch.findById(req.params.id);
-    let Model=Batch;
-    if(!doc){
-      doc=await TestSeries.findById(req.params.id);
-      Model=TestSeries;
-    }
-    if(!doc)return res.status(404).json({error:'Not found'});
-    if(!doc.isFree&&!doc.allowFreeTrial)return res.status(400).json({error:'Paid batch'});
-    await User.collection.updateOne({_id:new mongoose.Types.ObjectId(req.user.id)},{$addToSet:{enrolledBatches:doc._id}});
-    const inc={enrolledCount:1};
-    if(Model===TestSeries){
-      await Model.findByIdAndUpdate(req.params.id,{$inc:inc,$addToSet:{students:new mongoose.Types.ObjectId(req.user.id)}});
-    }else{
-      await Model.findByIdAndUpdate(req.params.id,{$inc:inc});
-    }
+    const batch=await Batch.findById(req.params.id);
+    if(!batch)return res.status(404).json({error:'Not found'});
+    if(!batch.isFree&&!batch.allowFreeTrial)return res.status(400).json({error:'Paid batch'});
+    await User.collection.updateOne({_id:new mongoose.Types.ObjectId(req.user.id)},{$addToSet:{enrolledBatches:batch._id}});
+    await Batch.findByIdAndUpdate(req.params.id,{$inc:{enrolledCount:1}});
     res.json({success:true,message:'Enrolled!'});
   }catch(e){res.status(500).json({error:e.message});}
 });
 
-// POST /api/student/batches/:id/wishlist (toggle) — works for Batch or TestSeries ids
-// since it only stores raw ObjectIds in user.wishlistBatches without a Model check.
+// POST /api/student/batches/:id/wishlist (toggle)
 router.post('/:id/wishlist',auth,async(req,res)=>{
   try{
     const user=await User.collection.findOne({_id:new mongoose.Types.ObjectId(req.user.id)});

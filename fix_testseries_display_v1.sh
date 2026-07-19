@@ -1,3 +1,38 @@
+#!/bin/bash
+# ══════════════════════════════════════════════════════════════════
+# FIX 1: Student Panel "Batches & Test Series" page missing top bar
+# FIX 2: Published Test Series not showing on student side
+#
+# ROOT CAUSE (Bug 1): test-series/page.tsx never imports/wraps
+# <StudentShell> — it has its own standalone header instead.
+#
+# ROOT CAUSE (Bug 2): studentBatches.js (backend) only ever queried
+# the Batch model. TestSeries was never merged into the student-
+# facing list, so published series never reached the student UI —
+# regardless of admin publishing them.
+#
+# FIX: Backend now merges published TestSeries into the same
+# /api/student/batches response (normalized to Batch's shape, since
+# TestSeries schema already mirrors Batch fields 1:1). No frontend
+# card changes needed. Enroll/detail routes fall back to TestSeries
+# when a Batch isn't found by that id. Frontend page now wraps in
+# StudentShell so the topbar shows like other student pages.
+# ══════════════════════════════════════════════════════════════════
+
+set -e
+cd ~/workspace
+
+BACKEND_FILE="src/routes/studentBatches.js"
+FRONTEND_FILE="frontend/app/dashboard/test-series/page.tsx"
+
+if [ ! -f "$BACKEND_FILE" ]; then echo "❌ Not found: $BACKEND_FILE"; exit 1; fi
+if [ ! -f "$FRONTEND_FILE" ]; then echo "❌ Not found: $FRONTEND_FILE"; exit 1; fi
+
+cp "$BACKEND_FILE" "${BACKEND_FILE}.bak_$(date +%s)"
+cp "$FRONTEND_FILE" "${FRONTEND_FILE}.bak_$(date +%s)"
+
+echo "=== 1) Rewriting backend: $BACKEND_FILE ==="
+cat > "$BACKEND_FILE" << 'ENDOFFILE'
 const express=require('express');
 const router=express.Router();
 const mongoose=require('mongoose');
@@ -254,3 +289,32 @@ router.post('/:id/wishlist',auth,async(req,res)=>{
 });
 
 module.exports=router;
+ENDOFFILE
+
+echo "✅ Backend rewritten"
+grep -n "TestSeries" "$BACKEND_FILE" | head -5
+
+echo ""
+echo "=== 2) Patching frontend: $FRONTEND_FILE ==="
+
+# 2a. Add StudentShell import
+sed -i "/from 'next\/navigation'/a import StudentShell from '@/src/components/StudentShell'" "$FRONTEND_FILE"
+
+# 2b. Insert opening <StudentShell> tag right before the root page div
+sed -i "/minHeight:'100vh'/i\\      <StudentShell pageKey=\"test-series\">" "$FRONTEND_FILE"
+
+# 2c. Insert closing </StudentShell> right after the outer div closes (line after QuickPreviewModal)
+LINE=$(grep -n "previewBatchId&&<QuickPreviewModal" "$FRONTEND_FILE" | head -1 | cut -d: -f1)
+CLOSE_LINE=$((LINE+1))
+sed -i "${CLOSE_LINE}a\\      </StudentShell>" "$FRONTEND_FILE"
+
+echo "✅ Frontend patched"
+echo ""
+echo "=== Verifying frontend changes ==="
+grep -n "StudentShell" "$FRONTEND_FILE"
+
+echo ""
+echo "✅ DONE. Git push karke Render + Vercel pe deploy karo, phir:"
+echo "   1. Admin panel se ek Test Series active/publish karo"
+echo "   2. Student panel > Batches & Test Series page refresh karo"
+echo "   3. Topbar + published series dono dikhni chahiye"
