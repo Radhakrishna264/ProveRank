@@ -296,10 +296,9 @@ function CreateBatchWizard({ base, authHeaders, isMobile, onClose, onCreated }: 
   const [step, setStep] = useState(1)
   const [templates, setTemplates] = useState<any[]>([])
   const [form, setForm] = useState<any>({
-    name: '', batchCode: '', examType: 'NEET', description: '', colorIcon: '📦',
-    lifecycleStatus: 'draft', visibility: 'public', seatLimit: 0, enrollmentRule: 'open',
-    price: 0, discountPrice: '', allowFreeTrial: false, trialDays: 3, isBundle: false,
-    bundlePrice: '', isSpotlight: false, autoArchiveAfterEnd: false, templateId: ''
+    name: '', examType: 'NEET UG', description: '',
+    seatLimit: 0, visibility: 'public',
+    price: 0, templateId: ''
   })
   const [dupWarn, setDupWarn] = useState<any>(null)
 
@@ -315,7 +314,8 @@ function CreateBatchWizard({ base, authHeaders, isMobile, onClose, onCreated }: 
     else alert(d.error || 'Failed to create batch')
   }
 
-  const steps = ['Basic Info', 'Lifecycle & Enrollment', 'Pricing Wizard', 'Default Controls', 'Preview & Confirm']
+  const steps = ['Basic Info', 'Pricing', 'Preview & Confirm']
+  const EXAM_TYPES = ['NEET UG', 'NEET PG', 'JEE Main', 'JEE Advanced', 'CUET UG', 'CUET PG', 'SSC CGL', 'SSC CHSL', 'UPSC CSE', 'NDA', 'CDS', 'CAT', 'CLAT', 'GATE', 'IIT JAM', 'CSIR NET', 'UGC NET', 'Railway (RRB)', 'Banking (IBPS / SBI)', 'State PSC', 'Nursing Entrance', 'Paramedical Entrance', 'Defence Exams', 'Other (Custom)']
 
   return (
     <Modal onClose={onClose} width={640}>
@@ -336,30 +336,9 @@ function CreateBatchWizard({ base, authHeaders, isMobile, onClose, onCreated }: 
             </div>
           )}
           <label style={lbl}>Batch Name *</label><input style={{ ...inp, marginBottom: 10 }} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. NEET Dropper 2027" />
-          <label style={lbl}>Batch Code</label><input style={{ ...inp, marginBottom: 10 }} value={form.batchCode} onChange={e => set('batchCode', e.target.value)} placeholder="Auto-generated if left blank" />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={lbl}>Exam / Course</label>
-              <select style={inp} value={form.examType} onChange={e => set('examType', e.target.value)}>
-                {['NEET', 'JEE', 'CUET', 'Class 11', 'Class 12', 'Foundation', 'Crash Course', 'Other'].map(x => <option key={x}>{x}</option>)}
-              </select>
-            </div>
-            <div><label style={lbl}>Cover Icon</label><input style={inp} value={form.colorIcon} onChange={e => set('colorIcon', e.target.value)} /></div>
-          </div>
-          <label style={{ ...lbl, marginTop: 10 }}>Description</label>
-          <textarea style={{ ...inp, minHeight: 60 }} value={form.description} onChange={e => set('description', e.target.value)} />
-        </div>
-      )}
-
-      {step === 2 && (
-        <div>
-          <label style={lbl}>Lifecycle Mode</label>
-          <select style={{ ...inp, marginBottom: 10 }} value={form.lifecycleStatus} onChange={e => set('lifecycleStatus', e.target.value)}>
-            {['draft', 'active', 'upcoming', 'paused', 'archived'].map(x => <option key={x}>{x}</option>)}
-          </select>
-          <label style={lbl}>Enrollment Rule Builder</label>
-          <select style={{ ...inp, marginBottom: 10 }} value={form.enrollmentRule} onChange={e => set('enrollmentRule', e.target.value)}>
-            <option value="open">Open Enrollment</option><option value="invite_only">Invite Only</option>
-            <option value="manual_approval">Manual Approval</option><option value="auto_approval">Auto-Approval by Criteria</option>
+          <label style={lbl}>Exam / Course</label>
+          <select style={{ ...inp, marginBottom: 10 }} value={form.examType} onChange={e => set('examType', e.target.value)}>
+            {EXAM_TYPES.map(x => <option key={x}>{x}</option>)}
           </select>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div><label style={lbl}>Seat Limit (0 = unlimited)</label><input type="number" style={inp} value={form.seatLimit} onChange={e => set('seatLimit', e.target.value)} /></div>
@@ -369,38 +348,23 @@ function CreateBatchWizard({ base, authHeaders, isMobile, onClose, onCreated }: 
               </select>
             </div>
           </div>
+          <label style={{ ...lbl, marginTop: 10 }}>Description</label>
+          <textarea style={{ ...inp, minHeight: 60 }} value={form.description} onChange={e => set('description', e.target.value)} />
+        </div>
+      )}
+
+      {step === 2 && (
+        <div>
+          <label style={lbl}>Base Price ₹</label><input type="number" style={inp} value={form.price} onChange={e => set('price', e.target.value)} />
         </div>
       )}
 
       {step === 3 && (
         <div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={lbl}>Base Price ₹</label><input type="number" style={inp} value={form.price} onChange={e => set('price', e.target.value)} /></div>
-            <div><label style={lbl}>Discount Price ₹</label><input type="number" style={inp} value={form.discountPrice} onChange={e => set('discountPrice', e.target.value)} /></div>
-          </div>
-          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <Toggle on={form.allowFreeTrial} onChange={v => set('allowFreeTrial', v)} label="Enable Free Trial" />
-            {form.allowFreeTrial && <input type="number" style={inp} value={form.trialDays} onChange={e => set('trialDays', e.target.value)} placeholder="Trial days" />}
-            <Toggle on={form.isBundle} onChange={v => set('isBundle', v)} label="Bundle Pricing" />
-            {form.isBundle && <input type="number" style={inp} value={form.bundlePrice} onChange={e => set('bundlePrice', e.target.value)} placeholder="Bundle price" />}
-          </div>
-        </div>
-      )}
-
-      {step === 4 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <Toggle on={form.isSpotlight} onChange={v => set('isSpotlight', v)} label="✨ Spotlight (Featured)" />
-          <Toggle on={form.autoArchiveAfterEnd} onChange={v => set('autoArchiveAfterEnd', v)} label="🗄️ Auto-Archive After End Date" />
-        </div>
-      )}
-
-      {step === 5 && (
-        <div>
           <div style={{ ...cs, marginBottom: 0 }}>
-            <div style={{ fontWeight: 700, color: '#93C5FD', fontSize: 14 }}>{form.colorIcon} {form.name || '(Unnamed Batch)'}</div>
-            <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>{form.examType} · {form.lifecycleStatus} · Seat Limit: {form.seatLimit || 'Unlimited'}</div>
-            <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>Price: ₹{form.price} {form.discountPrice ? `(₹${form.discountPrice} discounted)` : ''}</div>
-            <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>{form.allowFreeTrial ? '🆓 Trial Enabled · ' : ''}{form.isBundle ? '📦 Bundle · ' : ''}{form.isSpotlight ? '✨ Spotlight' : ''}</div>
+            <div style={{ fontWeight: 700, color: '#93C5FD', fontSize: 14 }}>{form.name || '(Unnamed Batch)'}</div>
+            <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>{form.examType} · Seat Limit: {form.seatLimit || 'Unlimited'} · {form.visibility}</div>
+            <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>Price: ₹{form.price}</div>
           </div>
           {dupWarn && (
             <div style={{ marginTop: 10, padding: 10, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 8, fontSize: 11.5, color: WARN }}>
@@ -413,7 +377,7 @@ function CreateBatchWizard({ base, authHeaders, isMobile, onClose, onCreated }: 
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 18 }}>
         <button style={bs} onClick={step === 1 ? onClose : () => setStep(step - 1)}>{step === 1 ? 'Cancel' : '← Back'}</button>
-        {step < 5 ? <button style={bp} onClick={() => setStep(step + 1)}>Next →</button> : <button style={bp} onClick={() => submit(false)}>✅ Publish Batch</button>}
+        {step < 3 ? <button style={bp} onClick={() => setStep(step + 1)}>Next →</button> : <button style={bp} onClick={() => submit(false)}>✅ Confirm</button>}
       </div>
     </Modal>
   )

@@ -55,6 +55,7 @@ const BatchSchema=new mongoose.Schema({
   lastActivityAt:{type:Date,default:Date.now},
   archivedAt:{type:Date},
   exams:[{type:mongoose.Schema.Types.ObjectId,ref:'Exam'}],
+  examMeta:[{examId:{type:mongoose.Schema.Types.ObjectId,ref:'Exam'},required:Boolean,locked:Boolean,featured:Boolean,hidden:Boolean,priority:{type:Number,default:0}}],
   enrollments:[{student:{type:mongoose.Schema.Types.ObjectId,ref:'User'},status:{type:String,default:'active',enum:['active','inactive']},joinedAt:{type:Date,default:Date.now}}],
   renameHistory:[{oldName:String,newName:String,changedBy:String,changedAt:{type:Date,default:Date.now}}],
   previewCount:{type:Number,default:0},

@@ -646,7 +646,6 @@ function TestsTab({ base, authHeaders, id, showToast }: any) {
   useEffect(() => { load() }, [load])
   const assign = async (testId: string) => { await fetch(base + '/' + id + '/tests/assign', { method: 'POST', headers: authHeaders, body: JSON.stringify({ testId }) }); showToast('✅ Test assigned'); load() }
   const unassign = async (testId: string) => { await fetch(base + '/' + id + '/tests/' + testId, { method: 'DELETE', headers: authHeaders }); showToast('✅ Test removed'); load() }
-  const updateFlag = async (testId: string, field: string, val: boolean) => { await fetch(base + '/' + id + '/tests/' + testId, { method: 'PUT', headers: authHeaders, body: JSON.stringify({ [field]: val }) }); load() }
 
   return (
     <div>
@@ -657,11 +656,6 @@ function TestsTab({ base, authHeaders, id, showToast }: any) {
             <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
               <span style={{ color: TS, fontWeight: 600, fontSize: 12.5 }}>{e.title || e.name}</span>
               <button style={{ ...bd, padding: '3px 8px' }} onClick={() => unassign(e._id)}>Remove</button>
-            </div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
-              {['required', 'locked', 'featured', 'hidden'].map(f => (
-                <Toggle key={f} on={!!e.control?.[f]} onChange={v => updateFlag(e._id, f, v)} label={f} />
-              ))}
             </div>
           </div>
         ))}

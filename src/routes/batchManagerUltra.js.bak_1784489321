@@ -605,21 +605,44 @@ router.get('/:id/exams', auth, isAdmin, async (req, res) => {
       assigned = await Exam.find({ _id: { $in: batch.exams || [] } }).lean();
       available = await Exam.find({ _id: { $nin: batch.exams || [] } }).limit(50).lean();
     }
+    const meta = batch.examMeta || [];
+    assigned = assigned.map(e => ({ ...e, control: meta.find(m => String(m.examId) === String(e._id)) || {} }));
     res.json({ assigned, available, examCount: assigned.length });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/:id/exams/assign', auth, isAdmin, async (req, res) => {
   try {
-    const { examId } = req.body;
+    const { examId, required, locked, featured, hidden, priority } = req.body;
     const batch = await Batch.findById(req.params.id);
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
     batch.exams = batch.exams || [];
     if (!batch.exams.some(e => String(e) === String(examId))) batch.exams.push(examId);
+    batch.examMeta = batch.examMeta || [];
+    batch.examMeta = batch.examMeta.filter(m => String(m.examId) !== String(examId));
+    batch.examMeta.push({ examId, required: !!required, locked: !!locked, featured: !!featured, hidden: !!hidden, priority: Number(priority) || 0 });
     batch.lastActivityAt = new Date();
     await batch.save();
     await logAudit({ batchId: batch._id, field: 'exams', action: 'exam_assigned', newValue: { examId }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/:id/exams/:examId', auth, isAdmin, async (req, res) => {
+  try {
+    const { required, locked, featured, hidden, priority } = req.body;
+    const batch = await Batch.findById(req.params.id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    batch.examMeta = batch.examMeta || [];
+    let m = batch.examMeta.find(x => String(x.examId) === String(req.params.examId));
+    if (!m) { m = { examId: req.params.examId }; batch.examMeta.push(m); }
+    if (required !== undefined) m.required = !!required;
+    if (locked !== undefined) m.locked = !!locked;
+    if (featured !== undefined) m.featured = !!featured;
+    if (hidden !== undefined) m.hidden = !!hidden;
+    if (priority !== undefined) m.priority = Number(priority);
+    await batch.save();
+    res.json({ success: true, meta: m });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -628,6 +651,7 @@ router.delete('/:id/exams/:examId', auth, isAdmin, async (req, res) => {
     const batch = await Batch.findById(req.params.id);
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
     batch.exams = (batch.exams || []).filter(e => String(e) !== String(req.params.examId));
+    batch.examMeta = (batch.examMeta || []).filter(m => String(m.examId) !== String(req.params.examId));
     await batch.save();
     await logAudit({ batchId: batch._id, field: 'exams', action: 'exam_removed', newValue: { examId: req.params.examId }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true });

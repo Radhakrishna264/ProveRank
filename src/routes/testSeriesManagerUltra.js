@@ -557,44 +557,21 @@ router.get('/:id/tests', auth, isAdmin, async (req, res) => {
       assigned = await Exam.find({ _id: { $in: series.tests || [] } }).lean();
       available = await Exam.find({ _id: { $nin: series.tests || [] } }).limit(50).lean();
     }
-    const meta = series.testMeta || [];
-    assigned = assigned.map(e => ({ ...e, control: meta.find(m => String(m.testId) === String(e._id)) || {} }));
     res.json({ assigned, available, testCount: assigned.length });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/:id/tests/assign', auth, isAdmin, async (req, res) => {
   try {
-    const { testId, required, locked, featured, hidden, priority } = req.body;
+    const { testId } = req.body;
     const series = await TestSeries.findById(req.params.id);
     if (!series) return res.status(404).json({ error: 'Test series not found' });
     series.tests = series.tests || [];
     if (!series.tests.some(e => String(e) === String(testId))) series.tests.push(testId);
-    series.testMeta = series.testMeta || [];
-    series.testMeta = series.testMeta.filter(m => String(m.testId) !== String(testId));
-    series.testMeta.push({ testId, required: !!required, locked: !!locked, featured: !!featured, hidden: !!hidden, priority: Number(priority) || 0 });
     series.lastActivityAt = new Date();
     await series.save();
     await logAudit({ seriesId: series._id, field: 'tests', action: 'test_assigned', newValue: { testId }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.put('/:id/tests/:testId', auth, isAdmin, async (req, res) => {
-  try {
-    const { required, locked, featured, hidden, priority } = req.body;
-    const series = await TestSeries.findById(req.params.id);
-    if (!series) return res.status(404).json({ error: 'Test series not found' });
-    series.testMeta = series.testMeta || [];
-    let m = series.testMeta.find(x => String(x.testId) === String(req.params.testId));
-    if (!m) { m = { testId: req.params.testId }; series.testMeta.push(m); }
-    if (required !== undefined) m.required = !!required;
-    if (locked !== undefined) m.locked = !!locked;
-    if (featured !== undefined) m.featured = !!featured;
-    if (hidden !== undefined) m.hidden = !!hidden;
-    if (priority !== undefined) m.priority = Number(priority);
-    await series.save();
-    res.json({ success: true, meta: m });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -603,7 +580,6 @@ router.delete('/:id/tests/:testId', auth, isAdmin, async (req, res) => {
     const series = await TestSeries.findById(req.params.id);
     if (!series) return res.status(404).json({ error: 'Test series not found' });
     series.tests = (series.tests || []).filter(e => String(e) !== String(req.params.testId));
-    series.testMeta = (series.testMeta || []).filter(m => String(m.testId) !== String(req.params.testId));
     await series.save();
     await logAudit({ seriesId: series._id, field: 'tests', action: 'test_removed', newValue: { testId: req.params.testId }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true });
