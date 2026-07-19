@@ -63,10 +63,12 @@ router.get('/',optAuth,async(req,res)=>{
       if(minPrice)filter.price.$gte=Number(minPrice);
       if(maxPrice)filter.price.$lte=Number(maxPrice);
     }
+    if(emiEligible==='true')filter.allowEMI=true;
     if(flashSaleActive==='true')filter.flashSaleEndTime={$gte:new Date()};
     if(offerType==='trial')filter.allowFreeTrial=true;
     else if(offerType==='bundle')filter.isBundle=true;
     else if(offerType==='spotlight')filter.isSpotlight=true;
+    else if(offerType==='emi')filter.allowEMI=true;
     else if(offerType==='flashsale')filter.flashSaleEndTime={$gte:new Date()};
     if(enrollmentState==='full')filter.$expr={$and:[{$gt:['$seatLimit',0]},{$gte:['$enrolledCount','$seatLimit']}]};
 

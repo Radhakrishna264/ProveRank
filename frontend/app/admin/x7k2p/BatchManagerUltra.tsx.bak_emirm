@@ -213,7 +213,7 @@ export default function BatchManagerUltra({ token, API }: { token: string; API: 
             <div><label style={lbl}>Students Max</label><input style={inp} type="number" value={filters.studentMax || ''} onChange={e => setFilters({ ...filters, studentMax: e.target.value })} /></div>
             <div><label style={lbl}>Date From</label><input style={inp} type="date" value={filters.dateFrom || ''} onChange={e => setFilters({ ...filters, dateFrom: e.target.value })} /></div>
             <div><label style={lbl}>Date To</label><input style={inp} type="date" value={filters.dateTo || ''} onChange={e => setFilters({ ...filters, dateTo: e.target.value })} /></div>
-            {['spotlight', 'trial', 'bundle', 'flashsale'].map(f => (
+            {['spotlight', 'trial', 'bundle', 'emi', 'flashsale'].map(f => (
               <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Toggle on={filters[f] === 'true'} onChange={v => setFilters({ ...filters, [f]: v ? 'true' : '' })} label={f[0].toUpperCase() + f.slice(1)} />
               </div>
@@ -269,6 +269,7 @@ export default function BatchManagerUltra({ token, API }: { token: string; API: 
                   {b.isSpotlight && <span style={chip('#FBBF24', 'rgba(251,191,36,0.1)')}>✨ Spotlight</span>}
                   {b.allowFreeTrial && <span style={chip(GOOD, 'rgba(52,211,153,0.1)')}>🆓 Trial</span>}
                   {b.isBundle && <span style={chip('#A78BFA', 'rgba(167,139,250,0.1)')}>📦 Bundle</span>}
+                  {b.allowEMI && <span style={chip('#7DD3FC', 'rgba(125,211,252,0.1)')}>💳 EMI</span>}
                   {b.flashSaleEndTime && new Date(b.flashSaleEndTime) > new Date() && <span style={chip(BAD, 'rgba(248,113,113,0.1)')}>⚡ Flash</span>}
                 </div>
                 <div style={{ fontSize: 9.5, color: 'rgba(148,163,184,0.5)', marginTop: 8 }}>Updated {b.updatedAt ? new Date(b.updatedAt).toLocaleDateString() : '-'}</div>
@@ -299,7 +300,7 @@ function CreateBatchWizard({ base, authHeaders, isMobile, onClose, onCreated }: 
     name: '', batchCode: '', examType: 'NEET', description: '', colorIcon: '📦',
     lifecycleStatus: 'draft', visibility: 'public', seatLimit: 0, enrollmentRule: 'open',
     price: 0, discountPrice: '', allowFreeTrial: false, trialDays: 3, isBundle: false,
-    bundlePrice: '', isSpotlight: false, autoArchiveAfterEnd: false, templateId: ''
+    bundlePrice: '', allowEMI: false, isSpotlight: false, autoArchiveAfterEnd: false, templateId: ''
   })
   const [dupWarn, setDupWarn] = useState<any>(null)
 
@@ -383,6 +384,7 @@ function CreateBatchWizard({ base, authHeaders, isMobile, onClose, onCreated }: 
             {form.allowFreeTrial && <input type="number" style={inp} value={form.trialDays} onChange={e => set('trialDays', e.target.value)} placeholder="Trial days" />}
             <Toggle on={form.isBundle} onChange={v => set('isBundle', v)} label="Bundle Pricing" />
             {form.isBundle && <input type="number" style={inp} value={form.bundlePrice} onChange={e => set('bundlePrice', e.target.value)} placeholder="Bundle price" />}
+            <Toggle on={form.allowEMI} onChange={v => set('allowEMI', v)} label="EMI Eligible" />
           </div>
         </div>
       )}
@@ -400,7 +402,7 @@ function CreateBatchWizard({ base, authHeaders, isMobile, onClose, onCreated }: 
             <div style={{ fontWeight: 700, color: '#93C5FD', fontSize: 14 }}>{form.colorIcon} {form.name || '(Unnamed Batch)'}</div>
             <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>{form.examType} · {form.lifecycleStatus} · Seat Limit: {form.seatLimit || 'Unlimited'}</div>
             <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>Price: ₹{form.price} {form.discountPrice ? `(₹${form.discountPrice} discounted)` : ''}</div>
-            <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>{form.allowFreeTrial ? '🆓 Trial Enabled · ' : ''}{form.isBundle ? '📦 Bundle · ' : ''}{form.isSpotlight ? '✨ Spotlight' : ''}</div>
+            <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>{form.allowFreeTrial ? '🆓 Trial Enabled · ' : ''}{form.isBundle ? '📦 Bundle · ' : ''}{form.allowEMI ? '💳 EMI · ' : ''}{form.isSpotlight ? '✨ Spotlight' : ''}</div>
           </div>
           {dupWarn && (
             <div style={{ marginTop: 10, padding: 10, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 8, fontSize: 11.5, color: WARN }}>
@@ -766,6 +768,7 @@ function PricingTab({ base, authHeaders, id, showToast }: any) {
       </div>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', margin: '4px 0 14px' }}>
         <Toggle on={!!form.allowFreeTrial} onChange={v => setForm({ ...form, allowFreeTrial: v })} label="Free Trial" />
+        <Toggle on={!!form.allowEMI} onChange={v => setForm({ ...form, allowEMI: v })} label="EMI" />
       </div>
       <button style={bp} onClick={save}>💾 Save Pricing</button>
 
@@ -803,6 +806,7 @@ function ControlsTab({ base, authHeaders, id, showToast, load: loadParent }: any
         <Toggle on={c.isSpotlight} onChange={v => update({ isSpotlight: v })} label="✨ Spotlight" />
         <Toggle on={c.isBundle} onChange={v => update({ isBundle: v })} label="📦 Bundle" />
         <Toggle on={c.allowFreeTrial} onChange={v => update({ allowFreeTrial: v })} label="🆓 Free Trial" />
+        <Toggle on={c.allowEMI} onChange={v => update({ allowEMI: v })} label="💳 EMI" />
       </div>
       <div style={cs}>
         <label style={lbl}>Batch Status Manager</label>

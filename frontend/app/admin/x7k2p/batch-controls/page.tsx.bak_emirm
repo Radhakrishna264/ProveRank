@@ -7,7 +7,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 type Batch = {
   _id: string; name: string; examType: string; price: number; discountPrice: number;
   isFree: boolean; isSpotlight: boolean; flashSalePrice?: number; flashSaleEndTime?: string;
-  allowFreeTrial: boolean; trialDays: number; isBundle: boolean;
+  allowFreeTrial: boolean; trialDays: number; isBundle: boolean; allowEMI: boolean;
   enrolledCount: number; rating: number; status: string;
 }
 type Review = {
@@ -135,7 +135,7 @@ export default function BatchControlsPage() {
         <button onClick={() => router.push('/admin/x7k2p')} style={{ background: 'rgba(77,159,255,0.1)', border: '1px solid rgba(77,159,255,0.2)', borderRadius: 10, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#4D9FFF', fontSize: 20 }}>←</button>
         <div>
           <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 18, fontWeight: 700, background: 'linear-gradient(90deg,#4D9FFF,#00D4FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>⚙️ Batch Controls</div>
-          <div style={{ fontSize: 11, color: 'rgba(160,200,240,0.42)' }}>Spotlight · Flash Sale · Bundle · Trial · Reviews · Price Drop</div>
+          <div style={{ fontSize: 11, color: 'rgba(160,200,240,0.42)' }}>Spotlight · Flash Sale · Bundle · Trial · EMI · Reviews · Price Drop</div>
         </div>
         <div style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(160,200,240,0.45)' }}>{batches.length} batches · {reviews.length} pending reviews</div>
       </div>
@@ -186,6 +186,7 @@ export default function BatchControlsPage() {
                           { label: '⭐ Spotlight', desc: 'Show in featured section', key: 'spotlight', val: b.isSpotlight },
                           { label: '📦 Bundle', desc: 'Mark as bundle product', key: 'bundle', val: b.isBundle },
                           { label: '🎯 Free Trial', desc: `${b.trialDays}-day trial access`, key: 'trial', val: b.allowFreeTrial },
+                          { label: '💳 EMI', desc: 'Show EMI badge & option', key: 'emi', val: b.allowEMI },
                           { label: '⚡ Remove Flash', desc: 'Clear active flash sale', key: 'flashsale_remove', val: isFlashActive },
                         ].map(ctrl => (
                           <div key={ctrl.key} style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${ctrl.val ? ec + '30' : 'rgba(255,255,255,0.06)'}`, borderRadius: 12, padding: '11px 13px', display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>

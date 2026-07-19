@@ -82,6 +82,17 @@ router.put('/:id/trial', auth, isAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// PUT /:id/emi — toggle EMI
+router.put('/:id/emi', auth, isAdmin, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    batch.allowEMI = !batch.allowEMI;
+    await batch.save();
+    res.json({ success: true, allowEMI: batch.allowEMI });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET /reviews — all reviews (filter by status)
 router.get('/reviews', auth, isAdmin, async (req, res) => {
   try {

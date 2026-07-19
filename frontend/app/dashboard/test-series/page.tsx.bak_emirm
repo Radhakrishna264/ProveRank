@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import StudentShell from '@/src/components/StudentShell'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 
@@ -43,7 +44,7 @@ type Batch = {
   isSpotlight: boolean; flashSaleEndTime?: string; flashSalePrice?: number;
   allowFreeTrial: boolean; trialDays: number; isBundle: boolean; validity: number;
   rating: number; isEnrolled?: boolean; isWishlisted?: boolean; createdAt: string;
-  difficulty?: string; subject?: string;
+  allowEMI?: boolean; difficulty?: string; subject?: string;
   effectivePrice?: number; discountPct?: number; fitScore?: number;
   isPriceWatched?: boolean; priceDropped?: boolean; watchedPrice?: number|null;
   teacherAssigned?: string; seatLimit?: number;
@@ -185,10 +186,17 @@ function NotificationBell({ tok }: { tok: string | null }) {
   )
 }
 
-// ── PAYMENT CHECKOUT MODAL ──
-function PaymentModal({ batch, tok, onClose, onSuccess }: { batch: Batch; tok: string; onClose: () => void; onSuccess: () => void }) {
+// ── EMI CHECKOUT MODAL ──
+function EMIModal({ batch, tok, onClose, onSuccess }: { batch: Batch; tok: string; onClose: () => void; onSuccess: () => void }) {
+  const [plan,setPlan]=useState(3)
   const [loading,setLoading]=useState(false)
   const price=batch.discountPrice||batch.price
+  const plans=[
+    { months:3, label:'3 Months', monthly:Math.ceil(price/3) },
+    { months:6, label:'6 Months', monthly:Math.ceil(price/6) },
+    { months:12,label:'12 Months',monthly:Math.ceil(price/12) },
+  ]
+  const selected=plans.find(p=>p.months===plan)||plans[0]
 
   const handlePayFull=async()=>{
     if(!tok)return
@@ -205,19 +213,46 @@ function PaymentModal({ batch, tok, onClose, onSuccess }: { batch: Batch; tok: s
     }finally{setLoading(false)}
   }
 
+  const handleEMI=()=>{
+    alert(`EMI Plan Selected:\n${selected.label} — ₹${selected.monthly}/month\n\nTotal: ₹${price}\n\n(Razorpay EMI goes live once real API keys are added in Render ENV Variables)`)
+    onClose()
+  }
+
   return (
     <div style={{ position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.88)',display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}>
       <div style={{ background:'rgba(var(--pr-card-rgb),0.99)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:22,padding:26,maxWidth:380,width:'100%',backdropFilter:'blur(30px)',boxShadow:'0 30px 80px rgba(0,0,0,0.6)' }}>
         <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18 }}>
-          <div style={{ fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:'var(--pr-text)' }}>💳 Payment</div>
+          <div style={{ fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:'var(--pr-text)' }}>💳 Payment Options</div>
           <button onClick={onClose} style={{ background:'transparent',border:'none',color:'rgba(var(--pr-sub-rgb),0.5)',cursor:'pointer',fontSize:22 }}>×</button>
         </div>
         <div style={{ fontSize:13,color:'rgba(var(--pr-sub-rgb),0.6)',marginBottom:6,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis' }}>{batch.name}</div>
         <div style={{ fontSize:22,fontWeight:900,color:'var(--pr-text)',fontFamily:'Playfair Display,serif',marginBottom:20 }}>₹{price}</div>
         <button onClick={handlePayFull} disabled={loading}
-          style={{ width:'100%',padding:'13px',background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',border:'none',borderRadius:13,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:13,boxShadow:'0 6px 20px rgba(77,159,255,0.35)' }}>
+          style={{ width:'100%',padding:'13px',background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',border:'none',borderRadius:13,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:13,marginBottom:16,boxShadow:'0 6px 20px rgba(77,159,255,0.35)' }}>
           {loading?'Processing...':'💰 Pay Full Amount ₹'+price}
         </button>
+        {batch.allowEMI&&(
+          <>
+            <div style={{ display:'flex',alignItems:'center',gap:10,marginBottom:14 }}>
+              <div style={{ flex:1,height:1,background:'rgba(77,159,255,0.15)' }} />
+              <span style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.4)',fontWeight:600,textTransform:'uppercase',letterSpacing:1 }}>or pay in EMI</span>
+              <div style={{ flex:1,height:1,background:'rgba(77,159,255,0.15)' }} />
+            </div>
+            <div style={{ display:'flex',gap:8,marginBottom:14 }}>
+              {plans.map(p=>(
+                <button key={p.months} onClick={()=>setPlan(p.months)}
+                  style={{ flex:1,padding:'10px 6px',borderRadius:12,border:`1px solid ${plan===p.months?'rgba(0,212,255,0.5)':'rgba(77,159,255,0.15)'}`,background:plan===p.months?'rgba(0,212,255,0.1)':'rgba(77,159,255,0.05)',cursor:'pointer',transition:'all 0.2s' }}>
+                  <div style={{ fontSize:11,fontWeight:700,color:plan===p.months?'#00D4FF':'rgba(var(--pr-sub-rgb),0.5)' }}>{p.label}</div>
+                  <div style={{ fontSize:13,fontWeight:900,color:plan===p.months?'var(--pr-text)':'rgba(var(--pr-sub-rgb),0.4)',marginTop:2 }}>₹{p.monthly}<span style={{ fontSize:9 }}>/mo</span></div>
+                </button>
+              ))}
+            </div>
+            <button onClick={handleEMI}
+              style={{ width:'100%',padding:'12px',background:'rgba(0,212,255,0.08)',border:'1px solid rgba(0,212,255,0.25)',borderRadius:13,color:'#00D4FF',fontWeight:700,cursor:'pointer',fontSize:12 }}>
+              💳 Pay ₹{selected.monthly}/month × {selected.months} months
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
@@ -315,6 +350,7 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
         {typeof b.fitScore==='number'&&b.fitScore>=70&&<span style={{ background:'linear-gradient(135deg,#00D4FF,#0090B0)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:20 }}>🎯 {b.fitScore}% Fit</span>}
         {b.enrolledCount>100&&<span style={{ background:'linear-gradient(135deg,#E67E22,#CA6F1E)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:20 }}>🔥 HOT</span>}
         {b.isBundle&&<span style={{ background:'linear-gradient(135deg,#9B59B6,#7D3C98)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:20 }}>📦 BUNDLE</span>}
+        {b.allowEMI&&<span style={{ background:'linear-gradient(135deg,#00D4FF,#0090B0)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:20 }}>💳 EMI</span>}
       </div>
       {toggleCompare&&compareList&&(
         <button onClick={e=>{e.stopPropagation();toggleCompare(b)}}
@@ -365,7 +401,7 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
           <button onClick={enroll} disabled={loading} style={{ width:'100%',padding:'10px',background:`linear-gradient(135deg,${ec},${ec}BB)`,border:'none',borderRadius:11,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:11 }}>{loading?'Starting...':'🎯 Free Trial'}</button>
         ):(
           <button onClick={()=>onBuy&&onBuy(b)} style={{ width:'100%',padding:'10px',background:`linear-gradient(135deg,${ec},${ec}BB)`,border:'none',borderRadius:11,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:11 }}>
-            🛒 Buy ₹{finalPrice}
+            {b.allowEMI?`🛒 Buy ₹${finalPrice} (EMI avail.)`:`🛒 Buy ₹${finalPrice}`}
           </button>
         )}
       </div>
@@ -478,7 +514,7 @@ export default function TestSeriesPage() {
   const [cat,setCat]=useState('All')
   const [sort,setSort]=useState('newest')
   const [filterOpen,setFilterOpen]=useState(false)
-  const [filters,setFilters]=useState({ isFree:'', batchType:'', difficulty:'', subject:'', language:'', offerType:'', flashSaleActive:'', enrollmentState:'' })
+  const [filters,setFilters]=useState({ isFree:'', batchType:'', difficulty:'', subject:'', language:'', offerType:'', flashSaleActive:'', emiEligible:'', enrollmentState:'' })
   const [priceRange,setPriceRange]=useState([0,5000])
   const [tab,setTab]=useState<'all'|'enrolled'|'wishlist'>('all')
   const [tok,setTok]=useState<string|null>(null)
@@ -538,6 +574,7 @@ export default function TestSeriesPage() {
       if(filters.language)p.set('language',filters.language)
       if(filters.offerType)p.set('offerType',filters.offerType)
       if(filters.flashSaleActive)p.set('flashSaleActive',filters.flashSaleActive)
+      if(filters.emiEligible)p.set('emiEligible',filters.emiEligible)
       if(filters.enrollmentState)p.set('enrollmentState',filters.enrollmentState)
       p.set('minPrice',priceRange[0].toString())
       p.set('maxPrice',priceRange[1].toString())
@@ -643,17 +680,19 @@ export default function TestSeriesPage() {
         </div>
       </div>
 
-      {/* Quick Toggle: Flash Sale Active (FPR4) */}
+      {/* Quick Toggles: Flash Sale Active / EMI Eligible (FPR4) */}
       <div style={{ marginBottom:18,display:'flex',gap:8,flexWrap:'wrap' }}>
         <button onClick={()=>setFilters(prev=>({...prev,flashSaleActive:prev.flashSaleActive?'':'true'}))}
           style={{ padding:'6px 11px',borderRadius:20,fontSize:10,cursor:'pointer',background:filters.flashSaleActive?'rgba(231,76,60,0.15)':'rgba(77,159,255,0.05)',border:`1px solid ${filters.flashSaleActive?'rgba(231,76,60,0.4)':'rgba(77,159,255,0.1)'}`,color:filters.flashSaleActive?'#E74C3C':'rgba(var(--pr-sub-rgb),0.42)' }}>⚡ Flash Sale Live</button>
+        <button onClick={()=>setFilters(prev=>({...prev,emiEligible:prev.emiEligible?'':'true'}))}
+          style={{ padding:'6px 11px',borderRadius:20,fontSize:10,cursor:'pointer',background:filters.emiEligible?'rgba(0,212,255,0.15)':'rgba(77,159,255,0.05)',border:`1px solid ${filters.emiEligible?'rgba(0,212,255,0.4)':'rgba(77,159,255,0.1)'}`,color:filters.emiEligible?'#00D4FF':'rgba(var(--pr-sub-rgb),0.42)' }}>💳 EMI Eligible</button>
       </div>
 
       {/* Offer Type (FPR4) */}
       <div style={{ marginBottom:18 }}>
         <div style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.42)',marginBottom:8,fontWeight:700,textTransform:'uppercase',letterSpacing:1 }}>Offer Type</div>
         <div style={{ display:'flex',gap:5,flexWrap:'wrap' }}>
-          {[{v:'',l:'Any'},{v:'trial',l:'🎯 Free Trial'},{v:'bundle',l:'📦 Bundle'},{v:'spotlight',l:'⭐ Spotlight'},{v:'flashsale',l:'⚡ Flash Sale'}].map(o=>{
+          {[{v:'',l:'Any'},{v:'trial',l:'🎯 Free Trial'},{v:'bundle',l:'📦 Bundle'},{v:'spotlight',l:'⭐ Spotlight'},{v:'emi',l:'💳 EMI'},{v:'flashsale',l:'⚡ Flash Sale'}].map(o=>{
             const active=filters.offerType===o.v
             return <button key={o.v} onClick={()=>setFilters(prev=>({...prev,offerType:o.v}))}
               style={{ padding:'5px 10px',borderRadius:20,fontSize:10,cursor:'pointer',background:active?'rgba(77,159,255,0.18)':'rgba(77,159,255,0.05)',border:`1px solid ${active?'rgba(77,159,255,0.42)':'rgba(77,159,255,0.1)'}`,color:active?'#4D9FFF':'rgba(var(--pr-sub-rgb),0.42)' }}>{o.l}</button>
@@ -686,7 +725,7 @@ export default function TestSeriesPage() {
       </div>
 
       {/* Reset */}
-      <button onClick={()=>{setFilters({isFree:'',batchType:'',difficulty:'',subject:'',language:'',offerType:'',flashSaleActive:'',enrollmentState:''});setPriceRange([0,5000]);setSort('newest')}}
+      <button onClick={()=>{setFilters({isFree:'',batchType:'',difficulty:'',subject:'',language:'',offerType:'',flashSaleActive:'',emiEligible:'',enrollmentState:''});setPriceRange([0,5000]);setSort('newest')}}
         style={{ width:'100%',padding:'8px',background:'rgba(231,76,60,0.07)',border:'1px solid rgba(231,76,60,0.18)',borderRadius:10,color:'#E74C3C',cursor:'pointer',fontSize:10,fontWeight:700,marginTop:4 }}>
         🗑 Reset All Filters
       </button>
@@ -697,6 +736,7 @@ export default function TestSeriesPage() {
   const vars = THEME_VARS[pageTheme]
 
   return (
+    <StudentShell pageKey="test-series">
     <div style={{ minHeight:'100vh',color:'var(--pr-text)',fontFamily:'Inter,sans-serif',position:'relative',overflowX:'hidden',background:'var(--pr-bg)', ...(vars as any) }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap');
@@ -834,6 +874,19 @@ export default function TestSeriesPage() {
                 ))}
               </div>
             )}
+
+            {/* RECOMMENDATIONS */}
+            {false&&recommendations.length>0&&(
+              <div style={{ marginTop:40 }}>
+                <div style={{ display:'flex',alignItems:'center',gap:8,marginBottom:14 }}>
+                  <span style={{ fontSize:18 }}>💡</span>
+                  <span style={{ fontFamily:'Playfair Display,serif',fontSize:15,fontWeight:700,color:'var(--pr-text)' }}>Recommended For You</span>
+                </div>
+                <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:14 }}>
+                  {recommendations.map(b=><BatchCard key={b._id} b={b} tok={tok} onUpdate={fetchBatches} onBuy={handleBuy} onReview={setReviewBatch} onPreview={x=>setPreviewBatchId(x._id)} />)}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -879,8 +932,9 @@ export default function TestSeriesPage() {
 
       {/* MODALS */}
       {reviewBatch&&tok&&<ReviewModal batchId={reviewBatch._id} batchName={reviewBatch.name} tok={tok} onClose={()=>setReviewBatch(null)} />}
-      {buyBatch&&tok&&<PaymentModal batch={buyBatch} tok={tok} onClose={()=>setBuyBatch(null)} onSuccess={fetchBatches} />}
+      {buyBatch&&tok&&<EMIModal batch={buyBatch} tok={tok} onClose={()=>setBuyBatch(null)} onSuccess={fetchBatches} />}
       {previewBatchId&&<QuickPreviewModal batchId={previewBatchId} tok={tok} onClose={()=>setPreviewBatchId(null)} onBuy={setBuyBatch} onEnrollUpdate={fetchBatches} />}
     </div>
+    </StudentShell>
   )
 }

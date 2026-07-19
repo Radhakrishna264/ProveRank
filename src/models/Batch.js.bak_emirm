@@ -30,6 +30,7 @@ const BatchSchema=new mongoose.Schema({
   subject:{type:String,default:'All Subjects'},
   students:[{type:mongoose.Schema.Types.ObjectId,ref:'User'}],
   notes:[{type:mongoose.Schema.Types.ObjectId,ref:'BatchNote'}],
+  allowEMI:{type:Boolean,default:false},
   batchCode:{type:String,unique:true,sparse:true},
   lifecycleStatus:{type:String,default:'active',enum:['draft','active','upcoming','paused','archived']},
   visibility:{type:String,default:'public',enum:['public','private','invite_only']},

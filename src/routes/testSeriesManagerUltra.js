@@ -71,7 +71,7 @@ function computeHealthScore(series, studentCount, testCount) {
   score += (series.lifecycleStatus === 'active' ? 1 : series.lifecycleStatus === 'paused' ? 0.4 : 0.6) * 20;
   const daysSinceActivity = series.lastActivityAt ? (Date.now() - new Date(series.lastActivityAt).getTime()) / 86400000 : 999;
   score += Math.max(0, 1 - Math.min(1, daysSinceActivity / 30)) * 20;
-  score += (series.isSpotlight || series.allowFreeTrial || series.isBundle || series.allowEMI ? 1 : 0.4) * 10;
+  score += (series.isSpotlight || series.allowFreeTrial || series.isBundle ? 1 : 0.4) * 10;
   return Math.round(Math.min(100, Math.max(0, score)));
 }
 
@@ -82,7 +82,7 @@ function effectivePrice(b) {
   return b.discountPrice || b.price || 0;
 }
 
-// -- FPR3 Publish Gate: block launch (lifecycleStatus -> 'active') without a ready banner --
+// ── FPR3 Publish Gate: block launch (lifecycleStatus -> 'active') without a ready banner ──
 async function checkBannerGate(seriesId) {
   try {
     let Banner;
@@ -141,7 +141,6 @@ router.get('/', auth, isAdmin, async (req, res) => {
     if (spotlight === 'true') filter.isSpotlight = true;
     if (trial === 'true') filter.allowFreeTrial = true;
     if (bundle === 'true') filter.isBundle = true;
-    if (emi === 'true') filter.allowEMI = true;
     if (flashsale === 'true') filter.flashSaleEndTime = { $gte: new Date() };
     filter.isTemplate = { $ne: true };
 
@@ -252,7 +251,7 @@ router.delete('/templates/:id', auth, isAdmin, async (req, res) => {
 router.post('/', auth, isAdmin, async (req, res) => {
   try {
     const body = req.body || {};
-    if (!body.name || !body.name.trim()) return res.status(400).json({ error: 'TestSeries name required' });
+    if (!body.name || !body.name.trim()) return res.status(400).json({ error: 'Test series name required' });
 
     // Duplicate name/code detector
     const dup = await TestSeries.findOne({ $or: [{ name: body.name.trim() }, { seriesCode: body.seriesCode }] });
@@ -296,7 +295,6 @@ router.post('/', auth, isAdmin, async (req, res) => {
       bundlePrice: body.bundlePrice ? Number(body.bundlePrice) : undefined,
       allowFreeTrial: !!body.allowFreeTrial,
       trialDays: Number(body.trialDays) || 0,
-      allowEMI: !!body.allowEMI,
       isSpotlight: !!body.isSpotlight,
       autoArchiveAfterEnd: !!body.autoArchiveAfterEnd,
       lastActivityAt: new Date(),
@@ -382,8 +380,8 @@ router.get('/:id', auth, isAdmin, async (req, res) => {
       },
       recentActivity: recentAudit,
       alerts: [
-        ...(series.seatLimit > 0 && studentCount >= series.seatLimit ? [{ type: 'warning', message: 'TestSeries at full seat capacity' }] : []),
-        ...(series.endDate && new Date(series.endDate) < new Date() && series.lifecycleStatus !== 'archived' ? [{ type: 'warning', message: 'TestSeries end date has passed — consider archiving' }] : []),
+        ...(series.seatLimit > 0 && studentCount >= series.seatLimit ? [{ type: 'warning', message: 'Test series at full seat capacity' }] : []),
+        ...(series.endDate && new Date(series.endDate) < new Date() && series.lifecycleStatus !== 'archived' ? [{ type: 'warning', message: 'Test series end date has passed — consider archiving' }] : []),
         ...(testCount === 0 ? [{ type: 'info', message: 'No tests assigned yet' }] : [])
       ]
     });
@@ -505,7 +503,7 @@ router.post('/:id/students/add', auth, isAdmin, async (req, res) => {
 
     const before = series.students.length;
     if (series.seatLimit > 0 && before >= series.seatLimit) {
-      return res.status(409).json({ error: 'TestSeries at full seat capacity — cannot add more students' });
+      return res.status(409).json({ error: 'Test series at full seat capacity — cannot add more students' });
     }
     if (series.students.some(s => String(s) === String(student._id))) {
       return res.status(409).json({ error: 'Student already in this series' });
@@ -639,7 +637,6 @@ router.get('/:id/pricing', auth, isAdmin, async (req, res) => {
         couponCode: series.couponCode || '',
         allowFreeTrial: !!series.allowFreeTrial,
         trialDays: series.trialDays || 0,
-        allowEMI: !!series.allowEMI,
         priceLocked: !!series.priceLocked,
         effectivePrice: effectivePrice(series)
       },
@@ -660,7 +657,7 @@ router.put('/:id/pricing', auth, isAdmin, async (req, res) => {
     if (series.priceLocked && !req.body.forceUnlock) {
       return res.status(423).json({ error: 'Price is locked. Unlock before editing.' });
     }
-    const fields = ['price', 'discountPrice', 'bundlePrice', 'earlyBirdPrice', 'limitedTimePrice', 'couponCode', 'allowFreeTrial', 'trialDays', 'allowEMI'];
+    const fields = ['price', 'discountPrice', 'bundlePrice', 'earlyBirdPrice', 'limitedTimePrice', 'couponCode', 'allowFreeTrial', 'trialDays'];
     series.priceHistory = series.priceHistory || [];
     for (const f of fields) {
       if (req.body[f] !== undefined && String(series[f]) !== String(req.body[f])) {
@@ -711,7 +708,7 @@ router.get('/:id/controls', auth, isAdmin, async (req, res) => {
     res.json({
       controls: {
         isSpotlight: !!series.isSpotlight, isBundle: !!series.isBundle, allowFreeTrial: !!series.allowFreeTrial,
-        allowEMI: !!series.allowEMI, flashSaleActive: !!(series.flashSaleEndTime && new Date(series.flashSaleEndTime) > new Date()),
+        flashSaleActive: !!(series.flashSaleEndTime && new Date(series.flashSaleEndTime) > new Date()),
         lifecycleStatus: series.lifecycleStatus, enrollmentRule: series.enrollmentRule, visibility: series.visibility,
         seatLimit: series.seatLimit, accessPolicy: series.accessPolicy, joinCode: series.joinCode
       },
@@ -728,7 +725,7 @@ router.put('/:id/controls', auth, isAdmin, async (req, res) => {
       const gate = await checkBannerGate(series._id);
       if (!gate.ready) return res.status(423).json({ error: gate.reason, gate: 'launch_blocked' });
     }
-    const fields = ['isSpotlight', 'isBundle', 'allowFreeTrial', 'allowEMI', 'lifecycleStatus', 'enrollmentRule', 'visibility', 'seatLimit', 'accessPolicy', 'joinCode'];
+    const fields = ['isSpotlight', 'isBundle', 'allowFreeTrial', 'lifecycleStatus', 'enrollmentRule', 'visibility', 'seatLimit', 'accessPolicy', 'joinCode'];
     for (const f of fields) {
       if (req.body[f] !== undefined) {
         const oldVal = series[f];
@@ -883,7 +880,7 @@ router.post('/:id/announcements', auth, isAdmin, async (req, res) => {
     const series = await TestSeries.findById(req.params.id);
     if (series && StudentNotification) {
       const notifs = (series.students || []).map(sid => ({
-        userId: sid, type: 'announcement', title: title || '📢 TestSeries Update', message,
+        userId: sid, type: 'announcement', title: title || '📢 Test Series Update', message,
         seriesId: series._id, isRead: false, link: '/dashboard/announcements'
       }));
       if (notifs.length) await StudentNotification.insertMany(notifs);
@@ -946,7 +943,9 @@ router.get('/:id/export-snapshot', auth, isAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// -- FPR3 Banner Panel (Test Series Detail page integration) --
+// ══════════════════════════════════════════════════════════════════
+// FPR3 — BANNER PANEL (for Test Series Detail page integration)
+// ══════════════════════════════════════════════════════════════════
 router.get('/:id/banner-panel', auth, isAdmin, async (req, res) => {
   try {
     let Banner;

@@ -30,6 +30,7 @@ const TestSeriesSchema = new mongoose.Schema({
   subject: { type: String, default: 'All Subjects' },
   students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   notes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'BatchNote' }],
+  allowEMI: { type: Boolean, default: false },
 
   // ── FPR2 Ultra SaaS fields ──
   seriesCode: { type: String, unique: true, sparse: true },
