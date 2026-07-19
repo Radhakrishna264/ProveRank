@@ -71,7 +71,7 @@ function computeHealthScore(batch, studentCount, examCount) {
   score += (batch.lifecycleStatus === 'active' ? 1 : batch.lifecycleStatus === 'paused' ? 0.4 : 0.6) * 20;
   const daysSinceActivity = batch.lastActivityAt ? (Date.now() - new Date(batch.lastActivityAt).getTime()) / 86400000 : 999;
   score += Math.max(0, 1 - Math.min(1, daysSinceActivity / 30)) * 20;
-  score += (batch.isSpotlight || batch.allowFreeTrial || batch.isBundle || batch.allowEMI ? 1 : 0.4) * 10;
+  score += (batch.isSpotlight || batch.allowFreeTrial || batch.isBundle ? 1 : 0.4) * 10;
   return Math.round(Math.min(100, Math.max(0, score)));
 }
 
@@ -82,7 +82,7 @@ function effectivePrice(b) {
   return b.discountPrice || b.price || 0;
 }
 
-// -- FPR3 Publish Gate: block launch (lifecycleStatus -> 'active') without a ready banner --
+// ── FPR3 Publish Gate: block launch (lifecycleStatus -> 'active') without a ready banner ──
 async function checkBannerGate(batchId) {
   try {
     let Banner;
@@ -91,7 +91,7 @@ async function checkBannerGate(batchId) {
     if (!banner) return { ready: false, reason: 'No banner has been created for this batch yet. Open Banner Management to generate one before launching.' };
     const ready = (['ready', 'scheduled', 'published'].includes(banner.status) || banner.published);
     return { ready, reason: ready ? '' : 'Banner draft is not marked ready/approved yet. Open Banner Management to complete it before launching.', bannerId: banner._id };
-  } catch (e) { return { ready: true, reason: '' }; }
+  } catch (e) { return { ready: true, reason: '' }; } // fail-open on transient errors so a banner-service hiccup never bricks the whole batch
 }
 
 async function findStudentByIdOrEmail({ studentId, email }) {
@@ -141,7 +141,6 @@ router.get('/', auth, isAdmin, async (req, res) => {
     if (spotlight === 'true') filter.isSpotlight = true;
     if (trial === 'true') filter.allowFreeTrial = true;
     if (bundle === 'true') filter.isBundle = true;
-    if (emi === 'true') filter.allowEMI = true;
     if (flashsale === 'true') filter.flashSaleEndTime = { $gte: new Date() };
     filter.isTemplate = { $ne: true };
 
@@ -296,7 +295,6 @@ router.post('/', auth, isAdmin, async (req, res) => {
       bundlePrice: body.bundlePrice ? Number(body.bundlePrice) : undefined,
       allowFreeTrial: !!body.allowFreeTrial,
       trialDays: Number(body.trialDays) || 0,
-      allowEMI: !!body.allowEMI,
       isSpotlight: !!body.isSpotlight,
       autoArchiveAfterEnd: !!body.autoArchiveAfterEnd,
       lastActivityAt: new Date(),
@@ -687,7 +685,6 @@ router.get('/:id/pricing', auth, isAdmin, async (req, res) => {
         couponCode: batch.couponCode || '',
         allowFreeTrial: !!batch.allowFreeTrial,
         trialDays: batch.trialDays || 0,
-        allowEMI: !!batch.allowEMI,
         priceLocked: !!batch.priceLocked,
         effectivePrice: effectivePrice(batch)
       },
@@ -708,7 +705,7 @@ router.put('/:id/pricing', auth, isAdmin, async (req, res) => {
     if (batch.priceLocked && !req.body.forceUnlock) {
       return res.status(423).json({ error: 'Price is locked. Unlock before editing.' });
     }
-    const fields = ['price', 'discountPrice', 'bundlePrice', 'earlyBirdPrice', 'limitedTimePrice', 'couponCode', 'allowFreeTrial', 'trialDays', 'allowEMI'];
+    const fields = ['price', 'discountPrice', 'bundlePrice', 'earlyBirdPrice', 'limitedTimePrice', 'couponCode', 'allowFreeTrial', 'trialDays'];
     batch.priceHistory = batch.priceHistory || [];
     for (const f of fields) {
       if (req.body[f] !== undefined && String(batch[f]) !== String(req.body[f])) {
@@ -759,7 +756,7 @@ router.get('/:id/controls', auth, isAdmin, async (req, res) => {
     res.json({
       controls: {
         isSpotlight: !!batch.isSpotlight, isBundle: !!batch.isBundle, allowFreeTrial: !!batch.allowFreeTrial,
-        allowEMI: !!batch.allowEMI, flashSaleActive: !!(batch.flashSaleEndTime && new Date(batch.flashSaleEndTime) > new Date()),
+        flashSaleActive: !!(batch.flashSaleEndTime && new Date(batch.flashSaleEndTime) > new Date()),
         lifecycleStatus: batch.lifecycleStatus, enrollmentRule: batch.enrollmentRule, visibility: batch.visibility,
         seatLimit: batch.seatLimit, accessPolicy: batch.accessPolicy, joinCode: batch.joinCode
       },
@@ -776,7 +773,7 @@ router.put('/:id/controls', auth, isAdmin, async (req, res) => {
       const gate = await checkBannerGate(batch._id);
       if (!gate.ready) return res.status(423).json({ error: gate.reason, gate: 'launch_blocked' });
     }
-    const fields = ['isSpotlight', 'isBundle', 'allowFreeTrial', 'allowEMI', 'lifecycleStatus', 'enrollmentRule', 'visibility', 'seatLimit', 'accessPolicy', 'joinCode'];
+    const fields = ['isSpotlight', 'isBundle', 'allowFreeTrial', 'lifecycleStatus', 'enrollmentRule', 'visibility', 'seatLimit', 'accessPolicy', 'joinCode'];
     for (const f of fields) {
       if (req.body[f] !== undefined) {
         const oldVal = batch[f];
@@ -994,7 +991,9 @@ router.get('/:id/export-snapshot', auth, isAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// -- FPR3 Banner Panel (Batch Detail page integration) --
+// ══════════════════════════════════════════════════════════════════
+// FPR3 — BANNER PANEL (for Batch Detail page integration)
+// ══════════════════════════════════════════════════════════════════
 router.get('/:id/banner-panel', auth, isAdmin, async (req, res) => {
   try {
     let Banner;

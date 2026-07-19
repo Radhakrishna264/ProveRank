@@ -290,13 +290,6 @@ router.post('/', auth, isAdmin, async (req, res) => {
       startDate: body.startDate ? new Date(body.startDate) : undefined,
       endDate: body.endDate ? new Date(body.endDate) : undefined,
       price: Number(body.price) || 0,
-      discountPrice: body.discountPrice ? Number(body.discountPrice) : undefined,
-      isBundle: !!body.isBundle,
-      bundlePrice: body.bundlePrice ? Number(body.bundlePrice) : undefined,
-      allowFreeTrial: !!body.allowFreeTrial,
-      trialDays: Number(body.trialDays) || 0,
-      isSpotlight: !!body.isSpotlight,
-      autoArchiveAfterEnd: !!body.autoArchiveAfterEnd,
       lastActivityAt: new Date(),
       isTemplate: false
     });

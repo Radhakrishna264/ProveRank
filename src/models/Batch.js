@@ -2,7 +2,7 @@ const mongoose=require('mongoose');
 const BatchSchema=new mongoose.Schema({
   name:{type:String,required:true},
   description:{type:String,default:''},
-  examType:{type:String,default:'NEET',enum:['NEET','NEET UG','JEE','JEE MAINS','JEE ADVANCE','CUET','CUET UG','CUET PG','SSC CGL','IIT JAM','Class 11','Class 12','Foundation','Crash Course','Other']},
+  examType:{type:String,default:'NEET UG',enum:['NEET','NEET UG','NEET PG','JEE','JEE MAINS','JEE ADVANCE','JEE Main','JEE Advanced','CUET','CUET UG','CUET PG','SSC CGL','SSC CHSL','UPSC CSE','NDA','CDS','CAT','CLAT','GATE','IIT JAM','CSIR NET','UGC NET','Railway (RRB)','Banking (IBPS / SBI)','State PSC','Nursing Entrance','Paramedical Entrance','Defence Exams','Class 11','Class 12','Foundation','Crash Course','Other','Other (Custom)']},
   category:{type:String,default:'Full Syllabus'},
   price:{type:Number,default:0},
   discountPrice:{type:Number,default:0},
