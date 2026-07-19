@@ -175,7 +175,7 @@ router.get('/', auth, isAdmin, async (req, res) => {
     const paged = testSeries.slice(start, start + Number(limit));
 
     res.json({
-      series: paged, total,
+      testSeries: paged, total,
       summary: {
         active: testSeries.filter(b => b.lifecycleStatus === 'active').length,
         paused: testSeries.filter(b => b.lifecycleStatus === 'paused').length,
