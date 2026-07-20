@@ -786,6 +786,7 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
     {id:'notes',l:'📚 Materials ('+notes.length+')'},
     {id:'analytics',l:'📈 Analytics'},
     {id:'announce',l:'📢 Announce'},
+    {id:'banner-generator',label:'🖼️ Banner Management',href:'/admin/x7k2p/banner-generator'},
     {id:'settings',l:'⚙️ Settings'},
   ]
 
@@ -796,7 +797,7 @@ function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename
       <div style={{position:'sticky',top:0,background:'rgba(0,10,24,0.95)',backdropFilter:'blur(16px)',borderBottom:'1px solid '+BOR,padding:'12px 16px',zIndex:10}}>
         <div style={{maxWidth:940,margin:'0 auto'}}>
           <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:10}}>
-            <button onClick={onClose} style={{background:'rgba(77,159,255,0.1)',color:ACC,border:'1px solid '+BOR2,borderRadius:8,padding:'7px 12px',cursor:'pointer',fontSize:12,fontWeight:600,transition:'all 0.2s'}} className="bdt2">← Back</button>
+            <button onClick={onClose} style={{background:'rgba(77,159,255,0.1)',color:ACC,border:'1px solid '+BOR2,borderRadius:8,padding:'7px 12px',cursor:'pointer',fontSize:12,fontWeight:600,transition:'all 0.2s'}} className="bdt2">← Back</button> <button onClick={()=>{const url='/admin/x7k2p/banner-generator?batchId='+batch._id+'&batchName='+encodeURIComponent(batch.name);window.location.href=url;}} style={{padding:'6px 12px',background:'linear-gradient(135deg,rgba(77,159,255,0.15),rgba(0,212,255,0.1))',border:'1px solid rgba(77,159,255,0.3)',borderRadius:8,color:'#4D9FFF',cursor:'pointer',fontSize:10,fontWeight:700,whiteSpace:'nowrap'}}>🎨 Generate Banner</button>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:17,fontWeight:800,fontFamily:'Playfair Display,serif',background:'linear-gradient(90deg,'+ACC+',#A8D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>📦 {batch.name}</div>
               <div style={{display:'flex',alignItems:'center',gap:6,marginTop:1,flexWrap:'wrap'}}><span style={{fontSize:10,color:DIM,fontFamily:'monospace'}}>ID: {batch._id?.slice(-12)}...</span><CopyBtn text={batch._id} label="Batch ID"/><span style={{fontSize:10,color:DIM}}>· {batch.createdAt?new Date(batch.createdAt).toLocaleDateString():'-'}</span></div>
@@ -1102,7 +1103,7 @@ export default function AdminPanel() {
   const [mounted,setMounted]=useState(false)
   const [tab,setTab]=useState('dashboard')
   const [pendingTemplate,setPendingTemplate]=useState<any>(null) // Feature 29.13 — Apply Template → Wizard Step 1
-  const _setTab=(id:string)=>{_setTab_orig(id);}
+  const _setTab=(id:string)=>{if(id==='creative_studio'){window.location.href='/admin/x7k2p/banner-generator';return;}_setTab_orig(id);}
   const _setTab_orig=(t:string)=>{try{sessionStorage.setItem('pr_admin_tab',t)}catch{};setTab(t)}
   useEffect(()=>{
     const id='pr-nav-desktop-styles';
@@ -2318,6 +2319,7 @@ const confirmAndAdd=useCallback(async()=>{
     {id:'changelog',ico:'📝',lbl:'Changelog',grp:'Tools'},
     {id:'parent_portal',ico:'👨‍👩‍👧',lbl:'Parent Portal',grp:'Tools'},
   {id:'store',ico:'🛒',lbl:'Store Management',grp:'Tools'},
+    {id:'creative_studio',ico:'🖼️',lbl:'Banner Management',grp:'Settings',alwaysShow:true},
   ]
 
   const navGroups=[...new Set(NAV.map(n=>n.grp))]

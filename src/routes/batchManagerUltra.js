@@ -12,6 +12,8 @@ const jwt      = require('jsonwebtoken');
 const Batch    = require('../models/Batch');
 const User     = require('../models/User');
 const Coupon   = require('../models/Coupon');
+const Banner   = require('../models/Banner');
+const BannerAuditLog = require('../models/BannerAuditLog');
 let BatchAuditLog, BatchTemplate, BatchNote;
 try { BatchAuditLog = require('../models/BatchAuditLog'); } catch (e) { BatchAuditLog = null; }
 try { BatchTemplate  = require('../models/BatchTemplate'); } catch (e) { BatchTemplate = null; }
@@ -996,6 +998,254 @@ router.post('/:id/coupons/redeem', auth, async (req, res) => {
     c.usageHistory.push({ student: req.user.id, studentName: req.user.name || 'Student', appliedAmount: base, discountAmount: discount, orderRef: orderRef || '', status: 'success' });
     await c.save();
     res.json({ success: true, discount, finalPrice: Math.max(0, base - discount) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ══════════════════════════════════════════════════════════════════
+// BANNER MANAGEMENT TAB — batch-scoped banner only (no global list).
+// Publish/Launch is intentionally NOT done here — reserved for a
+// future Publish Center. This tab only manages the ONE banner linked
+// to this batch: create/auto-generate/edit/sync/version/analyze.
+// ══════════════════════════════════════════════════════════════════
+function computeBannerQualityScore(b) {
+  let score = 0;
+  if (b.title && b.title.trim()) score += 20;
+  if (b.ctaText && b.ctaText.trim()) score += 15;
+  if (b.price && String(b.price).trim()) score += 15;
+  if (b.tagline && b.tagline.trim()) score += 10;
+  if (b.highlights && b.highlights.filter(Boolean).length >= 2) score += 15;
+  if (b.bgImage && b.bgImage.trim()) score += 10;
+  if (b.template) score += 10;
+  if (b.primaryColor && b.accentColor) score += 5;
+  return Math.min(100, score);
+}
+function buildBannerSyncFields(batch) {
+  let validity, duration;
+  if (batch.startDate && batch.endDate) {
+    const days = Math.max(1, Math.round((new Date(batch.endDate) - new Date(batch.startDate)) / 86400000));
+    validity = new Date(batch.startDate).toLocaleDateString() + ' → ' + new Date(batch.endDate).toLocaleDateString();
+    duration = days + ' days';
+  } else {
+    const days = batch.validity || 365;
+    validity = days + ' days';
+    duration = days + ' days';
+  }
+  const eff = (batch.discountPrice && (!batch.discountValidTill || new Date(batch.discountValidTill) >= new Date())) ? batch.discountPrice : (batch.price || 0);
+  return {
+    batchName: batch.name || '',
+    title: batch.name || '',
+    examType: batch.examType || 'NEET',
+    price: String(eff || 0),
+    totalTests: String(batch.totalTests || 0),
+    validity, duration,
+    highlights: [
+      (batch.totalTests || 0) + ' Practice Tests',
+      duration + ' Validity',
+      batch.language || 'Hindi + English'
+    ],
+    badge: batch.isSpotlight ? 'trending' : 'none'
+  };
+}
+function checkBannerSyncState(banner, batch) {
+  if (banner.syncState === 'manual_override') return 'manual_override';
+  const live = buildBannerSyncFields(batch);
+  const mismatch = banner.title !== live.title || banner.price !== live.price || banner.examType !== live.examType || banner.totalTests !== live.totalTests;
+  return mismatch ? 'pending_sync' : 'synced';
+}
+async function logBannerAudit({ bannerId, action, oldValue, newValue, performedBy, performedByName, linkedType, linkedBatchId, reason }) {
+  try {
+    await BannerAuditLog.create({ bannerId, action, oldValue, newValue, performedBy, performedByName: performedByName || 'Admin', linkedType, linkedBatchId, reason: reason || '', timestamp: new Date() });
+  } catch (e) { /* audit must never break main flow */ }
+}
+
+router.get('/:id/banner', auth, isAdmin, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id).lean();
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
+    const syncPreview = buildBannerSyncFields(batch);
+    if (!banner) return res.json({ banner: null, overview: { status: 'none', readiness: 'banner_required' }, syncPreview, batchName: batch.name });
+    const liveSyncState = checkBannerSyncState(banner, batch);
+    const qualityScore = banner.qualityScore || computeBannerQualityScore(banner);
+    res.json({
+      banner: { ...banner, syncState: liveSyncState, qualityScore },
+      overview: {
+        status: banner.status, lastUpdated: banner.updatedAt,
+        draftState: banner.status === 'draft' ? 'Draft' : banner.status === 'ready' ? 'Ready' : banner.status,
+        qualityScore, syncState: liveSyncState,
+        recentVersion: banner.versions && banner.versions.length ? banner.versions[banner.versions.length - 1] : null,
+        readiness: qualityScore >= 60 && banner.status !== 'draft' ? 'ready' : 'incomplete'
+      },
+      syncPreview, batchName: batch.name
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/:id/banner/auto-generate', auth, isAdmin, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id).lean();
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const existing = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } });
+    if (existing) return res.status(409).json({ error: 'A banner already exists for this batch. Edit or replace it instead.' });
+    const fields = buildBannerSyncFields(batch);
+    const banner = await Banner.create({
+      ...fields, batchId: String(req.params.id),
+      tagline: '', ctaText: 'Enroll Now', template: 'classic',
+      primaryColor: '#4D9FFF', secondaryColor: '#00D4FF', textColor: '#FFFFFF', accentColor: '#FFD700',
+      fontStyle: 'modern', bgImage: '', published: false,
+      linkedType: 'batch', linkedBatchId: req.params.id, status: 'draft', syncState: 'synced',
+      createdBy: req.user.id
+    });
+    banner.qualityScore = computeBannerQualityScore(banner);
+    await banner.save();
+    await logBannerAudit({ bannerId: banner._id, action: 'created', newValue: { title: banner.title }, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    res.json({ success: true, banner });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/:id/banner', auth, isAdmin, async (req, res) => {
+  try {
+    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
+    if (!banner) return res.status(404).json({ error: 'No banner found. Auto-generate a draft first.' });
+    if (banner.status === 'published' && !req.body.forceUnlock) {
+      const lockedFields = ['title', 'price', 'examType'];
+      const touchingLocked = lockedFields.some(f => req.body[f] !== undefined && req.body[f] !== banner[f]);
+      if (touchingLocked) return res.status(423).json({ error: 'Banner is published — critical fields are locked. Use forceUnlock to override.' });
+    }
+    const versionSnap = banner.toObject();
+    delete versionSnap._id; delete versionSnap.versions; delete versionSnap.__v;
+    banner.versions = banner.versions || [];
+    banner.versions.push({ data: versionSnap, savedAt: new Date(), label: 'v' + (banner.versions.length + 1) });
+    const editable = ['title', 'tagline', 'examType', 'price', 'totalTests', 'duration', 'validity', 'highlights', 'ctaText', 'badge', 'template', 'primaryColor', 'secondaryColor', 'textColor', 'accentColor', 'fontStyle', 'bgImage'];
+    for (const f of editable) { if (req.body[f] !== undefined) banner[f] = req.body[f]; }
+    if (req.body.markReady) banner.status = 'ready';
+    else if (req.body.saveAsDraft) banner.status = 'draft';
+    banner.syncState = 'manual_override';
+    banner.qualityScore = computeBannerQualityScore(banner);
+    await banner.save();
+    await logBannerAudit({ bannerId: banner._id, action: 'edited', linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    res.json({ success: true, banner });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/:id/banner/sync', auth, isAdmin, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id).lean();
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
+    if (!banner) return res.status(404).json({ error: 'No banner found. Auto-generate a draft first.' });
+    const oldVal = { title: banner.title, price: banner.price };
+    const fields = buildBannerSyncFields(batch);
+    Object.assign(banner, fields);
+    banner.syncState = 'synced';
+    banner.qualityScore = computeBannerQualityScore(banner);
+    await banner.save();
+    await logBannerAudit({ bannerId: banner._id, action: 'synced', oldValue: oldVal, newValue: { title: banner.title, price: banner.price }, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    res.json({ success: true, banner });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/:id/banner/duplicate', auth, isAdmin, async (req, res) => {
+  try {
+    const orig = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
+    if (!orig) return res.status(404).json({ error: 'No banner found' });
+    delete orig._id; delete orig.createdAt; delete orig.updatedAt;
+    orig.title = orig.title + ' (Copy)';
+    orig.published = false; orig.status = 'draft'; orig.versions = [];
+    orig.analytics = { views: 0, clicks: 0, enrolls: 0 };
+    orig.linkedType = 'none'; orig.linkedBatchId = null;
+    const dup = await Banner.create(orig);
+    await logBannerAudit({ bannerId: dup._id, action: 'duplicated', oldValue: { from: req.params.id }, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    res.json({ success: true, banner: dup });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/:id/banner/remove', auth, isAdmin, async (req, res) => {
+  try {
+    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
+    if (!banner) return res.status(404).json({ error: 'No banner found' });
+    banner.status = 'removed';
+    banner.removedAt = new Date();
+    banner.published = false;
+    await banner.save();
+    await logBannerAudit({ bannerId: banner._id, action: 'removed', reason: req.body.reason, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/:id/banner/restore-removed', auth, isAdmin, async (req, res) => {
+  try {
+    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: 'removed' }).sort({ removedAt: -1 });
+    if (!banner) return res.status(404).json({ error: 'No removed banner found' });
+    banner.status = 'draft';
+    banner.removedAt = null;
+    await banner.save();
+    await logBannerAudit({ bannerId: banner._id, action: 'restored_from_removed', linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    res.json({ success: true, banner });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/:id/banner/replace', auth, isAdmin, async (req, res) => {
+  try {
+    const old = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
+    if (!old) return res.status(404).json({ error: 'No banner found to replace' });
+    const oldObj = old.toObject();
+    delete oldObj._id; delete oldObj.createdAt; delete oldObj.updatedAt; delete oldObj.versions; delete oldObj.__v;
+    const replacement = await Banner.create({
+      ...oldObj, ...req.body, status: 'draft', published: false, replacedFrom: old._id,
+      linkedType: 'batch', linkedBatchId: req.params.id,
+      versions: [], analytics: { views: 0, clicks: 0, enrolls: 0 }
+    });
+    old.status = 'replaced';
+    old.replacedBy = replacement._id;
+    old.published = false;
+    await old.save();
+    await logBannerAudit({ bannerId: replacement._id, action: 'replaced', oldValue: { replacedFrom: old._id }, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    res.json({ success: true, banner: replacement });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/:id/banner/restore-version/:vIdx', auth, isAdmin, async (req, res) => {
+  try {
+    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
+    if (!banner) return res.status(404).json({ error: 'No banner found' });
+    const v = banner.versions[parseInt(req.params.vIdx)];
+    if (!v) return res.status(404).json({ error: 'Version not found' });
+    Object.assign(banner, v.data);
+    banner.qualityScore = computeBannerQualityScore(banner);
+    await banner.save();
+    await logBannerAudit({ bannerId: banner._id, action: 'version_restored', newValue: { vIdx: req.params.vIdx }, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    res.json({ success: true, banner });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/:id/banner/analytics', auth, isAdmin, async (req, res) => {
+  try {
+    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
+    if (!banner) return res.json({ analytics: null });
+    const a = banner.analytics || { views: 0, clicks: 0, enrolls: 0 };
+    res.json({ analytics: { views: a.views || 0, clicks: a.clicks || 0, enrolls: a.enrolls || 0, clickRate: a.views ? +((a.clicks / a.views) * 100).toFixed(1) : 0, conversionRate: a.views ? +((a.enrolls / a.views) * 100).toFixed(1) : 0, template: banner.template, ctaText: banner.ctaText } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/:id/banner/track', async (req, res) => {
+  try {
+    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
+    if (!banner) return res.json({ success: false });
+    const { type } = req.body;
+    const inc = {};
+    if (type === 'view') inc['analytics.views'] = 1;
+    if (type === 'click') inc['analytics.clicks'] = 1;
+    if (type === 'enroll') inc['analytics.enrolls'] = 1;
+    if (Object.keys(inc).length) await Banner.findByIdAndUpdate(banner._id, { $inc: inc });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/:id/banner/audit', auth, isAdmin, async (req, res) => {
+  try {
+    const audit = await BannerAuditLog.find({ linkedType: 'batch', linkedBatchId: req.params.id }).sort({ timestamp: -1 }).limit(100).lean();
+    res.json({ audit });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

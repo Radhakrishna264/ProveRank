@@ -1,8 +1,8 @@
 'use client'
 // ══════════════════════════════════════════════════════════════════
-// FPR2 — TEST SERIES MANAGEMENT ULTRA SaaS UPGRADE (Admin) — Frontend
+// FPR1 — BATCH MANAGEMENT ULTRA SaaS UPGRADE (Admin) — Frontend
 // Home (cards + smart search/filter + create) + Detail (10 tabs)
-// Add Student by ID + Email · Pricing · Controls · Materials
+// Add/Transfer Student by ID + Email · Pricing · Controls · Materials
 // Analytics · Announcements · Settings · Audit History · Templates
 // Desktop + Mobile responsive · Admin theme matched
 // ══════════════════════════════════════════════════════════════════
@@ -68,9 +68,9 @@ function EmptyMsg({ text }: { text: string }) {
 // ══════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════════════════════════════════
-export default function TestSeriesManagerUltra({ token, API }: { token: string; API: string }) {
+export default function BatchManagerUltra({ token, API }: { token: string; API: string }) {
   const isMobile = useIsMobile()
-  const [series, setSeriesList] = useState<any[]>([])
+  const [batches, setBatches] = useState<any[]>([])
   const [summary, setSummary] = useState<any>({})
   const [loading, setLoading] = useState(false)
   const [q, setQ] = useState('')
@@ -79,18 +79,18 @@ export default function TestSeriesManagerUltra({ token, API }: { token: string; 
   const [sort, setSort] = useState('newest')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [detailId, setDetailId] = useState<string | null>(() => {
-    try { return typeof window !== 'undefined' ? localStorage.getItem('pr_tsm_detailId') : null } catch (e) { return null }
+    try { return typeof window !== 'undefined' ? localStorage.getItem('pr_bm_detailId') : null } catch (e) { return null }
   })
   const [showCreate, setShowCreate] = useState(false)
   const [presets, setPresets] = useState<any[]>([])
   const [toast, setToast] = useState('')
 
   const authHeaders = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }
-  const base = API + '/api/admin/test-series-manager'
+  const base = API + '/api/admin/batch-manager'
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3500) }
 
-  const loadSeries = useCallback(async () => {
+  const loadBatches = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -99,18 +99,18 @@ export default function TestSeriesManagerUltra({ token, API }: { token: string; 
       if (sort) params.set('sort', sort)
       const r = await fetch(base + '?' + params.toString(), { headers: authHeaders })
       const d = await r.json()
-      setSeriesList(d.series || [])
+      setBatches(d.batches || [])
       setSummary(d.summary || {})
-    } catch (e) { showToast('⚠️ Failed to load series') }
+    } catch (e) { showToast('⚠️ Failed to load batches') }
     setLoading(false)
   }, [q, filters, sort])
 
-  useEffect(() => { loadSeries() }, [loadSeries])
+  useEffect(() => { loadBatches() }, [loadBatches])
 
   useEffect(() => {
     try {
-      if (detailId) localStorage.setItem('pr_tsm_detailId', detailId)
-      else localStorage.removeItem('pr_tsm_detailId')
+      if (detailId) localStorage.setItem('pr_bm_detailId', detailId)
+      else localStorage.removeItem('pr_bm_detailId')
     } catch (e) { /* localStorage unavailable */ }
   }, [detailId])
 
@@ -131,40 +131,40 @@ export default function TestSeriesManagerUltra({ token, API }: { token: string; 
 
   const bulkAction = async (action: 'archive' | 'delete') => {
     if (selectedIds.length === 0) return
-    if (action === 'delete' && !window.confirm(`Delete ${selectedIds.length} selected series(es)? This cannot be undone.`)) return
+    if (action === 'delete' && !window.confirm(`Delete ${selectedIds.length} selected batch(es)? This cannot be undone.`)) return
     for (const id of selectedIds) {
       await fetch(base + '/' + id + (action === 'archive' ? '/archive' : ''), { method: action === 'archive' ? 'PUT' : 'DELETE', headers: authHeaders })
     }
-    showToast(action === 'archive' ? '✅ Test series archived/unarchived' : '✅ Test series deleted')
+    showToast(action === 'archive' ? '✅ Batches archived/unarchived' : '✅ Batches deleted')
     setSelectedIds([])
-    loadSeries()
+    loadBatches()
   }
 
-  const duplicateSeries = async (id: string) => {
+  const duplicateBatch = async (id: string) => {
     const r = await fetch(base + '/' + id + '/duplicate', { method: 'POST', headers: authHeaders })
     const d = await r.json()
-    if (d.success) { showToast('✅ Series duplicated'); loadSeries() } else showToast('⚠️ ' + (d.error || 'Failed'))
+    if (d.success) { showToast('✅ Batch duplicated'); loadBatches() } else showToast('⚠️ ' + (d.error || 'Failed'))
   }
-  const archiveSeries = async (id: string) => {
+  const archiveBatch = async (id: string) => {
     const r = await fetch(base + '/' + id + '/archive', { method: 'PUT', headers: authHeaders })
     const d = await r.json()
-    if (d.success) { showToast('✅ Status: ' + d.lifecycleStatus); loadSeries() }
+    if (d.success) { showToast('✅ Status: ' + d.lifecycleStatus); loadBatches() }
   }
-  const deleteSeries = async (id: string, name: string) => {
-    if (!window.confirm(`Delete series "${name}"? Students will be unassigned.`)) return
+  const deleteBatch = async (id: string, name: string) => {
+    if (!window.confirm(`Delete batch "${name}"? Students will be unassigned.`)) return
     const r = await fetch(base + '/' + id, { method: 'DELETE', headers: authHeaders })
     const d = await r.json()
-    if (d.success) { showToast('✅ Series deleted'); loadSeries() }
+    if (d.success) { showToast('✅ Batch deleted'); loadBatches() }
   }
 
   if (detailId) {
-    return <TestSeriesDetail id={detailId} base={base} authHeaders={authHeaders} onBack={() => { setDetailId(null); loadSeries() }} isMobile={isMobile} showToast={showToast} allSeries={series} />
+    return <BatchDetail id={detailId} base={base} authHeaders={authHeaders} onBack={() => { setDetailId(null); loadBatches() }} isMobile={isMobile} showToast={showToast} allBatches={batches} />
   }
 
   return (
     <div>
-      <div style={pageTitle}>📚 Test Series Management — Ultra SaaS</div>
-      <div style={pageSub}>Complete lifecycle control — create, price, control, enroll, assign tests, analyze & archive series.</div>
+      <div style={pageTitle}>🗂️ Batch Management — Ultra SaaS</div>
+      <div style={pageSub}>Complete lifecycle control — create, price, control, enroll, assign exams, analyze & archive batches.</div>
 
       {toast && <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 10000, background: CRD2, border: `1px solid ${BOR2}`, borderRadius: 10, padding: '10px 16px', color: TS, fontSize: 12.5, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>{toast}</div>}
 
@@ -184,14 +184,14 @@ export default function TestSeriesManagerUltra({ token, API }: { token: string; 
       {/* ── Smart Search + Filter Bar ── */}
       <div style={cs}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input style={{ ...inp, flex: 1, minWidth: 160 }} placeholder="🔎 Search series, code, exam, student, faculty, email…" value={q} onChange={e => setQ(e.target.value)} />
+          <input style={{ ...inp, flex: 1, minWidth: 160 }} placeholder="🔎 Search batch, code, exam, student, faculty, email…" value={q} onChange={e => setQ(e.target.value)} />
           <button style={bs} onClick={() => setShowFilters(s => !s)}>🧰 Filters {showFilters ? '▲' : '▼'}</button>
           <select style={{ ...inp, width: 150 }} value={sort} onChange={e => setSort(e.target.value)}>
             <option value="newest">Newest</option><option value="oldest">Oldest</option>
             <option value="most_students">Most Students</option><option value="price_high">Highest Revenue</option>
             <option value="price_low">Lowest Price</option><option value="most_active">Most Active</option><option value="name">Name A-Z</option>
           </select>
-          <button style={bp} onClick={() => setShowCreate(true)}>➕ Create Series</button>
+          <button style={bp} onClick={() => setShowCreate(true)}>➕ Create Batch</button>
         </div>
         {showFilters && (
           <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 10 }}>
@@ -241,27 +241,27 @@ export default function TestSeriesManagerUltra({ token, API }: { token: string; 
         </div>
       )}
 
-      {/* ── Series Card Grid ── */}
-      {loading ? <EmptyMsg text="⟳ Loading series…" /> : series.length === 0 ? (
+      {/* ── Batch Card Grid ── */}
+      {loading ? <EmptyMsg text="⟳ Loading batches…" /> : batches.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '50px 20px', color: DIM }}>
-          <div style={{ fontSize: 60, marginBottom: 10 }}>📚</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#93C5FD' }}>No Test Series Found</div>
-          <div style={{ fontSize: 12, marginTop: 6 }}>Create your first series or adjust filters.</div>
+          <div style={{ fontSize: 60, marginBottom: 10 }}>🗂️</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#93C5FD' }}>No Batches Found</div>
+          <div style={{ fontSize: 12, marginTop: 6 }}>Create your first batch or adjust filters.</div>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit,minmax(280px,1fr))', gap: 12 }}>
-          {series.map(b => (
+          {batches.map(b => (
             <div key={b._id} style={{ ...cs, marginBottom: 0, position: 'relative', borderLeft: `3px solid ${b.lifecycleStatus === 'archived' ? DIM : ACC}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <input type="checkbox" checked={selectedIds.includes(b._id)} onChange={() => toggleSelect(b._id)} style={{ marginTop: 2 }} />
                 <span style={chip(b.lifecycleStatus === 'active' ? GOOD : b.lifecycleStatus === 'paused' ? WARN : b.lifecycleStatus === 'archived' ? DIM : '#A78BFA', 'rgba(255,255,255,0.06)')}>{b.lifecycleStatus || 'active'}</span>
               </div>
               <div onClick={() => setDetailId(b._id)} style={{ cursor: 'pointer', marginTop: 6 }}>
-                <div style={{ fontWeight: 700, fontSize: 14.5, color: '#93C5FD' }}>{b.colorIcon || '📚'} {b.name}</div>
-                <div style={{ fontSize: 10, color: DIM, fontFamily: 'monospace', marginTop: 2 }}>{b.seriesCode || '—'} · {b.examType}</div>
+                <div style={{ fontWeight: 700, fontSize: 14.5, color: '#93C5FD' }}>{b.colorIcon || '📦'} {b.name}</div>
+                <div style={{ fontSize: 10, color: DIM, fontFamily: 'monospace', marginTop: 2 }}>{b.batchCode || '—'} · {b.examType}</div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '8px 0' }}>
                   <span style={chip('#7DD3FC', 'rgba(59,130,246,0.12)')}>👥 {b.studentCount || 0}{b.seatLimit ? '/' + b.seatLimit : ''}</span>
-                  <span style={chip('#6EE7B7', 'rgba(16,185,129,0.12)')}>📝 {b.testCount || 0} Tests</span>
+                  <span style={chip('#6EE7B7', 'rgba(16,185,129,0.12)')}>📝 {b.examCount || 0} Exams</span>
                   <span style={chip('#FDE68A', 'rgba(251,191,36,0.12)')}>₹{b.effectivePrice ?? b.price ?? 0}</span>
                   <span style={chip(ACC, 'rgba(77,159,255,0.12)')}>💚 {b.healthScore ?? 0}</span>
                 </div>
@@ -275,24 +275,24 @@ export default function TestSeriesManagerUltra({ token, API }: { token: string; 
               </div>
               <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                 <button style={bs} onClick={() => setDetailId(b._id)}>Open</button>
-                <button style={bs} onClick={() => duplicateSeries(b._id)}>⧉ Duplicate</button>
-                <button style={bs} onClick={() => archiveSeries(b._id)}>{b.lifecycleStatus === 'archived' ? '♻️ Unarchive' : '📦 Archive'}</button>
-                <button style={bd} onClick={() => deleteSeries(b._id, b.name)}>🗑️</button>
+                <button style={bs} onClick={() => duplicateBatch(b._id)}>⧉ Duplicate</button>
+                <button style={bs} onClick={() => archiveBatch(b._id)}>{b.lifecycleStatus === 'archived' ? '♻️ Unarchive' : '📦 Archive'}</button>
+                <button style={bd} onClick={() => deleteBatch(b._id, b.name)}>🗑️</button>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {showCreate && <CreateSeriesWizard base={base} authHeaders={authHeaders} isMobile={isMobile} onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); loadSeries(); showToast('✅ Series created') }} />}
+      {showCreate && <CreateBatchWizard base={base} authHeaders={authHeaders} isMobile={isMobile} onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); loadBatches(); showToast('✅ Batch created') }} />}
     </div>
   )
 }
 
 // ══════════════════════════════════════════════════════════════════
-// CREATE TEST SERIES WIZARD (multi-step)
+// CREATE BATCH WIZARD (multi-step)
 // ══════════════════════════════════════════════════════════════════
-function CreateSeriesWizard({ base, authHeaders, isMobile, onClose, onCreated }: any) {
+function CreateBatchWizard({ base, authHeaders, isMobile, onClose, onCreated }: any) {
   const [step, setStep] = useState(1)
   const [templates, setTemplates] = useState<any[]>([])
   const [form, setForm] = useState<any>({
@@ -311,7 +311,7 @@ function CreateSeriesWizard({ base, authHeaders, isMobile, onClose, onCreated }:
     const d = await r.json()
     if (d.warning === 'duplicate') { setDupWarn(d); return }
     if (d.success) onCreated()
-    else alert(d.error || 'Failed to create series')
+    else alert(d.error || 'Failed to create batch')
   }
 
   const steps = ['Basic Info', 'Pricing', 'Preview & Confirm']
@@ -319,7 +319,7 @@ function CreateSeriesWizard({ base, authHeaders, isMobile, onClose, onCreated }:
 
   return (
     <Modal onClose={onClose} width={640}>
-      <div style={{ fontWeight: 800, fontSize: 17, color: ACC, marginBottom: 4 }}>➕ Create New Test Series</div>
+      <div style={{ fontWeight: 800, fontSize: 17, color: ACC, marginBottom: 4 }}>➕ Create New Batch</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
         {steps.map((s, i) => <span key={s} style={{ ...chip(i + 1 === step ? '#fff' : DIM, i + 1 === step ? ACC : 'rgba(255,255,255,0.05)'), fontSize: 10 }}>{i + 1}. {s}</span>)}
       </div>
@@ -328,14 +328,14 @@ function CreateSeriesWizard({ base, authHeaders, isMobile, onClose, onCreated }:
         <div>
           {templates.length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <label style={lbl}>Series Template Picker (optional)</label>
+              <label style={lbl}>Batch Template Picker (optional)</label>
               <select style={inp} value={form.templateId} onChange={e => set('templateId', e.target.value)}>
                 <option value="">Start blank</option>
                 {templates.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
               </select>
             </div>
           )}
-          <label style={lbl}>Series Name *</label><input style={{ ...inp, marginBottom: 10 }} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. NEET Full Syllabus Test Series 2027" />
+          <label style={lbl}>Batch Name *</label><input style={{ ...inp, marginBottom: 10 }} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. NEET Dropper 2027" />
           <label style={lbl}>Exam / Course</label>
           <select style={{ ...inp, marginBottom: 10 }} value={form.examType} onChange={e => set('examType', e.target.value)}>
             {EXAM_TYPES.map(x => <option key={x}>{x}</option>)}
@@ -362,13 +362,13 @@ function CreateSeriesWizard({ base, authHeaders, isMobile, onClose, onCreated }:
       {step === 3 && (
         <div>
           <div style={{ ...cs, marginBottom: 0 }}>
-            <div style={{ fontWeight: 700, color: '#93C5FD', fontSize: 14 }}>{form.name || '(Unnamed Series)'}</div>
+            <div style={{ fontWeight: 700, color: '#93C5FD', fontSize: 14 }}>{form.name || '(Unnamed Batch)'}</div>
             <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>{form.examType} · Seat Limit: {form.seatLimit || 'Unlimited'} · {form.visibility}</div>
             <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>Price: ₹{form.price}</div>
           </div>
           {dupWarn && (
             <div style={{ marginTop: 10, padding: 10, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 8, fontSize: 11.5, color: WARN }}>
-              ⚠️ Similar series exists: "{dupWarn.existing?.name}" ({dupWarn.existing?.seriesCode}). Create anyway?
+              ⚠️ Similar batch exists: "{dupWarn.existing?.name}" ({dupWarn.existing?.batchCode}). Create anyway?
               <div style={{ marginTop: 8 }}><button style={bp} onClick={() => submit(true)}>Yes, Create Anyway</button></div>
             </div>
           )}
@@ -386,11 +386,12 @@ function CreateSeriesWizard({ base, authHeaders, isMobile, onClose, onCreated }:
 // ══════════════════════════════════════════════════════════════════
 // ADD / TRANSFER STUDENT MODAL — dual ID/Email selector
 // ══════════════════════════════════════════════════════════════════
-function StudentAddModal({ base, authHeaders, seriesId, onClose, onDone, showToast }: any) {
+function StudentAddTransferModal({ base, authHeaders, batchId, mode, batches, onClose, onDone, showToast }: any) {
   const [inputType, setInputType] = useState<'id' | 'email'>('id')
   const [val, setVal] = useState('')
   const [suggestions, setSuggestions] = useState<any[]>([])
   const [matched, setMatched] = useState<any>(null)
+  const [toBatch, setToBatch] = useState('')
   const [beforeAfter, setBeforeAfter] = useState<any>(null)
 
   useEffect(() => {
@@ -403,15 +404,23 @@ function StudentAddModal({ base, authHeaders, seriesId, onClose, onDone, showToa
 
   const confirm = async () => {
     const payload: any = inputType === 'id' ? { studentId: matched ? matched.studentId || matched._id : val } : { email: matched ? matched.email : val }
-    const r = await fetch(base + '/' + seriesId + '/students/add', { method: 'POST', headers: authHeaders, body: JSON.stringify(payload) })
-    const d = await r.json()
-    if (d.success) { setBeforeAfter(d); showToast('✅ Student added to test series') }
-    else showToast('⚠️ ' + (d.error || 'Failed'))
+    if (mode === 'add') {
+      const r = await fetch(base + '/' + batchId + '/students/add', { method: 'POST', headers: authHeaders, body: JSON.stringify(payload) })
+      const d = await r.json()
+      if (d.success) { setBeforeAfter(d); showToast('✅ Student added to batch'); }
+      else showToast('⚠️ ' + (d.error || 'Failed'))
+    } else {
+      if (!toBatch) { showToast('⚠️ Select target batch'); return }
+      const r = await fetch(base + '/' + batchId + '/students/transfer', { method: 'POST', headers: authHeaders, body: JSON.stringify({ ...payload, toBatchId: toBatch }) })
+      const d = await r.json()
+      if (d.success) { setBeforeAfter(d); showToast('✅ Student transferred') }
+      else showToast('⚠️ ' + (d.error || 'Failed'))
+    }
   }
 
   return (
     <Modal onClose={onClose} width={480}>
-      <div style={{ fontWeight: 800, fontSize: 16, color: ACC, marginBottom: 12 }}>➕ Add Student to Test Series</div>
+      <div style={{ fontWeight: 800, fontSize: 16, color: ACC, marginBottom: 12 }}>{mode === 'add' ? '➕ Add Student to Batch' : '🔄 Transfer Student'}</div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
         <button style={inputType === 'id' ? bp : bs} onClick={() => setInputType('id')}>🆔 By Student ID</button>
         <button style={inputType === 'email' ? bp : bs} onClick={() => setInputType('email')}>📧 By Registered Email</button>
@@ -428,9 +437,21 @@ function StudentAddModal({ base, authHeaders, seriesId, onClose, onDone, showToa
       )}
       {matched && <div style={{ marginTop: 8, fontSize: 12, color: GOOD }}>✅ Matched: {matched.name} ({matched.email})</div>}
 
+      {mode === 'transfer' && (
+        <div style={{ marginTop: 12 }}>
+          <label style={lbl}>Move To Batch</label>
+          <select style={inp} value={toBatch} onChange={e => setToBatch(e.target.value)}>
+            <option value="">Select target batch…</option>
+            {(batches || []).filter((b: any) => b._id !== batchId).map((b: any) => <option key={b._id} value={b._id}>{b.name}</option>)}
+          </select>
+        </div>
+      )}
+
       {beforeAfter && (
         <div style={{ marginTop: 12, padding: 10, background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.25)', borderRadius: 8, fontSize: 12, color: GOOD }}>
-          Before: {beforeAfter.before?.count} students → After: {beforeAfter.after?.count} students
+          {mode === 'add'
+            ? <>Before: {beforeAfter.before?.count} students → After: {beforeAfter.after?.count} students</>
+            : <>Source: {beforeAfter.before?.fromCount} → {beforeAfter.after?.fromCount} · Target: {beforeAfter.before?.toCount} → {beforeAfter.after?.toCount}</>}
         </div>
       )}
 
@@ -443,13 +464,13 @@ function StudentAddModal({ base, authHeaders, seriesId, onClose, onDone, showToa
 }
 
 // ══════════════════════════════════════════════════════════════════
-// TEST SERIES DETAIL PAGE — 10 Tabs
+// BATCH DETAIL PAGE — 10 Tabs
 // ══════════════════════════════════════════════════════════════════
-function TestSeriesDetail({ id, base, authHeaders, onBack, isMobile, showToast, allSeries }: any) {
+function BatchDetail({ id, base, authHeaders, onBack, isMobile, showToast, allBatches }: any) {
   const [tab, setTab] = useState('overview')
   const [detail, setDetail] = useState<any>(null)
   const [notFound, setNotFound] = useState(false)
-  const [modal, setModal] = useState<'' | 'add'>('')
+  const [modal, setModal] = useState<'' | 'add' | 'transfer'>('')
 
   const load = useCallback(() => {
     fetch(base + '/' + id, { headers: authHeaders })
@@ -463,35 +484,36 @@ function TestSeriesDetail({ id, base, authHeaders, onBack, isMobile, showToast, 
     return (
       <div style={{ textAlign: 'center', padding: '50px 20px' }}>
         <div style={{ fontSize: 40, marginBottom: 10 }}>⚠️</div>
-        <div style={{ color: '#F87171', fontWeight: 700, marginBottom: 10 }}>This series could not be found. It may have been deleted.</div>
-        <button style={bp} onClick={onBack}>← Back to Test Series Management</button>
+        <div style={{ color: '#F87171', fontWeight: 700, marginBottom: 10 }}>This batch could not be found. It may have been deleted.</div>
+        <button style={bp} onClick={onBack}>← Back to Batch Management</button>
       </div>
     )
   }
 
   const tabs = [
-    ['overview', '📊 Overview'], ['students', '👥 Students'], ['tests', '📝 Tests'], ['pricing', '💰 Pricing'],
+    ['overview', '📊 Overview'], ['students', '👥 Students'], ['exams', '📝 Exams'], ['pricing', '💰 Pricing'],
+    ['coupons', '🎟️ Coupons'],
     ['controls', '⚙️ Controls'], ['materials', '📁 Materials'], ['analytics', '📈 Analytics'],
     ['announcements', '📢 Announcements'], ['settings', '🔧 Settings'], ['audit', '🕐 Audit History']
   ]
 
-  if (!detail) return <EmptyMsg text="⟳ Loading series details…" />
-  const b = detail.series || {}
+  if (!detail) return <EmptyMsg text="⟳ Loading batch details…" />
+  const b = detail.batch || {}
 
   return (
     <div>
-      <button style={{ ...bs, marginBottom: 10 }} onClick={onBack}>← Back to Test Series Management</button>
+      <button style={{ ...bs, marginBottom: 10 }} onClick={onBack}>← Back to Batch Management</button>
 
       <div style={{ ...cs, background: `linear-gradient(135deg,${CRD2},${CRD})` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 19, color: '#93C5FD' }}>{b.colorIcon || '📚'} {b.name}</div>
-            <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>{b.seriesCode} · {b.examType} · {b.lifecycleStatus}</div>
+            <div style={{ fontWeight: 800, fontSize: 19, color: '#93C5FD' }}>{b.colorIcon || '📦'} {b.name}</div>
+            <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>{b.batchCode} · {b.examType} · {b.lifecycleStatus}</div>
           </div>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, fontWeight: 800, color: ACC }}>{b.healthScore}</div><div style={{ fontSize: 9, color: DIM }}>HEALTH SCORE</div></div>
             <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, fontWeight: 800, color: '#7DD3FC' }}>{b.studentCount}</div><div style={{ fontSize: 9, color: DIM }}>STUDENTS</div></div>
-            <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, fontWeight: 800, color: '#6EE7B7' }}>{b.testCount}</div><div style={{ fontSize: 9, color: DIM }}>TESTS</div></div>
+            <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, fontWeight: 800, color: '#6EE7B7' }}>{b.examCount}</div><div style={{ fontSize: 9, color: DIM }}>EXAMS</div></div>
             <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, fontWeight: 800, color: '#FDE68A' }}>₹{b.effectivePrice}</div><div style={{ fontSize: 9, color: DIM }}>PRICE</div></div>
           </div>
         </div>
@@ -508,23 +530,24 @@ function TestSeriesDetail({ id, base, authHeaders, onBack, isMobile, showToast, 
 
       {tab === 'overview' && <OverviewTab detail={detail} base={base} authHeaders={authHeaders} id={id} setModal={setModal} showToast={showToast} load={load} />}
       {tab === 'students' && <StudentsTab base={base} authHeaders={authHeaders} id={id} setModal={setModal} showToast={showToast} />}
-      {tab === 'tests' && <TestsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
+      {tab === 'exams' && <ExamsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
       {tab === 'pricing' && <PricingTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
+      {tab === 'coupons' && <CouponManagementTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
       {tab === 'controls' && <ControlsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} load={load} />}
       {tab === 'materials' && <MaterialsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
-      {tab === 'analytics' && <AnalyticsTab base={base} authHeaders={authHeaders} id={id} allSeries={allSeries} />}
+      {tab === 'analytics' && <AnalyticsTab base={base} authHeaders={authHeaders} id={id} allBatches={allBatches} />}
       {tab === 'announcements' && <AnnouncementsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
       {tab === 'settings' && <SettingsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} load={load} />}
       {tab === 'audit' && <AuditTab base={base} authHeaders={authHeaders} id={id} />}
 
-      {modal === 'add' && <StudentAddModal base={base} authHeaders={authHeaders} seriesId={id} onClose={() => setModal('')} onDone={load} showToast={showToast} />}
+      {modal && <StudentAddTransferModal base={base} authHeaders={authHeaders} batchId={id} mode={modal} batches={allBatches} onClose={() => setModal('')} onDone={load} showToast={showToast} />}
     </div>
   )
 }
 
 // ── 6) OVERVIEW TAB ──
 function OverviewTab({ detail, base, authHeaders, id, setModal, showToast, load }: any) {
-  const b = detail.series
+  const b = detail.batch
   const exportSnapshot = () => window.open(base + '/' + id + '/export-snapshot')
   const archiveToggle = async () => { await fetch(base + '/' + id + '/archive', { method: 'PUT', headers: authHeaders }); showToast('✅ Status updated'); load() }
   return (
@@ -537,10 +560,11 @@ function OverviewTab({ detail, base, authHeaders, id, setModal, showToast, load 
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '14px 0' }}>
         <button style={bp} onClick={() => setModal('add')}>➕ Add Student</button>
-        <button style={bs} onClick={archiveToggle}>{b.lifecycleStatus === 'archived' ? '♻️ Unarchive' : '📦 Archive Series'}</button>
+        <button style={bp} onClick={() => setModal('transfer')}>🔄 Transfer Student</button>
+        <button style={bs} onClick={archiveToggle}>{b.lifecycleStatus === 'archived' ? '♻️ Unarchive' : '📦 Archive Batch'}</button>
         <button style={bs} onClick={exportSnapshot}>📤 Export Snapshot</button>
       </div>
-      <BannerPanel base={base} authHeaders={authHeaders} id={id} linkedType="series" showToast={showToast} />
+      <BannerPanel base={base} authHeaders={authHeaders} id={id} linkedType="batch" showToast={showToast} />
       <div style={cs}>
         <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: TS }}>Recent Activity</div>
         {(detail.recentActivity || []).length === 0 ? <EmptyMsg text="No recent activity yet." /> :
@@ -584,7 +608,7 @@ function BannerPanel({ base, authHeaders, id, linkedType, showToast }: any) {
         </>
       ) : (
         <>
-          <div style={{ fontSize: 12, color: BAD, marginBottom: 8 }}>{gate.reason || 'No banner created yet for this test series.'}</div>
+          <div style={{ fontSize: 12, color: BAD, marginBottom: 8 }}>{gate.reason || 'No banner created yet for this batch.'}</div>
           <button style={bp} onClick={regenerate}>➕ Auto-Generate Banner Draft</button>
         </>
       )}
@@ -602,7 +626,7 @@ function StudentsTab({ base, authHeaders, id, setModal, showToast }: any) {
   }, [q, status, sort])
   useEffect(() => { load() }, [load])
 
-  const remove = async (sid: string) => { if (!window.confirm('Remove student from series?')) return; await fetch(base + '/' + id + '/students/' + sid, { method: 'DELETE', headers: authHeaders }); showToast('✅ Removed'); load() }
+  const remove = async (sid: string) => { if (!window.confirm('Remove student from batch?')) return; await fetch(base + '/' + id + '/students/' + sid, { method: 'DELETE', headers: authHeaders }); showToast('✅ Removed'); load() }
   const setInactive = async (sid: string, s: string) => { await fetch(base + '/' + id + '/students/' + sid + '/status', { method: 'PUT', headers: authHeaders, body: JSON.stringify({ status: s }) }); load() }
   const exportCsv = () => window.open(base + '/' + id + '/students/export')
 
@@ -613,9 +637,10 @@ function StudentsTab({ base, authHeaders, id, setModal, showToast }: any) {
         <select style={{ ...inp, width: 130 }} value={status} onChange={e => setStatus(e.target.value)}><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
         <select style={{ ...inp, width: 130 }} value={sort} onChange={e => setSort(e.target.value)}><option value="">Newest</option><option value="oldest">Oldest</option><option value="name">Name</option></select>
         <button style={bp} onClick={() => setModal('add')}>➕ Add</button>
+        <button style={bp} onClick={() => setModal('transfer')}>🔄 Transfer</button>
         <button style={bs} onClick={exportCsv}>⬇️ Export CSV</button>
       </div>
-      {students.length === 0 ? <EmptyMsg text="No students in this series yet." /> : (
+      {students.length === 0 ? <EmptyMsg text="No students in this batch yet." /> : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead><tr style={{ color: DIM, textAlign: 'left' }}><th style={{ padding: 6 }}>Name</th><th>ID</th><th>Email</th><th>Status</th><th>Joined</th><th>Action</th></tr></thead>
@@ -639,19 +664,19 @@ function StudentsTab({ base, authHeaders, id, setModal, showToast }: any) {
   )
 }
 
-// ── 8) TESTS TAB ──
-function TestsTab({ base, authHeaders, id, showToast }: any) {
+// ── 8) EXAMS TAB ──
+function ExamsTab({ base, authHeaders, id, showToast }: any) {
   const [data, setData] = useState<any>({ assigned: [], available: [] })
-  const load = useCallback(() => fetch(base + '/' + id + '/tests', { headers: authHeaders }).then(r => r.json()).then(setData).catch(() => {}), [])
+  const load = useCallback(() => fetch(base + '/' + id + '/exams', { headers: authHeaders }).then(r => r.json()).then(setData).catch(() => {}), [])
   useEffect(() => { load() }, [load])
-  const assign = async (testId: string) => { await fetch(base + '/' + id + '/tests/assign', { method: 'POST', headers: authHeaders, body: JSON.stringify({ testId }) }); showToast('✅ Test assigned'); load() }
-  const unassign = async (testId: string) => { await fetch(base + '/' + id + '/tests/' + testId, { method: 'DELETE', headers: authHeaders }); showToast('✅ Test removed'); load() }
+  const assign = async (examId: string) => { await fetch(base + '/' + id + '/exams/assign', { method: 'POST', headers: authHeaders, body: JSON.stringify({ examId }) }); showToast('✅ Exam assigned'); load() }
+  const unassign = async (examId: string) => { await fetch(base + '/' + id + '/exams/' + examId, { method: 'DELETE', headers: authHeaders }); showToast('✅ Exam removed'); load() }
 
   return (
     <div>
       <div style={cs}>
-        <div style={{ fontWeight: 700, marginBottom: 8, color: TS }}>Assigned Tests ({data.assigned?.length || 0})</div>
-        {(!data.assigned || data.assigned.length === 0) ? <EmptyMsg text="No tests assigned yet." /> : data.assigned.map((e: any) => (
+        <div style={{ fontWeight: 700, marginBottom: 8, color: TS }}>Assigned Exams ({data.assigned?.length || 0})</div>
+        {(!data.assigned || data.assigned.length === 0) ? <EmptyMsg text="No exams assigned yet." /> : data.assigned.map((e: any) => (
           <div key={e._id} style={{ padding: '8px 0', borderBottom: `1px solid ${BOR}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
               <span style={{ color: TS, fontWeight: 600, fontSize: 12.5 }}>{e.title || e.name}</span>
@@ -661,8 +686,8 @@ function TestsTab({ base, authHeaders, id, showToast }: any) {
         ))}
       </div>
       <div style={cs}>
-        <div style={{ fontWeight: 700, marginBottom: 8, color: TS }}>Available Tests</div>
-        {(!data.available || data.available.length === 0) ? <EmptyMsg text="No more tests available." /> : data.available.map((e: any) => (
+        <div style={{ fontWeight: 700, marginBottom: 8, color: TS }}>Available Exams</div>
+        {(!data.available || data.available.length === 0) ? <EmptyMsg text="No more exams available." /> : data.available.map((e: any) => (
           <div key={e._id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${BOR}` }}>
             <span style={{ color: DIM, fontSize: 12 }}>{e.title || e.name}</span>
             <button style={{ ...bs, padding: '3px 10px' }} onClick={() => assign(e._id)}>+ Assign</button>
@@ -724,6 +749,219 @@ function PricingTab({ base, authHeaders, id, showToast }: any) {
   )
 }
 
+// ── COUPON MANAGEMENT TAB ──
+function CouponManagementTab({ base, authHeaders, id, showToast }: any) {
+  const [data, setData] = useState<any>(null)
+  const [analytics, setAnalytics] = useState<any>(null)
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [sortBy, setSortBy] = useState('newest')
+  const [showForm, setShowForm] = useState(false)
+  const [editingCoupon, setEditingCoupon] = useState<any>(null)
+  const emptyForm = { code: '', type: 'percent', value: '', maxDiscount: '', usageLimit: 100, perStudentLimitType: 'once', perStudentLimitCustom: 1, validFrom: '', validTill: '', description: '', status: 'draft', visibility: 'public', autoApplyBest: false, applicablePlan: 'entire' }
+  const [form, setForm] = useState<any>(emptyForm)
+  const [expandedUsage, setExpandedUsage] = useState('')
+  const [expandedAnalytics, setExpandedAnalytics] = useState('')
+  const [usageMap, setUsageMap] = useState<any>({})
+  const [analyticsMap, setAnalyticsMap] = useState<any>({})
+  const analyticsRef = useRef<any>(null)
+
+  const load = useCallback(() => {
+    const params = new URLSearchParams()
+    if (filterStatus !== 'all') params.set('status', filterStatus)
+    if (sortBy) params.set('sort', sortBy)
+    fetch(base + '/' + id + '/coupons?' + params.toString(), { headers: authHeaders }).then(r => r.json()).then(setData).catch(() => {})
+  }, [filterStatus, sortBy])
+  useEffect(() => { load() }, [load])
+  useEffect(() => { fetch(base + '/' + id + '/coupons/analytics', { headers: authHeaders }).then(r => r.json()).then(setAnalytics).catch(() => {}) }, [])
+
+  const openCreate = () => { setEditingCoupon(null); setForm(emptyForm); setShowForm(true) }
+  const openEdit = (c: any) => {
+    setEditingCoupon(c)
+    setForm({ ...c, validFrom: c.validFrom ? String(c.validFrom).slice(0, 10) : '', validTill: c.validTill ? String(c.validTill).slice(0, 10) : '' })
+    setShowForm(true)
+  }
+  const submitForm = async () => {
+    if (!form.code || !form.code.trim()) return showToast('⚠️ Coupon code required')
+    if (!form.value || Number(form.value) <= 0) return showToast('⚠️ Value must be greater than 0')
+    if (!form.validFrom || !form.validTill) return showToast('⚠️ Valid From and Valid Till required')
+    const url = editingCoupon ? base + '/' + id + '/coupons/' + editingCoupon._id : base + '/' + id + '/coupons'
+    const method = editingCoupon ? 'PUT' : 'POST'
+    const r = await fetch(url, { method, headers: authHeaders, body: JSON.stringify(form) })
+    const d = await r.json()
+    if (d.success) { showToast(editingCoupon ? '✅ Coupon updated' : '✅ Coupon created'); setShowForm(false); load() }
+    else showToast('⚠️ ' + d.error)
+  }
+  const duplicate = async (couponId: string) => { const r = await fetch(base + '/' + id + '/coupons/' + couponId + '/duplicate', { method: 'POST', headers: authHeaders }); const d = await r.json(); if (d.success) { showToast('✅ Coupon duplicated'); load() } else showToast('⚠️ ' + d.error) }
+  const toggleStatus = async (c: any, status: string) => { const r = await fetch(base + '/' + id + '/coupons/' + c._id + '/status', { method: 'PUT', headers: authHeaders, body: JSON.stringify({ status }) }); const d = await r.json(); if (d.success) { showToast('✅ Status updated'); load() } else showToast('⚠️ ' + d.error) }
+  const del = async (couponId: string) => { if (!window.confirm('Delete this coupon? This cannot be undone.')) return; const r = await fetch(base + '/' + id + '/coupons/' + couponId, { method: 'DELETE', headers: authHeaders }); const d = await r.json(); if (d.success) { showToast('✅ Coupon deleted'); load() } else showToast('⚠️ ' + d.error) }
+  const viewUsage = async (couponId: string) => {
+    if (expandedUsage === couponId) { setExpandedUsage(''); return }
+    setExpandedUsage(couponId)
+    if (!usageMap[couponId]) { const d = await fetch(base + '/' + id + '/coupons/' + couponId + '/usage', { headers: authHeaders }).then(r => r.json()); setUsageMap((m: any) => ({ ...m, [couponId]: d })) }
+  }
+  const viewAnalytics = async (couponId: string) => {
+    if (expandedAnalytics === couponId) { setExpandedAnalytics(''); return }
+    setExpandedAnalytics(couponId)
+    if (!analyticsMap[couponId]) { const d = await fetch(base + '/' + id + '/coupons/' + couponId + '/analytics', { headers: authHeaders }).then(r => r.json()); setAnalyticsMap((m: any) => ({ ...m, [couponId]: d.analytics })) }
+  }
+
+  const statusChip = (s: string) => {
+    const map: any = { active: [GOOD, 'rgba(52,211,153,0.12)'], scheduled: [ACC, 'rgba(77,159,255,0.12)'], expired: [DIM, 'rgba(107,143,175,0.12)'], disabled: [BAD, 'rgba(248,113,113,0.12)'], draft: [WARN, 'rgba(251,191,36,0.12)'] }
+    const [c, bg] = map[s] || map.draft
+    return <span style={{ ...chip(c, bg), marginLeft: 6 }}>{s.toUpperCase()}</span>
+  }
+
+  const kpis = data?.kpis || {}
+  const kpiCards: any[] = [
+    ['total', 'Total Coupons', ACC, null],
+    ['active', 'Active', GOOD, 'active'],
+    ['scheduled', 'Scheduled', ACC, 'scheduled'],
+    ['expired', 'Expired', DIM, 'expired'],
+    ['disabled', 'Disabled', BAD, 'disabled'],
+    ['totalRedemptions', 'Redemptions', '#7DD3FC', 'scroll'],
+    ['revenueViaCoupons', 'Revenue ₹', '#FDE68A', 'scroll'],
+    ['conversionRate', 'Conversion %', '#A78BFA', null]
+  ]
+
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: 10, marginBottom: 14 }}>
+        {kpiCards.map(([key, label, color, action]) => (
+          <div key={key} style={{ ...cs, marginBottom: 0, textAlign: 'center', cursor: action ? 'pointer' : 'default' }}
+            onClick={() => { if (action === 'scroll') analyticsRef.current?.scrollIntoView({ behavior: 'smooth' }); else if (action) setFilterStatus(action) }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color }}>{kpis[key] ?? 0}</div>
+            <div style={{ fontSize: 9.5, color: DIM }}>{label.toUpperCase()}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, alignItems: 'center' }}>
+        {['all', 'active', 'scheduled', 'expired', 'disabled'].map(s => (
+          <button key={s} style={filterStatus === s ? bp : bs} onClick={() => setFilterStatus(s)}>{s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}</button>
+        ))}
+        <select style={{ ...inp, width: 'auto' }} value={sortBy} onChange={e => setSortBy(e.target.value)}>
+          <option value="newest">Newest</option>
+          <option value="usage">Highest Usage</option>
+          <option value="discount">Highest Discount</option>
+          <option value="expiring">Expiring Soon</option>
+          <option value="updated">Recently Updated</option>
+        </select>
+        <button style={{ ...bp, marginLeft: 'auto' }} onClick={openCreate}>+ Create Coupon</button>
+      </div>
+
+      {showForm && (
+        <div style={{ ...cs, border: `1.5px solid ${BOR2}` }}>
+          <div style={{ fontWeight: 700, marginBottom: 10, color: TS }}>{editingCoupon ? '✏️ Edit Coupon' : '➕ Create Coupon'}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 }}>
+            <div><label style={lbl}>Coupon Code</label><input style={inp} value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="e.g. NEET50" /></div>
+            <div><label style={lbl}>Type</label>
+              <select style={inp} value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
+                <option value="percent">Percent (%)</option>
+                <option value="flat">Flat (₹)</option>
+              </select>
+            </div>
+            <div><label style={lbl}>Value {form.type === 'percent' ? '(%)' : '(₹)'}</label><input style={inp} type="number" value={form.value} onChange={e => setForm({ ...form, value: e.target.value })} /></div>
+            {form.type === 'percent' && (
+              <div><label style={lbl}>Max Discount ₹</label><input style={inp} type="number" value={form.maxDiscount} onChange={e => setForm({ ...form, maxDiscount: e.target.value })} /></div>
+            )}
+            <div><label style={lbl}>Usage Limit</label><input style={inp} type="number" value={form.usageLimit} onChange={e => setForm({ ...form, usageLimit: e.target.value })} /></div>
+            <div><label style={lbl}>Per Student Limit</label>
+              <select style={inp} value={form.perStudentLimitType} onChange={e => setForm({ ...form, perStudentLimitType: e.target.value })}>
+                <option value="once">Once</option>
+                <option value="unlimited">Unlimited</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            {form.perStudentLimitType === 'custom' && (
+              <div><label style={lbl}>Custom Usage Count</label><input style={inp} type="number" value={form.perStudentLimitCustom} onChange={e => setForm({ ...form, perStudentLimitCustom: e.target.value })} /></div>
+            )}
+            <div><label style={lbl}>Valid From</label><input style={inp} type="date" value={form.validFrom} onChange={e => setForm({ ...form, validFrom: e.target.value })} /></div>
+            <div><label style={lbl}>Valid Till</label><input style={inp} type="date" value={form.validTill} onChange={e => setForm({ ...form, validTill: e.target.value })} /></div>
+            <div><label style={lbl}>Applicable Plan</label>
+              <select style={inp} value={form.applicablePlan} onChange={e => setForm({ ...form, applicablePlan: e.target.value })}>
+                <option value="entire">Entire Batch</option>
+                <option value="base_price">Base Price</option>
+              </select>
+            </div>
+            <div><label style={lbl}>Visibility</label>
+              <select style={inp} value={form.visibility} onChange={e => setForm({ ...form, visibility: e.target.value })}>
+                <option value="public">Public</option>
+                <option value="hidden">Hidden</option>
+              </select>
+            </div>
+            <div><label style={lbl}>Status</label>
+              <select style={inp} value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                <option value="draft">Draft</option>
+                <option value="active">Active</option>
+                <option value="disabled">Disabled</option>
+              </select>
+            </div>
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <label style={lbl}>Description</label>
+            <input style={inp} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Short promo note (optional)" />
+          </div>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', margin: '10px 0' }}>
+            <Toggle on={!!form.autoApplyBest} onChange={v => setForm({ ...form, autoApplyBest: v })} label="Auto Apply Best Coupon" />
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button style={bp} onClick={submitForm}>{editingCoupon ? '💾 Save Changes' : '✅ Create Coupon'}</button>
+            <button style={bs} onClick={() => setShowForm(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {(!data || !data.coupons) ? <EmptyMsg text="⟳ Loading coupons…" /> : data.coupons.length === 0 ? <EmptyMsg text="No coupons yet. Create your first coupon for this batch." /> : data.coupons.map((c: any) => (
+        <div key={c._id} style={cs}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <div>
+              <div style={{ color: TS, fontWeight: 700, fontSize: 14 }}>{c.code}{statusChip(c.effectiveStatus)}</div>
+              <div style={{ fontSize: 11, color: DIM, marginTop: 3 }}>{c.type === 'percent' ? `${c.value}% off` : `₹${c.value} off`}{c.maxDiscount ? ` (max ₹${c.maxDiscount})` : ''} · {c.usageCount}/{c.usageLimit} used · {c.perStudentLimitType === 'once' ? '1 per student' : c.perStudentLimitType === 'unlimited' ? 'Unlimited per student' : `${c.perStudentLimitCustom} per student`}</div>
+              <div style={{ fontSize: 10.5, color: DIM, marginTop: 3 }}>Valid: {new Date(c.validFrom).toLocaleDateString()} → {new Date(c.validTill).toLocaleDateString()} · {c.applicablePlan === 'base_price' ? 'Base Price only' : 'Entire Batch'} · {c.visibility}</div>
+              {c.description && <div style={{ fontSize: 11, color: DIM, marginTop: 3, fontStyle: 'italic' }}>{c.description}</div>}
+              <div style={{ fontSize: 9.5, color: DIM, marginTop: 4 }}>Updated {new Date(c.updatedAt).toLocaleString()}</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+            <button style={bs} onClick={() => openEdit(c)}>Edit</button>
+            <button style={bs} onClick={() => duplicate(c._id)}>Duplicate</button>
+            {c.status === 'disabled' ? <button style={bs} onClick={() => toggleStatus(c, 'active')}>Enable</button> : <button style={bs} onClick={() => toggleStatus(c, 'disabled')}>Disable</button>}
+            <button style={bs} onClick={() => viewUsage(c._id)}>{expandedUsage === c._id ? 'Hide Usage' : 'View Usage'}</button>
+            <button style={bs} onClick={() => viewAnalytics(c._id)}>{expandedAnalytics === c._id ? 'Hide Analytics' : 'View Analytics'}</button>
+            <button style={bd} onClick={() => del(c._id)}>Delete</button>
+          </div>
+          {expandedUsage === c._id && usageMap[c._id] && (
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BOR}` }}>
+              <div style={{ fontSize: 11.5, color: DIM, marginBottom: 6 }}>Total: {usageMap[c._id].summary.totalUses} · Unique Students: {usageMap[c._id].summary.uniqueStudents} · Revenue: ₹{usageMap[c._id].summary.revenueGenerated} · Discount Given: ₹{usageMap[c._id].summary.discountGiven}</div>
+              {usageMap[c._id].usage.length === 0 ? <EmptyMsg text="No redemptions yet." /> : usageMap[c._id].usage.map((u: any, i: number) => (
+                <div key={i} style={{ fontSize: 11, color: DIM, padding: '5px 0', borderBottom: `1px solid ${BOR}` }}>{u.studentName || 'Student'} · Applied ₹{u.appliedAmount} · Discount ₹{u.discountAmount} · {new Date(u.timestamp).toLocaleString()} · {u.status}</div>
+              ))}
+            </div>
+          )}
+          {expandedAnalytics === c._id && analyticsMap[c._id] && (
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BOR}` }}>
+              <div style={{ fontSize: 11.5, color: DIM }}>Uses: {analyticsMap[c._id].uses} · Conversion: {analyticsMap[c._id].conversionRate}% · Revenue: ₹{analyticsMap[c._id].revenueGenerated} · Discount Given: ₹{analyticsMap[c._id].discountGiven}{analyticsMap[c._id].isExpiringSoon ? ' · ⚠️ Expiring Soon' : ''}</div>
+            </div>
+          )}
+        </div>
+      ))}
+
+      <div ref={analyticsRef} style={cs}>
+        <div style={{ fontWeight: 700, marginBottom: 8, color: TS }}>📊 Coupon Analytics</div>
+        {!analytics ? <EmptyMsg text="⟳ Loading analytics…" /> : (
+          <div style={{ fontSize: 11.5, color: DIM, lineHeight: 1.9 }}>
+            Best Performing: {analytics.bestPerforming ? `${analytics.bestPerforming.code} (${analytics.bestPerforming.usageCount} uses)` : '—'}<br />
+            Lowest Performing: {analytics.lowestPerforming ? `${analytics.lowestPerforming.code} (${analytics.lowestPerforming.usageCount} uses)` : '—'}<br />
+            Total Redemptions: {analytics.totalRedemptions}<br />
+            Revenue Loss via Discounts: ₹{analytics.totalRevenueLoss}<br />
+            Expiring Soon: {analytics.expiringSoon?.length ? analytics.expiringSoon.map((e: any) => e.code).join(', ') : 'None'}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── 10) CONTROLS TAB ──
 function ControlsTab({ base, authHeaders, id, showToast, load: loadParent }: any) {
   const [data, setData] = useState<any>(null)
@@ -742,7 +980,7 @@ function ControlsTab({ base, authHeaders, id, showToast, load: loadParent }: any
         <Toggle on={c.allowFreeTrial} onChange={v => update({ allowFreeTrial: v })} label="🆓 Free Trial" />
       </div>
       <div style={cs}>
-        <label style={lbl}>Series Status Manager</label>
+        <label style={lbl}>Batch Status Manager</label>
         <select style={inp} value={c.lifecycleStatus} onChange={e => update({ lifecycleStatus: e.target.value })}>
           {['draft', 'active', 'upcoming', 'paused', 'archived'].map(x => <option key={x}>{x}</option>)}
         </select>
@@ -760,7 +998,7 @@ function ControlsTab({ base, authHeaders, id, showToast, load: loadParent }: any
         <label style={lbl}>Seat Limit</label>
         <input style={inp} type="number" value={c.seatLimit} onChange={e => update({ seatLimit: e.target.value })} />
       </div>
-      <button style={bd} onClick={pause}>{c.lifecycleStatus === 'paused' ? '▶️ Resume Series (One-Click)' : '⏸️ One-Click Pause'}</button>
+      <button style={bd} onClick={pause}>{c.lifecycleStatus === 'paused' ? '▶️ Resume Batch (One-Click)' : '⏸️ One-Click Pause'}</button>
       {data.snapshot && <div style={{ fontSize: 11, color: DIM, marginTop: 10 }}>Last applied by {data.snapshot.appliedBy} at {new Date(data.snapshot.appliedAt).toLocaleString()}</div>}
     </div>
   )
@@ -802,7 +1040,7 @@ function MaterialsTab({ base, authHeaders, id, showToast }: any) {
 }
 
 // ── 12) ANALYTICS TAB ──
-function AnalyticsTab({ base, authHeaders, id, allSeries }: any) {
+function AnalyticsTab({ base, authHeaders, id, allBatches }: any) {
   const [data, setData] = useState<any>(null)
   const [compareWith, setCompareWith] = useState('')
   const [cmp, setCmp] = useState<any>(null)
@@ -813,7 +1051,7 @@ function AnalyticsTab({ base, authHeaders, id, allSeries }: any) {
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}>
-        {[['Health Score', a.healthScore, ACC], ['Active Users', a.activeUsers, '#7DD3FC'], ['Test Participation', a.testParticipation, '#6EE7B7'],
+        {[['Health Score', a.healthScore, ACC], ['Active Users', a.activeUsers, '#7DD3FC'], ['Exam Participation', a.examParticipation, '#6EE7B7'],
         ['Avg Score', a.avgScore ?? '—', '#FDE68A'], ['Revenue', '₹' + a.revenueSummary, GOOD], ['Seat Util %', a.seatUtilization ?? '∞', WARN],
         ['Engagement Trend', a.engagementTrend + '%', ACC], ['Revenue/Seat', '₹' + a.revenuePerSeat, '#A78BFA'], ['Churn Trend', a.churnTrend, BAD]].map(([l, v, c]: any) => (
           <div key={l} style={{ ...cs, marginBottom: 0, textAlign: 'center' }}><div style={{ fontSize: 18, fontWeight: 800, color: c }}>{v}</div><div style={{ fontSize: 9.5, color: DIM }}>{l}</div></div>
@@ -824,11 +1062,11 @@ function AnalyticsTab({ base, authHeaders, id, allSeries }: any) {
         <div style={{ fontSize: 12, color: DIM }}>Views: {a.conversionFunnel?.views} → Wishlisted: {a.conversionFunnel?.wishlisted} → Enrolled: {a.conversionFunnel?.enrolled}</div>
       </div>
       <div style={cs}>
-        <div style={{ fontWeight: 700, marginBottom: 8, color: TS }}>⚖️ Series Comparison</div>
+        <div style={{ fontWeight: 700, marginBottom: 8, color: TS }}>⚖️ Batch Comparison</div>
         <div style={{ display: 'flex', gap: 8 }}>
           <select style={inp} value={compareWith} onChange={e => setCompareWith(e.target.value)}>
-            <option value="">Select series to compare…</option>
-            {(allSeries || []).filter((b: any) => b._id !== id).map((b: any) => <option key={b._id} value={b._id}>{b.name}</option>)}
+            <option value="">Select batch to compare…</option>
+            {(allBatches || []).filter((b: any) => b._id !== id).map((b: any) => <option key={b._id} value={b._id}>{b.name}</option>)}
           </select>
           <button style={bs} onClick={runCompare}>Compare</button>
         </div>
@@ -886,7 +1124,7 @@ function SettingsTab({ base, authHeaders, id, showToast, load: loadParent }: any
   return (
     <div>
       <div style={{ ...cs, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10 }}>
-        <div><label style={lbl}>Series Name</label><input style={inp} value={s.name} onChange={e => setS({ ...s, name: e.target.value })} /></div>
+        <div><label style={lbl}>Batch Name</label><input style={inp} value={s.name} onChange={e => setS({ ...s, name: e.target.value })} /></div>
         <div><label style={lbl}>Color / Icon</label><input style={inp} value={s.colorIcon} onChange={e => setS({ ...s, colorIcon: e.target.value })} /></div>
         <div><label style={lbl}>Start Date</label><input style={inp} type="date" value={s.startDate ? s.startDate.slice(0, 10) : ''} onChange={e => setS({ ...s, startDate: e.target.value })} /></div>
         <div><label style={lbl}>End Date</label><input style={inp} type="date" value={s.endDate ? s.endDate.slice(0, 10) : ''} onChange={e => setS({ ...s, endDate: e.target.value })} /></div>
@@ -896,7 +1134,7 @@ function SettingsTab({ base, authHeaders, id, showToast, load: loadParent }: any
       <div style={{ margin: '10px 0' }}><Toggle on={s.autoArchiveAfterEnd} onChange={v => setS({ ...s, autoArchiveAfterEnd: v })} label="Auto-Archive After End Date" /></div>
       <div style={{ display: 'flex', gap: 8 }}>
         <button style={bp} onClick={save}>💾 Save Settings</button>
-        <button style={bs} onClick={toggleLock}>{s.isLocked ? '🔓 Unlock Series' : '🔒 Lock Series'}</button>
+        <button style={bs} onClick={toggleLock}>{s.isLocked ? '🔓 Unlock Batch' : '🔒 Lock Batch'}</button>
       </div>
       {s.renameHistory?.length > 0 && (
         <div style={{ ...cs, marginTop: 14 }}>

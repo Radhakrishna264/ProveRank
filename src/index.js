@@ -161,27 +161,6 @@ const adminNotificationRoutes = require('./routes/adminNotificationRoutes');
 app.use('/api/student/notifications', studentNotificationRoutes);
 app.use('/api/admin/notifications', adminNotificationRoutes);
 
-// ── Scheduled Banner Auto-Publish Cron (runs every minute) ──
-const cron = require('node-cron');
-cron.schedule('* * * * *', async () => {
-  try {
-    const mongoose = require('mongoose');
-    if (mongoose.connection.readyState !== 1) return;
-    let BannerModel;
-    try { BannerModel = mongoose.model('Banner'); } catch(e) { return; }
-    const now = new Date();
-    const toPublish = await BannerModel.find({
-      published: false,
-      scheduledAt: { $lte: now, $exists: true, $ne: null }
-    });
-    for (const b of toPublish) {
-      b.published = true;
-      await b.save();
-      console.log('Auto-published banner:', b.title, 'at', now.toISOString());
-    }
-  } catch(e) { /* silent — cron errors should not crash server */ }
-});
-
 const batchActivityRoutes = require('./routes/batchActivityRoutes');
 app.use('/api/batch-activity', batchActivityRoutes);
 server.listen(PORT, '0.0.0.0', () => {
@@ -204,14 +183,12 @@ app.use('/api/results', resultRoutes);
 app.use('/api/admin', require('./routes/adminDashboardRoutes'));
 const studentBatchRoutes=require('./routes/studentBatches');
 const myBatchesRoutes=require('./routes/myBatches');
-const bannerGeneratorRoutes = require('./routes/bannerGenerator');
 const adminStoreRoutes   = require('./routes/adminStore');
 const studentStoreRoutes = require('./routes/studentStore');
 const paymentRoutes = require('./routes/payment');
 const brandingRoutes = require('./routes/brandingRoutes')
 app.use('/api/admin', brandingRoutes)
 app.use('/api/my-batches',myBatchesRoutes);
-app.use('/api/admin/banners', bannerGeneratorRoutes);
 app.use('/api/student/batches',studentBatchRoutes);
 app.use('/api/admin/email', require('./routes/emailSend'))
 app.use('/api/admin/store',  adminStoreRoutes);
