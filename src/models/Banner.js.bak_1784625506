@@ -13,7 +13,6 @@ const BannerSchema = new mongoose.Schema({
   validity: { type: String, default: '' },
   highlights: [{ type: String }],
   ctaText: { type: String, default: 'Enroll Now' },
-  ctaShape: { type: String, enum: ['pill', 'rounded', 'square', 'outline'], default: 'pill' },
   badge: { type: String, default: 'none' },
   template: { type: String, default: 'classic' },
   primaryColor: { type: String, default: '#4D9FFF' },
@@ -51,32 +50,6 @@ const BannerSchema = new mongoose.Schema({
   approvedAt: { type: Date, default: null },
   approvedBy: { type: String, default: '' },
   fieldLocks: [{ type: String }],
-
-  // ── FPR4: layered assets (stickers/decorative/subject graphics/
-  // icons/illustrations placed on the banner) — plain data, edited
-  // client-side, persisted via the normal banner save. ──
-  layers: [{
-    id: { type: String, required: true },
-    type: { type: String, enum: ['sticker', 'decorative', 'subject_graphic', 'icon', 'illustration', 'logo', 'watermark'], required: true },
-    content: { type: String, default: '' },
-    assetId: { type: mongoose.Schema.Types.ObjectId, ref: 'SavedAsset', default: null },
-    x: { type: Number, default: 50 },
-    y: { type: Number, default: 50 },
-    scale: { type: Number, default: 1 },
-    rotation: { type: Number, default: 0 },
-    opacity: { type: Number, default: 1 },
-    zIndex: { type: Number, default: 1 },
-    locked: { type: Boolean, default: false },
-    flipH: { type: Boolean, default: false },
-    flipV: { type: Boolean, default: false },
-    shadow: { type: Boolean, default: false },
-    shadowColor: { type: String, default: '#000000' },
-    border: { type: Boolean, default: false },
-    borderColor: { type: String, default: '#FFFFFF' },
-    borderWidth: { type: Number, default: 2 },
-    blendMode: { type: String, default: 'normal' }
-  }],
-  textStyleOverride: { type: mongoose.Schema.Types.Mixed, default: null },
 }, { timestamps: true });
 
 module.exports = mongoose.models.Banner || mongoose.model('Banner', BannerSchema);

@@ -1013,6 +1013,28 @@ const BN_ILLUSTRATIONS = [
   { id: 'circuit', label: 'Circuit', category: 'Physics', svg: '<svg viewBox="0 0 100 60"><path d="M10 30 H30 V10 H70 V30 H90" stroke="#00D4FF" stroke-width="2" fill="none"/><circle cx="50" cy="30" r="4" fill="#00D4FF"/></svg>' },
 ]
 
+function BN_luminance(hex: string) {
+  const c = (hex || '#888888').replace('#', '')
+  if (c.length !== 6) return 0.5
+  const r = parseInt(c.slice(0, 2), 16) / 255, g = parseInt(c.slice(2, 4), 16) / 255, b = parseInt(c.slice(4, 6), 16) / 255
+  const [rl, gl, bl] = [r, g, b].map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))
+  return 0.2126 * rl + 0.7152 * gl + 0.0722 * bl
+}
+function BN_contrastRatio(hex1: string, hex2: string) {
+  const l1 = BN_luminance(hex1), l2 = BN_luminance(hex2)
+  const lighter = Math.max(l1, l2), darker = Math.min(l1, l2)
+  return (lighter + 0.05) / (darker + 0.05)
+}
+function BN_titleSuggestions(name: string, examType: string) {
+  const n = name || 'Your Batch', e = examType || 'NEET'
+  return [n + ' — Crack ' + e + ' 2026', 'Master ' + e + ' with ' + n, n + ': Your Path to ' + e + ' Success']
+}
+function BN_ctaSuggestions() { return ['Enroll Now', 'Start Learning', 'Join Batch', 'Get Started', 'Claim Your Seat', 'Book Now'] }
+function BN_highlightSuggestions(sp: any) {
+  const s = sp || {}
+  return [(s.totalTests || '0') + ' Practice Tests', (s.duration || '365 days') + ' Access', 'Expert Faculty Support', 'Detailed Performance Analytics', 'Hindi + English Both']
+}
+function BN_badgeSuggestions() { return ['new', 'trending', 'limitedseats', 'earlybird'] }
 function BN_effPrice(b: any) { return b.discountPrice || b.price || 0 }
 function BN_statusChip(s: string) {
   const map: any = { draft: [WARN, 'rgba(251,191,36,0.12)'], ready: [GOOD, 'rgba(52,211,153,0.12)'], synced: [ACC, 'rgba(77,159,255,0.12)'], pending_sync: [WARN, 'rgba(251,191,36,0.12)'], conflict: [BAD, 'rgba(248,113,113,0.12)'], manual_override: ['#A78BFA', 'rgba(167,139,250,0.12)'], removed: [BAD, 'rgba(248,113,113,0.12)'], replaced: [DIM, 'rgba(107,143,175,0.12)'], published: [GOOD, 'rgba(52,211,153,0.12)'] }
@@ -1020,15 +1042,40 @@ function BN_statusChip(s: string) {
   return <span style={{ ...chip(c, bg), marginLeft: 6 }}>{(s || '').replace('_', ' ').toUpperCase()}</span>
 }
 
-function BannerLivePreview({ b, size, showSafeZone }: any) {
+function BannerLivePreview({ b, size, showSafeZone, safeZoneMode, onLayerPointerDown, selectedLayerId, boxRef }: any) {
   const dims: any = { card: { w: 320, h: 200 }, wide: { w: 480, h: 200 }, square: { w: 320, h: 320 }, mobile: { w: 280, h: 420 } }
   const d = dims[size] || dims.card
   const tpl = BN_TEMPLATES.find(t => t.id === b.template) || BN_TEMPLATES[0]
-  const bg = b.bgImage ? `url(${b.bgImage}) center/cover` : (tpl.bg)
+  const bg = b.bgImage ? (/^(linear|radial)-gradient|^#|^rgba?\(/.test(b.bgImage) ? b.bgImage : `url(${b.bgImage}) center/cover`) : (tpl.bg)
+  const ctaRadius = b.ctaShape === 'square' ? 4 : b.ctaShape === 'rounded' ? 10 : 20
+  const ctaIsOutline = b.ctaShape === 'outline'
   const badgeObj = BN_BADGES.find(x => x.id === b.badge)
+  const safeInset = safeZoneMode === 'mobile' ? '12%' : safeZoneMode === 'desktop' ? '6%' : '8%'
   return (
-    <div style={{ width: d.w, height: d.h, maxWidth: '100%', borderRadius: 14, position: 'relative', overflow: 'hidden', background: bg, color: b.textColor || '#fff', fontFamily: (BN_FONTS.find(f => f.id === b.fontStyle) || BN_FONTS[0]).family, border: `1px solid ${BOR}`, padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', margin: '0 auto' }}>
-      {showSafeZone && <div style={{ position: 'absolute', inset: '8%', border: '1px dashed rgba(255,255,255,0.4)', borderRadius: 8, pointerEvents: 'none' }} />}
+    <div ref={boxRef} style={{ width: d.w, height: d.h, maxWidth: '100%', borderRadius: 14, position: 'relative', overflow: 'hidden', background: bg, color: b.textColor || '#fff', fontFamily: (BN_FONTS.find(f => f.id === b.fontStyle) || BN_FONTS[0]).family, border: `1px solid ${BOR}`, padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', margin: '0 auto' }}>
+      {showSafeZone && <div style={{ position: 'absolute', inset: safeInset, border: '1px dashed rgba(255,255,255,0.4)', borderRadius: 8, pointerEvents: 'none', zIndex: 50 }} />}
+      {(b.layers || []).slice().sort((a: any, b2: any) => a.zIndex - b2.zIndex).map((l: any) => (
+        <div key={l.id}
+          onMouseDown={(e: any) => onLayerPointerDown && onLayerPointerDown(e, l.id)}
+          onTouchStart={(e: any) => onLayerPointerDown && onLayerPointerDown(e, l.id)}
+          style={{
+            position: 'absolute', left: l.x + '%', top: l.y + '%',
+            transform: `translate(-50%,-50%) scale(${l.scale}) rotate(${l.rotation}deg) scaleX(${l.flipH ? -1 : 1}) scaleY(${l.flipV ? -1 : 1})`,
+            opacity: l.opacity, mixBlendMode: l.blendMode, zIndex: 10 + l.zIndex,
+            cursor: l.locked ? 'not-allowed' : 'move',
+            filter: l.shadow ? `drop-shadow(0 4px 6px ${l.shadowColor})` : 'none',
+            border: l.border ? `${l.borderWidth}px solid ${l.borderColor}` : 'none',
+            borderRadius: l.border ? 6 : 0,
+            outline: selectedLayerId === l.id ? '2px dashed #4D9FFF' : 'none',
+            outlineOffset: 2,
+            width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+          {l.type === 'icon' ? <span style={{ fontSize: 26 }}>{l.content}</span> :
+            l.content && l.content.startsWith('<svg') ? <div style={{ width: '100%', height: '100%' }} dangerouslySetInnerHTML={{ __html: l.content }} /> :
+            l.content && l.content.startsWith('data:image') ? <img src={l.content} style={{ width: '100%', height: '100%' }} /> :
+            <span style={{ fontSize: 20 }}>🖼️</span>}
+        </div>
+      ))}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <span style={{ fontSize: 20 }}>{BN_EXAM_ICON[b.examType] || '📚'}</span>
         {badgeObj && badgeObj.id !== 'none' && <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: b.accentColor || tpl.accent, color: '#1a1a2e' }}>{badgeObj.label}</span>}
@@ -1044,7 +1091,7 @@ function BannerLivePreview({ b, size, showSafeZone }: any) {
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: 14, fontWeight: 800, color: b.accentColor || tpl.accent }}>{b.price && Number(b.price) > 0 ? '₹' + b.price : 'FREE'}</span>
-        <span style={{ fontSize: 9.5, fontWeight: 700, padding: '5px 10px', borderRadius: 20, background: b.accentColor || tpl.accent, color: '#1a1a2e' }}>{b.ctaText || 'Enroll Now'} →</span>
+        <span style={{ fontSize: 9.5, fontWeight: 700, padding: '5px 10px', borderRadius: ctaRadius, background: ctaIsOutline ? 'transparent' : (b.accentColor || tpl.accent), color: ctaIsOutline ? (b.accentColor || tpl.accent) : '#1a1a2e', border: ctaIsOutline ? `1.5px solid ${b.accentColor || tpl.accent}` : 'none' }}>{b.ctaText || 'Enroll Now'} →</span>
       </div>
     </div>
   )
@@ -1090,6 +1137,229 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
   const [templateCat, setTemplateCat] = useState('All')
   const [templateSearch, setTemplateSearch] = useState('')
   const [downloading, setDownloading] = useState(false)
+  const [assetTab, setAssetTab] = useState('builtin')
+  const [assetSearch, setAssetSearch] = useState('')
+  const [brandKit, setBrandKit] = useState<any>(null)
+  const [orgTemplates, setOrgTemplates] = useState<any[]>([])
+  const [assetsMap, setAssetsMap] = useState<any>({ sticker: [], decorative: [], subject_graphic: [], icon: [], typography: [], background: [], cta: [] })
+  const [builtinFav, setBuiltinFav] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('pr_banner_builtin_fav') || '[]') } catch { return [] } })
+  const [builtinRecent, setBuiltinRecent] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('pr_banner_builtin_recent') || '[]') } catch { return [] } })
+  const assetsBase = base.replace('/api/admin/batch-manager', '/api/admin/banner-assets').replace('/api/admin/test-series-manager', '/api/admin/banner-assets')
+
+  const loadOrgTemplates = useCallback(() => {
+    const p = new URLSearchParams()
+    if (assetSearch) p.set('search', assetSearch)
+    fetch(assetsBase + '/templates?' + p.toString(), { headers: authHeaders }).then(r => r.json()).then(d => setOrgTemplates(d.templates || [])).catch(() => {})
+  }, [assetSearch])
+  useEffect(() => { fetch(assetsBase + '/brand-kit', { headers: authHeaders }).then(r => r.json()).then(d => setBrandKit(d.brandKit)).catch(() => {}) }, [])
+  useEffect(() => { loadOrgTemplates() }, [loadOrgTemplates])
+  useEffect(() => {
+    ['sticker', 'decorative', 'subject_graphic', 'icon', 'typography', 'background', 'cta'].forEach(t => {
+      fetch(assetsBase + '/assets?type=' + t, { headers: authHeaders }).then(r => r.json()).then(d => setAssetsMap((m: any) => ({ ...m, [t]: d.assets || [] }))).catch(() => {})
+    })
+  }, [])
+
+  const toggleBuiltinFav = (tid: string) => {
+    setBuiltinFav(prev => { const next = prev.includes(tid) ? prev.filter(x => x !== tid) : [...prev, tid]; try { localStorage.setItem('pr_banner_builtin_fav', JSON.stringify(next)) } catch { }; return next })
+  }
+  const applyBuiltinTemplate = (tid: string) => {
+    setForm({ ...form, template: tid })
+    setBuiltinRecent(prev => { const next = [tid, ...prev.filter(x => x !== tid)].slice(0, 10); try { localStorage.setItem('pr_banner_builtin_recent', JSON.stringify(next)) } catch { }; return next })
+  }
+  const applyBrandKitToBanner = () => {
+    if (!brandKit) return
+    setForm({ ...form, primaryColor: brandKit.primaryColor, secondaryColor: brandKit.secondaryColor, accentColor: brandKit.accentColor, fontStyle: brandKit.fontPair })
+    showToast('✅ Brand Kit applied to this banner')
+  }
+  const saveBrandKitField = async (patch: any) => {
+    const r = await fetch(assetsBase + '/brand-kit', { method: 'PUT', headers: authHeaders, body: JSON.stringify(patch) })
+    const d = await r.json()
+    if (d.success) { setBrandKit(d.brandKit); showToast('✅ Brand Kit saved') } else showToast('⚠️ ' + d.error)
+  }
+  const saveAsOrgTemplate = async () => {
+    const name = window.prompt('Template name?')
+    if (!name || !name.trim()) return
+    const config = { template: form.template, primaryColor: form.primaryColor, secondaryColor: form.secondaryColor, textColor: form.textColor, accentColor: form.accentColor, fontStyle: form.fontStyle, bgImage: form.bgImage, layers: form.layers || [] }
+    const r = await fetch(assetsBase + '/templates', { method: 'POST', headers: authHeaders, body: JSON.stringify({ name: name.trim(), category: 'Custom', config }) })
+    const d = await r.json()
+    if (d.success) { showToast('✅ Saved as template'); loadOrgTemplates() } else showToast('⚠️ ' + d.error)
+  }
+  const applyOrgTemplate = async (t: any) => {
+    setForm({ ...form, ...t.config })
+    await fetch(assetsBase + '/templates/' + t._id + '/use', { method: 'POST', headers: authHeaders }).catch(() => {})
+    loadOrgTemplates()
+  }
+  const toggleOrgTemplateFav = async (t: any) => { await fetch(assetsBase + '/templates/' + t._id, { method: 'PUT', headers: authHeaders, body: JSON.stringify({ isFavorite: !t.isFavorite }) }); loadOrgTemplates() }
+  const cloneOrgTemplate = async (t: any) => { await fetch(assetsBase + '/templates/' + t._id + '/clone', { method: 'POST', headers: authHeaders }); showToast('✅ Cloned'); loadOrgTemplates() }
+  const deleteOrgTemplate = async (t: any) => { if (!window.confirm('Delete template "' + t.name + '"?')) return; await fetch(assetsBase + '/templates/' + t._id, { method: 'DELETE', headers: authHeaders }); showToast('✅ Deleted'); loadOrgTemplates() }
+  const exportOrgTemplate = async (t: any) => {
+    const r = await fetch(assetsBase + '/templates/' + t._id + '/export', { headers: authHeaders })
+    const d = await r.json()
+    const blob = new Blob([JSON.stringify(d.exportData, null, 2)], { type: 'application/json' })
+    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = t.name + '.json'; link.click()
+  }
+  const addAssetLayer = (asset: any) => {
+    const layer = { id: 'ly_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8), type: asset.type, content: asset.content, assetId: asset._id, x: 50, y: 50, scale: 1, rotation: 0, opacity: 1, zIndex: ((form.layers || []).length) + 1, locked: false, flipH: false, flipV: false, shadow: false, shadowColor: '#000000', border: false, borderColor: '#FFFFFF', borderWidth: 2, blendMode: 'normal' }
+    setForm({ ...form, layers: [...(form.layers || []), layer] })
+    fetch(assetsBase + '/assets/' + asset._id + '/use', { method: 'POST', headers: authHeaders }).catch(() => {})
+    showToast('✅ Added to banner — drag it into position in Preview & Variants')
+  }
+
+  // ── FPR5: interactive layer manipulation (drag/resize/rotate/flip/
+  // shadow/border/blend/reorder) — plain React pointer events, no
+  // external drag library. Edits form.layers locally; persisted via
+  // the existing Save Draft / Save & Mark Ready buttons. ──
+  const [selectedLayerId, setSelectedLayerId] = useState('')
+  const [draggingLayerId, setDraggingLayerId] = useState('')
+  const [safeZoneMode, setSafeZoneMode] = useState('default')
+  const [autoSnapSafeZone, setAutoSnapSafeZone] = useState(false)
+
+  const onLayerPointerDown = (e: any, layerId: string) => {
+    const layer = (form.layers || []).find((l: any) => l.id === layerId)
+    if (!layer || layer.locked) return
+    setSelectedLayerId(layerId)
+    setDraggingLayerId(layerId)
+    e.stopPropagation()
+  }
+  useEffect(() => {
+    if (!draggingLayerId) return
+    const onMove = (e: any) => {
+      const box = previewRef.current
+      if (!box) return
+      const rect = box.getBoundingClientRect()
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY
+      let x = ((clientX - rect.left) / rect.width) * 100
+      let y = ((clientY - rect.top) / rect.height) * 100
+      x = Math.max(0, Math.min(100, x))
+      y = Math.max(0, Math.min(100, y))
+      if (autoSnapSafeZone) {
+        const inset = safeZoneMode === 'mobile' ? 12 : safeZoneMode === 'desktop' ? 6 : 8
+        x = Math.max(inset, Math.min(100 - inset, x))
+        y = Math.max(inset, Math.min(100 - inset, y))
+      }
+      setForm((f: any) => ({ ...f, layers: (f.layers || []).map((l: any) => l.id === draggingLayerId ? { ...l, x, y } : l) }))
+    }
+    const onUp = () => setDraggingLayerId('')
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    window.addEventListener('touchmove', onMove)
+    window.addEventListener('touchend', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('touchend', onUp)
+    }
+  }, [draggingLayerId, autoSnapSafeZone, safeZoneMode])
+  const updateLayer = (layerId: string, patch: any) => setForm((f: any) => ({ ...f, layers: (f.layers || []).map((l: any) => l.id === layerId ? { ...l, ...patch } : l) }))
+  const removeLayer = (layerId: string) => { setForm((f: any) => ({ ...f, layers: (f.layers || []).filter((l: any) => l.id !== layerId) })); if (selectedLayerId === layerId) setSelectedLayerId('') }
+  const duplicateLayer = (layerId: string) => {
+    const layer = (form.layers || []).find((l: any) => l.id === layerId)
+    if (!layer) return
+    const clone = { ...layer, id: 'ly_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8), x: Math.min(95, layer.x + 5), y: Math.min(95, layer.y + 5), zIndex: (form.layers || []).length + 1 }
+    setForm((f: any) => ({ ...f, layers: [...(f.layers || []), clone] }))
+  }
+  const moveLayerZ = (layerId: string, dir: number) => {
+    setForm((f: any) => {
+      const layers = [...(f.layers || [])]
+      const layer = layers.find((l: any) => l.id === layerId)
+      if (!layer) return f
+      layer.zIndex = Math.max(0, (layer.zIndex || 0) + dir)
+      return { ...f, layers }
+    })
+  }
+
+  // ── FPR6: Undo/Redo, Auto-Save Draft, image-resolution check,
+  // Smart Replace Colors — all local-state productivity features. ──
+  const [historyStack, setHistoryStack] = useState<any[]>([])
+  const [redoStack, setRedoStack] = useState<any[]>([])
+  const historyTimerRef = useRef<any>(null)
+  const isUndoRedoRef = useRef(false)
+  const autoSaveTimerRef = useRef<any>(null)
+  const [lastAutoSaved, setLastAutoSaved] = useState<any>(null)
+  const [imgResWarning, setImgResWarning] = useState('')
+  const [replaceFromColor, setReplaceFromColor] = useState('#4D9FFF')
+  const [replaceToColor, setReplaceToColor] = useState('#4D9FFF')
+  const [showSuggestions, setShowSuggestions] = useState(false)
+
+  useEffect(() => {
+    if (!form) return
+    if (isUndoRedoRef.current) { isUndoRedoRef.current = false; return }
+    if (historyTimerRef.current) clearTimeout(historyTimerRef.current)
+    historyTimerRef.current = setTimeout(() => { setHistoryStack(prev => [...prev.slice(-19), form]); setRedoStack([]) }, 800)
+    return () => { if (historyTimerRef.current) clearTimeout(historyTimerRef.current) }
+  }, [form])
+
+  useEffect(() => {
+    if (!form || !data?.banner) return
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(() => {
+      fetch(base + '/' + id + '/banner', { method: 'PUT', headers: authHeaders, body: JSON.stringify(form) }).then(r => r.json()).then(d => { if (d.success) setLastAutoSaved(new Date()) }).catch(() => {})
+    }, 5000)
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current) }
+  }, [form])
+
+  useEffect(() => {
+    if (!form?.bgImage || !/^https?:\/\//.test(form.bgImage)) { setImgResWarning(''); return }
+    const img = new Image()
+    img.onload = () => { setImgResWarning((img.naturalWidth < 300 || img.naturalHeight < 150) ? 'Background image resolution is low — may look blurry' : '') }
+    img.onerror = () => setImgResWarning('')
+    img.src = form.bgImage
+  }, [form?.bgImage])
+
+  const undo = () => {
+    if (historyStack.length < 2) { showToast('Nothing to undo'); return }
+    const current = historyStack[historyStack.length - 1]
+    const prevState = historyStack[historyStack.length - 2]
+    isUndoRedoRef.current = true
+    setRedoStack(r => [current, ...r])
+    setHistoryStack(h => h.slice(0, -1))
+    setForm(prevState)
+  }
+  const redo = () => {
+    if (redoStack.length === 0) { showToast('Nothing to redo'); return }
+    const next = redoStack[0]
+    isUndoRedoRef.current = true
+    setHistoryStack(h => [...h, next])
+    setRedoStack(r => r.slice(1))
+    setForm(next)
+  }
+  useEffect(() => {
+    const onKey = (e: any) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo() }
+      else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [historyStack, redoStack])
+
+  const smartReplaceColor = () => {
+    const from = (replaceFromColor || '').toLowerCase()
+    const to = replaceToColor
+    const newForm: any = { ...form }
+    const fields = ['primaryColor', 'secondaryColor', 'accentColor', 'textColor']
+    fields.forEach(f => { if ((newForm[f] || '').toLowerCase() === from) newForm[f] = to })
+    newForm.layers = (newForm.layers || []).map((l: any) => ({ ...l, shadowColor: (l.shadowColor || '').toLowerCase() === from ? to : l.shadowColor, borderColor: (l.borderColor || '').toLowerCase() === from ? to : l.borderColor }))
+    setForm(newForm)
+    showToast('✅ Colors replaced across banner')
+  }
+
+  const [compareList, setCompareList] = useState<any[]>([])
+  const toggleCompare = (item: any) => {
+    setCompareList(prev => {
+      const exists = prev.find(c => c.id === item.id)
+      if (exists) return prev.filter(c => c.id !== item.id)
+      if (prev.length >= 2) { showToast('⚠️ You can only compare 2 at a time'); return prev }
+      return [...prev, item]
+    })
+  }
+  const resetToTemplateDefaults = () => {
+    const tpl = BN_TEMPLATES.find(t => t.id === form.template) || BN_TEMPLATES[0]
+    setForm({ ...form, bgImage: '', layers: [], primaryColor: '#4D9FFF', secondaryColor: '#00D4FF', textColor: '#FFFFFF', accentColor: tpl.accent, ctaShape: 'pill' })
+    showToast('✅ Reset to template defaults')
+  }
+
   const previewRef = useRef<any>(null)
   const cardRef = useRef<any>(null); const wideRef = useRef<any>(null); const squareRef = useRef<any>(null); const mobileRef = useRef<any>(null)
 
@@ -1140,6 +1410,15 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
     if (!form.ctaText || !form.ctaText.trim()) warnings.push('Missing CTA text')
     if (form.bgImage && !/^https?:\/\/|^data:image/.test(form.bgImage)) warnings.push('Invalid image URL')
     if (data.syncPreview && form.price !== data.syncPreview.price) warnings.push('Price differs from current batch price — consider syncing')
+    if (form.textColor && form.primaryColor && BN_contrastRatio(form.textColor, form.primaryColor) < 3) warnings.push('Low contrast between text and background — may be hard to read')
+    if (form.title && form.title.length > 40) warnings.push('Title may overflow on smaller sizes — consider shortening')
+    if (form.accentColor && BN_luminance(form.accentColor) < 0.25) warnings.push('CTA button color is quite dark — may reduce visibility')
+    if (imgResWarning) warnings.push(imgResWarning)
+    if (form.layers && form.layers.length) {
+      const inset = safeZoneMode === 'mobile' ? 12 : safeZoneMode === 'desktop' ? 6 : 8
+      const outside = form.layers.filter((l: any) => l.x < inset || l.x > 100 - inset || l.y < inset || l.y > 100 - inset)
+      if (outside.length > 0) warnings.push(outside.length + ' layer(s) are outside the safe zone')
+    }
   }
 
   const filteredTemplates = BN_TEMPLATES.filter(t => (templateCat === 'All' || t.category === templateCat) && t.label.toLowerCase().includes(templateSearch.toLowerCase()))
@@ -1223,6 +1502,27 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
                 <input key={i} style={inp} placeholder={'Highlight ' + (i + 1)} value={(form.highlights || [])[i] || ''} onChange={e => { const h = [...(form.highlights || ['', '', ''])]; h[i] = e.target.value; setForm({ ...form, highlights: h }) }} />
               ))}
             </div>
+            <button style={{ ...bs, marginTop: 8 }} onClick={() => setShowSuggestions(v => !v)}>💡 {showSuggestions ? 'Hide' : 'Show'} Smart Suggestions</button>
+            {showSuggestions && (
+              <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: 'rgba(77,159,255,0.06)', border: `1px solid ${BOR}` }}>
+                <div style={{ fontSize: 10.5, color: DIM, marginBottom: 4 }}>Title suggestions</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                  {BN_titleSuggestions(data.batchName, form.examType).map((s, i) => <button key={i} style={bs} onClick={() => setForm({ ...form, title: s })}>{s}</button>)}
+                </div>
+                <div style={{ fontSize: 10.5, color: DIM, marginBottom: 4 }}>CTA suggestions</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                  {BN_ctaSuggestions().map((s, i) => <button key={i} style={bs} onClick={() => setForm({ ...form, ctaText: s })}>{s}</button>)}
+                </div>
+                <div style={{ fontSize: 10.5, color: DIM, marginBottom: 4 }}>Highlight suggestions (click to fill next empty slot)</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                  {BN_highlightSuggestions(data.syncPreview).map((s, i) => <button key={i} style={bs} onClick={() => { const h = [...(form.highlights || ['', '', ''])]; const idx = h.findIndex((x: string) => !x); if (idx >= 0) h[idx] = s; else h[0] = s; setForm({ ...form, highlights: h }) }}>{s}</button>)}
+                </div>
+                <div style={{ fontSize: 10.5, color: DIM, marginBottom: 4 }}>Badge suggestions</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {BN_badgeSuggestions().map(bId => { const bObj = BN_BADGES.find(x => x.id === bId); return bObj ? <button key={bId} style={bs} onClick={() => setForm({ ...form, badge: bId })}>{bObj.label}</button> : null })}
+                </div>
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: 8, marginTop: 10 }}>
               <div><label style={lbl}>Primary Color</label><input style={{ ...inp, height: 34, padding: 2 }} type="color" value={form.primaryColor || '#4D9FFF'} onChange={e => setForm({ ...form, primaryColor: e.target.value })} /></div>
               <div><label style={lbl}>Secondary Color</label><input style={{ ...inp, height: 34, padding: 2 }} type="color" value={form.secondaryColor || '#00D4FF'} onChange={e => setForm({ ...form, secondaryColor: e.target.value })} /></div>
@@ -1245,11 +1545,14 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
+              <button style={bs} onClick={undo} disabled={historyStack.length < 2}>↶ Undo</button>
+              <button style={bs} onClick={redo} disabled={redoStack.length === 0}>↷ Redo</button>
               <button style={bs} onClick={syncNow}>🔄 Sync Now</button>
               <button style={bs} onClick={() => saveBanner({ saveAsDraft: true })}>💾 Save Draft</button>
               <button style={bp} onClick={() => saveBanner({ markReady: true })}>✅ Save & Mark Ready</button>
               <button style={bs} onClick={discard}>↩️ Discard Changes</button>
+              {lastAutoSaved && <span style={{ fontSize: 10, color: DIM }}>Auto-saved {lastAutoSaved.toLocaleTimeString()}</span>}
             </div>
           </div>
 
@@ -1260,10 +1563,79 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
               <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: DIM, marginLeft: 8 }}>
                 <input type="checkbox" checked={showSafeZone} onChange={e => setShowSafeZone(e.target.checked)} /> Safe Zone Guide
               </label>
+              <select style={{ ...inp, width: 'auto' }} value={safeZoneMode} onChange={e => setSafeZoneMode(e.target.value)}>
+                <option value="default">Default Safe Zone</option>
+                <option value="mobile">Mobile Safe Zone</option>
+                <option value="desktop">Desktop Safe Zone</option>
+              </select>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: DIM }}>
+                <input type="checkbox" checked={autoSnapSafeZone} onChange={e => setAutoSnapSafeZone(e.target.checked)} /> Auto Safe-Zone Snap
+              </label>
               <button style={{ ...bs, marginLeft: 'auto' }} onClick={() => setShowAllVariants(v => !v)}>{showAllVariants ? 'Hide All Variants' : 'Generate All Variants'}</button>
             </div>
-            <div ref={previewRef}><BannerLivePreview b={form} size={previewSize} showSafeZone={showSafeZone} /></div>
+            <BannerLivePreview b={form} size={previewSize} showSafeZone={showSafeZone} safeZoneMode={safeZoneMode} boxRef={previewRef} onLayerPointerDown={onLayerPointerDown} selectedLayerId={selectedLayerId} />
             <div style={{ marginTop: 10 }}><button style={bs} disabled={downloading} onClick={() => downloadPNG(previewRef, previewSize)}>{downloading ? '⟳ Exporting…' : '⬇️ Download PNG (' + previewSize + ')'}</button></div>
+
+            {form.layers && form.layers.length > 0 && (
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${BOR}` }}>
+                <div style={{ fontWeight: 700, marginBottom: 8, color: TS, fontSize: 12 }}>🗂️ Layers ({form.layers.length})</div>
+                {form.layers.slice().sort((a: any, b: any) => b.zIndex - a.zIndex).map((l: any) => (
+                  <div key={l.id} onClick={() => setSelectedLayerId(l.id)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', borderRadius: 6, cursor: 'pointer', background: selectedLayerId === l.id ? 'rgba(77,159,255,0.12)' : 'transparent', fontSize: 11, color: DIM }}>
+                    <span>{l.locked ? '🔒 ' : ''}{l.type}</span>
+                    <span style={{ display: 'flex', gap: 4 }}>
+                      <button style={{ ...bs, padding: '2px 6px', fontSize: 10 }} onClick={(e) => { e.stopPropagation(); moveLayerZ(l.id, 1) }}>⬆️</button>
+                      <button style={{ ...bs, padding: '2px 6px', fontSize: 10 }} onClick={(e) => { e.stopPropagation(); moveLayerZ(l.id, -1) }}>⬇️</button>
+                      <button style={{ ...bs, padding: '2px 6px', fontSize: 10 }} onClick={(e) => { e.stopPropagation(); duplicateLayer(l.id) }}>⧉</button>
+                      <button style={{ ...bd, padding: '2px 6px', fontSize: 10 }} onClick={(e) => { e.stopPropagation(); removeLayer(l.id) }}>🗑️</button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {selectedLayerId && (form.layers || []).find((l: any) => l.id === selectedLayerId) && (() => {
+              const layer = (form.layers || []).find((l: any) => l.id === selectedLayerId)
+              return (
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${BOR}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div style={{ fontWeight: 700, color: TS, fontSize: 12 }}>🔧 Layer Controls — {layer.type}</div>
+                    <button style={bs} onClick={() => setSelectedLayerId('')}>✕ Close</button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 10 }}>
+                    <div><label style={lbl}>Scale ({layer.scale.toFixed(2)}x)</label><input type="range" min="0.3" max="3" step="0.05" value={layer.scale} onChange={e => updateLayer(layer.id, { scale: Number(e.target.value) })} style={{ width: '100%' }} /></div>
+                    <div><label style={lbl}>Rotation ({layer.rotation}°)</label><input type="range" min="-180" max="180" value={layer.rotation} onChange={e => updateLayer(layer.id, { rotation: Number(e.target.value) })} style={{ width: '100%' }} /></div>
+                    <div><label style={lbl}>Opacity ({Math.round(layer.opacity * 100)}%)</label><input type="range" min="0" max="1" step="0.05" value={layer.opacity} onChange={e => updateLayer(layer.id, { opacity: Number(e.target.value) })} style={{ width: '100%' }} /></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', margin: '10px 0' }}>
+                    <Toggle on={!!layer.locked} onChange={(v: boolean) => updateLayer(layer.id, { locked: v })} label="Lock" />
+                    <Toggle on={!!layer.flipH} onChange={(v: boolean) => updateLayer(layer.id, { flipH: v })} label="Flip H" />
+                    <Toggle on={!!layer.flipV} onChange={(v: boolean) => updateLayer(layer.id, { flipV: v })} label="Flip V" />
+                    <Toggle on={!!layer.shadow} onChange={(v: boolean) => updateLayer(layer.id, { shadow: v })} label="Shadow" />
+                    <Toggle on={!!layer.border} onChange={(v: boolean) => updateLayer(layer.id, { border: v })} label="Border" />
+                  </div>
+                  {layer.shadow && (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                      <label style={lbl}>Shadow Color</label><input type="color" value={layer.shadowColor} onChange={e => updateLayer(layer.id, { shadowColor: e.target.value })} />
+                    </div>
+                  )}
+                  {layer.border && (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                      <label style={lbl}>Border Color</label><input type="color" value={layer.borderColor} onChange={e => updateLayer(layer.id, { borderColor: e.target.value })} />
+                      <label style={lbl}>Width</label><input type="number" style={{ ...inp, width: 60 }} value={layer.borderWidth} onChange={e => updateLayer(layer.id, { borderWidth: Number(e.target.value) })} />
+                    </div>
+                  )}
+                  <div><label style={lbl}>Blend Mode</label>
+                    <select style={inp} value={layer.blendMode} onChange={e => updateLayer(layer.id, { blendMode: e.target.value })}>
+                      {['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'difference'].map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                    <button style={bs} onClick={() => duplicateLayer(layer.id)}>⧉ Duplicate</button>
+                    <button style={bd} onClick={() => removeLayer(layer.id)}>🗑️ Delete</button>
+                  </div>
+                </div>
+              )
+            })()}
 
             {showAllVariants && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14, marginTop: 14 }}>
@@ -1297,6 +1669,146 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
               ))}
             </div>
             <button style={bs} onClick={() => setShowIllustrations(true)}>🎨 Open Illustration Library ({BN_ILLUSTRATIONS.length})</button>
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BOR}` }}>
+              <div style={{ fontSize: 11, color: DIM, marginBottom: 6 }}>🔁 Smart Replace Color (across colors + all layer borders/shadows)</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <label style={lbl}>From</label><input type="color" value={replaceFromColor} onChange={e => setReplaceFromColor(e.target.value)} />
+                <label style={lbl}>To</label><input type="color" value={replaceToColor} onChange={e => setReplaceToColor(e.target.value)} />
+                <button style={bs} onClick={smartReplaceColor}>Replace</button>
+              </div>
+            </div>
+          </div>
+
+          <div style={cs}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+              {[['builtin', '🖼️ Built-in'], ['mytemplates', '📁 My Templates'], ['brandkit', '🎨 Brand Kit'], ['sticker', '🏷️ Stickers'], ['decorative', '✨ Decorative'], ['subject_graphic', '🧬 Subject Graphics'], ['icon', '🔣 Icons'], ['typography', '🔤 Typography'], ['background', '🌌 Backgrounds'], ['cta', '🔘 CTA Elements']].map(([k, l]) => (
+                <button key={k} style={assetTab === k ? bp : bs} onClick={() => setAssetTab(k)}>{l}</button>
+              ))}
+            </div>
+
+            {assetTab === 'builtin' && (
+              <div>
+                {builtinRecent.length > 0 && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 11, color: DIM, marginBottom: 4 }}>Recently Used</div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {builtinRecent.map(tid => { const t = BN_TEMPLATES.find(x => x.id === tid); return t ? <button key={tid} style={bs} onClick={() => applyBuiltinTemplate(tid)}>{t.label}</button> : null })}
+                    </div>
+                  </div>
+                )}
+                <div style={{ fontSize: 11, color: DIM, marginBottom: 6 }}>All Templates</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(90px,1fr))', gap: 8 }}>
+                  {BN_TEMPLATES.map(t => (
+                    <div key={t.id} style={{ position: 'relative', cursor: 'pointer', borderRadius: 10, height: 54, background: t.bg, border: form.template === t.id ? `2px solid ${ACC}` : `1px solid ${BOR}`, display: 'flex', alignItems: 'flex-end', padding: 4 }} onClick={() => applyBuiltinTemplate(t.id)}>
+                      <span style={{ fontSize: 8.5, color: '#fff', fontWeight: 700, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{t.label}</span>
+                      <span onClick={(e) => { e.stopPropagation(); toggleBuiltinFav(t.id) }} style={{ position: 'absolute', top: 2, right: 4, fontSize: 12 }}>{builtinFav.includes(t.id) ? '⭐' : '☆'}</span>
+                      <span onClick={(e) => { e.stopPropagation(); toggleCompare({ id: 'b_' + t.id, label: t.label, category: t.category, bg: t.bg, accent: t.accent }) }} style={{ position: 'absolute', top: 2, left: 4, fontSize: 11, background: 'rgba(0,0,0,0.4)', borderRadius: 4, padding: '0 3px' }}>⚖</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {assetTab === 'mytemplates' && (
+              <div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                  <input style={inp} placeholder="Search my templates…" value={assetSearch} onChange={e => setAssetSearch(e.target.value)} />
+                  <button style={bp} onClick={saveAsOrgTemplate}>💾 Save Current As Template</button>
+                </div>
+                {orgTemplates.length === 0 ? <EmptyMsg text="No saved templates yet." /> : orgTemplates.map((t: any) => (
+                  <div key={t._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${BOR}`, flexWrap: 'wrap', gap: 6 }}>
+                    <span style={{ fontSize: 12, color: TS }}>{t.isFavorite ? '⭐ ' : ''}{t.name} <span style={{ color: DIM, fontSize: 10 }}>({t.category} · used {t.usageCount || 0}×)</span></span>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      <button style={bs} onClick={() => applyOrgTemplate(t)}>Apply</button>
+                      <button style={bs} onClick={() => toggleOrgTemplateFav(t)}>{t.isFavorite ? 'Unfavorite' : 'Favorite'}</button>
+                      <button style={bs} onClick={() => cloneOrgTemplate(t)}>Clone</button>
+                      <button style={bs} onClick={() => exportOrgTemplate(t)}>Export</button>
+                      <button style={bd} onClick={() => deleteOrgTemplate(t)}>Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {assetTab === 'brandkit' && brandKit && (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 8, marginBottom: 10 }}>
+                  <div><label style={lbl}>Primary</label><input style={{ ...inp, height: 34, padding: 2 }} type="color" value={brandKit.primaryColor} onChange={e => saveBrandKitField({ primaryColor: e.target.value })} /></div>
+                  <div><label style={lbl}>Secondary</label><input style={{ ...inp, height: 34, padding: 2 }} type="color" value={brandKit.secondaryColor} onChange={e => saveBrandKitField({ secondaryColor: e.target.value })} /></div>
+                  <div><label style={lbl}>Accent</label><input style={{ ...inp, height: 34, padding: 2 }} type="color" value={brandKit.accentColor} onChange={e => saveBrandKitField({ accentColor: e.target.value })} /></div>
+                  <div><label style={lbl}>Font Pair</label>
+                    <select style={inp} value={brandKit.fontPair} onChange={e => saveBrandKitField({ fontPair: e.target.value })}>
+                      {BN_FONTS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                    </select>
+                  </div>
+                  <div><label style={lbl}>Logo URL</label><input style={inp} value={brandKit.logoUrl || ''} onChange={e => setBrandKit({ ...brandKit, logoUrl: e.target.value })} onBlur={e => saveBrandKitField({ logoUrl: e.target.value })} /></div>
+                  <div><label style={lbl}>Watermark URL</label><input style={inp} value={brandKit.watermarkUrl || ''} onChange={e => setBrandKit({ ...brandKit, watermarkUrl: e.target.value })} onBlur={e => saveBrandKitField({ watermarkUrl: e.target.value })} /></div>
+                </div>
+                <button style={bp} onClick={applyBrandKitToBanner}>✅ Apply Brand Kit to This Banner</button>
+              </div>
+            )}
+
+            {['sticker', 'decorative', 'subject_graphic', 'icon', 'typography'].includes(assetTab) && (
+              <div>
+                <input style={{ ...inp, marginBottom: 10 }} placeholder={'Search ' + assetTab + '…'} value={assetSearch} onChange={e => setAssetSearch(e.target.value)} />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(80px,1fr))', gap: 8 }}>
+                  {(assetsMap[assetTab] || []).filter((a: any) => a.name.toLowerCase().includes(assetSearch.toLowerCase())).map((a: any) => (
+                    <div key={a._id} style={{ ...cs, marginBottom: 0, textAlign: 'center', cursor: 'pointer', padding: 8 }} onClick={() => addAssetLayer(a)} title={a.name}>
+                      <div style={{ width: 40, height: 40, margin: '0 auto 4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {a.type === 'icon' ? <span style={{ fontSize: 24 }}>{a.content}</span> : a.type === 'typography' ? <span style={{ fontSize: 10, color: TS }}>Aa</span> : <div style={{ width: '100%', height: '100%' }} dangerouslySetInnerHTML={{ __html: a.content }} />}
+                      </div>
+                      <div style={{ fontSize: 8.5, color: DIM }}>{a.name}</div>
+                    </div>
+                  ))}
+                </div>
+                {(assetsMap[assetTab] || []).length === 0 && <EmptyMsg text="No assets yet — run the one-time seed from the admin setup, or contact support." />}
+              </div>
+            )}
+
+            {assetTab === 'background' && (
+              <div>
+                <input style={{ ...inp, marginBottom: 10 }} placeholder="Search backgrounds…" value={assetSearch} onChange={e => setAssetSearch(e.target.value)} />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(90px,1fr))', gap: 8 }}>
+                  {(assetsMap.background || []).filter((a: any) => a.name.toLowerCase().includes(assetSearch.toLowerCase())).map((a: any) => (
+                    <div key={a._id} onClick={() => { setForm({ ...form, bgImage: a.content }); fetch(assetsBase + '/assets/' + a._id + '/use', { method: 'POST', headers: authHeaders }).catch(() => {}); showToast('✅ Background applied') }} style={{ cursor: 'pointer', borderRadius: 10, height: 50, background: a.content, border: form.bgImage === a.content ? `2px solid ${ACC}` : `1px solid ${BOR}` }} title={a.name} />
+                  ))}
+                </div>
+                {(assetsMap.background || []).length === 0 && <EmptyMsg text="No backgrounds yet — run the one-time seed." />}
+              </div>
+            )}
+
+            {assetTab === 'cta' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(110px,1fr))', gap: 10 }}>
+                {(assetsMap.cta || []).map((a: any) => (
+                  <div key={a._id} onClick={() => { setForm({ ...form, ctaShape: a.content }); fetch(assetsBase + '/assets/' + a._id + '/use', { method: 'POST', headers: authHeaders }).catch(() => {}) }} style={{ ...cs, marginBottom: 0, textAlign: 'center', cursor: 'pointer', padding: 10 }}>
+                    <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: a.content === 'square' ? 4 : a.content === 'rounded' ? 10 : 20, background: a.content === 'outline' ? 'transparent' : '#FFD700', color: a.content === 'outline' ? '#FFD700' : '#1a1a2e', border: a.content === 'outline' ? '1.5px solid #FFD700' : 'none' }}>Enroll →</span>
+                    <div style={{ fontSize: 9, color: DIM, marginTop: 6 }}>{a.name}</div>
+                  </div>
+                ))}
+                {(assetsMap.cta || []).length === 0 && <EmptyMsg text="No CTA styles yet — run the one-time seed." />}
+              </div>
+            )}
+
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${BOR}` }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div style={{ fontWeight: 700, color: TS, fontSize: 12 }}>⚖️ Compare Templates ({compareList.length}/2)</div>
+                {compareList.length > 0 && <button style={bs} onClick={() => setCompareList([])}>Clear</button>}
+              </div>
+              <div style={{ fontSize: 10.5, color: DIM, marginBottom: 8 }}>Click ⚖ on a Built-in or My Template card above to add it here (max 2).</div>
+              {compareList.length === 2 && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {compareList.map((c: any, i: number) => (
+                    <div key={i} style={cs}>
+                      <div style={{ fontWeight: 700, color: TS, fontSize: 12, marginBottom: 6 }}>{c.label}</div>
+                      <div style={{ height: 50, borderRadius: 8, background: c.bg, marginBottom: 6 }} />
+                      <div style={{ fontSize: 10.5, color: DIM }}>Category: {c.category}</div>
+                      <div style={{ fontSize: 10.5, color: DIM }}>Accent: <span style={{ color: c.accent }}>■</span> {c.accent}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button style={{ ...bs, marginTop: 10 }} onClick={resetToTemplateDefaults}>↺ Reset to Template Defaults</button>
+            </div>
           </div>
 
           <div style={cs}>

@@ -194,8 +194,6 @@ app.use('/api/admin/email', require('./routes/emailSend'))
 app.use('/api/admin/store',  adminStoreRoutes);
 const testSeriesManagerUltraRoutes = require('./routes/testSeriesManagerUltra');
 app.use('/api/admin/test-series-manager', testSeriesManagerUltraRoutes);
-const bannerAssetsRoutes = require('./routes/bannerAssets');
-app.use('/api/admin/banner-assets', bannerAssetsRoutes);
 app.use('/api/store/payment', paymentRoutes);
 app.use('/api/store',        studentStoreRoutes);
 

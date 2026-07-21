@@ -1,0 +1,17 @@
+const mongoose = require('mongoose');
+
+const SavedAssetSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  type: { type: String, enum: ['illustration', 'icon', 'sticker', 'decorative', 'subject_graphic', 'typography', 'media', 'background', 'cta'], required: true },
+  category: { type: String, default: '' },
+  content: { type: String, default: '' }, // SVG markup, image URL, or JSON style string (typography)
+  isBuiltIn: { type: Boolean, default: false },
+  isFavorite: { type: Boolean, default: false },
+  usageCount: { type: Number, default: 0 },
+  lastUsedAt: { type: Date, default: null },
+  uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  uploadedByName: String,
+  isDeleted: { type: Boolean, default: false }
+}, { timestamps: true });
+
+module.exports = mongoose.models.SavedAsset || mongoose.model('SavedAsset', SavedAssetSchema);

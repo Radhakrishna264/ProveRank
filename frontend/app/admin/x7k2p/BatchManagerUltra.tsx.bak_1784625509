@@ -1069,9 +1069,7 @@ function BannerLivePreview({ b, size, showSafeZone, safeZoneMode, onLayerPointer
   const dims: any = { card: { w: 320, h: 200 }, wide: { w: 480, h: 200 }, square: { w: 320, h: 320 }, mobile: { w: 280, h: 420 } }
   const d = dims[size] || dims.card
   const tpl = BN_TEMPLATES.find(t => t.id === b.template) || BN_TEMPLATES[0]
-  const bg = b.bgImage ? (/^(linear|radial)-gradient|^#|^rgba?\(/.test(b.bgImage) ? b.bgImage : `url(${b.bgImage}) center/cover`) : (tpl.bg)
-  const ctaRadius = b.ctaShape === 'square' ? 4 : b.ctaShape === 'rounded' ? 10 : 20
-  const ctaIsOutline = b.ctaShape === 'outline'
+  const bg = b.bgImage ? `url(${b.bgImage}) center/cover` : (tpl.bg)
   const badgeObj = BN_BADGES.find(x => x.id === b.badge)
   const safeInset = safeZoneMode === 'mobile' ? '12%' : safeZoneMode === 'desktop' ? '6%' : '8%'
   return (
@@ -1114,7 +1112,7 @@ function BannerLivePreview({ b, size, showSafeZone, safeZoneMode, onLayerPointer
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: 14, fontWeight: 800, color: b.accentColor || tpl.accent }}>{b.price && Number(b.price) > 0 ? '₹' + b.price : 'FREE'}</span>
-        <span style={{ fontSize: 9.5, fontWeight: 700, padding: '5px 10px', borderRadius: ctaRadius, background: ctaIsOutline ? 'transparent' : (b.accentColor || tpl.accent), color: ctaIsOutline ? (b.accentColor || tpl.accent) : '#1a1a2e', border: ctaIsOutline ? `1.5px solid ${b.accentColor || tpl.accent}` : 'none' }}>{b.ctaText || 'Enroll Now'} →</span>
+        <span style={{ fontSize: 9.5, fontWeight: 700, padding: '5px 10px', borderRadius: 20, background: b.accentColor || tpl.accent, color: '#1a1a2e' }}>{b.ctaText || 'Enroll Now'} →</span>
       </div>
     </div>
   )
@@ -1164,7 +1162,7 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
   const [assetSearch, setAssetSearch] = useState('')
   const [brandKit, setBrandKit] = useState<any>(null)
   const [orgTemplates, setOrgTemplates] = useState<any[]>([])
-  const [assetsMap, setAssetsMap] = useState<any>({ sticker: [], decorative: [], subject_graphic: [], icon: [], typography: [], background: [], cta: [] })
+  const [assetsMap, setAssetsMap] = useState<any>({ sticker: [], decorative: [], subject_graphic: [], icon: [], typography: [] })
   const [builtinFav, setBuiltinFav] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('pr_banner_builtin_fav') || '[]') } catch { return [] } })
   const [builtinRecent, setBuiltinRecent] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('pr_banner_builtin_recent') || '[]') } catch { return [] } })
   const assetsBase = base.replace('/api/admin/batch-manager', '/api/admin/banner-assets').replace('/api/admin/test-series-manager', '/api/admin/banner-assets')
@@ -1177,7 +1175,7 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
   useEffect(() => { fetch(assetsBase + '/brand-kit', { headers: authHeaders }).then(r => r.json()).then(d => setBrandKit(d.brandKit)).catch(() => {}) }, [])
   useEffect(() => { loadOrgTemplates() }, [loadOrgTemplates])
   useEffect(() => {
-    ['sticker', 'decorative', 'subject_graphic', 'icon', 'typography', 'background', 'cta'].forEach(t => {
+    ['sticker', 'decorative', 'subject_graphic', 'icon', 'typography'].forEach(t => {
       fetch(assetsBase + '/assets?type=' + t, { headers: authHeaders }).then(r => r.json()).then(d => setAssetsMap((m: any) => ({ ...m, [t]: d.assets || [] }))).catch(() => {})
     })
   }, [])
@@ -1366,21 +1364,6 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
     newForm.layers = (newForm.layers || []).map((l: any) => ({ ...l, shadowColor: (l.shadowColor || '').toLowerCase() === from ? to : l.shadowColor, borderColor: (l.borderColor || '').toLowerCase() === from ? to : l.borderColor }))
     setForm(newForm)
     showToast('✅ Colors replaced across banner')
-  }
-
-  const [compareList, setCompareList] = useState<any[]>([])
-  const toggleCompare = (item: any) => {
-    setCompareList(prev => {
-      const exists = prev.find(c => c.id === item.id)
-      if (exists) return prev.filter(c => c.id !== item.id)
-      if (prev.length >= 2) { showToast('⚠️ You can only compare 2 at a time'); return prev }
-      return [...prev, item]
-    })
-  }
-  const resetToTemplateDefaults = () => {
-    const tpl = BN_TEMPLATES.find(t => t.id === form.template) || BN_TEMPLATES[0]
-    setForm({ ...form, bgImage: '', layers: [], primaryColor: '#4D9FFF', secondaryColor: '#00D4FF', textColor: '#FFFFFF', accentColor: tpl.accent, ctaShape: 'pill' })
-    showToast('✅ Reset to template defaults')
   }
 
   const previewRef = useRef<any>(null)
@@ -1704,7 +1687,7 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
 
           <div style={cs}>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-              {[['builtin', '🖼️ Built-in'], ['mytemplates', '📁 My Templates'], ['brandkit', '🎨 Brand Kit'], ['sticker', '🏷️ Stickers'], ['decorative', '✨ Decorative'], ['subject_graphic', '🧬 Subject Graphics'], ['icon', '🔣 Icons'], ['typography', '🔤 Typography'], ['background', '🌌 Backgrounds'], ['cta', '🔘 CTA Elements']].map(([k, l]) => (
+              {[['builtin', '🖼️ Built-in'], ['mytemplates', '📁 My Templates'], ['brandkit', '🎨 Brand Kit'], ['sticker', '🏷️ Stickers'], ['decorative', '✨ Decorative'], ['subject_graphic', '🧬 Subject Graphics'], ['icon', '🔣 Icons'], ['typography', '🔤 Typography']].map(([k, l]) => (
                 <button key={k} style={assetTab === k ? bp : bs} onClick={() => setAssetTab(k)}>{l}</button>
               ))}
             </div>
@@ -1725,7 +1708,6 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
                     <div key={t.id} style={{ position: 'relative', cursor: 'pointer', borderRadius: 10, height: 54, background: t.bg, border: form.template === t.id ? `2px solid ${ACC}` : `1px solid ${BOR}`, display: 'flex', alignItems: 'flex-end', padding: 4 }} onClick={() => applyBuiltinTemplate(t.id)}>
                       <span style={{ fontSize: 8.5, color: '#fff', fontWeight: 700, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{t.label}</span>
                       <span onClick={(e) => { e.stopPropagation(); toggleBuiltinFav(t.id) }} style={{ position: 'absolute', top: 2, right: 4, fontSize: 12 }}>{builtinFav.includes(t.id) ? '⭐' : '☆'}</span>
-                      <span onClick={(e) => { e.stopPropagation(); toggleCompare({ id: 'b_' + t.id, label: t.label, category: t.category, bg: t.bg, accent: t.accent }) }} style={{ position: 'absolute', top: 2, left: 4, fontSize: 11, background: 'rgba(0,0,0,0.4)', borderRadius: 4, padding: '0 3px' }}>⚖</span>
                     </div>
                   ))}
                 </div>
@@ -1787,51 +1769,6 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
                 {(assetsMap[assetTab] || []).length === 0 && <EmptyMsg text="No assets yet — run the one-time seed from the admin setup, or contact support." />}
               </div>
             )}
-
-            {assetTab === 'background' && (
-              <div>
-                <input style={{ ...inp, marginBottom: 10 }} placeholder="Search backgrounds…" value={assetSearch} onChange={e => setAssetSearch(e.target.value)} />
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(90px,1fr))', gap: 8 }}>
-                  {(assetsMap.background || []).filter((a: any) => a.name.toLowerCase().includes(assetSearch.toLowerCase())).map((a: any) => (
-                    <div key={a._id} onClick={() => { setForm({ ...form, bgImage: a.content }); fetch(assetsBase + '/assets/' + a._id + '/use', { method: 'POST', headers: authHeaders }).catch(() => {}); showToast('✅ Background applied') }} style={{ cursor: 'pointer', borderRadius: 10, height: 50, background: a.content, border: form.bgImage === a.content ? `2px solid ${ACC}` : `1px solid ${BOR}` }} title={a.name} />
-                  ))}
-                </div>
-                {(assetsMap.background || []).length === 0 && <EmptyMsg text="No backgrounds yet — run the one-time seed." />}
-              </div>
-            )}
-
-            {assetTab === 'cta' && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(110px,1fr))', gap: 10 }}>
-                {(assetsMap.cta || []).map((a: any) => (
-                  <div key={a._id} onClick={() => { setForm({ ...form, ctaShape: a.content }); fetch(assetsBase + '/assets/' + a._id + '/use', { method: 'POST', headers: authHeaders }).catch(() => {}) }} style={{ ...cs, marginBottom: 0, textAlign: 'center', cursor: 'pointer', padding: 10 }}>
-                    <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: a.content === 'square' ? 4 : a.content === 'rounded' ? 10 : 20, background: a.content === 'outline' ? 'transparent' : '#FFD700', color: a.content === 'outline' ? '#FFD700' : '#1a1a2e', border: a.content === 'outline' ? '1.5px solid #FFD700' : 'none' }}>Enroll →</span>
-                    <div style={{ fontSize: 9, color: DIM, marginTop: 6 }}>{a.name}</div>
-                  </div>
-                ))}
-                {(assetsMap.cta || []).length === 0 && <EmptyMsg text="No CTA styles yet — run the one-time seed." />}
-              </div>
-            )}
-
-            <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${BOR}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <div style={{ fontWeight: 700, color: TS, fontSize: 12 }}>⚖️ Compare Templates ({compareList.length}/2)</div>
-                {compareList.length > 0 && <button style={bs} onClick={() => setCompareList([])}>Clear</button>}
-              </div>
-              <div style={{ fontSize: 10.5, color: DIM, marginBottom: 8 }}>Click ⚖ on a Built-in or My Template card above to add it here (max 2).</div>
-              {compareList.length === 2 && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  {compareList.map((c: any, i: number) => (
-                    <div key={i} style={cs}>
-                      <div style={{ fontWeight: 700, color: TS, fontSize: 12, marginBottom: 6 }}>{c.label}</div>
-                      <div style={{ height: 50, borderRadius: 8, background: c.bg, marginBottom: 6 }} />
-                      <div style={{ fontSize: 10.5, color: DIM }}>Category: {c.category}</div>
-                      <div style={{ fontSize: 10.5, color: DIM }}>Accent: <span style={{ color: c.accent }}>■</span> {c.accent}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <button style={{ ...bs, marginTop: 10 }} onClick={resetToTemplateDefaults}>↺ Reset to Template Defaults</button>
-            </div>
           </div>
 
           <div style={cs}>

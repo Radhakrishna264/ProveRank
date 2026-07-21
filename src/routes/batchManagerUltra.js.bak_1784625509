@@ -1116,7 +1116,7 @@ router.put('/:id/banner', auth, isAdmin, async (req, res) => {
     delete versionSnap._id; delete versionSnap.versions; delete versionSnap.__v;
     banner.versions = banner.versions || [];
     banner.versions.push({ data: versionSnap, savedAt: new Date(), label: 'v' + (banner.versions.length + 1) });
-    const editable = ['title', 'tagline', 'examType', 'price', 'totalTests', 'duration', 'validity', 'highlights', 'ctaText', 'ctaShape', 'badge', 'template', 'primaryColor', 'secondaryColor', 'textColor', 'accentColor', 'fontStyle', 'bgImage', 'layers', 'textStyleOverride'];
+    const editable = ['title', 'tagline', 'examType', 'price', 'totalTests', 'duration', 'validity', 'highlights', 'ctaText', 'badge', 'template', 'primaryColor', 'secondaryColor', 'textColor', 'accentColor', 'fontStyle', 'bgImage', 'layers', 'textStyleOverride'];
     for (const f of editable) { if (req.body[f] !== undefined) banner[f] = req.body[f]; }
     if (req.body.markReady) banner.status = 'ready';
     else if (req.body.saveAsDraft) banner.status = 'draft';
