@@ -1446,32 +1446,5 @@ router.get('/:id/export-snapshot', auth, isAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ══════════════════════════════════════════════════════════════════
-// FPR3 — BANNER PANEL (for Test Series Detail page integration)
-// ══════════════════════════════════════════════════════════════════
-router.get('/:id/banner-panel', auth, isAdmin, async (req, res) => {
-  try {
-    let Banner;
-    try { Banner = mongoose.model('Banner'); } catch (e) { Banner = require('../models/Banner'); }
-    const banner = await Banner.findOne({ linkedType: 'series', linkedBatchId: req.params.id }).sort({ createdAt: -1 }).lean();
-    const gate = await checkBannerGate(req.params.id);
-    res.json({ banner: banner || null, gate });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post('/:id/banner-panel/regenerate', auth, isAdmin, async (req, res) => {
-  try {
-    const series = await TestSeries.findById(req.params.id).lean();
-    if (!series) return res.status(404).json({ error: 'Test series not found' });
-    let Banner;
-    try { Banner = mongoose.model('Banner'); } catch (e) { Banner = require('../models/Banner'); }
-    const draft = await Banner.create({
-      title: series.name, linkedBatchId: series._id, linkedType: 'series',
-      examType: series.examType, price: String(effectivePrice(series) || ''), status: 'draft',
-      syncState: 'synced', published: false, createdBy: req.user.id
-    });
-    res.json({ success: true, banner: draft });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
 
 module.exports = router;

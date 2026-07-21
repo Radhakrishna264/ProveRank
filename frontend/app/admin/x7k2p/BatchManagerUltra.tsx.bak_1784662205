@@ -566,6 +566,7 @@ function OverviewTab({ detail, base, authHeaders, id, setModal, showToast, load 
         <button style={bs} onClick={archiveToggle}>{b.lifecycleStatus === 'archived' ? '♻️ Unarchive' : '📦 Archive Batch'}</button>
         <button style={bs} onClick={exportSnapshot}>📤 Export Snapshot</button>
       </div>
+      <BannerPanel base={base} authHeaders={authHeaders} id={id} linkedType="batch" showToast={showToast} />
       <div style={cs}>
         <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: TS }}>Recent Activity</div>
         {(detail.recentActivity || []).length === 0 ? <EmptyMsg text="No recent activity yet." /> :
@@ -579,6 +580,43 @@ function OverviewTab({ detail, base, authHeaders, id, setModal, showToast, load 
   )
 }
 
+// ── FPR3: Banner Panel (Publish Gate integration) ──
+function BannerPanel({ base, authHeaders, id, linkedType, showToast }: any) {
+  const [data, setData] = useState<any>(null)
+  const load = useCallback(() => fetch(base + '/' + id + '/banner-panel', { headers: authHeaders }).then(r => r.json()).then(setData).catch(() => {}), [])
+  useEffect(() => { load() }, [load])
+  const regenerate = async () => {
+    const r = await fetch(base + '/' + id + '/banner-panel/regenerate', { method: 'POST', headers: authHeaders })
+    const d = await r.json()
+    if (d.success) { showToast('✅ Banner draft generated'); load() } else showToast('⚠️ ' + (d.error || 'Failed'))
+  }
+  if (!data) return null
+  const banner = data.banner
+  const gate = data.gate || {}
+  const openBannerManagement = () => window.open(`/admin/x7k2p/banner-generator?${linkedType === 'batch' ? 'batchId' : 'seriesId'}=${id}&${linkedType === 'batch' ? 'batchName' : 'seriesName'}=${encodeURIComponent(banner?.title || '')}`, '_blank')
+  return (
+    <div style={{ ...cs, border: `1px solid ${gate.ready ? 'rgba(52,211,153,0.35)' : 'rgba(248,113,113,0.35)'}` }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: TS }}>🖼️ Banner Panel</div>
+        <span style={{ fontSize: 10.5, fontWeight: 700, color: gate.ready ? GOOD : BAD }}>{gate.ready ? '✅ Launch Allowed' : '⛔ Launch Blocked'}</span>
+      </div>
+      {banner ? (
+        <>
+          <div style={{ fontSize: 12, color: DIM, marginBottom: 8 }}>{banner.title} · Status: {banner.status} · Quality: {banner.qualityScore || 0}/100</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button style={bs} onClick={openBannerManagement}>✏️ Edit Banner</button>
+            <button style={bs} onClick={regenerate}>🔄 Regenerate Draft</button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: 12, color: BAD, marginBottom: 8 }}>{gate.reason || 'No banner created yet for this batch.'}</div>
+          <button style={bp} onClick={regenerate}>➕ Auto-Generate Banner Draft</button>
+        </>
+      )}
+    </div>
+  )
+}
 
 // ── 7) STUDENTS TAB ──
 function StudentsTab({ base, authHeaders, id, setModal, showToast }: any) {

@@ -1494,5 +1494,32 @@ router.get('/:id/export-snapshot', auth, isAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ══════════════════════════════════════════════════════════════════
+// FPR3 — BANNER PANEL (for Batch Detail page integration)
+// ══════════════════════════════════════════════════════════════════
+router.get('/:id/banner-panel', auth, isAdmin, async (req, res) => {
+  try {
+    let Banner;
+    try { Banner = mongoose.model('Banner'); } catch (e) { Banner = require('../models/Banner'); }
+    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id }).sort({ createdAt: -1 }).lean();
+    const gate = await checkBannerGate(req.params.id);
+    res.json({ banner: banner || null, gate });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/:id/banner-panel/regenerate', auth, isAdmin, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id).lean();
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    let Banner;
+    try { Banner = mongoose.model('Banner'); } catch (e) { Banner = require('../models/Banner'); }
+    const draft = await Banner.create({
+      title: batch.name, linkedBatchId: batch._id, linkedType: 'batch',
+      examType: batch.examType, price: String(effectivePrice(batch) || ''), status: 'draft',
+      syncState: 'synced', published: false, createdBy: req.user.id
+    });
+    res.json({ success: true, banner: draft });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 module.exports = router;
