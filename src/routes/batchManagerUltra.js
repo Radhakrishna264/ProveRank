@@ -304,8 +304,14 @@ router.post('/', auth, isAdmin, async (req, res) => {
       if (Banner) {
         await Banner.create({
           title: doc.name, linkedBatchId: doc._id, linkedType: 'batch',
-          examType: doc.examType, price: doc.price, status: 'draft',
-          syncState: 'synced', published: false
+          examType: doc.examType, price: String(doc.price || 0), status: 'draft',
+          syncState: 'synced', published: false,
+          tagline: '', ctaText: 'Enroll Now', ctaShape: 'pill', template: 'classic',
+          primaryColor: '#4D9FFF', secondaryColor: '#00D4FF', textColor: '#FFFFFF', accentColor: '#FFD700',
+          fontStyle: 'modern', textAlign: 'left', badge: doc.isSpotlight ? 'trending' : 'none',
+          totalTests: '0', validity: (doc.validity || 365) + ' days', duration: (doc.validity || 365) + ' days',
+          highlights: ['0 Practice Tests', (doc.validity || 365) + ' days Validity', doc.language || 'Hindi + English'],
+          createdBy: req.user.id
         });
       }
     } catch (e) { /* Banner module optional until FPR3 installed */ }
@@ -1047,9 +1053,9 @@ function buildBannerSyncFields(batch) {
   };
 }
 function checkBannerSyncState(banner, batch) {
-  if (banner.syncState === 'manual_override') return 'manual_override';
   const live = buildBannerSyncFields(batch);
   const mismatch = banner.title !== live.title || banner.price !== live.price || banner.examType !== live.examType || banner.totalTests !== live.totalTests;
+  if (banner.syncState === 'manual_override') return mismatch ? 'conflict' : 'manual_override';
   return mismatch ? 'pending_sync' : 'synced';
 }
 async function logBannerAudit({ bannerId, action, oldValue, newValue, performedBy, performedByName, linkedType, linkedBatchId, reason }) {
@@ -1116,7 +1122,7 @@ router.put('/:id/banner', auth, isAdmin, async (req, res) => {
     delete versionSnap._id; delete versionSnap.versions; delete versionSnap.__v;
     banner.versions = banner.versions || [];
     banner.versions.push({ data: versionSnap, savedAt: new Date(), label: 'v' + (banner.versions.length + 1) });
-    const editable = ['title', 'tagline', 'examType', 'price', 'totalTests', 'duration', 'validity', 'highlights', 'ctaText', 'ctaShape', 'badge', 'template', 'primaryColor', 'secondaryColor', 'textColor', 'accentColor', 'fontStyle', 'bgImage', 'layers', 'textStyleOverride'];
+    const editable = ['title', 'tagline', 'examType', 'price', 'totalTests', 'duration', 'validity', 'highlights', 'ctaText', 'ctaShape', 'badge', 'template', 'primaryColor', 'secondaryColor', 'textColor', 'accentColor', 'fontStyle', 'bgImage', 'layers', 'textStyleOverride', 'textAlign'];
     for (const f of editable) { if (req.body[f] !== undefined) banner[f] = req.body[f]; }
     if (req.body.markReady) banner.status = 'ready';
     else if (req.body.saveAsDraft) banner.status = 'draft';

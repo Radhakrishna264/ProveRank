@@ -14,7 +14,6 @@ const BannerSchema = new mongoose.Schema({
   highlights: [{ type: String }],
   ctaText: { type: String, default: 'Enroll Now' },
   ctaShape: { type: String, enum: ['pill', 'rounded', 'square', 'outline'], default: 'pill' },
-  textAlign: { type: String, enum: ['left', 'center', 'right'], default: 'left' },
   badge: { type: String, default: 'none' },
   template: { type: String, default: 'classic' },
   primaryColor: { type: String, default: '#4D9FFF' },

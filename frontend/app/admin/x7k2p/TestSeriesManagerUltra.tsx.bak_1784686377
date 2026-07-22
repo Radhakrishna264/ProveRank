@@ -1042,15 +1042,10 @@ function BannerLivePreview({ b, size, showSafeZone, safeZoneMode, onLayerPointer
         <span style={{ fontSize: 20 }}>{BN_EXAM_ICON[b.examType] || '📚'}</span>
         {badgeObj && badgeObj.id !== 'none' && <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: b.accentColor || tpl.accent, color: '#1a1a2e' }}>{badgeObj.label}</span>}
       </div>
-      <div style={{ textAlign: (b.textAlign || 'left') as any }}>
-        <div style={{
-          fontSize: (b.title || '').length > 30 ? (size === 'square' ? 15 : 13) : (size === 'square' ? 18 : 16),
-          fontWeight: 800, lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box',
-          WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, wordBreak: 'break-word',
-          ...(b.textStyleOverride || {})
-        }}>{b.title || 'Batch Title'}</div>
+      <div>
+        <div style={{ fontSize: size === 'square' ? 18 : 16, fontWeight: 800, lineHeight: 1.2 }}>{b.title || 'Batch Title'}</div>
         {b.tagline && <div style={{ fontSize: 10.5, opacity: 0.85, marginTop: 3 }}>{b.tagline}</div>}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6, justifyContent: b.textAlign === 'center' ? 'center' : b.textAlign === 'right' ? 'flex-end' : 'flex-start' }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
           {(b.highlights || []).filter(Boolean).slice(0, 3).map((h: string, i: number) => (
             <span key={i} style={{ fontSize: 8.5, padding: '2px 6px', borderRadius: 6, background: 'rgba(255,255,255,0.15)' }}>{h}</span>
           ))}
@@ -1166,18 +1161,6 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
     const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = t.name + '.json'; link.click()
   }
   const addAssetLayer = (asset: any) => {
-    if (asset.type === 'typography') {
-      // Typography presets are a TEXT STYLE, not a visual layer —
-      // apply directly to the title's style instead of adding an
-      // overlay (fixes: previously created a broken placeholder layer).
-      try {
-        const style = JSON.parse(asset.content)
-        setForm({ ...form, textStyleOverride: style })
-        fetch(assetsBase + '/assets/' + asset._id + '/use', { method: 'POST', headers: authHeaders }).catch(() => {})
-        showToast('✅ Title style applied: ' + asset.name)
-      } catch (e) { showToast('⚠️ Could not apply this typography style') }
-      return
-    }
     const layer = { id: 'ly_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8), type: asset.type, content: asset.content, assetId: asset._id, x: 50, y: 50, scale: 1, rotation: 0, opacity: 1, zIndex: ((form.layers || []).length) + 1, locked: false, flipH: false, flipV: false, shadow: false, shadowColor: '#000000', border: false, borderColor: '#FFFFFF', borderWidth: 2, blendMode: 'normal' }
     setForm({ ...form, layers: [...(form.layers || []), layer] })
     fetch(assetsBase + '/assets/' + asset._id + '/use', { method: 'POST', headers: authHeaders }).catch(() => {})
@@ -1429,7 +1412,7 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
               <div style={{ flex: 1, minWidth: 160 }}>
                 <div style={{ fontWeight: 700, color: TS, fontSize: 14 }}>{form.title}{BN_statusChip(form.status)}</div>
                 <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>Linked to: {data.batchName}</div>
-                <div style={{ fontSize: 11, color: DIM, marginTop: 2 }}>Sync: {form.status === 'draft' && form.syncState === 'synced' ? 'Ready To Edit' : form.syncState?.replace('_', ' ')}</div>
+                <div style={{ fontSize: 11, color: DIM, marginTop: 2 }}>Sync: {form.syncState?.replace('_', ' ')}</div>
                 <div style={{ fontSize: 10, color: DIM, marginTop: 2 }}>Updated {new Date(form.updatedAt).toLocaleString()}</div>
               </div>
             </div>
@@ -1474,13 +1457,6 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
                 <select style={inp} value={form.badge || 'none'} onChange={e => setForm({ ...form, badge: e.target.value })}>
                   {BN_BADGES.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
                 </select>
-              </div>
-              <div><label style={lbl}>Text Alignment</label>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {['left', 'center', 'right'].map(al => (
-                    <button key={al} style={(form.textAlign || 'left') === al ? bp : bs} onClick={() => setForm({ ...form, textAlign: al })}>{al === 'left' ? '⬅️' : al === 'center' ? '⬛' : '➡️'}</button>
-                  ))}
-                </div>
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 8, marginTop: 8 }}>
