@@ -1,8 +1,8 @@
 'use client'
 // ══════════════════════════════════════════════════════════════════
-// FPR2 — TEST SERIES MANAGEMENT ULTRA SaaS UPGRADE (Admin) — Frontend
+// FPR1 — BATCH MANAGEMENT ULTRA SaaS UPGRADE (Admin) — Frontend
 // Home (cards + smart search/filter + create) + Detail (10 tabs)
-// Add Student by ID + Email · Pricing · Controls · Materials
+// Add/Transfer Student by ID + Email · Pricing · Controls · Materials
 // Analytics · Announcements · Settings · Audit History · Templates
 // Desktop + Mobile responsive · Admin theme matched
 // ══════════════════════════════════════════════════════════════════
@@ -68,9 +68,9 @@ function EmptyMsg({ text }: { text: string }) {
 // ══════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════════════════════════════════
-export default function TestSeriesManagerUltra({ token, API }: { token: string; API: string }) {
+export default function BatchManagerUltra({ token, API }: { token: string; API: string }) {
   const isMobile = useIsMobile()
-  const [series, setSeriesList] = useState<any[]>([])
+  const [batches, setBatches] = useState<any[]>([])
   const [summary, setSummary] = useState<any>({})
   const [loading, setLoading] = useState(false)
   const [q, setQ] = useState('')
@@ -79,18 +79,18 @@ export default function TestSeriesManagerUltra({ token, API }: { token: string; 
   const [sort, setSort] = useState('newest')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [detailId, setDetailId] = useState<string | null>(() => {
-    try { return typeof window !== 'undefined' ? localStorage.getItem('pr_tsm_detailId') : null } catch (e) { return null }
+    try { return typeof window !== 'undefined' ? localStorage.getItem('pr_bm_detailId') : null } catch (e) { return null }
   })
   const [showCreate, setShowCreate] = useState(false)
   const [presets, setPresets] = useState<any[]>([])
   const [toast, setToast] = useState('')
 
   const authHeaders = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }
-  const base = API + '/api/admin/test-series-manager'
+  const base = API + '/api/admin/batch-manager'
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3500) }
 
-  const loadSeries = useCallback(async () => {
+  const loadBatches = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -99,18 +99,18 @@ export default function TestSeriesManagerUltra({ token, API }: { token: string; 
       if (sort) params.set('sort', sort)
       const r = await fetch(base + '?' + params.toString(), { headers: authHeaders })
       const d = await r.json()
-      setSeriesList(d.series || [])
+      setBatches(d.batches || [])
       setSummary(d.summary || {})
-    } catch (e) { showToast('⚠️ Failed to load series') }
+    } catch (e) { showToast('⚠️ Failed to load batches') }
     setLoading(false)
   }, [q, filters, sort])
 
-  useEffect(() => { loadSeries() }, [loadSeries])
+  useEffect(() => { loadBatches() }, [loadBatches])
 
   useEffect(() => {
     try {
-      if (detailId) localStorage.setItem('pr_tsm_detailId', detailId)
-      else localStorage.removeItem('pr_tsm_detailId')
+      if (detailId) localStorage.setItem('pr_bm_detailId', detailId)
+      else localStorage.removeItem('pr_bm_detailId')
     } catch (e) { /* localStorage unavailable */ }
   }, [detailId])
 
@@ -131,40 +131,40 @@ export default function TestSeriesManagerUltra({ token, API }: { token: string; 
 
   const bulkAction = async (action: 'archive' | 'delete') => {
     if (selectedIds.length === 0) return
-    if (action === 'delete' && !window.confirm(`Delete ${selectedIds.length} selected series(es)? This cannot be undone.`)) return
+    if (action === 'delete' && !window.confirm(`Delete ${selectedIds.length} selected batch(es)? This cannot be undone.`)) return
     for (const id of selectedIds) {
       await fetch(base + '/' + id + (action === 'archive' ? '/archive' : ''), { method: action === 'archive' ? 'PUT' : 'DELETE', headers: authHeaders })
     }
-    showToast(action === 'archive' ? '✅ Test series archived/unarchived' : '✅ Test series deleted')
+    showToast(action === 'archive' ? '✅ Batches archived/unarchived' : '✅ Batches deleted')
     setSelectedIds([])
-    loadSeries()
+    loadBatches()
   }
 
-  const duplicateSeries = async (id: string) => {
+  const duplicateBatch = async (id: string) => {
     const r = await fetch(base + '/' + id + '/duplicate', { method: 'POST', headers: authHeaders })
     const d = await r.json()
-    if (d.success) { showToast('✅ Series duplicated'); loadSeries() } else showToast('⚠️ ' + (d.error || 'Failed'))
+    if (d.success) { showToast('✅ Batch duplicated'); loadBatches() } else showToast('⚠️ ' + (d.error || 'Failed'))
   }
-  const archiveSeries = async (id: string) => {
+  const archiveBatch = async (id: string) => {
     const r = await fetch(base + '/' + id + '/archive', { method: 'PUT', headers: authHeaders })
     const d = await r.json()
-    if (d.success) { showToast('✅ Status: ' + d.lifecycleStatus); loadSeries() }
+    if (d.success) { showToast('✅ Status: ' + d.lifecycleStatus); loadBatches() }
   }
-  const deleteSeries = async (id: string, name: string) => {
-    if (!window.confirm(`Delete series "${name}"? Students will be unassigned.`)) return
+  const deleteBatch = async (id: string, name: string) => {
+    if (!window.confirm(`Delete batch "${name}"? Students will be unassigned.`)) return
     const r = await fetch(base + '/' + id, { method: 'DELETE', headers: authHeaders })
     const d = await r.json()
-    if (d.success) { showToast('✅ Series deleted'); loadSeries() }
+    if (d.success) { showToast('✅ Batch deleted'); loadBatches() }
   }
 
   if (detailId) {
-    return <TestSeriesDetail id={detailId} base={base} authHeaders={authHeaders} onBack={() => { setDetailId(null); loadSeries() }} isMobile={isMobile} showToast={showToast} allSeries={series} />
+    return <BatchDetail id={detailId} base={base} authHeaders={authHeaders} onBack={() => { setDetailId(null); loadBatches() }} isMobile={isMobile} showToast={showToast} allBatches={batches} />
   }
 
   return (
     <div>
-      <div style={pageTitle}>📚 Test Series Management — Ultra SaaS</div>
-      <div style={pageSub}>Complete lifecycle control — create, price, control, enroll, assign tests, analyze & archive series.</div>
+      <div style={pageTitle}>🗂️ Batch Management — Ultra SaaS</div>
+      <div style={pageSub}>Complete lifecycle control — create, price, control, enroll, assign exams, analyze & archive batches.</div>
 
       {toast && <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 10000, background: CRD2, border: `1px solid ${BOR2}`, borderRadius: 10, padding: '10px 16px', color: TS, fontSize: 12.5, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>{toast}</div>}
 
@@ -184,14 +184,14 @@ export default function TestSeriesManagerUltra({ token, API }: { token: string; 
       {/* ── Smart Search + Filter Bar ── */}
       <div style={cs}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input style={{ ...inp, flex: 1, minWidth: 160 }} placeholder="🔎 Search series, code, exam, student, faculty, email…" value={q} onChange={e => setQ(e.target.value)} />
+          <input style={{ ...inp, flex: 1, minWidth: 160 }} placeholder="🔎 Search batch, code, exam, student, faculty, email…" value={q} onChange={e => setQ(e.target.value)} />
           <button style={bs} onClick={() => setShowFilters(s => !s)}>🧰 Filters {showFilters ? '▲' : '▼'}</button>
           <select style={{ ...inp, width: 150 }} value={sort} onChange={e => setSort(e.target.value)}>
             <option value="newest">Newest</option><option value="oldest">Oldest</option>
             <option value="most_students">Most Students</option><option value="price_high">Highest Revenue</option>
             <option value="price_low">Lowest Price</option><option value="most_active">Most Active</option><option value="name">Name A-Z</option>
           </select>
-          <button style={bp} onClick={() => setShowCreate(true)}>➕ Create Series</button>
+          <button style={bp} onClick={() => setShowCreate(true)}>➕ Create Batch</button>
         </div>
         {showFilters && (
           <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 10 }}>
@@ -241,27 +241,27 @@ export default function TestSeriesManagerUltra({ token, API }: { token: string; 
         </div>
       )}
 
-      {/* ── Series Card Grid ── */}
-      {loading ? <EmptyMsg text="⟳ Loading series…" /> : series.length === 0 ? (
+      {/* ── Batch Card Grid ── */}
+      {loading ? <EmptyMsg text="⟳ Loading batches…" /> : batches.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '50px 20px', color: DIM }}>
-          <div style={{ fontSize: 60, marginBottom: 10 }}>📚</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#93C5FD' }}>No Test Series Found</div>
-          <div style={{ fontSize: 12, marginTop: 6 }}>Create your first series or adjust filters.</div>
+          <div style={{ fontSize: 60, marginBottom: 10 }}>🗂️</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#93C5FD' }}>No Batches Found</div>
+          <div style={{ fontSize: 12, marginTop: 6 }}>Create your first batch or adjust filters.</div>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit,minmax(280px,1fr))', gap: 12 }}>
-          {series.map(b => (
+          {batches.map(b => (
             <div key={b._id} style={{ ...cs, marginBottom: 0, position: 'relative', borderLeft: `3px solid ${b.lifecycleStatus === 'archived' ? DIM : ACC}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <input type="checkbox" checked={selectedIds.includes(b._id)} onChange={() => toggleSelect(b._id)} style={{ marginTop: 2 }} />
                 <span style={chip(b.lifecycleStatus === 'active' ? GOOD : b.lifecycleStatus === 'paused' ? WARN : b.lifecycleStatus === 'archived' ? DIM : '#A78BFA', 'rgba(255,255,255,0.06)')}>{b.lifecycleStatus || 'active'}</span>
               </div>
               <div onClick={() => setDetailId(b._id)} style={{ cursor: 'pointer', marginTop: 6 }}>
-                <div style={{ fontWeight: 700, fontSize: 14.5, color: '#93C5FD' }}>{b.colorIcon || '📚'} {b.name}</div>
-                <div style={{ fontSize: 10, color: DIM, fontFamily: 'monospace', marginTop: 2 }}>{b.seriesCode || '—'} · {b.examType}</div>
+                <div style={{ fontWeight: 700, fontSize: 14.5, color: '#93C5FD' }}>{b.colorIcon || '📦'} {b.name}</div>
+                <div style={{ fontSize: 10, color: DIM, fontFamily: 'monospace', marginTop: 2 }}>{b.batchCode || '—'} · {b.examType}</div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '8px 0' }}>
                   <span style={chip('#7DD3FC', 'rgba(59,130,246,0.12)')}>👥 {b.studentCount || 0}{b.seatLimit ? '/' + b.seatLimit : ''}</span>
-                  <span style={chip('#6EE7B7', 'rgba(16,185,129,0.12)')}>📝 {b.testCount || 0} Tests</span>
+                  <span style={chip('#6EE7B7', 'rgba(16,185,129,0.12)')}>📝 {b.examCount || 0} Exams</span>
                   <span style={chip('#FDE68A', 'rgba(251,191,36,0.12)')}>₹{b.effectivePrice ?? b.price ?? 0}</span>
                   <span style={chip(ACC, 'rgba(77,159,255,0.12)')}>💚 {b.healthScore ?? 0}</span>
                 </div>
@@ -275,24 +275,24 @@ export default function TestSeriesManagerUltra({ token, API }: { token: string; 
               </div>
               <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                 <button style={bs} onClick={() => setDetailId(b._id)}>Open</button>
-                <button style={bs} onClick={() => duplicateSeries(b._id)}>⧉ Duplicate</button>
-                <button style={bs} onClick={() => archiveSeries(b._id)}>{b.lifecycleStatus === 'archived' ? '♻️ Unarchive' : '📦 Archive'}</button>
-                <button style={bd} onClick={() => deleteSeries(b._id, b.name)}>🗑️</button>
+                <button style={bs} onClick={() => duplicateBatch(b._id)}>⧉ Duplicate</button>
+                <button style={bs} onClick={() => archiveBatch(b._id)}>{b.lifecycleStatus === 'archived' ? '♻️ Unarchive' : '📦 Archive'}</button>
+                <button style={bd} onClick={() => deleteBatch(b._id, b.name)}>🗑️</button>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {showCreate && <CreateSeriesWizard base={base} authHeaders={authHeaders} isMobile={isMobile} onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); loadSeries(); showToast('✅ Series created') }} />}
+      {showCreate && <CreateBatchWizard base={base} authHeaders={authHeaders} isMobile={isMobile} onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); loadBatches(); showToast('✅ Batch created') }} />}
     </div>
   )
 }
 
 // ══════════════════════════════════════════════════════════════════
-// CREATE TEST SERIES WIZARD (multi-step)
+// CREATE BATCH WIZARD (multi-step)
 // ══════════════════════════════════════════════════════════════════
-function CreateSeriesWizard({ base, authHeaders, isMobile, onClose, onCreated }: any) {
+function CreateBatchWizard({ base, authHeaders, isMobile, onClose, onCreated }: any) {
   const [step, setStep] = useState(1)
   const [templates, setTemplates] = useState<any[]>([])
   const [form, setForm] = useState<any>({
@@ -311,7 +311,7 @@ function CreateSeriesWizard({ base, authHeaders, isMobile, onClose, onCreated }:
     const d = await r.json()
     if (d.warning === 'duplicate') { setDupWarn(d); return }
     if (d.success) onCreated()
-    else alert(d.error || 'Failed to create series')
+    else alert(d.error || 'Failed to create batch')
   }
 
   const steps = ['Basic Info', 'Pricing', 'Preview & Confirm']
@@ -319,7 +319,7 @@ function CreateSeriesWizard({ base, authHeaders, isMobile, onClose, onCreated }:
 
   return (
     <Modal onClose={onClose} width={640}>
-      <div style={{ fontWeight: 800, fontSize: 17, color: ACC, marginBottom: 4 }}>➕ Create New Test Series</div>
+      <div style={{ fontWeight: 800, fontSize: 17, color: ACC, marginBottom: 4 }}>➕ Create New Batch</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
         {steps.map((s, i) => <span key={s} style={{ ...chip(i + 1 === step ? '#fff' : DIM, i + 1 === step ? ACC : 'rgba(255,255,255,0.05)'), fontSize: 10 }}>{i + 1}. {s}</span>)}
       </div>
@@ -328,14 +328,14 @@ function CreateSeriesWizard({ base, authHeaders, isMobile, onClose, onCreated }:
         <div>
           {templates.length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <label style={lbl}>Series Template Picker (optional)</label>
+              <label style={lbl}>Batch Template Picker (optional)</label>
               <select style={inp} value={form.templateId} onChange={e => set('templateId', e.target.value)}>
                 <option value="">Start blank</option>
                 {templates.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
               </select>
             </div>
           )}
-          <label style={lbl}>Series Name *</label><input style={{ ...inp, marginBottom: 10 }} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. NEET Full Syllabus Test Series 2027" />
+          <label style={lbl}>Batch Name *</label><input style={{ ...inp, marginBottom: 10 }} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. NEET Dropper 2027" />
           <label style={lbl}>Exam / Course</label>
           <select style={{ ...inp, marginBottom: 10 }} value={form.examType} onChange={e => set('examType', e.target.value)}>
             {EXAM_TYPES.map(x => <option key={x}>{x}</option>)}
@@ -362,13 +362,13 @@ function CreateSeriesWizard({ base, authHeaders, isMobile, onClose, onCreated }:
       {step === 3 && (
         <div>
           <div style={{ ...cs, marginBottom: 0 }}>
-            <div style={{ fontWeight: 700, color: '#93C5FD', fontSize: 14 }}>{form.name || '(Unnamed Series)'}</div>
+            <div style={{ fontWeight: 700, color: '#93C5FD', fontSize: 14 }}>{form.name || '(Unnamed Batch)'}</div>
             <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>{form.examType} · Seat Limit: {form.seatLimit || 'Unlimited'} · {form.visibility}</div>
             <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>Price: ₹{form.price}</div>
           </div>
           {dupWarn && (
             <div style={{ marginTop: 10, padding: 10, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 8, fontSize: 11.5, color: WARN }}>
-              ⚠️ Similar series exists: "{dupWarn.existing?.name}" ({dupWarn.existing?.seriesCode}). Create anyway?
+              ⚠️ Similar batch exists: "{dupWarn.existing?.name}" ({dupWarn.existing?.batchCode}). Create anyway?
               <div style={{ marginTop: 8 }}><button style={bp} onClick={() => submit(true)}>Yes, Create Anyway</button></div>
             </div>
           )}
@@ -386,11 +386,12 @@ function CreateSeriesWizard({ base, authHeaders, isMobile, onClose, onCreated }:
 // ══════════════════════════════════════════════════════════════════
 // ADD / TRANSFER STUDENT MODAL — dual ID/Email selector
 // ══════════════════════════════════════════════════════════════════
-function StudentAddModal({ base, authHeaders, seriesId, onClose, onDone, showToast }: any) {
+function StudentAddTransferModal({ base, authHeaders, batchId, mode, batches, onClose, onDone, showToast }: any) {
   const [inputType, setInputType] = useState<'id' | 'email'>('id')
   const [val, setVal] = useState('')
   const [suggestions, setSuggestions] = useState<any[]>([])
   const [matched, setMatched] = useState<any>(null)
+  const [toBatch, setToBatch] = useState('')
   const [beforeAfter, setBeforeAfter] = useState<any>(null)
 
   useEffect(() => {
@@ -403,15 +404,23 @@ function StudentAddModal({ base, authHeaders, seriesId, onClose, onDone, showToa
 
   const confirm = async () => {
     const payload: any = inputType === 'id' ? { studentId: matched ? matched.studentId || matched._id : val } : { email: matched ? matched.email : val }
-    const r = await fetch(base + '/' + seriesId + '/students/add', { method: 'POST', headers: authHeaders, body: JSON.stringify(payload) })
-    const d = await r.json()
-    if (d.success) { setBeforeAfter(d); showToast('✅ Student added to test series') }
-    else showToast('⚠️ ' + (d.error || 'Failed'))
+    if (mode === 'add') {
+      const r = await fetch(base + '/' + batchId + '/students/add', { method: 'POST', headers: authHeaders, body: JSON.stringify(payload) })
+      const d = await r.json()
+      if (d.success) { setBeforeAfter(d); showToast('✅ Student added to batch'); }
+      else showToast('⚠️ ' + (d.error || 'Failed'))
+    } else {
+      if (!toBatch) { showToast('⚠️ Select target batch'); return }
+      const r = await fetch(base + '/' + batchId + '/students/transfer', { method: 'POST', headers: authHeaders, body: JSON.stringify({ ...payload, toBatchId: toBatch }) })
+      const d = await r.json()
+      if (d.success) { setBeforeAfter(d); showToast('✅ Student transferred') }
+      else showToast('⚠️ ' + (d.error || 'Failed'))
+    }
   }
 
   return (
     <Modal onClose={onClose} width={480}>
-      <div style={{ fontWeight: 800, fontSize: 16, color: ACC, marginBottom: 12 }}>➕ Add Student to Test Series</div>
+      <div style={{ fontWeight: 800, fontSize: 16, color: ACC, marginBottom: 12 }}>{mode === 'add' ? '➕ Add Student to Batch' : '🔄 Transfer Student'}</div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
         <button style={inputType === 'id' ? bp : bs} onClick={() => setInputType('id')}>🆔 By Student ID</button>
         <button style={inputType === 'email' ? bp : bs} onClick={() => setInputType('email')}>📧 By Registered Email</button>
@@ -428,9 +437,21 @@ function StudentAddModal({ base, authHeaders, seriesId, onClose, onDone, showToa
       )}
       {matched && <div style={{ marginTop: 8, fontSize: 12, color: GOOD }}>✅ Matched: {matched.name} ({matched.email})</div>}
 
+      {mode === 'transfer' && (
+        <div style={{ marginTop: 12 }}>
+          <label style={lbl}>Move To Batch</label>
+          <select style={inp} value={toBatch} onChange={e => setToBatch(e.target.value)}>
+            <option value="">Select target batch…</option>
+            {(batches || []).filter((b: any) => b._id !== batchId).map((b: any) => <option key={b._id} value={b._id}>{b.name}</option>)}
+          </select>
+        </div>
+      )}
+
       {beforeAfter && (
         <div style={{ marginTop: 12, padding: 10, background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.25)', borderRadius: 8, fontSize: 12, color: GOOD }}>
-          Before: {beforeAfter.before?.count} students → After: {beforeAfter.after?.count} students
+          {mode === 'add'
+            ? <>Before: {beforeAfter.before?.count} students → After: {beforeAfter.after?.count} students</>
+            : <>Source: {beforeAfter.before?.fromCount} → {beforeAfter.after?.fromCount} · Target: {beforeAfter.before?.toCount} → {beforeAfter.after?.toCount}</>}
         </div>
       )}
 
@@ -443,13 +464,13 @@ function StudentAddModal({ base, authHeaders, seriesId, onClose, onDone, showToa
 }
 
 // ══════════════════════════════════════════════════════════════════
-// TEST SERIES DETAIL PAGE — 10 Tabs
+// BATCH DETAIL PAGE — 10 Tabs
 // ══════════════════════════════════════════════════════════════════
-function TestSeriesDetail({ id, base, authHeaders, onBack, isMobile, showToast, allSeries }: any) {
+function BatchDetail({ id, base, authHeaders, onBack, isMobile, showToast, allBatches }: any) {
   const [tab, setTab] = useState('overview')
   const [detail, setDetail] = useState<any>(null)
   const [notFound, setNotFound] = useState(false)
-  const [modal, setModal] = useState<'' | 'add'>('')
+  const [modal, setModal] = useState<'' | 'add' | 'transfer'>('')
 
   const load = useCallback(() => {
     fetch(base + '/' + id, { headers: authHeaders })
@@ -463,37 +484,37 @@ function TestSeriesDetail({ id, base, authHeaders, onBack, isMobile, showToast, 
     return (
       <div style={{ textAlign: 'center', padding: '50px 20px' }}>
         <div style={{ fontSize: 40, marginBottom: 10 }}>⚠️</div>
-        <div style={{ color: '#F87171', fontWeight: 700, marginBottom: 10 }}>This series could not be found. It may have been deleted.</div>
-        <button style={bp} onClick={onBack}>← Back to Test Series Management</button>
+        <div style={{ color: '#F87171', fontWeight: 700, marginBottom: 10 }}>This batch could not be found. It may have been deleted.</div>
+        <button style={bp} onClick={onBack}>← Back to Batch Management</button>
       </div>
     )
   }
 
   const tabs = [
-    ['overview', '📊 Overview'], ['students', '👥 Students'], ['tests', '📝 Tests'], ['pricing', '💰 Pricing'],
+    ['overview', '📊 Overview'], ['students', '👥 Students'], ['exams', '📝 Exams'], ['pricing', '💰 Pricing'],
     ['coupons', '🎟️ Coupons'],
     ['banner', '🖼️ Banner'],
     ['controls', '⚙️ Controls'], ['materials', '📁 Materials'], ['analytics', '📈 Analytics'],
     ['announcements', '📢 Announcements'], ['settings', '🔧 Settings'], ['audit', '🕐 Audit History']
   ]
 
-  if (!detail) return <EmptyMsg text="⟳ Loading series details…" />
-  const b = detail.series || {}
+  if (!detail) return <EmptyMsg text="⟳ Loading batch details…" />
+  const b = detail.batch || {}
 
   return (
     <div>
-      <button style={{ ...bs, marginBottom: 10 }} onClick={onBack}>← Back to Test Series Management</button>
+      <button style={{ ...bs, marginBottom: 10 }} onClick={onBack}>← Back to Batch Management</button>
 
       <div style={{ ...cs, background: `linear-gradient(135deg,${CRD2},${CRD})` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 19, color: '#93C5FD' }}>{b.colorIcon || '📚'} {b.name}</div>
-            <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>{b.seriesCode} · {b.examType} · {b.lifecycleStatus}</div>
+            <div style={{ fontWeight: 800, fontSize: 19, color: '#93C5FD' }}>{b.colorIcon || '📦'} {b.name}</div>
+            <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>{b.batchCode} · {b.examType} · {b.lifecycleStatus}</div>
           </div>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, fontWeight: 800, color: ACC }}>{b.healthScore}</div><div style={{ fontSize: 9, color: DIM }}>HEALTH SCORE</div></div>
             <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, fontWeight: 800, color: '#7DD3FC' }}>{b.studentCount}</div><div style={{ fontSize: 9, color: DIM }}>STUDENTS</div></div>
-            <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, fontWeight: 800, color: '#6EE7B7' }}>{b.testCount}</div><div style={{ fontSize: 9, color: DIM }}>TESTS</div></div>
+            <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, fontWeight: 800, color: '#6EE7B7' }}>{b.examCount}</div><div style={{ fontSize: 9, color: DIM }}>EXAMS</div></div>
             <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, fontWeight: 800, color: '#FDE68A' }}>₹{b.effectivePrice}</div><div style={{ fontSize: 9, color: DIM }}>PRICE</div></div>
           </div>
         </div>
@@ -510,25 +531,25 @@ function TestSeriesDetail({ id, base, authHeaders, onBack, isMobile, showToast, 
 
       {tab === 'overview' && <OverviewTab detail={detail} base={base} authHeaders={authHeaders} id={id} setModal={setModal} showToast={showToast} load={load} />}
       {tab === 'students' && <StudentsTab base={base} authHeaders={authHeaders} id={id} setModal={setModal} showToast={showToast} />}
-      {tab === 'tests' && <TestsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
+      {tab === 'exams' && <ExamsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
       {tab === 'pricing' && <PricingTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
       {tab === 'coupons' && <CouponManagementTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
       {tab === 'banner' && <BannerManagementTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
       {tab === 'controls' && <ControlsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} load={load} />}
       {tab === 'materials' && <MaterialsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
-      {tab === 'analytics' && <AnalyticsTab base={base} authHeaders={authHeaders} id={id} allSeries={allSeries} />}
+      {tab === 'analytics' && <AnalyticsTab base={base} authHeaders={authHeaders} id={id} allBatches={allBatches} />}
       {tab === 'announcements' && <AnnouncementsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
       {tab === 'settings' && <SettingsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} load={load} />}
       {tab === 'audit' && <AuditTab base={base} authHeaders={authHeaders} id={id} />}
 
-      {modal === 'add' && <StudentAddModal base={base} authHeaders={authHeaders} seriesId={id} onClose={() => setModal('')} onDone={load} showToast={showToast} />}
+      {modal && <StudentAddTransferModal base={base} authHeaders={authHeaders} batchId={id} mode={modal} batches={allBatches} onClose={() => setModal('')} onDone={load} showToast={showToast} />}
     </div>
   )
 }
 
 // ── 6) OVERVIEW TAB ──
 function OverviewTab({ detail, base, authHeaders, id, setModal, showToast, load }: any) {
-  const b = detail.series
+  const b = detail.batch
   const exportSnapshot = () => window.open(base + '/' + id + '/export-snapshot')
   const archiveToggle = async () => { await fetch(base + '/' + id + '/archive', { method: 'PUT', headers: authHeaders }); showToast('✅ Status updated'); load() }
   return (
@@ -541,7 +562,8 @@ function OverviewTab({ detail, base, authHeaders, id, setModal, showToast, load 
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '14px 0' }}>
         <button style={bp} onClick={() => setModal('add')}>➕ Add Student</button>
-        <button style={bs} onClick={archiveToggle}>{b.lifecycleStatus === 'archived' ? '♻️ Unarchive' : '📦 Archive Series'}</button>
+        <button style={bp} onClick={() => setModal('transfer')}>🔄 Transfer Student</button>
+        <button style={bs} onClick={archiveToggle}>{b.lifecycleStatus === 'archived' ? '♻️ Unarchive' : '📦 Archive Batch'}</button>
         <button style={bs} onClick={exportSnapshot}>📤 Export Snapshot</button>
       </div>
       <div style={cs}>
@@ -568,7 +590,7 @@ function StudentsTab({ base, authHeaders, id, setModal, showToast }: any) {
   }, [q, status, sort])
   useEffect(() => { load() }, [load])
 
-  const remove = async (sid: string) => { if (!window.confirm('Remove student from series?')) return; await fetch(base + '/' + id + '/students/' + sid, { method: 'DELETE', headers: authHeaders }); showToast('✅ Removed'); load() }
+  const remove = async (sid: string) => { if (!window.confirm('Remove student from batch?')) return; await fetch(base + '/' + id + '/students/' + sid, { method: 'DELETE', headers: authHeaders }); showToast('✅ Removed'); load() }
   const setInactive = async (sid: string, s: string) => { await fetch(base + '/' + id + '/students/' + sid + '/status', { method: 'PUT', headers: authHeaders, body: JSON.stringify({ status: s }) }); load() }
   const exportCsv = () => window.open(base + '/' + id + '/students/export')
 
@@ -579,9 +601,10 @@ function StudentsTab({ base, authHeaders, id, setModal, showToast }: any) {
         <select style={{ ...inp, width: 130 }} value={status} onChange={e => setStatus(e.target.value)}><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
         <select style={{ ...inp, width: 130 }} value={sort} onChange={e => setSort(e.target.value)}><option value="">Newest</option><option value="oldest">Oldest</option><option value="name">Name</option></select>
         <button style={bp} onClick={() => setModal('add')}>➕ Add</button>
+        <button style={bp} onClick={() => setModal('transfer')}>🔄 Transfer</button>
         <button style={bs} onClick={exportCsv}>⬇️ Export CSV</button>
       </div>
-      {students.length === 0 ? <EmptyMsg text="No students in this series yet." /> : (
+      {students.length === 0 ? <EmptyMsg text="No students in this batch yet." /> : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead><tr style={{ color: DIM, textAlign: 'left' }}><th style={{ padding: 6 }}>Name</th><th>ID</th><th>Email</th><th>Status</th><th>Joined</th><th>Action</th></tr></thead>
@@ -605,19 +628,19 @@ function StudentsTab({ base, authHeaders, id, setModal, showToast }: any) {
   )
 }
 
-// ── 8) TESTS TAB ──
-function TestsTab({ base, authHeaders, id, showToast }: any) {
+// ── 8) EXAMS TAB ──
+function ExamsTab({ base, authHeaders, id, showToast }: any) {
   const [data, setData] = useState<any>({ assigned: [], available: [] })
-  const load = useCallback(() => fetch(base + '/' + id + '/tests', { headers: authHeaders }).then(r => r.json()).then(setData).catch(() => {}), [])
+  const load = useCallback(() => fetch(base + '/' + id + '/exams', { headers: authHeaders }).then(r => r.json()).then(setData).catch(() => {}), [])
   useEffect(() => { load() }, [load])
-  const assign = async (testId: string) => { await fetch(base + '/' + id + '/tests/assign', { method: 'POST', headers: authHeaders, body: JSON.stringify({ testId }) }); showToast('✅ Test assigned'); load() }
-  const unassign = async (testId: string) => { await fetch(base + '/' + id + '/tests/' + testId, { method: 'DELETE', headers: authHeaders }); showToast('✅ Test removed'); load() }
+  const assign = async (examId: string) => { await fetch(base + '/' + id + '/exams/assign', { method: 'POST', headers: authHeaders, body: JSON.stringify({ examId }) }); showToast('✅ Exam assigned'); load() }
+  const unassign = async (examId: string) => { await fetch(base + '/' + id + '/exams/' + examId, { method: 'DELETE', headers: authHeaders }); showToast('✅ Exam removed'); load() }
 
   return (
     <div>
       <div style={cs}>
-        <div style={{ fontWeight: 700, marginBottom: 8, color: TS }}>Assigned Tests ({data.assigned?.length || 0})</div>
-        {(!data.assigned || data.assigned.length === 0) ? <EmptyMsg text="No tests assigned yet." /> : data.assigned.map((e: any) => (
+        <div style={{ fontWeight: 700, marginBottom: 8, color: TS }}>Assigned Exams ({data.assigned?.length || 0})</div>
+        {(!data.assigned || data.assigned.length === 0) ? <EmptyMsg text="No exams assigned yet." /> : data.assigned.map((e: any) => (
           <div key={e._id} style={{ padding: '8px 0', borderBottom: `1px solid ${BOR}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
               <span style={{ color: TS, fontWeight: 600, fontSize: 12.5 }}>{e.title || e.name}</span>
@@ -627,8 +650,8 @@ function TestsTab({ base, authHeaders, id, showToast }: any) {
         ))}
       </div>
       <div style={cs}>
-        <div style={{ fontWeight: 700, marginBottom: 8, color: TS }}>Available Tests</div>
-        {(!data.available || data.available.length === 0) ? <EmptyMsg text="No more tests available." /> : data.available.map((e: any) => (
+        <div style={{ fontWeight: 700, marginBottom: 8, color: TS }}>Available Exams</div>
+        {(!data.available || data.available.length === 0) ? <EmptyMsg text="No more exams available." /> : data.available.map((e: any) => (
           <div key={e._id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${BOR}` }}>
             <span style={{ color: DIM, fontSize: 12 }}>{e.title || e.name}</span>
             <button style={{ ...bs, padding: '3px 10px' }} onClick={() => assign(e._id)}>+ Assign</button>
@@ -820,7 +843,7 @@ function CouponManagementTab({ base, authHeaders, id, showToast }: any) {
             <div><label style={lbl}>Valid Till</label><input style={inp} type="date" value={form.validTill} onChange={e => setForm({ ...form, validTill: e.target.value })} /></div>
             <div><label style={lbl}>Applicable Plan</label>
               <select style={inp} value={form.applicablePlan} onChange={e => setForm({ ...form, applicablePlan: e.target.value })}>
-                <option value="entire">Entire Test Series</option>
+                <option value="entire">Entire Batch</option>
                 <option value="base_price">Base Price</option>
               </select>
             </div>
@@ -852,13 +875,13 @@ function CouponManagementTab({ base, authHeaders, id, showToast }: any) {
         </div>
       )}
 
-      {(!data || !data.coupons) ? <EmptyMsg text="⟳ Loading coupons…" /> : data.coupons.length === 0 ? <EmptyMsg text="No coupons yet. Create your first coupon for this test series." /> : data.coupons.map((c: any) => (
+      {(!data || !data.coupons) ? <EmptyMsg text="⟳ Loading coupons…" /> : data.coupons.length === 0 ? <EmptyMsg text="No coupons yet. Create your first coupon for this batch." /> : data.coupons.map((c: any) => (
         <div key={c._id} style={cs}>
           <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div>
               <div style={{ color: TS, fontWeight: 700, fontSize: 14 }}>{c.code}{statusChip(c.effectiveStatus)}</div>
               <div style={{ fontSize: 11, color: DIM, marginTop: 3 }}>{c.type === 'percent' ? `${c.value}% off` : `₹${c.value} off`}{c.maxDiscount ? ` (max ₹${c.maxDiscount})` : ''} · {c.usageCount}/{c.usageLimit} used · {c.perStudentLimitType === 'once' ? '1 per student' : c.perStudentLimitType === 'unlimited' ? 'Unlimited per student' : `${c.perStudentLimitCustom} per student`}</div>
-              <div style={{ fontSize: 10.5, color: DIM, marginTop: 3 }}>Valid: {new Date(c.validFrom).toLocaleDateString()} → {new Date(c.validTill).toLocaleDateString()} · {c.applicablePlan === 'base_price' ? 'Base Price only' : 'Entire Test Series'} · {c.visibility}</div>
+              <div style={{ fontSize: 10.5, color: DIM, marginTop: 3 }}>Valid: {new Date(c.validFrom).toLocaleDateString()} → {new Date(c.validTill).toLocaleDateString()} · {c.applicablePlan === 'base_price' ? 'Base Price only' : 'Entire Batch'} · {c.visibility}</div>
               {c.description && <div style={{ fontSize: 11, color: DIM, marginTop: 3, fontStyle: 'italic' }}>{c.description}</div>}
               <div style={{ fontSize: 9.5, color: DIM, marginTop: 4 }}>Updated {new Date(c.updatedAt).toLocaleString()}</div>
             </div>
@@ -973,15 +996,6 @@ const BN_ILLUSTRATIONS = [
   { id: 'equation', label: 'E=mc²', category: 'Physics', svg: '<svg viewBox="0 0 100 40"><text x="50" y="25" font-size="20" fill="#FFD700" text-anchor="middle">E=mc²</text></svg>' },
   { id: 'mitosis', label: 'Mitosis', category: 'Biology', svg: '<svg viewBox="0 0 100 60"><ellipse cx="30" cy="30" rx="20" ry="15" stroke="#00E676" stroke-width="2" fill="none"/><ellipse cx="70" cy="30" rx="20" ry="15" stroke="#00E676" stroke-width="2" fill="none"/></svg>' },
   { id: 'circuit', label: 'Circuit', category: 'Physics', svg: '<svg viewBox="0 0 100 60"><path d="M10 30 H30 V10 H70 V30 H90" stroke="#00D4FF" stroke-width="2" fill="none"/><circle cx="50" cy="30" r="4" fill="#00D4FF"/></svg>' },
-  { id: 'stethoscope-il', label: 'Stethoscope', category: 'Medical (NEET)', svg: '<svg viewBox="0 0 100 100"><path d="M25 15 Q25 50 50 55 Q75 50 75 15" stroke="#FF6B6B" stroke-width="4" fill="none"/><circle cx="50" cy="70" r="10" fill="#FF6B6B"/></svg>' },
-  { id: 'gear-il', label: 'Engineering Gear', category: 'Engineering (JEE)', svg: '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="22" fill="none" stroke="#4D9FFF" stroke-width="6"/><circle cx="50" cy="50" r="8" fill="#4D9FFF"/></svg>' },
-  { id: 'graduation-il', label: 'Graduation Cap', category: 'CUET', svg: '<svg viewBox="0 0 100 60"><polygon points="50,10 95,30 50,50 5,30" fill="#A78BFA"/><rect x="45" y="30" width="10" height="25" fill="#A78BFA"/></svg>' },
-  { id: 'document-il', label: 'Govt Document', category: 'SSC', svg: '<svg viewBox="0 0 100 100"><rect x="25" y="10" width="50" height="80" rx="4" fill="none" stroke="#37474F" stroke-width="3"/><line x1="35" y1="30" x2="65" y2="30" stroke="#37474F" stroke-width="2"/><line x1="35" y1="45" x2="65" y2="45" stroke="#37474F" stroke-width="2"/></svg>' },
-  { id: 'ashoka-il', label: 'Civil Services Pillar', category: 'UPSC', svg: '<svg viewBox="0 0 100 100"><rect x="40" y="20" width="20" height="60" fill="#8D6E63"/><ellipse cx="50" cy="20" rx="25" ry="8" fill="#8D6E63"/></svg>' },
-  { id: 'bank-il', label: 'Bank Building', category: 'Banking', svg: '<svg viewBox="0 0 100 100"><polygon points="50,15 90,40 10,40" fill="#00796B"/><rect x="15" y="40" width="70" height="45" fill="none" stroke="#00796B" stroke-width="3"/></svg>' },
-  { id: 'shield-il', label: 'Defence Shield', category: 'Defence', svg: '<svg viewBox="0 0 100 100"><path d="M50 10 L85 25 V55 Q85 80 50 95 Q15 80 15 55 V25 Z" fill="#2E7D32"/></svg>' },
-  { id: 'scale-il', label: 'Justice Scale', category: 'Law', svg: '<svg viewBox="0 0 100 100"><line x1="50" y1="10" x2="50" y2="80" stroke="#B71C1C" stroke-width="3"/><line x1="20" y1="30" x2="80" y2="30" stroke="#B71C1C" stroke-width="3"/><circle cx="20" cy="45" r="10" fill="none" stroke="#B71C1C" stroke-width="2"/><circle cx="80" cy="45" r="10" fill="none" stroke="#B71C1C" stroke-width="2"/></svg>' },
-  { id: 'chart-il', label: 'Business Chart', category: 'MBA', svg: '<svg viewBox="0 0 100 60"><rect x="10" y="30" width="15" height="25" fill="#FF9800"/><rect x="35" y="15" width="15" height="40" fill="#FF9800"/><rect x="60" y="5" width="15" height="50" fill="#FF9800"/></svg>' },
 ]
 
 function BN_luminance(hex: string) {
@@ -1017,33 +1031,13 @@ function BannerLivePreview({ b, size, showSafeZone, safeZoneMode, onLayerPointer
   const dims: any = { card: { w: 320, h: 200 }, wide: { w: 480, h: 200 }, square: { w: 320, h: 320 }, mobile: { w: 280, h: 420 } }
   const d = dims[size] || dims.card
   const tpl = BN_TEMPLATES.find(t => t.id === b.template) || BN_TEMPLATES[0]
-  let bg = b.bgImage ? (/^(linear|radial)-gradient|^#|^rgba?\(/.test(b.bgImage) ? b.bgImage : `url(${b.bgImage}) center/cover`) : (tpl.bg)
-  if (b.gradientAngle && b.gradientAngle !== 135 && typeof bg === 'string' && bg.indexOf('135deg') >= 0) bg = bg.replace('135deg', b.gradientAngle + 'deg')
+  const bg = b.bgImage ? (/^(linear|radial)-gradient|^#|^rgba?\(/.test(b.bgImage) ? b.bgImage : `url(${b.bgImage}) center/cover`) : (tpl.bg)
   const ctaRadius = b.ctaShape === 'square' ? 4 : b.ctaShape === 'rounded' ? 10 : 20
   const ctaIsOutline = b.ctaShape === 'outline'
   const badgeObj = BN_BADGES.find(x => x.id === b.badge)
   const safeInset = safeZoneMode === 'mobile' ? '12%' : safeZoneMode === 'desktop' ? '6%' : '8%'
-  const sv = b.sectionVisibility || { icon: true, badge: true, title: true, tagline: true, highlights: true, price: true, cta: true }
-  const cardRadius = b.cardStyle === 'sharp' ? 4 : b.cardStyle === 'soft' ? 20 : 14
-  const cardShadow = b.cardStyle === 'elevated' ? '0 12px 28px rgba(0,0,0,0.35)' : 'none'
-  const pad = b.spacing === 'compact' ? 10 : b.spacing === 'spacious' ? 24 : 16
-  const badgeRadius = b.badgeStyle === 'corner' ? 0 : b.badgeStyle === 'ribbon' ? 3 : 20
-  const renderLayerContent = (l: any) => {
-    if (l.type === 'icon') return <span style={{ fontSize: 26 }}>{l.content}</span>
-    if (!l.content) return <span style={{ fontSize: 20 }}>🖼️</span>
-    if (l.content.startsWith('<svg')) return <div style={{ width: '100%', height: '100%' }} dangerouslySetInnerHTML={{ __html: l.content }} />
-    // FIX: handle both data: URLs AND normal http(s) URLs (e.g. Brand
-    // Kit logo/watermark links) — previously only data: URLs rendered,
-    // any plain https:// image link silently fell through to the
-    // placeholder emoji below.
-    if (l.content.startsWith('data:image') || /^https?:\/\//.test(l.content)) {
-      const hasCrop = (l.cropTop || l.cropRight || l.cropBottom || l.cropLeft)
-      return <img src={l.content} style={{ width: '100%', height: '100%', objectFit: 'cover', clipPath: hasCrop ? `inset(${l.cropTop || 0}% ${l.cropRight || 0}% ${l.cropBottom || 0}% ${l.cropLeft || 0}%)` : 'none' }} />
-    }
-    return <span style={{ fontSize: 20 }}>🖼️</span>
-  }
   return (
-    <div ref={boxRef} style={{ width: d.w, height: d.h, maxWidth: '100%', borderRadius: cardRadius, boxShadow: cardShadow, position: 'relative', overflow: 'hidden', background: bg, color: b.textColor || '#fff', fontFamily: (BN_FONTS.find(f => f.id === b.fontStyle) || BN_FONTS[0]).family, border: `1px solid ${BOR}`, padding: pad, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', margin: '0 auto' }}>
+    <div ref={boxRef} style={{ width: d.w, height: d.h, maxWidth: '100%', borderRadius: 14, position: 'relative', overflow: 'hidden', background: bg, color: b.textColor || '#fff', fontFamily: (BN_FONTS.find(f => f.id === b.fontStyle) || BN_FONTS[0]).family, border: `1px solid ${BOR}`, padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', margin: '0 auto' }}>
       {showSafeZone && <div style={{ position: 'absolute', inset: safeInset, border: '1px dashed rgba(255,255,255,0.4)', borderRadius: 8, pointerEvents: 'none', zIndex: 50 }} />}
       {(b.layers || []).slice().sort((a: any, b2: any) => a.zIndex - b2.zIndex).map((l: any) => (
         <div key={l.id}
@@ -1059,52 +1053,44 @@ function BannerLivePreview({ b, size, showSafeZone, safeZoneMode, onLayerPointer
             borderRadius: l.border ? 6 : 0,
             outline: selectedLayerId === l.id ? '2px dashed #4D9FFF' : 'none',
             outlineOffset: 2,
-            width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
+            width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
-          {renderLayerContent(l)}
+          {l.type === 'icon' ? <span style={{ fontSize: 26 }}>{l.content}</span> :
+            l.content && l.content.startsWith('<svg') ? <div style={{ width: '100%', height: '100%' }} dangerouslySetInnerHTML={{ __html: l.content }} /> :
+            l.content && l.content.startsWith('data:image') ? <img src={l.content} style={{ width: '100%', height: '100%' }} /> :
+            <span style={{ fontSize: 20 }}>🖼️</span>}
         </div>
       ))}
-      {(sv.icon !== false || sv.badge !== false) && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          {sv.icon !== false ? <span style={{ fontSize: 20 }}>{BN_EXAM_ICON[b.examType] || '📚'}</span> : <span />}
-          {sv.badge !== false && badgeObj && badgeObj.id !== 'none' && <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: badgeRadius, background: b.accentColor || tpl.accent, color: '#1a1a2e' }}>{badgeObj.label}</span>}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <span style={{ fontSize: 20 }}>{BN_EXAM_ICON[b.examType] || '📚'}</span>
+        {badgeObj && badgeObj.id !== 'none' && <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: b.accentColor || tpl.accent, color: '#1a1a2e' }}>{badgeObj.label}</span>}
+      </div>
+      <div style={{ textAlign: (b.textAlign || 'left') as any }}>
+        <div style={{
+          fontSize: (b.title || '').length > 30 ? (size === 'square' ? 15 : 13) : (size === 'square' ? 18 : 16),
+          fontWeight: 800, lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box',
+          WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, wordBreak: 'break-word',
+          ...(b.textStyleOverride || {})
+        }}>{b.title || 'Batch Title'}</div>
+        {b.tagline && <div style={{ fontSize: 10.5, opacity: 0.85, marginTop: 3 }}>{b.tagline}</div>}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6, justifyContent: b.textAlign === 'center' ? 'center' : b.textAlign === 'right' ? 'flex-end' : 'flex-start' }}>
+          {(b.highlights || []).filter(Boolean).slice(0, 3).map((h: string, i: number) => (
+            <span key={i} style={{ fontSize: 8.5, padding: '2px 6px', borderRadius: 6, background: 'rgba(255,255,255,0.15)' }}>{h}</span>
+          ))}
         </div>
-      )}
-      {(sv.title !== false || sv.tagline !== false || sv.highlights !== false) && (
-        <div style={{ textAlign: (b.textAlign || 'left') as any }}>
-          {sv.title !== false && (
-            <div style={{
-              fontSize: (b.title || '').length > 30 ? (size === 'square' ? 15 : 13) : (size === 'square' ? 18 : 16),
-              fontWeight: 800, lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box',
-              WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, wordBreak: 'break-word',
-              ...(b.textStyleOverride || {})
-            }}>{b.title || 'Batch Title'}</div>
-          )}
-          {sv.tagline !== false && b.tagline && <div style={{ fontSize: 10.5, opacity: 0.85, marginTop: 3 }}>{b.tagline}</div>}
-          {sv.highlights !== false && (
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6, justifyContent: b.textAlign === 'center' ? 'center' : b.textAlign === 'right' ? 'flex-end' : 'flex-start' }}>
-              {(b.highlights || []).filter(Boolean).slice(0, 3).map((h: string, i: number) => (
-                <span key={i} style={{ fontSize: 8.5, padding: '2px 6px', borderRadius: 6, background: 'rgba(255,255,255,0.15)' }}>{h}</span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      {(sv.price !== false || sv.cta !== false) && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {sv.price !== false ? <span style={{ fontSize: 14, fontWeight: 800, color: b.accentColor || tpl.accent }}>{b.price && Number(b.price) > 0 ? '₹' + b.price : 'FREE'}</span> : <span />}
-          {sv.cta !== false && <span style={{ fontSize: 9.5, fontWeight: 700, padding: '5px 10px', borderRadius: ctaRadius, background: ctaIsOutline ? 'transparent' : (b.accentColor || tpl.accent), color: ctaIsOutline ? (b.accentColor || tpl.accent) : '#1a1a2e', border: ctaIsOutline ? `1.5px solid ${b.accentColor || tpl.accent}` : 'none' }}>{b.ctaText || 'Enroll Now'} →</span>}
-        </div>
-      )}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 14, fontWeight: 800, color: b.accentColor || tpl.accent }}>{b.price && Number(b.price) > 0 ? '₹' + b.price : 'FREE'}</span>
+        <span style={{ fontSize: 9.5, fontWeight: 700, padding: '5px 10px', borderRadius: ctaRadius, background: ctaIsOutline ? 'transparent' : (b.accentColor || tpl.accent), color: ctaIsOutline ? (b.accentColor || tpl.accent) : '#1a1a2e', border: ctaIsOutline ? `1.5px solid ${b.accentColor || tpl.accent}` : 'none' }}>{b.ctaText || 'Enroll Now'} →</span>
+      </div>
     </div>
   )
 }
 
 function BN_IllustrationModal({ onSelect, onClose }: any) {
   const [cat, setCat] = useState('All')
-  const [search, setSearch] = useState('')
   const cats = ['All', ...Array.from(new Set(BN_ILLUSTRATIONS.map(i => i.category)))]
-  const list = BN_ILLUSTRATIONS.filter(i => (cat === 'All' || i.category === cat) && i.label.toLowerCase().includes(search.toLowerCase()))
+  const list = cat === 'All' ? BN_ILLUSTRATIONS : BN_ILLUSTRATIONS.filter(i => i.category === cat)
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
       <div style={{ background: CRD, borderRadius: 16, padding: 20, maxWidth: 480, width: '100%', maxHeight: '80vh', overflowY: 'auto', border: `1px solid ${BOR2}` }} onClick={e => e.stopPropagation()}>
@@ -1112,7 +1098,6 @@ function BN_IllustrationModal({ onSelect, onClose }: any) {
           <div style={{ fontWeight: 700, color: TS }}>🎨 Subject Illustration Library</div>
           <button style={bs} onClick={onClose}>✕</button>
         </div>
-        <input style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: `1px solid ${BOR}`, background: 'rgba(255,255,255,0.04)', color: TS, fontSize: 12, marginBottom: 10 }} placeholder="Search illustrations…" value={search} onChange={e => setSearch(e.target.value)} />
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
           {cats.map(c => <button key={c} style={cat === c ? bp : bs} onClick={() => setCat(c)}>{c}</button>)}
         </div>
@@ -1124,7 +1109,6 @@ function BN_IllustrationModal({ onSelect, onClose }: any) {
             </div>
           ))}
         </div>
-        {list.length === 0 && <div style={{ textAlign: 'center', padding: 20, fontSize: 11, color: DIM }}>No illustrations match your search.</div>}
       </div>
     </div>
   )
@@ -1146,19 +1130,7 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
   const [assetTab, setAssetTab] = useState('builtin')
   const [assetSearch, setAssetSearch] = useState('')
   const [brandKit, setBrandKit] = useState<any>(null)
-  const [brandKits, setBrandKits] = useState<any[]>([])
   const [orgTemplates, setOrgTemplates] = useState<any[]>([])
-  const [assetFilter, setAssetFilter] = useState('all')
-  const [templateVersionsOpenId, setTemplateVersionsOpenId] = useState('')
-  const [templateAnalytics, setTemplateAnalytics] = useState<any[]>([])
-  const [ctaAnalytics, setCtaAnalytics] = useState<any[]>([])
-  const [replacingLayerId, setReplacingLayerId] = useState('')
-  const [expandedVersionIdx, setExpandedVersionIdx] = useState(-1)
-  const [recommendedAssets, setRecommendedAssets] = useState<any[]>([])
-  const [uploadingImage, setUploadingImage] = useState(false)
-  const [showIntegrationSummary, setShowIntegrationSummary] = useState(true)
-  const [previewTemplate, setPreviewTemplate] = useState<any>(null)
-  const [illustrationSearch, setIllustrationSearch] = useState('')
   const [assetsMap, setAssetsMap] = useState<any>({ sticker: [], decorative: [], subject_graphic: [], icon: [], typography: [], background: [], cta: [] })
   const [builtinFav, setBuiltinFav] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('pr_banner_builtin_fav') || '[]') } catch { return [] } })
   const [builtinRecent, setBuiltinRecent] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('pr_banner_builtin_recent') || '[]') } catch { return [] } })
@@ -1169,51 +1141,7 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
     if (assetSearch) p.set('search', assetSearch)
     fetch(assetsBase + '/templates?' + p.toString(), { headers: authHeaders }).then(r => r.json()).then(d => setOrgTemplates(d.templates || [])).catch(() => {})
   }, [assetSearch])
-  const loadBrandKits = useCallback(() => fetch(assetsBase + '/brand-kits', { headers: authHeaders }).then(r => r.json()).then(d => setBrandKits(d.brandKits || [])).catch(() => {}), [])
-  useEffect(() => { fetch(assetsBase + '/brand-kit', { headers: authHeaders }).then(r => r.json()).then(d => setBrandKit(d.brandKit)).catch(() => {}); loadBrandKits() }, [])
-  useEffect(() => {
-    fetch(assetsBase + '/analytics/templates', { headers: authHeaders }).then(r => r.json()).then(d => setTemplateAnalytics(d.breakdown || [])).catch(() => {})
-    fetch(assetsBase + '/analytics/cta', { headers: authHeaders }).then(r => r.json()).then(d => setCtaAnalytics(d.breakdown || [])).catch(() => {})
-  }, [])
-  const createBrandKitPreset = async () => {
-    const name = window.prompt('New Brand Kit preset name?')
-    if (!name || !name.trim()) return
-    const r = await fetch(assetsBase + '/brand-kits', { method: 'POST', headers: authHeaders, body: JSON.stringify({ name: name.trim(), primaryColor: brandKit?.primaryColor, secondaryColor: brandKit?.secondaryColor, accentColor: brandKit?.accentColor, fontPair: brandKit?.fontPair, logoUrl: brandKit?.logoUrl, watermarkUrl: brandKit?.watermarkUrl }) })
-    const d = await r.json()
-    if (d.success) { showToast('✅ Preset created'); loadBrandKits() } else showToast('⚠️ ' + d.error)
-  }
-  const setDefaultBrandKit = async (kitId: string) => {
-    await fetch(assetsBase + '/brand-kits/' + kitId + '/set-default', { method: 'POST', headers: authHeaders })
-    const r = await fetch(assetsBase + '/brand-kit', { headers: authHeaders }); const d = await r.json()
-    setBrandKit(d.brandKit); loadBrandKits(); showToast('✅ Default preset changed')
-  }
-  const deleteBrandKitPreset = async (kitId: string) => {
-    if (!window.confirm('Delete this Brand Kit preset?')) return
-    const r = await fetch(assetsBase + '/brand-kits/' + kitId, { method: 'DELETE', headers: authHeaders })
-    const d = await r.json()
-    if (d.success) { showToast('✅ Preset deleted'); loadBrandKits() } else showToast('⚠️ ' + d.error)
-  }
-  const toggleAssetFavorite = async (asset: any, tab: string) => {
-    await fetch(assetsBase + '/assets/' + asset._id, { method: 'PUT', headers: authHeaders, body: JSON.stringify({ isFavorite: !asset.isFavorite }) })
-    fetch(assetsBase + '/assets?type=' + tab, { headers: authHeaders }).then(r => r.json()).then(d => setAssetsMap((m: any) => ({ ...m, [tab]: d.assets || [] })))
-  }
-  const cycleFontStyle = () => {
-    const idx = BN_FONTS.findIndex(f => f.id === form.fontStyle)
-    const next = BN_FONTS[(idx + 1) % BN_FONTS.length]
-    setForm({ ...form, fontStyle: next.id })
-    showToast('🔤 Font changed to ' + next.label)
-  }
-  const toggleSectionVisible = (key: string) => {
-    const sv = { ...(form.sectionVisibility || { icon: true, badge: true, title: true, tagline: true, highlights: true, price: true, cta: true }) }
-    sv[key] = sv[key] === false ? true : false
-    setForm({ ...form, sectionVisibility: sv })
-  }
-  const toggleSectionLock = (key: string) => {
-    const sl = { ...(form.sectionLock || {}) }
-    sl[key] = !sl[key]
-    setForm({ ...form, sectionLock: sl })
-    showToast(sl[key] ? '🔒 ' + key + ' locked — its field is now disabled in Banner Builder' : '🔓 ' + key + ' unlocked')
-  }
+  useEffect(() => { fetch(assetsBase + '/brand-kit', { headers: authHeaders }).then(r => r.json()).then(d => setBrandKit(d.brandKit)).catch(() => {}) }, [])
   useEffect(() => { loadOrgTemplates() }, [loadOrgTemplates])
   useEffect(() => {
     ['sticker', 'decorative', 'subject_graphic', 'icon', 'typography', 'background', 'cta'].forEach(t => {
@@ -1232,18 +1160,6 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
     if (!brandKit) return
     setForm({ ...form, primaryColor: brandKit.primaryColor, secondaryColor: brandKit.secondaryColor, accentColor: brandKit.accentColor, fontStyle: brandKit.fontPair })
     showToast('✅ Brand Kit applied to this banner')
-  }
-  const applyLogoToBanner = () => {
-    if (!brandKit?.logoUrl) return showToast('⚠️ No Logo URL set in this Brand Kit preset yet')
-    const layer = { id: 'ly_logo_' + Date.now(), type: 'logo', content: brandKit.logoUrl, x: 12, y: 12, scale: 0.5, rotation: 0, opacity: 1, zIndex: ((form.layers || []).length) + 1, locked: false, flipH: false, flipV: false, shadow: false, shadowColor: '#000000', border: false, borderColor: '#FFFFFF', borderWidth: 2, blendMode: 'normal', cropTop: 0, cropRight: 0, cropBottom: 0, cropLeft: 0 }
-    setForm({ ...form, layers: [...(form.layers || []), layer] })
-    showToast('✅ Logo added as a layer — drag/resize/crop it in Preview & Variants')
-  }
-  const applyWatermarkToBanner = () => {
-    if (!brandKit?.watermarkUrl) return showToast('⚠️ No Watermark URL set in this Brand Kit preset yet')
-    const layer = { id: 'ly_watermark_' + Date.now(), type: 'watermark', content: brandKit.watermarkUrl, x: 85, y: 88, scale: 0.35, rotation: 0, opacity: 0.55, zIndex: ((form.layers || []).length) + 1, locked: false, flipH: false, flipV: false, shadow: false, shadowColor: '#000000', border: false, borderColor: '#FFFFFF', borderWidth: 2, blendMode: 'normal', cropTop: 0, cropRight: 0, cropBottom: 0, cropLeft: 0 }
-    setForm({ ...form, layers: [...(form.layers || []), layer] })
-    showToast('✅ Watermark added as a layer — drag/resize/crop it in Preview & Variants')
   }
   const saveBrandKitField = async (patch: any) => {
     const r = await fetch(assetsBase + '/brand-kit', { method: 'PUT', headers: authHeaders, body: JSON.stringify(patch) })
@@ -1413,17 +1329,12 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
   }
   useEffect(() => {
     const onKey = (e: any) => {
-      const tag = ((e.target && e.target.tagName) || '').toLowerCase()
-      const inField = tag === 'input' || tag === 'textarea' || tag === 'select'
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo() }
       else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo() }
-      else if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); if (form?.title?.trim()) saveBanner({ saveAsDraft: true }) }
-      else if ((e.key === 'Delete' || e.key === 'Backspace') && !inField && selectedLayerId) { e.preventDefault(); removeLayer(selectedLayerId) }
-      else if (e.key === 'Escape') { if (replacingLayerId) setReplacingLayerId(''); else if (selectedLayerId) setSelectedLayerId('') }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [historyStack, redoStack, selectedLayerId, form, replacingLayerId])
+  }, [historyStack, redoStack])
 
   const smartReplaceColor = () => {
     const from = (replaceFromColor || '').toLowerCase()
@@ -1449,78 +1360,6 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
     const tpl = BN_TEMPLATES.find(t => t.id === form.template) || BN_TEMPLATES[0]
     setForm({ ...form, bgImage: '', layers: [], primaryColor: '#4D9FFF', secondaryColor: '#00D4FF', textColor: '#FFFFFF', accentColor: tpl.accent, ctaShape: 'pill' })
     showToast('✅ Reset to template defaults')
-  }
-
-  const uploadBannerImage = async (file: File, target: 'background' | 'layer') => {
-    if (!file) return
-    if (!/^image\/(png|jpe?g|webp|svg\+xml|gif)$/.test(file.type)) return showToast('⚠️ Unsupported file type — use PNG, JPG, WebP, SVG or GIF')
-    if (file.size > 900000) return showToast('⚠️ Image too large (max ~900KB) — please compress first')
-    setUploadingImage(true)
-    try {
-      const dataUrl: string = await new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(reader.result as string)
-        reader.onerror = reject
-        reader.readAsDataURL(file)
-      })
-      const r = await fetch(assetsBase + '/assets/upload-image', { method: 'POST', headers: authHeaders, body: JSON.stringify({ name: file.name, dataUrl, category: 'Uploaded' }) })
-      const d = await r.json()
-      if (!d.success) return showToast('⚠️ ' + (d.error || 'Upload failed'))
-      if (target === 'background') { setForm({ ...form, bgImage: d.asset.content }); showToast('✅ Image uploaded and set as background') }
-      else { addOrReplaceAssetLayer(d.asset); showToast('✅ Image uploaded and added as a layer') }
-    } catch (e) { showToast('⚠️ Upload failed — please try again') }
-    setUploadingImage(false)
-  }
-  const duplicateVersion = async (vIdx: number) => {
-    const r = await fetch(base + '/' + id + '/banner/duplicate-version/' + vIdx, { method: 'POST', headers: authHeaders })
-    const d = await r.json()
-    if (d.success) { showToast('✅ Version duplicated'); load() } else showToast('⚠️ ' + d.error)
-  }
-  const importTemplateFile = async (file: File) => {
-    if (!file) return
-    try {
-      const text = await file.text()
-      const parsed = JSON.parse(text)
-      const name = parsed.name || file.name.replace(/\.json$/i, '')
-      const config = parsed.config || parsed
-      const r = await fetch(assetsBase + '/templates/import', { method: 'POST', headers: authHeaders, body: JSON.stringify({ name, category: parsed.category || 'Custom', config }) })
-      const d = await r.json()
-      if (d.success) { showToast('✅ Template imported'); loadOrgTemplates() } else showToast('⚠️ ' + d.error)
-    } catch (e) { showToast('⚠️ Invalid template file — expected exported JSON') }
-  }
-  const restoreTemplateVersion = async (t: any, vIdx: number) => {
-    const r = await fetch(assetsBase + '/templates/' + t._id + '/restore-version/' + vIdx, { method: 'POST', headers: authHeaders })
-    const d = await r.json()
-    if (d.success) { showToast('✅ Template version restored'); loadOrgTemplates() } else showToast('⚠️ ' + d.error)
-  }
-  const loadRecommendedAssets = useCallback(() => {
-    const p = new URLSearchParams()
-    if (data?.syncPreview?.examType) p.set('examType', data.syncPreview.examType)
-    fetch(assetsBase + '/assets/recommended?' + p.toString(), { headers: authHeaders }).then(r => r.json()).then(d => setRecommendedAssets(d.assets || [])).catch(() => {})
-  }, [data?.syncPreview?.examType])
-  useEffect(() => { loadRecommendedAssets() }, [loadRecommendedAssets])
-  const VERSION_DIFF_FIELDS: [string, string][] = [['title', 'Title'], ['tagline', 'Tagline'], ['price', 'Price'], ['ctaText', 'CTA Text'], ['template', 'Template'], ['primaryColor', 'Primary Color'], ['badge', 'Badge'], ['bgImage', 'Background Image']]
-  const versionDiff = (vData: any) => {
-    if (!vData || !form) return []
-    return VERSION_DIFF_FIELDS.filter(([key]) => (vData[key] || '') !== (form[key] || '')).map(([key, label]) => ({ label, from: vData[key] || '—', to: form[key] || '—' }))
-  }
-  // TRUE "Replace Asset": unlike a simple add, this keeps the existing
-  // layer's position/scale/rotation/opacity/crop/lock and only swaps
-  // its content — click "🔁 Replace" on a layer, then pick any asset
-  // from the library below to swap it in-place.
-  const startReplaceAsset = (layerId: string) => {
-    setReplacingLayerId(layerId)
-    showToast('🔁 Pick an asset below to replace the selected layer (position kept)')
-  }
-  const addOrReplaceAssetLayer = (asset: any) => {
-    if (replacingLayerId) {
-      setForm({ ...form, layers: (form.layers || []).map((l: any) => l.id === replacingLayerId ? { ...l, type: asset.type, content: asset.content, assetId: asset._id } : l) })
-      setReplacingLayerId('')
-      showToast('✅ Layer replaced: ' + asset.name)
-      fetch(assetsBase + '/assets/' + asset._id + '/use', { method: 'POST', headers: authHeaders }).catch(() => {})
-      return
-    }
-    addAssetLayer(asset)
   }
 
   const previewRef = useRef<any>(null)
@@ -1598,7 +1437,7 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
 
       {!data.banner ? (
         <div style={cs}>
-          <div style={{ fontWeight: 700, color: TS, marginBottom: 8 }}>No banner yet for this test series</div>
+          <div style={{ fontWeight: 700, color: TS, marginBottom: 8 }}>No banner yet for this batch</div>
           <div style={{ fontSize: 11.5, color: DIM, marginBottom: 10 }}>Auto-generate a draft — it will pre-fill from current batch details:</div>
           <div style={{ fontSize: 11.5, color: DIM, lineHeight: 1.8, marginBottom: 12 }}>
             Title: <b style={{ color: TS }}>{data.syncPreview?.title}</b> · Price: <b style={{ color: TS }}>₹{data.syncPreview?.price}</b> · Tests: <b style={{ color: TS }}>{data.syncPreview?.totalTests}</b> · Validity: <b style={{ color: TS }}>{data.syncPreview?.validity}</b>
@@ -1634,25 +1473,10 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
               <div style={{ fontWeight: 700, marginBottom: 8, color: TS }}>🕐 Version History</div>
               {(!form.versions || form.versions.length === 0) ? <EmptyMsg text="No previous versions yet." /> : form.versions.slice().reverse().map((v: any, i: number) => {
                 const realIdx = form.versions.length - 1 - i
-                const isExpanded = expandedVersionIdx === realIdx
-                const diff = isExpanded ? versionDiff(v.data) : []
                 return (
-                  <div key={realIdx} style={{ padding: '6px 0', borderBottom: `1px solid ${BOR}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11.5, color: DIM, flexWrap: 'wrap', gap: 6 }}>
-                      <span style={{ cursor: 'pointer' }} onClick={() => setExpandedVersionIdx(isExpanded ? -1 : realIdx)}>{isExpanded ? '▾' : '▸'} {v.label} · {new Date(v.savedAt).toLocaleString()}</span>
-                      <span style={{ display: 'flex', gap: 4 }}>
-                        <button style={bs} onClick={() => setExpandedVersionIdx(isExpanded ? -1 : realIdx)}>{isExpanded ? 'Hide Diff' : 'View Diff'}</button>
-                        <button style={bs} onClick={() => duplicateVersion(realIdx)}>⧉ Duplicate</button>
-                        <button style={bp} onClick={() => restoreVersion(realIdx)}>Restore</button>
-                      </span>
-                    </div>
-                    {isExpanded && (
-                      <div style={{ marginTop: 6, padding: 8, borderRadius: 8, background: 'rgba(77,159,255,0.05)', border: `1px solid ${BOR}` }}>
-                        {diff.length === 0 ? <div style={{ fontSize: 10.5, color: DIM }}>No differences from the current live banner.</div> : diff.map((d, di) => (
-                          <div key={di} style={{ fontSize: 10.5, color: DIM, padding: '3px 0' }}><b style={{ color: TS }}>{d.label}:</b> <span style={{ color: '#E74C3C' }}>{String(d.from).slice(0, 40)}</span> → <span style={{ color: '#27AE60' }}>{String(d.to).slice(0, 40)}</span></div>
-                        ))}
-                      </div>
-                    )}
+                  <div key={realIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11.5, color: DIM, padding: '6px 0', borderBottom: `1px solid ${BOR}` }}>
+                    <span>{v.label} · {new Date(v.savedAt).toLocaleString()}</span>
+                    <button style={bs} onClick={() => restoreVersion(realIdx)}>Restore</button>
                   </div>
                 )
               })}
@@ -1662,15 +1486,15 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
           <div style={cs}>
             <div style={{ fontWeight: 700, marginBottom: 10, color: TS }}>✏️ Banner Builder</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 }}>
-              <div><label style={lbl}>Title {(form.sectionLock || {}).title && '🔒'}</label><input style={{ ...inp, opacity: (form.sectionLock || {}).title ? 0.5 : 1 }} value={form.title || ''} disabled={!!(form.sectionLock || {}).title} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
-              <div><label style={lbl}>Tagline / Subtitle {(form.sectionLock || {}).tagline && '🔒'}</label><input style={{ ...inp, opacity: (form.sectionLock || {}).tagline ? 0.5 : 1 }} value={form.tagline || ''} disabled={!!(form.sectionLock || {}).tagline} onChange={e => setForm({ ...form, tagline: e.target.value })} /></div>
-              <div><label style={lbl}>Base Price ₹ {(form.sectionLock || {}).price && '🔒'}</label><input style={{ ...inp, opacity: (form.sectionLock || {}).price ? 0.5 : 1 }} value={form.price || ''} disabled={!!(form.sectionLock || {}).price} onChange={e => setForm({ ...form, price: e.target.value })} /></div>
+              <div><label style={lbl}>Title</label><input style={inp} value={form.title || ''} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
+              <div><label style={lbl}>Tagline / Subtitle</label><input style={inp} value={form.tagline || ''} onChange={e => setForm({ ...form, tagline: e.target.value })} /></div>
+              <div><label style={lbl}>Base Price ₹</label><input style={inp} value={form.price || ''} onChange={e => setForm({ ...form, price: e.target.value })} /></div>
               <div><label style={lbl}>Total Tests</label><input style={inp} value={form.totalTests || ''} onChange={e => setForm({ ...form, totalTests: e.target.value })} /></div>
               <div><label style={lbl}>Validity (read-only)</label><input style={{ ...inp, opacity: 0.6 }} value={form.validity || ''} disabled /></div>
               <div><label style={lbl}>Duration (auto)</label><input style={{ ...inp, opacity: 0.6 }} value={form.duration || ''} disabled /></div>
-              <div><label style={lbl}>CTA Button Text {(form.sectionLock || {}).cta && '🔒'}</label><input style={{ ...inp, opacity: (form.sectionLock || {}).cta ? 0.5 : 1 }} value={form.ctaText || ''} disabled={!!(form.sectionLock || {}).cta} onChange={e => setForm({ ...form, ctaText: e.target.value })} /></div>
-              <div><label style={lbl}>Badge / Ribbon {(form.sectionLock || {}).badge && '🔒'}</label>
-                <select style={{ ...inp, opacity: (form.sectionLock || {}).badge ? 0.5 : 1 }} value={form.badge || 'none'} disabled={!!(form.sectionLock || {}).badge} onChange={e => setForm({ ...form, badge: e.target.value })}>
+              <div><label style={lbl}>CTA Button Text</label><input style={inp} value={form.ctaText || ''} onChange={e => setForm({ ...form, ctaText: e.target.value })} /></div>
+              <div><label style={lbl}>Badge / Ribbon</label>
+                <select style={inp} value={form.badge || 'none'} onChange={e => setForm({ ...form, badge: e.target.value })}>
                   {BN_BADGES.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
                 </select>
               </div>
@@ -1682,9 +1506,9 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
                 </div>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 8, marginTop: 8, opacity: (form.sectionLock || {}).highlights ? 0.5 : 1 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 8, marginTop: 8 }}>
               {[0, 1, 2].map(i => (
-                <input key={i} style={inp} disabled={!!(form.sectionLock || {}).highlights} placeholder={'Highlight ' + (i + 1) + ((form.sectionLock || {}).highlights ? ' 🔒' : '')} value={(form.highlights || [])[i] || ''} onChange={e => { const h = [...(form.highlights || ['', '', ''])]; h[i] = e.target.value; setForm({ ...form, highlights: h }) }} />
+                <input key={i} style={inp} placeholder={'Highlight ' + (i + 1)} value={(form.highlights || [])[i] || ''} onChange={e => { const h = [...(form.highlights || ['', '', ''])]; h[i] = e.target.value; setForm({ ...form, highlights: h }) }} />
               ))}
             </div>
             <button style={{ ...bs, marginTop: 8 }} onClick={() => setShowSuggestions(v => !v)}>💡 {showSuggestions ? 'Hide' : 'Show'} Smart Suggestions</button>
@@ -1720,56 +1544,8 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
                   {BN_FONTS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
                 </select>
               </div>
-              <div><label style={lbl}>Background Image URL</label><input style={inp} value={(form.bgImage || '').startsWith('data:') ? '(uploaded image set)' : (form.bgImage || '')} onChange={e => setForm({ ...form, bgImage: e.target.value })} placeholder="https:// or pick from library" /></div>
+              <div><label style={lbl}>Background Image URL</label><input style={inp} value={form.bgImage || ''} onChange={e => setForm({ ...form, bgImage: e.target.value })} placeholder="https:// or pick from library" /></div>
               <div style={{ display: 'flex', alignItems: 'flex-end' }}><button style={{ ...bs, width: '100%' }} onClick={() => setShowIllustrations(true)}>🎨 Illustration Library</button></div>
-              <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                <label style={{ ...bs, width: '100%', textAlign: 'center', cursor: 'pointer', display: 'block' }}>
-                  {uploadingImage ? '⟳ Uploading…' : '📤 Upload (as Background)'}
-                  <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif" style={{ display: 'none' }} disabled={uploadingImage} onChange={e => { if (e.target.files && e.target.files[0]) uploadBannerImage(e.target.files[0], 'background'); e.target.value = '' }} />
-                </label>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                <label style={{ ...bs, width: '100%', textAlign: 'center', cursor: 'pointer', display: 'block' }}>
-                  {uploadingImage ? '⟳ Uploading…' : '📤 Upload (as Layer)'}
-                  <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif" style={{ display: 'none' }} disabled={uploadingImage} onChange={e => { if (e.target.files && e.target.files[0]) uploadBannerImage(e.target.files[0], 'layer'); e.target.value = '' }} />
-                </label>
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 8, marginTop: 8 }}>
-              <div><label style={lbl}>Badge Style</label>
-                <select style={inp} value={form.badgeStyle || 'pill'} onChange={e => setForm({ ...form, badgeStyle: e.target.value })}>
-                  <option value="pill">Pill</option><option value="ribbon">Ribbon</option><option value="corner">Corner</option>
-                </select>
-              </div>
-              <div><label style={lbl}>Card Style</label>
-                <select style={inp} value={form.cardStyle || 'rounded'} onChange={e => setForm({ ...form, cardStyle: e.target.value })}>
-                  <option value="sharp">Sharp</option><option value="rounded">Rounded</option><option value="soft">Soft</option><option value="elevated">Elevated</option>
-                </select>
-              </div>
-              <div><label style={lbl}>Gradient Angle ({form.gradientAngle || 135}°)</label><input type="range" min="0" max="360" value={form.gradientAngle || 135} onChange={e => setForm({ ...form, gradientAngle: Number(e.target.value) })} style={{ width: '100%' }} /></div>
-              <div><label style={lbl}>Spacing</label>
-                <select style={inp} value={form.spacing || 'normal'} onChange={e => setForm({ ...form, spacing: e.target.value })}>
-                  <option value="compact">Compact</option><option value="normal">Normal</option><option value="spacious">Spacious</option>
-                </select>
-              </div>
-            </div>
-            <button style={{ ...bs, marginTop: 8 }} onClick={cycleFontStyle}>🔤 Smart Replace Font (cycle)</button>
-            <div style={{ marginTop: 10, marginBottom: 4 }}>
-              <div style={{ fontSize: 11, color: DIM, marginBottom: 6 }}>👁️ Section Visibility / Lock (Layout Controls)</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {['icon', 'badge', 'title', 'tagline', 'highlights', 'price', 'cta'].map(key => {
-                  const sv = form.sectionVisibility || { icon: true, badge: true, title: true, tagline: true, highlights: true, price: true, cta: true }
-                  const sl = form.sectionLock || {}
-                  const visible = sv[key] !== false
-                  return (
-                    <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '4px 8px', borderRadius: 6, border: `1px solid ${BOR}`, opacity: visible ? 1 : 0.5 }}>
-                      <span style={{ fontSize: 10.5, color: DIM, textTransform: 'capitalize' }}>{key}</span>
-                      <button style={{ ...bs, padding: '1px 5px', fontSize: 10 }} onClick={() => toggleSectionVisible(key)} title={visible ? 'Hide this section' : 'Show this section'}>{visible ? '👁️' : '🚫'}</button>
-                      <button style={{ ...bs, padding: '1px 5px', fontSize: 10 }} onClick={() => toggleSectionLock(key)} title={sl[key] ? 'Unlock editing' : 'Lock editing'}>{sl[key] ? '🔒' : '🔓'}</button>
-                    </div>
-                  )
-                })}
-              </div>
             </div>
 
             {warnings.length > 0 && (
@@ -1862,21 +1638,8 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
                       {['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'difference'].map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </div>
-                  {['sticker', 'decorative', 'subject_graphic', 'illustration', 'logo', 'watermark', 'media'].includes(layer.type) && (
-                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BOR}` }}>
-                      <div style={{ fontSize: 11, color: DIM, marginBottom: 6 }}>✂️ Crop (Safe Zone Trim)</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(110px,1fr))', gap: 8 }}>
-                        <div><label style={lbl}>Crop Top ({layer.cropTop || 0}%)</label><input type="range" min="0" max="45" value={layer.cropTop || 0} onChange={e => updateLayer(layer.id, { cropTop: Number(e.target.value) })} style={{ width: '100%' }} /></div>
-                        <div><label style={lbl}>Crop Right ({layer.cropRight || 0}%)</label><input type="range" min="0" max="45" value={layer.cropRight || 0} onChange={e => updateLayer(layer.id, { cropRight: Number(e.target.value) })} style={{ width: '100%' }} /></div>
-                        <div><label style={lbl}>Crop Bottom ({layer.cropBottom || 0}%)</label><input type="range" min="0" max="45" value={layer.cropBottom || 0} onChange={e => updateLayer(layer.id, { cropBottom: Number(e.target.value) })} style={{ width: '100%' }} /></div>
-                        <div><label style={lbl}>Crop Left ({layer.cropLeft || 0}%)</label><input type="range" min="0" max="45" value={layer.cropLeft || 0} onChange={e => updateLayer(layer.id, { cropLeft: Number(e.target.value) })} style={{ width: '100%' }} /></div>
-                      </div>
-                      {(layer.cropTop || layer.cropRight || layer.cropBottom || layer.cropLeft) ? <button style={{ ...bs, marginTop: 6 }} onClick={() => updateLayer(layer.id, { cropTop: 0, cropRight: 0, cropBottom: 0, cropLeft: 0 })}>↺ Reset Crop</button> : null}
-                    </div>
-                  )}
                   <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                     <button style={bs} onClick={() => duplicateLayer(layer.id)}>⧉ Duplicate</button>
-                    <button style={replacingLayerId === layer.id ? bp : bs} onClick={() => startReplaceAsset(layer.id)}>🔁 {replacingLayerId === layer.id ? 'Pick asset below…' : 'Replace'}</button>
                     <button style={bd} onClick={() => removeLayer(layer.id)}>🗑️ Delete</button>
                   </div>
                 </div>
@@ -1927,7 +1690,7 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
 
           <div style={cs}>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-              {[['builtin', '🖼️ Built-in'], ['mytemplates', '📁 My Templates'], ['brandkit', '🎨 Brand Kit'], ['recommended', '🤖 AI Recommended'], ['sticker', '🏷️ Stickers'], ['decorative', '✨ Decorative'], ['subject_graphic', '🧬 Subject Graphics'], ['icon', '🔣 Icons'], ['typography', '🔤 Typography'], ['background', '🌌 Backgrounds'], ['cta', '🔘 CTA Elements']].map(([k, l]) => (
+              {[['builtin', '🖼️ Built-in'], ['mytemplates', '📁 My Templates'], ['brandkit', '🎨 Brand Kit'], ['sticker', '🏷️ Stickers'], ['decorative', '✨ Decorative'], ['subject_graphic', '🧬 Subject Graphics'], ['icon', '🔣 Icons'], ['typography', '🔤 Typography'], ['background', '🌌 Backgrounds'], ['cta', '🔘 CTA Elements']].map(([k, l]) => (
                 <button key={k} style={assetTab === k ? bp : bs} onClick={() => setAssetTab(k)}>{l}</button>
               ))}
             </div>
@@ -1957,41 +1720,20 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
 
             {assetTab === 'mytemplates' && (
               <div>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-                  <input style={{ ...inp, flex: 1, minWidth: 140 }} placeholder="Search my templates…" value={assetSearch} onChange={e => setAssetSearch(e.target.value)} />
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                  <input style={inp} placeholder="Search my templates…" value={assetSearch} onChange={e => setAssetSearch(e.target.value)} />
                   <button style={bp} onClick={saveAsOrgTemplate}>💾 Save Current As Template</button>
-                  <label style={{ ...bs, cursor: 'pointer' }}>
-                    📥 Import Template
-                    <input type="file" accept="application/json" style={{ display: 'none' }} onChange={e => { if (e.target.files && e.target.files[0]) importTemplateFile(e.target.files[0]); e.target.value = '' }} />
-                  </label>
                 </div>
                 {orgTemplates.length === 0 ? <EmptyMsg text="No saved templates yet." /> : orgTemplates.map((t: any) => (
-                  <div key={t._id} style={{ padding: '8px 0', borderBottom: `1px solid ${BOR}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                      <span style={{ fontSize: 12, color: TS }}>{t.isFavorite ? '⭐ ' : ''}{t.name} <span style={{ color: DIM, fontSize: 10 }}>({t.category} · used {t.usageCount || 0}× · v{(t.versions || []).length + 1})</span></span>
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        <button style={bs} onClick={() => setPreviewTemplate(t)}>👁 Preview</button>
-                        <button style={bs} onClick={() => applyOrgTemplate(t)}>Apply</button>
-                        <button style={bs} onClick={() => toggleOrgTemplateFav(t)}>{t.isFavorite ? 'Unfavorite' : 'Favorite'}</button>
-                        <button style={bs} onClick={() => cloneOrgTemplate(t)}>Clone</button>
-                        <button style={bs} onClick={() => exportOrgTemplate(t)}>Export</button>
-                        <button style={bs} onClick={() => setTemplateVersionsOpenId(templateVersionsOpenId === t._id ? '' : t._id)}>Versions</button>
-                        <button style={bd} onClick={() => deleteOrgTemplate(t)}>Delete</button>
-                      </div>
+                  <div key={t._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${BOR}`, flexWrap: 'wrap', gap: 6 }}>
+                    <span style={{ fontSize: 12, color: TS }}>{t.isFavorite ? '⭐ ' : ''}{t.name} <span style={{ color: DIM, fontSize: 10 }}>({t.category} · used {t.usageCount || 0}×)</span></span>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      <button style={bs} onClick={() => applyOrgTemplate(t)}>Apply</button>
+                      <button style={bs} onClick={() => toggleOrgTemplateFav(t)}>{t.isFavorite ? 'Unfavorite' : 'Favorite'}</button>
+                      <button style={bs} onClick={() => cloneOrgTemplate(t)}>Clone</button>
+                      <button style={bs} onClick={() => exportOrgTemplate(t)}>Export</button>
+                      <button style={bd} onClick={() => deleteOrgTemplate(t)}>Delete</button>
                     </div>
-                    {templateVersionsOpenId === t._id && (
-                      <div style={{ marginTop: 6, paddingLeft: 10, borderLeft: `2px solid ${BOR}` }}>
-                        {(!t.versions || t.versions.length === 0) ? <div style={{ fontSize: 10.5, color: DIM }}>No previous versions.</div> : t.versions.slice().reverse().map((v: any, i: number) => {
-                          const realIdx = t.versions.length - 1 - i
-                          return (
-                            <div key={realIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10.5, color: DIM, padding: '4px 0' }}>
-                              <span>{v.label || ('v' + (realIdx + 1))} · {new Date(v.savedAt).toLocaleString()}</span>
-                              <button style={bs} onClick={() => restoreTemplateVersion(t, realIdx)}>Restore</button>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -1999,18 +1741,6 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
 
             {assetTab === 'brandkit' && brandKit && (
               <div>
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 11, color: DIM, marginBottom: 6 }}>💾 Saved Brand Kits</div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {brandKits.map((k: any) => (
-                      <button key={k._id} style={k.isDefault ? bp : bs} onClick={() => !k.isDefault && setDefaultBrandKit(k._id)} title={k.isDefault ? 'Currently active preset' : 'Click to make this the active preset'}>
-                        {k.isDefault ? '★ ' : ''}{k.name}
-                        {!k.isDefault && <span onClick={(e) => { e.stopPropagation(); deleteBrandKitPreset(k._id) }} style={{ marginLeft: 6, opacity: 0.7 }}>✕</span>}
-                      </button>
-                    ))}
-                    <button style={bs} onClick={createBrandKitPreset}>➕ New Preset</button>
-                  </div>
-                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 8, marginBottom: 10 }}>
                   <div><label style={lbl}>Primary</label><input style={{ ...inp, height: 34, padding: 2 }} type="color" value={brandKit.primaryColor} onChange={e => saveBrandKitField({ primaryColor: e.target.value })} /></div>
                   <div><label style={lbl}>Secondary</label><input style={{ ...inp, height: 34, padding: 2 }} type="color" value={brandKit.secondaryColor} onChange={e => saveBrandKitField({ secondaryColor: e.target.value })} /></div>
@@ -2023,56 +1753,24 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
                   <div><label style={lbl}>Logo URL</label><input style={inp} value={brandKit.logoUrl || ''} onChange={e => setBrandKit({ ...brandKit, logoUrl: e.target.value })} onBlur={e => saveBrandKitField({ logoUrl: e.target.value })} /></div>
                   <div><label style={lbl}>Watermark URL</label><input style={inp} value={brandKit.watermarkUrl || ''} onChange={e => setBrandKit({ ...brandKit, watermarkUrl: e.target.value })} onBlur={e => saveBrandKitField({ watermarkUrl: e.target.value })} /></div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button style={bp} onClick={applyBrandKitToBanner}>✅ Apply Brand Kit to This Banner</button>
-                  <button style={bs} onClick={applyLogoToBanner}>🏷️ Apply Official Logo</button>
-                  <button style={bs} onClick={applyWatermarkToBanner}>💧 Apply Watermark</button>
-                </div>
+                <button style={bp} onClick={applyBrandKitToBanner}>✅ Apply Brand Kit to This Banner</button>
               </div>
             )}
 
             {['sticker', 'decorative', 'subject_graphic', 'icon', 'typography'].includes(assetTab) && (
               <div>
-                {replacingLayerId && <div style={{ fontSize: 10.5, color: '#FFD700', marginBottom: 8, padding: '6px 8px', borderRadius: 6, background: 'rgba(255,215,0,0.08)' }}>🔁 Replace mode — pick any asset to swap it into the selected layer. <span style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setReplacingLayerId('')}>Cancel</span></div>}
-                <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-                  <input style={{ ...inp, flex: 1, minWidth: 140 }} placeholder={'Search ' + assetTab + '…'} value={assetSearch} onChange={e => setAssetSearch(e.target.value)} />
-                  {['all', 'favorites', 'recent', 'most_used'].map(f => <button key={f} style={assetFilter === f ? bp : bs} onClick={() => setAssetFilter(f)}>{f === 'all' ? 'All' : f === 'favorites' ? '⭐ Favorites' : f === 'recent' ? 'Recent' : 'Most Used'}</button>)}
-                </div>
+                <input style={{ ...inp, marginBottom: 10 }} placeholder={'Search ' + assetTab + '…'} value={assetSearch} onChange={e => setAssetSearch(e.target.value)} />
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(80px,1fr))', gap: 8 }}>
-                  {(assetsMap[assetTab] || [])
-                    .filter((a: any) => a.name.toLowerCase().includes(assetSearch.toLowerCase()))
-                    .filter((a: any) => assetFilter !== 'favorites' || a.isFavorite)
-                    .slice().sort((a: any, b: any) => assetFilter === 'recent' ? (new Date(b.lastUsedAt || 0).getTime() - new Date(a.lastUsedAt || 0).getTime()) : assetFilter === 'most_used' ? ((b.usageCount || 0) - (a.usageCount || 0)) : 0)
-                    .map((a: any) => (
-                    <div key={a._id} style={{ ...cs, marginBottom: 0, textAlign: 'center', cursor: 'pointer', padding: 8, position: 'relative' }} title={a.name}>
-                      <span onClick={(e) => { e.stopPropagation(); toggleAssetFavorite(a, assetTab) }} style={{ position: 'absolute', top: 2, right: 4, fontSize: 11 }}>{a.isFavorite ? '⭐' : '☆'}</span>
-                      <div onClick={() => addOrReplaceAssetLayer(a)} style={{ width: 40, height: 40, margin: '0 auto 4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {(assetsMap[assetTab] || []).filter((a: any) => a.name.toLowerCase().includes(assetSearch.toLowerCase())).map((a: any) => (
+                    <div key={a._id} style={{ ...cs, marginBottom: 0, textAlign: 'center', cursor: 'pointer', padding: 8 }} onClick={() => addAssetLayer(a)} title={a.name}>
+                      <div style={{ width: 40, height: 40, margin: '0 auto 4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {a.type === 'icon' ? <span style={{ fontSize: 24 }}>{a.content}</span> : a.type === 'typography' ? <span style={{ fontSize: 10, color: TS }}>Aa</span> : <div style={{ width: '100%', height: '100%' }} dangerouslySetInnerHTML={{ __html: a.content }} />}
                       </div>
-                      <div onClick={() => addOrReplaceAssetLayer(a)} style={{ fontSize: 8.5, color: DIM }}>{a.name}</div>
+                      <div style={{ fontSize: 8.5, color: DIM }}>{a.name}</div>
                     </div>
                   ))}
                 </div>
                 {(assetsMap[assetTab] || []).length === 0 && <EmptyMsg text="No assets yet — run the one-time seed from the admin setup, or contact support." />}
-              </div>
-            )}
-
-            {assetTab === 'recommended' && (
-              <div>
-                <div style={{ fontSize: 10.5, color: DIM, marginBottom: 10, lineHeight: 1.6 }}>🤖 Recommended from the asset library based on this batch's exam type — a keyword-matching engine, not generative AI (no image-gen API is configured).</div>
-                {recommendedAssets.length === 0 ? <EmptyMsg text="No recommendations yet — try adding more assets to the library." /> : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(80px,1fr))', gap: 8 }}>
-                    {recommendedAssets.map((a: any) => (
-                      <div key={a._id} style={{ ...cs, marginBottom: 0, textAlign: 'center', cursor: 'pointer', padding: 8, position: 'relative' }} onClick={() => addOrReplaceAssetLayer(a)} title={a.name}>
-                        <span style={{ position: 'absolute', top: 2, right: 4, fontSize: 9 }}>🤖</span>
-                        <div style={{ width: 40, height: 40, margin: '0 auto 4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {a.type === 'icon' ? <span style={{ fontSize: 24 }}>{a.content}</span> : a.type === 'typography' ? <span style={{ fontSize: 10, color: TS }}>Aa</span> : a.type === 'media' ? <img src={a.content} style={{ maxWidth: '100%', maxHeight: '100%' }} /> : <div style={{ width: '100%', height: '100%' }} dangerouslySetInnerHTML={{ __html: a.content }} />}
-                        </div>
-                        <div style={{ fontSize: 8.5, color: DIM }}>{a.name}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             )}
 
@@ -2130,16 +1828,6 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
                 Click Rate: {analytics.clickRate}% · Conversion Rate: {analytics.conversionRate}%
               </div>
             )}
-            <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BOR}` }}>
-              <div style={{ fontSize: 11, color: DIM, marginBottom: 6 }}>📈 Performance by Template (platform-wide)</div>
-              {templateAnalytics.length === 0 ? <div style={{ fontSize: 10.5, color: DIM }}>Not enough data yet.</div> : templateAnalytics.slice(0, 5).map((t: any, i: number) => (
-                <div key={i} style={{ fontSize: 10.5, color: DIM, padding: '3px 0' }}>{t.template}{form.template === t.template ? ' (current)' : ''} — {t.count} banner(s) · {t.conversionRate}% conversion</div>
-              ))}
-              <div style={{ fontSize: 11, color: DIM, margin: '10px 0 6px' }}>🔘 Performance by CTA (platform-wide)</div>
-              {ctaAnalytics.length === 0 ? <div style={{ fontSize: 10.5, color: DIM }}>Not enough data yet.</div> : ctaAnalytics.slice(0, 5).map((c: any, i: number) => (
-                <div key={i} style={{ fontSize: 10.5, color: DIM, padding: '3px 0' }}>{c.cta} — {c.count} banner(s) · {c.conversionRate}% conversion</div>
-              ))}
-            </div>
           </div>
 
           <div style={cs}>
@@ -2149,26 +1837,6 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
             ))}
           </div>
 
-          <div style={cs}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showIntegrationSummary ? 10 : 0, cursor: 'pointer' }} onClick={() => setShowIntegrationSummary(v => !v)}>
-              <div style={{ fontWeight: 700, color: TS }}>📎 Integration Summary</div>
-              <span style={{ fontSize: 11, color: DIM }}>{showIntegrationSummary ? '▾ Hide' : '▸ Show'}</span>
-            </div>
-            {showIntegrationSummary && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 10, fontSize: 11, color: DIM, lineHeight: 1.9 }}>
-                <div>🔗 Linked Product: <b style={{ color: TS }}>{data.batchName}</b></div>
-                <div>📌 Banner Status: <b style={{ color: TS }}>{form.status}</b></div>
-                <div>🔄 Sync State: <b style={{ color: TS }}>{(form.syncState || '—').replace('_', ' ')}</b></div>
-                <div>⭐ Quality Score: <b style={{ color: (data.overview?.qualityScore || 0) >= 60 ? GOOD : WARN }}>{data.overview?.qualityScore || 0}/100</b></div>
-                <div>🕐 Versions Saved: <b style={{ color: TS }}>{(form.versions || []).length}</b></div>
-                <div>🗂️ Layers Placed: <b style={{ color: TS }}>{(form.layers || []).length}</b></div>
-                <div>👁️ Views: <b style={{ color: TS }}>{analytics?.views ?? 0}</b> · Clicks: <b style={{ color: TS }}>{analytics?.clicks ?? 0}</b> · Enrolls: <b style={{ color: TS }}>{analytics?.enrolls ?? 0}</b></div>
-                <div>📋 Last Audit Action: <b style={{ color: TS }}>{audit && audit.length > 0 ? audit[0].action : '—'}</b></div>
-                <div>🕒 Last Updated: <b style={{ color: TS }}>{form.updatedAt ? new Date(form.updatedAt).toLocaleString() : '—'}</b></div>
-              </div>
-            )}
-          </div>
-
           <div style={{ ...cs, fontSize: 11, color: DIM }}>
             🔗 This banner is linked to <b style={{ color: TS }}>{data.batchName}</b>. Publish / Launch happens in the separate Publish Center (coming soon) — not from this tab.
           </div>
@@ -2176,21 +1844,6 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
       )}
 
       {showIllustrations && <BN_IllustrationModal onSelect={(url: string) => setForm({ ...form, bgImage: url })} onClose={() => setShowIllustrations(false)} />}
-      {previewTemplate && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setPreviewTemplate(null)}>
-          <div style={{ background: CRD, borderRadius: 16, padding: 20, maxWidth: 420, width: '100%', border: `1px solid ${BOR2}` }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div style={{ fontWeight: 700, color: TS }}>👁 Preview — {previewTemplate.name}</div>
-              <button style={bs} onClick={() => setPreviewTemplate(null)}>✕</button>
-            </div>
-            <BannerLivePreview b={{ ...form, ...previewTemplate.config }} size="card" showSafeZone={false} />
-            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-              <button style={{ ...bs, flex: 1 }} onClick={() => setPreviewTemplate(null)}>Cancel</button>
-              <button style={{ ...bp, flex: 1 }} onClick={() => { applyOrgTemplate(previewTemplate); setPreviewTemplate(null) }}>✅ Apply This Template</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -2213,7 +1866,7 @@ function ControlsTab({ base, authHeaders, id, showToast, load: loadParent }: any
         <Toggle on={c.allowFreeTrial} onChange={v => update({ allowFreeTrial: v })} label="🆓 Free Trial" />
       </div>
       <div style={cs}>
-        <label style={lbl}>Series Status Manager</label>
+        <label style={lbl}>Batch Status Manager</label>
         <select style={inp} value={c.lifecycleStatus} onChange={e => update({ lifecycleStatus: e.target.value })}>
           {['draft', 'active', 'upcoming', 'paused', 'archived'].map(x => <option key={x}>{x}</option>)}
         </select>
@@ -2231,7 +1884,7 @@ function ControlsTab({ base, authHeaders, id, showToast, load: loadParent }: any
         <label style={lbl}>Seat Limit</label>
         <input style={inp} type="number" value={c.seatLimit} onChange={e => update({ seatLimit: e.target.value })} />
       </div>
-      <button style={bd} onClick={pause}>{c.lifecycleStatus === 'paused' ? '▶️ Resume Series (One-Click)' : '⏸️ One-Click Pause'}</button>
+      <button style={bd} onClick={pause}>{c.lifecycleStatus === 'paused' ? '▶️ Resume Batch (One-Click)' : '⏸️ One-Click Pause'}</button>
       {data.snapshot && <div style={{ fontSize: 11, color: DIM, marginTop: 10 }}>Last applied by {data.snapshot.appliedBy} at {new Date(data.snapshot.appliedAt).toLocaleString()}</div>}
     </div>
   )
@@ -2273,7 +1926,7 @@ function MaterialsTab({ base, authHeaders, id, showToast }: any) {
 }
 
 // ── 12) ANALYTICS TAB ──
-function AnalyticsTab({ base, authHeaders, id, allSeries }: any) {
+function AnalyticsTab({ base, authHeaders, id, allBatches }: any) {
   const [data, setData] = useState<any>(null)
   const [compareWith, setCompareWith] = useState('')
   const [cmp, setCmp] = useState<any>(null)
@@ -2284,7 +1937,7 @@ function AnalyticsTab({ base, authHeaders, id, allSeries }: any) {
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}>
-        {[['Health Score', a.healthScore, ACC], ['Active Users', a.activeUsers, '#7DD3FC'], ['Test Participation', a.testParticipation, '#6EE7B7'],
+        {[['Health Score', a.healthScore, ACC], ['Active Users', a.activeUsers, '#7DD3FC'], ['Exam Participation', a.examParticipation, '#6EE7B7'],
         ['Avg Score', a.avgScore ?? '—', '#FDE68A'], ['Revenue', '₹' + a.revenueSummary, GOOD], ['Seat Util %', a.seatUtilization ?? '∞', WARN],
         ['Engagement Trend', a.engagementTrend + '%', ACC], ['Revenue/Seat', '₹' + a.revenuePerSeat, '#A78BFA'], ['Churn Trend', a.churnTrend, BAD]].map(([l, v, c]: any) => (
           <div key={l} style={{ ...cs, marginBottom: 0, textAlign: 'center' }}><div style={{ fontSize: 18, fontWeight: 800, color: c }}>{v}</div><div style={{ fontSize: 9.5, color: DIM }}>{l}</div></div>
@@ -2295,11 +1948,11 @@ function AnalyticsTab({ base, authHeaders, id, allSeries }: any) {
         <div style={{ fontSize: 12, color: DIM }}>Views: {a.conversionFunnel?.views} → Wishlisted: {a.conversionFunnel?.wishlisted} → Enrolled: {a.conversionFunnel?.enrolled}</div>
       </div>
       <div style={cs}>
-        <div style={{ fontWeight: 700, marginBottom: 8, color: TS }}>⚖️ Series Comparison</div>
+        <div style={{ fontWeight: 700, marginBottom: 8, color: TS }}>⚖️ Batch Comparison</div>
         <div style={{ display: 'flex', gap: 8 }}>
           <select style={inp} value={compareWith} onChange={e => setCompareWith(e.target.value)}>
-            <option value="">Select series to compare…</option>
-            {(allSeries || []).filter((b: any) => b._id !== id).map((b: any) => <option key={b._id} value={b._id}>{b.name}</option>)}
+            <option value="">Select batch to compare…</option>
+            {(allBatches || []).filter((b: any) => b._id !== id).map((b: any) => <option key={b._id} value={b._id}>{b.name}</option>)}
           </select>
           <button style={bs} onClick={runCompare}>Compare</button>
         </div>
@@ -2357,7 +2010,7 @@ function SettingsTab({ base, authHeaders, id, showToast, load: loadParent }: any
   return (
     <div>
       <div style={{ ...cs, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10 }}>
-        <div><label style={lbl}>Series Name</label><input style={inp} value={s.name} onChange={e => setS({ ...s, name: e.target.value })} /></div>
+        <div><label style={lbl}>Batch Name</label><input style={inp} value={s.name} onChange={e => setS({ ...s, name: e.target.value })} /></div>
         <div><label style={lbl}>Color / Icon</label><input style={inp} value={s.colorIcon} onChange={e => setS({ ...s, colorIcon: e.target.value })} /></div>
         <div><label style={lbl}>Start Date</label><input style={inp} type="date" value={s.startDate ? s.startDate.slice(0, 10) : ''} onChange={e => setS({ ...s, startDate: e.target.value })} /></div>
         <div><label style={lbl}>End Date</label><input style={inp} type="date" value={s.endDate ? s.endDate.slice(0, 10) : ''} onChange={e => setS({ ...s, endDate: e.target.value })} /></div>
@@ -2367,7 +2020,7 @@ function SettingsTab({ base, authHeaders, id, showToast, load: loadParent }: any
       <div style={{ margin: '10px 0' }}><Toggle on={s.autoArchiveAfterEnd} onChange={v => setS({ ...s, autoArchiveAfterEnd: v })} label="Auto-Archive After End Date" /></div>
       <div style={{ display: 'flex', gap: 8 }}>
         <button style={bp} onClick={save}>💾 Save Settings</button>
-        <button style={bs} onClick={toggleLock}>{s.isLocked ? '🔓 Unlock Series' : '🔒 Lock Series'}</button>
+        <button style={bs} onClick={toggleLock}>{s.isLocked ? '🔓 Unlock Batch' : '🔒 Lock Batch'}</button>
       </div>
       {s.renameHistory?.length > 0 && (
         <div style={{ ...cs, marginTop: 14 }}>

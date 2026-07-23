@@ -1122,7 +1122,7 @@ router.put('/:id/banner', auth, isAdmin, async (req, res) => {
     delete versionSnap._id; delete versionSnap.versions; delete versionSnap.__v;
     banner.versions = banner.versions || [];
     banner.versions.push({ data: versionSnap, savedAt: new Date(), label: 'v' + (banner.versions.length + 1) });
-    const editable = ['title', 'tagline', 'examType', 'price', 'totalTests', 'duration', 'validity', 'highlights', 'ctaText', 'ctaShape', 'badge', 'template', 'primaryColor', 'secondaryColor', 'textColor', 'accentColor', 'fontStyle', 'bgImage', 'layers', 'textStyleOverride', 'textAlign', 'sectionVisibility', 'sectionLock', 'badgeStyle', 'cardStyle', 'gradientAngle', 'spacing'];
+    const editable = ['title', 'tagline', 'examType', 'price', 'totalTests', 'duration', 'validity', 'highlights', 'ctaText', 'ctaShape', 'badge', 'template', 'primaryColor', 'secondaryColor', 'textColor', 'accentColor', 'fontStyle', 'bgImage', 'layers', 'textStyleOverride', 'textAlign'];
     for (const f of editable) { if (req.body[f] !== undefined) banner[f] = req.body[f]; }
     if (req.body.markReady) banner.status = 'ready';
     else if (req.body.saveAsDraft) banner.status = 'draft';
@@ -1221,20 +1221,6 @@ router.post('/:id/banner/restore-version/:vIdx', auth, isAdmin, async (req, res)
     banner.qualityScore = computeBannerQualityScore(banner);
     await banner.save();
     await logBannerAudit({ bannerId: banner._id, action: 'version_restored', newValue: { vIdx: req.params.vIdx }, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
-    res.json({ success: true, banner });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post('/:id/banner/duplicate-version/:vIdx', auth, isAdmin, async (req, res) => {
-  try {
-    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
-    if (!banner) return res.status(404).json({ error: 'No banner found' });
-    const v = banner.versions[parseInt(req.params.vIdx)];
-    if (!v) return res.status(404).json({ error: 'Version not found' });
-    const clone = { data: v.data, savedAt: new Date(), label: (v.label || 'v?') + ' (copy)' };
-    banner.versions.push(clone);
-    await banner.save();
-    await logBannerAudit({ bannerId: banner._id, action: 'version_duplicated', newValue: { fromVIdx: req.params.vIdx }, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
     res.json({ success: true, banner });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

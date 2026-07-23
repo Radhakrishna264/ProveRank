@@ -15,12 +15,6 @@ const BannerSchema = new mongoose.Schema({
   ctaText: { type: String, default: 'Enroll Now' },
   ctaShape: { type: String, enum: ['pill', 'rounded', 'square', 'outline'], default: 'pill' },
   textAlign: { type: String, enum: ['left', 'center', 'right'], default: 'left' },
-  sectionVisibility: { type: mongoose.Schema.Types.Mixed, default: () => ({ icon: true, badge: true, title: true, tagline: true, highlights: true, price: true, cta: true }) },
-  sectionLock: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
-  badgeStyle: { type: String, enum: ['pill', 'ribbon', 'corner'], default: 'pill' },
-  cardStyle: { type: String, enum: ['sharp', 'rounded', 'soft', 'elevated'], default: 'rounded' },
-  gradientAngle: { type: Number, default: 135 },
-  spacing: { type: String, enum: ['compact', 'normal', 'spacious'], default: 'normal' },
   badge: { type: String, default: 'none' },
   template: { type: String, default: 'classic' },
   primaryColor: { type: String, default: '#4D9FFF' },
@@ -81,11 +75,7 @@ const BannerSchema = new mongoose.Schema({
     border: { type: Boolean, default: false },
     borderColor: { type: String, default: '#FFFFFF' },
     borderWidth: { type: Number, default: 2 },
-    blendMode: { type: String, default: 'normal' },
-    cropTop: { type: Number, default: 0 },
-    cropRight: { type: Number, default: 0 },
-    cropBottom: { type: Number, default: 0 },
-    cropLeft: { type: Number, default: 0 }
+    blendMode: { type: String, default: 'normal' }
   }],
   textStyleOverride: { type: mongoose.Schema.Types.Mixed, default: null },
 }, { timestamps: true });
