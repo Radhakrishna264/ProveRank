@@ -50,7 +50,7 @@ function genSeriesCode(name) {
   return `${prefix}-${rand}`;
 }
 
-async function logAudit({ seriesId, field, oldValue, newValue, changedBy, changedByName, action, source }) {
+async function logAudit({ seriesId, field, oldValue, newValue, changedBy, changedByName, action, source, reason, snapshotVersion }) {
   if (!TestSeriesAuditLog) return;
   try {
     await TestSeriesAuditLog.create({
@@ -61,10 +61,14 @@ async function logAudit({ seriesId, field, oldValue, newValue, changedBy, change
       changedByName: changedByName || 'Admin',
       action: action || 'update',
       source: source || 'series-manager-ultra',
+      reason: reason || '',
+      snapshotVersion: snapshotVersion === undefined ? null : snapshotVersion,
       timestamp: new Date()
     });
   } catch (e) { /* audit failures must never break main flow */ }
 }
+
+
 
 function computeHealthScore(series, studentCount, testCount) {
   let score = 0;
@@ -1407,8 +1411,9 @@ router.get('/:id/export-snapshot', auth, isAdmin, async (req, res) => {
 
 
 
+
 // ══════════════════════════════════════════════════════════════════
-// 16) PUBLISH CENTER — Go-Live Control Center
+// 16) PUBLISH CENTER — Go-Live Control Center  [v2]
 // ══════════════════════════════════════════════════════════════════
 function scoreStatusLabel(score) {
   if (score >= 95) return 'Ready to Publish';
@@ -1417,12 +1422,31 @@ function scoreStatusLabel(score) {
   return 'Not Ready';
 }
 
+const CRITICAL_FIELDS = ['examType', 'price', 'discountPrice', 'startDate', 'endDate', 'validity'];
+const SNAPSHOT_FIELDS = ['name', 'description', 'examType', 'category', 'price', 'discountPrice', 'thumbnail', 'colorIcon',
+  'startDate', 'endDate', 'validity', 'seatLimit', 'enrollmentRule', 'accessPolicy', 'visibility',
+  'teacherAssigned', 'isSpotlight', 'isBundle', 'allowFreeTrial', 'lifecycleStatus', 'status'];
+const SECTION_MAP = { basicInfo: 'settings', banner: 'banner', pricing: 'pricing', dateRange: 'settings', startDate: 'settings', endDate: 'settings', controls: 'controls', coupons: 'coupons', scheduleConflict: 'publish' };
+
+async function gatherSnapshotExtras(series) {
+  let bannerSnap = null, couponIds = [], materialsCount = 0, announcementsCount = 0;
+  try {
+    const Banner = mongoose.model('Banner');
+    const b = await Banner.findOne({ linkedType: 'series', linkedBatchId: series._id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
+    if (b) bannerSnap = { id: b._id, title: b.title, tagline: b.tagline, status: b.status, primaryColor: b.primaryColor };
+  } catch (e) {}
+  try { couponIds = (await Coupon.find({ scopeType: 'series', scopeId: series._id, isDeleted: false }).select('_id code status').lean()).map(c => ({ id: c._id, code: c.code, status: c.status })); } catch (e) {}
+  try { if (BatchNote) materialsCount = await BatchNote.countDocuments({ batch: series._id }); } catch (e) {}
+  try { let A; try { A = mongoose.model('Announcement'); } catch (e) { A = null; } if (A) announcementsCount = await A.countDocuments({ seriesId: series._id }); } catch (e) {}
+  return { banner: bannerSnap, coupons: couponIds, examsCount: (series.exams && series.exams.length) || 0, exams: (series.exams || []).map(String), materialsCount, announcementsCount };
+}
+
 async function buildPublishChecklist(series) {
   const studentCount = (series.students && series.students.length) || 0;
-  const examCount = (series.tests && series.tests.length) || 0;
+  const examCount = (series.exams && series.exams.length) || 0;
   const bannerGate = await checkBannerGate(series._id);
   let materialsCount = 0;
-  try { if (BatchNote) materialsCount = await BatchNote.countDocuments({ series: series._id }); } catch (e) {}
+  try { if (BatchNote) materialsCount = await BatchNote.countDocuments({ batch: series._id }); } catch (e) {}
   let announcementsCount = 0;
   try {
     let Announcement; try { Announcement = mongoose.model('Announcement'); } catch (e) { Announcement = null; }
@@ -1434,15 +1458,26 @@ async function buildPublishChecklist(series) {
   const expiredButActive = coupons.filter(c => c.status === 'active' && c.validTill && new Date(c.validTill) < now);
   const couponIssue = expiredButActive.length > 0 ? `${expiredButActive.length} active coupon(s) already expired` : '';
 
+  const dateRangeOk = !(series.startDate && series.endDate) || (new Date(series.endDate) > new Date(series.startDate));
+  let scheduleConflict = '';
+  if (series.scheduledPublishAt && series.startDate && new Date(series.scheduledPublishAt) > new Date(series.startDate)) {
+    scheduleConflict = 'Scheduled publish time is AFTER the series Start Date — students will miss the start.';
+  }
+  let controlMismatch = '';
+  if (series.seatLimit > 0 && studentCount > series.seatLimit) controlMismatch = `Enrolled students (${studentCount}) already exceed Seat Limit (${series.seatLimit})`;
+
+  const ignored = series.publishIgnoredIssues || [];
   const mandatory = [
-    { key: 'basicInfo', label: 'Basic Information complete', done: !!(series.name && series.description && series.examType), reason: 'Name, description & exam type required' },
-    { key: 'banner', label: 'Banner ready', done: !!bannerGate.ready, reason: bannerGate.reason || '' },
-    { key: 'pricing', label: 'Pricing configured', done: !!(series.isFree || (series.price && series.price > 0)), reason: 'Set a price or mark as Free' },
-    { key: 'startDate', label: 'Start Date set', done: !!series.startDate, reason: 'Start Date missing in Settings' },
-    { key: 'endDate', label: 'End Date / Validity set', done: !!(series.endDate || (series.validity && series.validity > 0)), reason: 'End Date or Validity missing' },
-    { key: 'controls', label: 'Controls configured', done: true, reason: '' },
-    { key: 'coupons', label: 'Coupon configuration checked', done: coupons.length === 0 || expiredButActive.length === 0, reason: couponIssue }
-  ];
+    { key: 'basicInfo', label: 'Basic Information complete', done: !!(series.name && series.description && series.examType), reason: 'Name, description & exam type required', ignorable: false, section: 'settings' },
+    { key: 'banner', label: 'Banner ready', done: !!bannerGate.ready, reason: bannerGate.reason || '', ignorable: false, section: 'banner' },
+    { key: 'pricing', label: 'Pricing configured', done: !!(series.isFree || (series.price && series.price > 0)), reason: 'Set a price or mark as Free', ignorable: false, section: 'pricing' },
+    { key: 'startDate', label: 'Start Date set', done: !!series.startDate, reason: 'Start Date missing in Settings', ignorable: false, section: 'settings' },
+    { key: 'endDate', label: 'End Date / Validity set', done: !!(series.endDate || (series.validity && series.validity > 0)), reason: 'End Date or Validity missing', ignorable: false, section: 'settings' },
+    { key: 'dateRange', label: 'Date range valid (End after Start)', done: dateRangeOk, reason: dateRangeOk ? '' : 'End Date must be after Start Date', ignorable: false, section: 'settings' },
+    { key: 'scheduleConflict', label: 'No publish-time conflict', done: !scheduleConflict, reason: scheduleConflict, ignorable: true, section: 'publish' },
+    { key: 'controls', label: 'Controls configured (no mismatch)', done: !controlMismatch, reason: controlMismatch, ignorable: true, section: 'controls' },
+    { key: 'coupons', label: 'Coupon configuration checked', done: coupons.length === 0 || expiredButActive.length === 0, reason: couponIssue, ignorable: true, section: 'coupons' }
+  ].map(m => ({ ...m, done: m.done || (m.ignorable && ignored.includes(m.key)) }));
   const optional = [
     { key: 'exams', label: 'Exams added', done: examCount > 0, count: examCount },
     { key: 'materials', label: 'Materials added', done: materialsCount > 0, count: materialsCount },
@@ -1452,27 +1487,36 @@ async function buildPublishChecklist(series) {
     { key: 'analytics', label: 'Analytics enabled', done: true }
   ];
 
-  const weights = { basicInfo: 15, banner: 20, pricing: 15, startDate: 8, endDate: 7, controls: 10, coupons: 5 };
+  const weights = { basicInfo: 12, banner: 18, pricing: 12, startDate: 6, endDate: 6, dateRange: 5, controls: 8, coupons: 5, scheduleConflict: 3 };
   let score = 0;
   mandatory.forEach(m => { if (m.done) score += (weights[m.key] || 0); });
   score += examCount > 0 ? 15 : 0;
-  score += (series.thumbnail || series.colorIcon) ? 5 : 0;
+  score += (series.thumbnail || series.colorIcon) ? 10 : 0;
   score = Math.max(0, Math.min(100, Math.round(score)));
 
-  const blockingIssues = mandatory.filter(m => !m.done && !(series.publishIgnoredIssues || []).includes(m.key))
-    .map(m => ({ key: m.key, message: m.reason || (m.label + ' missing') }));
+  const blockingIssues = mandatory.filter(m => !m.done)
+    .map(m => ({ key: m.key, message: m.reason || (m.label + ' missing'), ignorable: m.ignorable, section: SECTION_MAP[m.key] || 'overview' }));
 
-  return { mandatory, optional, score, scoreStatus: scoreStatusLabel(score), blockingIssues, studentCount, examCount, bannerGate };
+  return { mandatory, optional, score, scoreStatus: scoreStatusLabel(score), blockingIssues, studentCount, examCount, bannerGate, ignored };
+}
+
+function syncEffectivePublishState(currentState, isPublished, blockingIssues, publishVersion) {
+  if (currentState === 'scheduled' || isPublished) return currentState;
+  const hasIssues = blockingIssues.some(b => !b.ignorable || true) && blockingIssues.length > 0;
+  if (hasIssues) return publishVersion > 0 ? 'blocked' : 'draft';
+  return 'ready';
 }
 
 function applyPublishState(series, isPublished) {
   series.status = isPublished ? 'active' : (series.status === 'draft' ? 'draft' : 'inactive');
 }
 
-function pushPublishSnapshot(series, { action, notes, reason, visibilityMode, publishedByName }) {
+function pushPublishSnapshot(series, { action, notes, reason, visibilityMode, publishedByName, extras }) {
   series.publishSnapshots = series.publishSnapshots || [];
+  const version = series.publishVersion || 0;
   series.publishSnapshots.push({
-    version: series.publishVersion || 0,
+    version,
+    snapshotId: 'v' + version + '-' + Date.now(),
     publishedAt: new Date(),
     publishedBy: publishedByName || 'Admin',
     status: series.publishState,
@@ -1481,26 +1525,34 @@ function pushPublishSnapshot(series, { action, notes, reason, visibilityMode, pu
     reason: reason || '',
     visibilityMode: visibilityMode || series.visibility || 'public',
     snapshotData: {
-      name: series.name, description: series.description, examType: series.examType, category: series.category,
-      price: series.price, discountPrice: series.discountPrice, thumbnail: series.thumbnail, colorIcon: series.colorIcon,
-      startDate: series.startDate, endDate: series.endDate, validity: series.validity, seatLimit: series.seatLimit,
-      enrollmentRule: series.enrollmentRule, accessPolicy: series.accessPolicy, visibility: series.visibility,
-      teacherAssigned: series.teacherAssigned, isSpotlight: series.isSpotlight, isBundle: series.isBundle,
-      allowFreeTrial: series.allowFreeTrial, lifecycleStatus: series.lifecycleStatus, status: series.status
+      ...Object.fromEntries(SNAPSHOT_FIELDS.map(f => [f, series[f]])),
+      banner: extras?.banner || null, coupons: extras?.coupons || [], exams: extras?.exams || [],
+      examsCount: extras?.examsCount || 0, materialsCount: extras?.materialsCount || 0, announcementsCount: extras?.announcementsCount || 0
     }
   });
-  if (series.publishSnapshots.length > 30) series.publishSnapshots = series.publishSnapshots.slice(-30);
+  if (series.publishSnapshots.length > 40) series.publishSnapshots = series.publishSnapshots.slice(-40);
 }
 
 // GET /:id/publish-center — full readiness + status dashboard
 router.get('/:id/publish-center', auth, isAdmin, async (req, res) => {
   try {
-    const series = await TestSeries.findById(req.params.id).lean();
+    let series = await TestSeries.findById(req.params.id).lean();
     if (!series) return res.status(404).json({ error: 'Test series not found' });
     const { mandatory, optional, score, scoreStatus, blockingIssues, examCount, bannerGate } = await buildPublishChecklist(series);
 
+    const nextState = syncEffectivePublishState(series.publishState || 'draft', !!series.isPublished, blockingIssues, series.publishVersion || 0);
+    if (nextState !== series.publishState) {
+      await TestSeries.updateOne({ _id: series._id }, { $set: { publishState: nextState } });
+      series.publishState = nextState;
+    }
+
     let couponsActive = false;
     try { couponsActive = !!(await Coupon.exists({ scopeType: 'series', scopeId: series._id, isDeleted: false, status: 'active' })); } catch (e) {}
+    let scheduledExamsCount = 0;
+    try {
+      let ExamModel; try { ExamModel = mongoose.model('Exam'); } catch (e) { ExamModel = null; }
+      if (ExamModel && examCount > 0) scheduledExamsCount = await ExamModel.countDocuments({ _id: { $in: series.exams }, 'schedule.startTime': { $gt: new Date() } });
+    } catch (e) {}
     const visibleInMarketplace = series.status === 'active' && series.visibility !== 'private';
     const postPublishChecks = !series.isPublished ? null : {
       visibleInMarketplace,
@@ -1513,18 +1565,28 @@ router.get('/:id/publish-center', auth, isAdmin, async (req, res) => {
       launchStatusUpdated: true,
       state: !visibleInMarketplace ? 'Live but Hidden'
         : (series.enrollmentRule === 'invite_only' || series.accessPolicy !== 'open') ? 'Live but Enrollment Closed'
+        : scheduledExamsCount > 0 ? 'Live with Scheduled Exams'
         : couponsActive ? 'Live with Offer Active' : 'Fully Live'
+    };
+
+    const stateMeaning = {
+      draft: 'Setup incomplete or not yet launched', ready: 'All mandatory requirements complete — ready to go live',
+      scheduled: 'Publish time is set in the future', published: 'Live and visible to students',
+      unpublished: 'Temporarily hidden from marketplace', republish_pending: 'Live update made — re-publish required to reflect changes',
+      blocked: 'Mandatory items missing / broken after being live before'
     };
 
     res.json({
       summary: {
         readinessScore: score, scoreStatus,
         publishStatus: series.publishState || 'draft',
+        publishStatusMeaning: stateMeaning[series.publishState] || '',
         publishVersion: series.publishVersion || 0,
         lastPublished: series.lastPublishedAt || null,
         lastPublishedBy: series.lastPublishedBy || '',
         draftChangesPending: !!series.draftChangesPending,
-        blockingIssuesCount: blockingIssues.length
+        blockingIssuesCount: blockingIssues.filter(b => !b.ignorable).length,
+        ignorableIssuesCount: blockingIssues.filter(b => b.ignorable).length
       },
       isPublished: !!series.isPublished,
       checklist: { mandatory, optional },
@@ -1537,7 +1599,9 @@ router.get('/:id/publish-center', auth, isAdmin, async (req, res) => {
         isScheduleActive: series.publishState === 'scheduled'
       },
       postPublishChecks,
-      history: (series.publishSnapshots || []).slice().reverse().slice(0, 50)
+      editLock: { active: !!series.isPublished || series.publishState === 'scheduled', fields: CRITICAL_FIELDS },
+      history: (series.publishSnapshots || []).slice().reverse().slice(0, 50),
+      studentCount: (series.students && series.students.length) || 0
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1548,8 +1612,10 @@ router.put('/:id/publish-center/publish', auth, isAdmin, async (req, res) => {
     const series = await TestSeries.findById(req.params.id);
     if (!series) return res.status(404).json({ error: 'Test series not found' });
     const { mandatory, blockingIssues } = await buildPublishChecklist(series.toObject());
-    if (blockingIssues.length > 0) return res.status(423).json({ error: 'Mandatory checklist incomplete', blockingIssues, gate: 'publish_blocked' });
+    const hardBlocking = blockingIssues.filter(b => !b.ignorable);
+    if (hardBlocking.length > 0) return res.status(423).json({ error: 'Mandatory checklist incomplete', blockingIssues: hardBlocking, gate: 'publish_blocked' });
     const oldState = series.publishState;
+    const extras = await gatherSnapshotExtras(series);
     series.isPublished = true;
     series.publishState = 'published';
     series.publishVersion = (series.publishVersion || 0) + 1;
@@ -1557,10 +1623,11 @@ router.put('/:id/publish-center/publish', auth, isAdmin, async (req, res) => {
     series.lastPublishedBy = req.user.name || 'Admin';
     series.draftChangesPending = false;
     applyPublishState(series, true);
-    pushPublishSnapshot(series, { action: 'publish', notes: req.body.notes, visibilityMode: req.body.visibilityMode, publishedByName: req.user.name });
+    pushPublishSnapshot(series, { action: 'publish', notes: req.body.notes, visibilityMode: req.body.visibilityMode, publishedByName: req.user.name, extras });
     series.lastActivityAt = new Date();
+    series.$locals = series.$locals || {}; series.$locals.allowCriticalEdit = true;
     await series.save();
-    await logAudit({ seriesId: series._id, field: 'publishState', oldValue: oldState, newValue: 'published', action: 'publish_completed', changedBy: req.user.id, changedByName: req.user.name });
+    await logAudit({ seriesId: series._id, field: 'publishState', oldValue: oldState, newValue: 'published', action: 'publish_completed', changedBy: req.user.id, changedByName: req.user.name, snapshotVersion: series.publishVersion });
     res.json({ success: true, publishState: series.publishState, publishVersion: series.publishVersion });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1570,13 +1637,16 @@ router.put('/:id/publish-center/unpublish', auth, isAdmin, async (req, res) => {
   try {
     const series = await TestSeries.findById(req.params.id);
     if (!series) return res.status(404).json({ error: 'Test series not found' });
+    if (!req.body.reason) return res.status(400).json({ error: 'Reason is required to unpublish' });
     const oldState = series.publishState;
+    const extras = await gatherSnapshotExtras(series);
     series.isPublished = false;
     series.publishState = 'unpublished';
     applyPublishState(series, false);
-    pushPublishSnapshot(series, { action: 'unpublish', reason: req.body.reason, publishedByName: req.user.name });
+    pushPublishSnapshot(series, { action: 'unpublish', reason: req.body.reason, publishedByName: req.user.name, extras });
+    series.$locals = series.$locals || {}; series.$locals.allowCriticalEdit = true;
     await series.save();
-    await logAudit({ seriesId: series._id, field: 'publishState', oldValue: oldState, newValue: 'unpublished', action: 'unpublish_initiated', changedBy: req.user.id, changedByName: req.user.name });
+    await logAudit({ seriesId: series._id, field: 'publishState', oldValue: oldState, newValue: 'unpublished', action: 'unpublish_initiated', changedBy: req.user.id, changedByName: req.user.name, reason: req.body.reason });
     res.json({ success: true, publishState: series.publishState });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1587,8 +1657,10 @@ router.put('/:id/publish-center/republish', auth, isAdmin, async (req, res) => {
     const series = await TestSeries.findById(req.params.id);
     if (!series) return res.status(404).json({ error: 'Test series not found' });
     const { blockingIssues } = await buildPublishChecklist(series.toObject());
-    if (blockingIssues.length > 0) return res.status(423).json({ error: 'Mandatory checklist incomplete', blockingIssues, gate: 'publish_blocked' });
+    const hardBlocking = blockingIssues.filter(b => !b.ignorable);
+    if (hardBlocking.length > 0) return res.status(423).json({ error: 'Mandatory checklist incomplete', blockingIssues: hardBlocking, gate: 'publish_blocked' });
     const oldState = series.publishState;
+    const extras = await gatherSnapshotExtras(series);
     series.isPublished = true;
     series.publishState = 'published';
     series.publishVersion = (series.publishVersion || 0) + 1;
@@ -1596,9 +1668,10 @@ router.put('/:id/publish-center/republish', auth, isAdmin, async (req, res) => {
     series.lastPublishedBy = req.user.name || 'Admin';
     series.draftChangesPending = false;
     applyPublishState(series, true);
-    pushPublishSnapshot(series, { action: 'republish', notes: req.body.notes, publishedByName: req.user.name });
+    pushPublishSnapshot(series, { action: 'republish', notes: req.body.notes, publishedByName: req.user.name, extras });
+    series.$locals = series.$locals || {}; series.$locals.allowCriticalEdit = true;
     await series.save();
-    await logAudit({ seriesId: series._id, field: 'publishState', oldValue: oldState, newValue: 'published', action: 'republish_initiated', changedBy: req.user.id, changedByName: req.user.name });
+    await logAudit({ seriesId: series._id, field: 'publishState', oldValue: oldState, newValue: 'published', action: 'republish_initiated', changedBy: req.user.id, changedByName: req.user.name, snapshotVersion: series.publishVersion });
     res.json({ success: true, publishState: series.publishState, publishVersion: series.publishVersion });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1610,6 +1683,7 @@ router.put('/:id/publish-center/schedule', auth, isAdmin, async (req, res) => {
     if (!series) return res.status(404).json({ error: 'Test series not found' });
     const { publishAt, timezone, autoActivate, autoUnpublishAt } = req.body;
     if (!publishAt || new Date(publishAt) <= new Date()) return res.status(400).json({ error: 'Publish Date/Time must be in the future' });
+    if (series.startDate && new Date(publishAt) > new Date(series.startDate)) return res.status(400).json({ error: 'Publish time conflict: scheduled time is after the series Start Date' });
     series.scheduledPublishAt = new Date(publishAt);
     series.scheduledPublishTimezone = timezone || 'Asia/Kolkata';
     series.scheduledAutoActivate = autoActivate !== false;
@@ -1640,14 +1714,16 @@ router.put('/:id/publish-center/archive', auth, isAdmin, async (req, res) => {
   try {
     const series = await TestSeries.findById(req.params.id);
     if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const extras = await gatherSnapshotExtras(series);
     series.isPublished = false;
     series.publishState = 'unpublished';
     series.lifecycleStatus = 'archived';
     series.archivedAt = new Date();
     applyPublishState(series, false);
-    pushPublishSnapshot(series, { action: 'archive', reason: req.body.reason, publishedByName: req.user.name });
+    pushPublishSnapshot(series, { action: 'archive', reason: req.body.reason, publishedByName: req.user.name, extras });
+    series.$locals = series.$locals || {}; series.$locals.allowCriticalEdit = true;
     await series.save();
-    await logAudit({ seriesId: series._id, field: 'lifecycleStatus', newValue: 'archived', action: 'publish_center_archive', changedBy: req.user.id, changedByName: req.user.name });
+    await logAudit({ seriesId: series._id, field: 'lifecycleStatus', newValue: 'archived', action: 'publish_center_archive', changedBy: req.user.id, changedByName: req.user.name, reason: req.body.reason });
     res.json({ success: true, publishState: series.publishState });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1665,12 +1741,48 @@ router.put('/:id/publish-center/restore-draft', auth, isAdmin, async (req, res) 
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// PUT /:id/publish-center/ignore-issue — mark an ignorable optional/soft issue as ignored
+router.put('/:id/publish-center/ignore-issue', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const { key } = req.body;
+    if (!key) return res.status(400).json({ error: 'key required' });
+    series.publishIgnoredIssues = series.publishIgnoredIssues || [];
+    if (!series.publishIgnoredIssues.includes(key)) series.publishIgnoredIssues.push(key);
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'publishIgnoredIssues', newValue: key, action: 'issue_ignored', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, publishIgnoredIssues: series.publishIgnoredIssues });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.delete('/:id/publish-center/ignore-issue/:key', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    series.publishIgnoredIssues = (series.publishIgnoredIssues || []).filter(k => k !== req.params.key);
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'publishIgnoredIssues', newValue: 'un-ignored:' + req.params.key, action: 'issue_unignored', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, publishIgnoredIssues: series.publishIgnoredIssues });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET /:id/publish-center/history
 router.get('/:id/publish-center/history', auth, isAdmin, async (req, res) => {
   try {
     const series = await TestSeries.findById(req.params.id).lean();
     if (!series) return res.status(404).json({ error: 'Test series not found' });
     res.json({ history: (series.publishSnapshots || []).slice().reverse() });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /:id/publish-center/history/export — download publish log
+router.get('/:id/publish-center/history/export', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="publish-log-${series.seriesCode || series._id}.json"`);
+    res.send(JSON.stringify((series.publishSnapshots || []).slice().reverse(), null, 2));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1685,19 +1797,51 @@ router.get('/:id/publish-center/snapshot/:version', auth, isAdmin, async (req, r
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /:id/publish-center/compare?from=X&to=Y — field-level diff between two snapshot versions
+router.get('/:id/publish-center/compare', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const { from, to } = req.query;
+    const a = (series.publishSnapshots || []).find(s => String(s.version) === String(from));
+    const b = (series.publishSnapshots || []).find(s => String(s.version) === String(to));
+    if (!a || !b) return res.status(404).json({ error: 'One or both snapshot versions not found' });
+    const diff = [];
+    const keys = new Set([...Object.keys(a.snapshotData || {}), ...Object.keys(b.snapshotData || {})]);
+    keys.forEach(k => {
+      const av = JSON.stringify(a.snapshotData?.[k]), bv = JSON.stringify(b.snapshotData?.[k]);
+      if (av !== bv) diff.push({ field: k, from: a.snapshotData?.[k], to: b.snapshotData?.[k] });
+    });
+    res.json({ from: a.version, to: b.version, diff });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // POST /:id/publish-center/rollback
 router.post('/:id/publish-center/rollback', auth, isAdmin, async (req, res) => {
   try {
     const series = await TestSeries.findById(req.params.id);
     if (!series) return res.status(404).json({ error: 'Test series not found' });
-    const { toVersion, reason, scope } = req.body;
+    const { toVersion, reason, scope, sections, confirmLiveImpact } = req.body;
     if (!reason) return res.status(400).json({ error: 'Reason is mandatory for rollback' });
+    const studentCount = (series.students && series.students.length) || 0;
+    if (studentCount > 0 && !confirmLiveImpact) {
+      return res.status(409).json({ warning: 'live_students_affected', studentCount, message: `This series has ${studentCount} enrolled student(s). Confirm to proceed with rollback.` });
+    }
     const snap = (series.publishSnapshots || []).find(s => String(s.version) === String(toVersion));
     if (!snap) return res.status(404).json({ error: 'Snapshot version not found' });
     const d = snap.snapshotData || {};
-    ['name', 'description', 'examType', 'category', 'price', 'discountPrice', 'thumbnail', 'colorIcon',
-      'startDate', 'endDate', 'validity', 'seatLimit', 'enrollmentRule', 'accessPolicy', 'visibility',
-      'teacherAssigned', 'isSpotlight', 'isBundle', 'allowFreeTrial'].forEach(f => { if (d[f] !== undefined) series[f] = d[f]; });
+    const SECTION_FIELD_GROUPS = {
+      basicInfo: ['name', 'description', 'examType', 'category'],
+      pricing: ['price', 'discountPrice'],
+      banner: ['thumbnail', 'colorIcon'],
+      dates: ['startDate', 'endDate', 'validity'],
+      controls: ['seatLimit', 'enrollmentRule', 'accessPolicy', 'visibility'],
+      other: ['teacherAssigned', 'isSpotlight', 'isBundle', 'allowFreeTrial']
+    };
+    const fieldsToRestore = (Array.isArray(sections) && sections.length > 0)
+      ? sections.flatMap(s => SECTION_FIELD_GROUPS[s] || [])
+      : SNAPSHOT_FIELDS;
+    fieldsToRestore.forEach(f => { if (d[f] !== undefined) series[f] = d[f]; });
     if (scope === 'draft_only') {
       series.publishState = 'draft';
       series.draftChangesPending = true;
@@ -1709,14 +1853,16 @@ router.post('/:id/publish-center/rollback', auth, isAdmin, async (req, res) => {
       series.lastPublishedBy = req.user.name || 'Admin';
       applyPublishState(series, true);
     }
-    pushPublishSnapshot(series, { action: 'rollback', reason, publishedByName: req.user.name });
+    const extras = await gatherSnapshotExtras(series);
+    pushPublishSnapshot(series, { action: 'rollback', reason, publishedByName: req.user.name, extras });
+    series.$locals = series.$locals || {}; series.$locals.allowCriticalEdit = true;
     await series.save();
-    await logAudit({ seriesId: series._id, field: 'publishVersion', oldValue: series.publishVersion, newValue: toVersion, action: 'rollback_executed', changedBy: req.user.id, changedByName: req.user.name, source: 'rollback:' + reason });
+    await logAudit({ seriesId: series._id, field: 'publishVersion', oldValue: series.publishVersion, newValue: toVersion, action: 'rollback_executed', changedBy: req.user.id, changedByName: req.user.name, reason, snapshotVersion: toVersion });
     res.json({ success: true, publishState: series.publishState, publishVersion: series.publishVersion });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /:id/publish-center/preview — student-facing preview (marketplace/card/detail/mobile/desktop)
+// GET /:id/publish-center/preview — student-facing preview (marketplace/card/detail/mobile/desktop/mybatches)
 router.get('/:id/publish-center/preview', auth, isAdmin, async (req, res) => {
   try {
     const series = await TestSeries.findById(req.params.id).lean();
@@ -1729,7 +1875,7 @@ router.get('/:id/publish-center/preview', auth, isAdmin, async (req, res) => {
       const Banner = mongoose.model('Banner');
       banner = await Banner.findOne({ linkedType: 'series', linkedBatchId: series._id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
     } catch (e) {}
-    const examCount = (series.tests && series.tests.length) || 0;
+    const examCount = (series.exams && series.exams.length) || 0;
     res.json({
       mode: req.query.mode || 'marketplace',
       preview: {
@@ -1742,6 +1888,68 @@ router.get('/:id/publish-center/preview', auth, isAdmin, async (req, res) => {
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+// POST /:id/publish-center/simulate-enroll — simulated enrollment flow (no real enrollment created)
+router.post('/:id/publish-center/simulate-enroll', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const eff = effectivePrice(series);
+    res.json({
+      simulated: true,
+      steps: [
+        { step: 'View Batch', ok: true },
+        { step: 'Click ' + (series.isFree ? 'Enroll Free' : 'Enroll Now'), ok: true },
+        { step: series.isFree ? 'Free enrollment confirmed' : `Payment of ₹${eff} simulated`, ok: true },
+        { step: 'Access granted to My Batches', ok: true }
+      ],
+      note: 'This is a simulation only — no real enrollment or payment was created.'
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Scheduler: in-process check every 60s for due scheduled publishes / auto-unpublish ──
+if (!global.__proveRankSeriesSchedulerStarted) {
+  global.__proveRankSeriesSchedulerStarted = true;
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const due = await TestSeries.find({ publishState: 'scheduled', scheduledPublishAt: { $lte: now } });
+      for (const series of due) {
+        try {
+          if (series.scheduledAutoActivate === false) continue;
+          const { blockingIssues } = await buildPublishChecklist(series.toObject());
+          const hardBlocking = blockingIssues.filter(b => !b.ignorable);
+          if (hardBlocking.length > 0) { series.publishState = 'blocked'; await series.save(); continue; }
+          const extras = await gatherSnapshotExtras(series);
+          series.isPublished = true; series.publishState = 'published';
+          series.publishVersion = (series.publishVersion || 0) + 1;
+          series.lastPublishedAt = new Date(); series.lastPublishedBy = 'Scheduler (auto)';
+          series.draftChangesPending = false;
+          applyPublishState(series, true);
+          pushPublishSnapshot(series, { action: 'publish', notes: 'Auto-published via schedule', publishedByName: 'Scheduler (auto)', extras });
+          series.scheduledPublishAt = null;
+          series.$locals = series.$locals || {}; series.$locals.allowCriticalEdit = true;
+          await series.save();
+          await logAudit({ seriesId: series._id, field: 'publishState', newValue: 'published', action: 'publish_completed', changedByName: 'Scheduler (auto)', snapshotVersion: series.publishVersion });
+        } catch (e) { /* per-batch failure must not break the loop */ }
+      }
+      const dueUnpub = await TestSeries.find({ isPublished: true, scheduledAutoUnpublishAt: { $lte: now, $ne: null } });
+      for (const series of dueUnpub) {
+        try {
+          series.isPublished = false; series.publishState = 'unpublished';
+          applyPublishState(series, false);
+          const extras = await gatherSnapshotExtras(series);
+          pushPublishSnapshot(series, { action: 'unpublish', reason: 'Auto-unpublish (scheduled)', publishedByName: 'Scheduler (auto)', extras });
+          series.scheduledAutoUnpublishAt = null;
+          series.$locals = series.$locals || {}; series.$locals.allowCriticalEdit = true;
+          await series.save();
+          await logAudit({ seriesId: series._id, field: 'publishState', newValue: 'unpublished', action: 'unpublish_initiated', changedByName: 'Scheduler (auto)', reason: 'Auto-unpublish (scheduled)' });
+        } catch (e) {}
+      }
+    } catch (e) { /* scheduler tick failure must never crash the server */ }
+  }, 60000);
+}
 
 
 

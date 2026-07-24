@@ -80,5 +80,26 @@ const TestSeriesSchema = new mongoose.Schema({
 
 
 }, { timestamps: true });
+// ── Publish Center v2: Edit Lock + Draft-Changes-Pending (auto, via pre-save hook) ──
+const PUBLISH_CRITICAL_FIELDS = ['examType', 'price', 'discountPrice', 'startDate', 'endDate', 'validity'];
+const PUBLISH_WATCHED_FIELDS = ['name', 'description', 'examType', 'category', 'price', 'discountPrice', 'thumbnail', 'colorIcon',
+  'startDate', 'endDate', 'validity', 'seatLimit', 'enrollmentRule', 'accessPolicy', 'visibility', 'teacherAssigned',
+  'isSpotlight', 'isBundle', 'allowFreeTrial'];
+TestSeriesSchema.pre('save', function (next) {
+  const locked = (this.isPublished || this.publishState === 'scheduled') && !(this.$locals && this.$locals.allowCriticalEdit);
+  if (locked) {
+    const lockedField = PUBLISH_CRITICAL_FIELDS.find(f => this.isModified(f));
+    if (lockedField) return next(new Error('EDIT_LOCKED: Cannot change "' + lockedField + '" while Batch is Published/Scheduled. Unpublish it or use Publish Center to make critical changes.'));
+  }
+  if (this.isPublished && !this.isNew && !this.isModified('draftChangesPending') && !this.isModified('publishState')) {
+    if (PUBLISH_WATCHED_FIELDS.some(f => this.isModified(f))) {
+      this.draftChangesPending = true;
+      if (this.publishState === 'published') this.publishState = 'republish_pending';
+    }
+  }
+  next();
+});
+
+
 
 module.exports = mongoose.models.TestSeries || mongoose.model('TestSeries', TestSeriesSchema);

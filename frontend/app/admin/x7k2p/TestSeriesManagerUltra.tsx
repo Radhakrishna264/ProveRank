@@ -518,7 +518,7 @@ function TestSeriesDetail({ id, base, authHeaders, onBack, isMobile, showToast, 
       {tab === 'analytics' && <AnalyticsTab base={base} authHeaders={authHeaders} id={id} allSeries={allSeries} />}
       {tab === 'announcements' && <AnnouncementsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
       {tab === 'settings' && <SettingsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} load={load} />}
-      {tab === 'publish' && <PublishCenterTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} load={load} />}
+      {tab === 'publish' && <PublishCenterTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} load={load} setParentTab={setTab} />}
       {tab === 'audit' && <AuditTab base={base} authHeaders={authHeaders} id={id} />}
 
       {modal === 'add' && <StudentAddModal base={base} authHeaders={authHeaders} seriesId={id} onClose={() => setModal('')} onDone={load} showToast={showToast} />}
@@ -2346,24 +2346,34 @@ function SettingsTab({ base, authHeaders, id, showToast, load: loadParent }: any
 
 // ── 15) AUDIT HISTORY TAB ──
 
-// ── 16) PUBLISH CENTER TAB — Go-Live Control Center ──
-function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }: any) {
+
+// ── 16) PUBLISH CENTER TAB — Go-Live Control Center [v2] ──
+function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent, setParentTab }: any) {
   const isMobile = useIsMobile()
   const [data, setData] = useState<any>(null)
   const [previewMode, setPreviewMode] = useState('marketplace')
   const [preview, setPreview] = useState<any>(null)
   const [showPreview, setShowPreview] = useState(false)
+  const [previewDrawer, setPreviewDrawer] = useState(false)
+  const [simResult, setSimResult] = useState<any>(null)
   const [notes, setNotes] = useState('')
   const [showSchedule, setShowSchedule] = useState(false)
   const [sched, setSched] = useState<any>({ publishAt: '', timezone: 'Asia/Kolkata', autoActivate: true, autoUnpublishAt: '' })
   const [rollbackFor, setRollbackFor] = useState<any>(null)
   const [rollbackReason, setRollbackReason] = useState('')
   const [rollbackScope, setRollbackScope] = useState('full')
+  const [rollbackSections, setRollbackSections] = useState<string[]>([])
+  const [rollbackWarning, setRollbackWarning] = useState<any>(null)
   const [unpublishReason, setUnpublishReason] = useState('')
   const [showUnpublishBox, setShowUnpublishBox] = useState(false)
   const [busy, setBusy] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(!isMobile)
   const [checklistOpen, setChecklistOpen] = useState(true)
+  const [stateInfoOpen, setStateInfoOpen] = useState(false)
+  const [compareFrom, setCompareFrom] = useState('')
+  const [compareTo, setCompareTo] = useState('')
+  const [compareResult, setCompareResult] = useState<any>(null)
+  const [showCompare, setShowCompare] = useState(false)
 
   const load = useCallback(() => fetch(base + '/' + id + '/publish-center', { headers: authHeaders }).then(r => r.json()).then(setData).catch(() => {}), [])
   useEffect(() => { load() }, [load])
@@ -2373,6 +2383,12 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }
     const d = await fetch(base + '/' + id + '/publish-center/preview?mode=' + mode, { headers: authHeaders }).then(r => r.json()).catch(() => null)
     setPreview(d?.preview || null)
     setShowPreview(true)
+    if (isMobile) setPreviewDrawer(true)
+  }
+
+  const runSimulateEnroll = async () => {
+    const d = await fetch(base + '/' + id + '/publish-center/simulate-enroll', { method: 'POST', headers: authHeaders }).then(r => r.json()).catch(() => null)
+    setSimResult(d)
   }
 
   const act = async (path: string, method: string, body?: any, okMsg?: string) => {
@@ -2380,7 +2396,7 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }
     try {
       const r = await fetch(base + '/' + id + '/publish-center/' + path, { method, headers: authHeaders, body: body ? JSON.stringify(body) : undefined })
       const d = await r.json()
-      if (!r.ok) { showToast('⚠️ ' + (d.error || 'Action failed')); setBusy(false); return d }
+      if (!r.ok) { showToast('⚠️ ' + (d.error || d.message || 'Action failed')); setBusy(false); return d }
       showToast(okMsg || '✅ Done')
       await load(); loadParent && loadParent()
       setBusy(false)
@@ -2390,8 +2406,11 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }
 
   const doPublish = () => act('publish', 'PUT', { notes }, '🚀 Published successfully')
   const doRepublish = () => act('republish', 'PUT', { notes }, '🚀 Republished successfully')
-  const doUnpublish = async () => { await act('unpublish', 'PUT', { reason: unpublishReason }, '⛔ Unpublished'); setShowUnpublishBox(false); setUnpublishReason('') }
-  const doArchive = () => { if (!window.confirm('Archive this batch? It will be hidden from marketplace and moved to Archived.')) return; act('archive', 'PUT', {}, '📦 Archived') }
+  const doUnpublish = async () => {
+    if (!unpublishReason.trim()) return showToast('⚠️ Reason is required')
+    await act('unpublish', 'PUT', { reason: unpublishReason }, '⛔ Unpublished'); setShowUnpublishBox(false); setUnpublishReason('')
+  }
+  const doArchive = () => { if (!window.confirm('Archive this batch? It will be hidden from marketplace and moved to Archived.')) return; act('archive', 'PUT', { reason: 'Archived from Publish Center' }, '📦 Archived') }
   const doRestoreDraft = () => { if (!window.confirm('Restore to Draft? This will keep it unpublished for further editing.')) return; act('restore-draft', 'PUT', {}, '📝 Restored to Draft') }
   const doSchedule = async () => {
     if (!sched.publishAt) return showToast('⚠️ Select publish date & time')
@@ -2400,18 +2419,34 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }
     setShowSchedule(false)
   }
   const doCancelSchedule = () => act('schedule/cancel', 'PUT', {}, '✅ Scheduled publish cancelled')
-  const doRollback = async () => {
+  const doIgnoreIssue = (key: string) => act('ignore-issue', 'PUT', { key }, '✅ Issue marked as ignored')
+  const doUnignoreIssue = (key: string) => act('ignore-issue/' + key, 'DELETE', undefined, '↩️ Un-ignored')
+
+  const doRollback = async (force?: boolean) => {
     if (!rollbackReason.trim()) return showToast('⚠️ Reason is mandatory for rollback')
-    if (!window.confirm(`Rollback to version ${rollbackFor.version}? This will overwrite current draft/live data.`)) return
-    await act('rollback', 'POST', { toVersion: rollbackFor.version, reason: rollbackReason, scope: rollbackScope }, '↩️ Rolled back to v' + rollbackFor.version)
-    setRollbackFor(null); setRollbackReason('')
+    if (!force && !window.confirm(`Rollback to version ${rollbackFor.version}? This will overwrite current draft/live data.`)) return
+    const body: any = { toVersion: rollbackFor.version, reason: rollbackReason, scope: rollbackScope, sections: rollbackSections }
+    if (force) body.confirmLiveImpact = true
+    const r = await act('rollback', 'POST', body, '↩️ Rolled back to v' + rollbackFor.version)
+    if (r && r.warning === 'live_students_affected') { setRollbackWarning(r); return }
+    setRollbackFor(null); setRollbackReason(''); setRollbackSections([]); setRollbackWarning(null)
   }
+
+  const loadCompare = async () => {
+    if (!compareFrom || !compareTo) return showToast('⚠️ Select both versions')
+    const d = await fetch(base + '/' + id + '/publish-center/compare?from=' + compareFrom + '&to=' + compareTo, { headers: authHeaders }).then(r => r.json()).catch(() => null)
+    setCompareResult(d)
+  }
+
+  const jumpToSection = (section: string) => { if (section && setParentTab) setParentTab(section) }
+  const downloadLog = () => { window.open(base + '/' + id + '/publish-center/history/export', '_blank') }
 
   if (!data) return <EmptyMsg text="⟳ Loading Publish Center…" />
   const s = data.summary
   const scoreColor = s.readinessScore >= 95 ? GOOD : s.readinessScore >= 80 ? ACC : s.readinessScore >= 50 ? WARN : BAD
-  const statusChip = (label: string, color: string) => <span style={chip(color, 'rgba(255,255,255,0.05)')}>{label}</span>
   const stateColor: any = { draft: DIM, ready: ACC, scheduled: WARN, published: GOOD, unpublished: BAD, republish_pending: WARN, blocked: BAD }
+  const hardBlocking = (data.blockingIssues || []).filter((b: any) => !b.ignorable)
+  const softBlocking = (data.blockingIssues || []).filter((b: any) => b.ignorable)
 
   const SummaryCards = () => (
     <div style={{ ...cs, display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(6,1fr)', gap: 10 }}>
@@ -2419,11 +2454,11 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }
         <div style={{ fontSize: 22, fontWeight: 800, color: scoreColor }}>{s.readinessScore}%</div>
         <div style={{ fontSize: 9, color: DIM }}>READINESS · {s.scoreStatus}</div>
       </div>
-      <div style={{ textAlign: 'center' }}>
+      <div style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setStateInfoOpen(!stateInfoOpen)}>
         <div style={{ fontSize: 14, fontWeight: 800, color: stateColor[s.publishStatus] || TS, textTransform: 'capitalize' }}>{(s.publishStatus || 'draft').replace('_', ' ')}</div>
-        <div style={{ fontSize: 9, color: DIM }}>PUBLISH STATUS</div>
+        <div style={{ fontSize: 9, color: DIM }}>PUBLISH STATUS ℹ️</div>
       </div>
-      <div style={{ textAlign: 'center' }}>
+      <div style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setHistoryOpen(true)}>
         <div style={{ fontSize: 20, fontWeight: 800, color: '#7DD3FC' }}>v{s.publishVersion}</div>
         <div style={{ fontSize: 9, color: DIM }}>VERSION</div>
       </div>
@@ -2436,9 +2471,10 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }
         <div style={{ fontSize: 9, color: DIM }}>DRAFT CHANGES</div>
       </div>
       <div style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setChecklistOpen(true)}>
-        <div style={{ fontSize: 20, fontWeight: 800, color: s.blockingIssuesCount > 0 ? BAD : GOOD }}>{s.blockingIssuesCount}</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: s.blockingIssuesCount > 0 ? BAD : GOOD }}>{s.blockingIssuesCount}{s.ignorableIssuesCount > 0 ? <span style={{ fontSize: 10, color: WARN }}> +{s.ignorableIssuesCount}</span> : ''}</div>
         <div style={{ fontSize: 9, color: DIM }}>BLOCKING ISSUES</div>
       </div>
+      {stateInfoOpen && <div style={{ gridColumn: isMobile ? 'span 2' : 'span 6', fontSize: 11.5, color: DIM, background: 'rgba(0,22,40,0.6)', borderRadius: 8, padding: 8, marginTop: 4 }}>ℹ️ {s.publishStatusMeaning}</div>}
     </div>
   )
 
@@ -2451,9 +2487,12 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }
       {checklistOpen && <>
         <div style={{ fontSize: 10.5, color: DIM, marginBottom: 6, textTransform: 'uppercase', fontWeight: 700 }}>Mandatory</div>
         {data.checklist.mandatory.map((m: any) => (
-          <div key={m.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${BOR}` }}>
-            <div style={{ fontSize: 12.5, color: m.done ? TS : BAD }}>{m.done ? '✅' : '🔴'} {m.label}</div>
-            {!m.done && <span style={{ fontSize: 10, color: DIM }}>{m.reason}</span>}
+          <div key={m.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${BOR}`, gap: 6 }}>
+            <div style={{ fontSize: 12.5, color: m.done ? TS : (m.ignorable ? WARN : BAD), flex: 1 }}>{m.done ? '✅' : (m.ignorable ? '🟡' : '🔴')} {m.label}{!m.done && <div style={{ fontSize: 10, color: DIM }}>{m.reason}</div>}</div>
+            {!m.done && <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+              <button style={{ ...bs, fontSize: 10, padding: '3px 8px' }} onClick={() => jumpToSection(m.section)}>Fix Now</button>
+              {m.ignorable && <button style={{ ...bs, fontSize: 10, padding: '3px 8px' }} onClick={() => doIgnoreIssue(m.key)}>Ignore</button>}
+            </div>}
           </div>
         ))}
         <div style={{ fontSize: 10.5, color: DIM, margin: '10px 0 6px', textTransform: 'uppercase', fontWeight: 700 }}>Optional</div>
@@ -2468,19 +2507,32 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }
     </div>
   )
 
-  const BlockingPanel = () => data.blockingIssues.length === 0 ? null : (
+  const BlockingPanel = () => hardBlocking.length === 0 && softBlocking.length === 0 ? null : (
     <div style={{ ...cs, border: `1px solid rgba(239,68,68,0.35)` }}>
-      <div style={{ fontWeight: 700, color: BAD, marginBottom: 8 }}>🚫 Blocking Issues ({data.blockingIssues.length})</div>
-      {data.blockingIssues.map((b: any) => <div key={b.key} style={{ fontSize: 12, color: TS, padding: '4px 0' }}>• {b.message}</div>)}
+      <div style={{ fontWeight: 700, color: BAD, marginBottom: 8 }}>🚫 Blocking Issues ({hardBlocking.length}{softBlocking.length > 0 ? ' + ' + softBlocking.length + ' ignorable' : ''})</div>
+      {hardBlocking.map((b: any) => (
+        <div key={b.key} style={{ fontSize: 12, color: TS, padding: '4px 0', display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+          <span>• {b.message}</span>
+          <button style={{ ...bs, fontSize: 10, padding: '3px 8px', flexShrink: 0 }} onClick={() => jumpToSection(b.section)}>Open Section</button>
+        </div>
+      ))}
+      {softBlocking.map((b: any) => (
+        <div key={b.key} style={{ fontSize: 12, color: WARN, padding: '4px 0', display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+          <span>• {b.message}</span>
+          <button style={{ ...bs, fontSize: 10, padding: '3px 8px', flexShrink: 0 }} onClick={() => doIgnoreIssue(b.key)}>Ignore</button>
+        </div>
+      ))}
+      <button style={{ ...bs, marginTop: 8, width: '100%' }} onClick={load}>🔄 Recheck</button>
     </div>
   )
 
-  const PreviewPanel = () => (
-    <div style={cs}>
-      <div style={{ fontWeight: 700, color: TS, marginBottom: 8 }}>👁 Student Preview</div>
+  const IgnoredPanel = () => (data.checklist.mandatory.filter((m: any) => m.ignorable && data.summary && (data.checklist.mandatory.find((x: any) => x.key === m.key)?.done) && (data as any).ignoredKeys?.includes?.(m.key)).length === 0) ? null : null
+
+  const PreviewContent = () => (
+    <>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-        {['marketplace', 'card', 'detail', 'mobile', 'desktop'].map(m => (
-          <button key={m} style={previewMode === m && showPreview ? bp : bs} onClick={() => loadPreview(m)}>{m === 'marketplace' ? '🏪 Marketplace' : m === 'card' ? '🃏 Card' : m === 'detail' ? '📄 Detail Page' : m === 'mobile' ? '📱 Mobile' : '🖥️ Desktop'}</button>
+        {['marketplace', 'card', 'detail', 'mybatches', 'mobile', 'desktop'].map(m => (
+          <button key={m} style={previewMode === m && showPreview ? bp : bs} onClick={() => loadPreview(m)}>{m === 'marketplace' ? '🏪 Marketplace' : m === 'card' ? '🃏 Card' : m === 'detail' ? '📄 Detail' : m === 'mybatches' ? '📚 My Batches' : m === 'mobile' ? '📱 Mobile' : '🖥️ Desktop'}</button>
         ))}
       </div>
       {showPreview && preview && (
@@ -2493,10 +2545,23 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }
           </div>
           <div style={{ fontSize: 16, fontWeight: 800, color: GOOD }}>₹{preview.effectivePrice}{preview.discountPct > 0 && <span style={{ fontSize: 11, color: DIM, marginLeft: 6, textDecoration: 'line-through' }}>₹{preview.price}</span>}{preview.discountPct > 0 && <span style={{ fontSize: 10, color: WARN, marginLeft: 6 }}>{preview.discountPct}% OFF</span>}</div>
           <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>📝 {preview.examsSummary?.count || 0} Exams · ⏳ {preview.validity} days validity · 🔓 {preview.enrollmentState}</div>
-          <button style={{ ...bp, marginTop: 10, width: '100%' }} disabled>{preview.cta}</button>
+          <button style={{ ...bp, marginTop: 10, width: '100%' }} onClick={runSimulateEnroll}>{preview.cta} (Simulate)</button>
+          {simResult && (
+            <div style={{ marginTop: 10, background: 'rgba(52,211,153,0.08)', borderRadius: 8, padding: 8 }}>
+              {simResult.steps?.map((st: any, i: number) => <div key={i} style={{ fontSize: 11, color: GOOD }}>✓ {st.step}</div>)}
+              <div style={{ fontSize: 10, color: DIM, marginTop: 4 }}>{simResult.note}</div>
+            </div>
+          )}
         </div>
       )}
       {!showPreview && <div style={{ fontSize: 11.5, color: DIM }}>Select a preview mode to see exactly what students will see before you publish.</div>}
+    </>
+  )
+
+  const PreviewPanel = () => (
+    <div style={cs}>
+      <div style={{ fontWeight: 700, color: TS, marginBottom: 8 }}>👁 Student Preview</div>
+      <PreviewContent />
     </div>
   )
 
@@ -2513,20 +2578,27 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }
     </div>
   )
 
+  const EditLockPanel = () => !data.editLock?.active ? null : (
+    <div style={{ ...cs, border: `1px solid rgba(251,191,36,0.3)` }}>
+      <div style={{ fontWeight: 700, color: WARN, marginBottom: 4 }}>🔒 Edit Lock Active</div>
+      <div style={{ fontSize: 11.5, color: DIM }}>Critical fields are locked while Published/Scheduled: {data.editLock.fields.join(', ')}. Unpublish to edit them, or use Rollback for controlled changes.</div>
+    </div>
+  )
+
   const ActionsPanel = () => (
     <div style={cs}>
       <div style={{ fontWeight: 700, color: TS, marginBottom: 10 }}>🚀 Publish Actions</div>
       <textarea style={{ ...inp, minHeight: 50, marginBottom: 8 }} placeholder="Notes for this publish (optional)" value={notes} onChange={e => setNotes(e.target.value)} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {!data.isPublished ? (
-          <button style={bp} disabled={busy || data.blockingIssues.length > 0} onClick={doPublish}>🚀 Publish{data.blockingIssues.length > 0 ? ' (Blocked)' : ''}</button>
+          <button style={bp} disabled={busy || hardBlocking.length > 0} onClick={doPublish}>🚀 Publish{hardBlocking.length > 0 ? ' (Blocked)' : ''}</button>
         ) : (
-          <button style={bp} disabled={busy || data.blockingIssues.length > 0} onClick={doRepublish}>🔁 Republish</button>
+          <button style={bp} disabled={busy || hardBlocking.length > 0} onClick={doRepublish}>🔁 Republish{s.draftChangesPending ? ' (Changes Pending)' : ''}</button>
         )}
         {data.isPublished && !showUnpublishBox && <button style={bd} disabled={busy} onClick={() => setShowUnpublishBox(true)}>⛔ Unpublish</button>}
         {showUnpublishBox && (
           <div>
-            <textarea style={{ ...inp, minHeight: 50, marginBottom: 6 }} placeholder="Reason for unpublishing" value={unpublishReason} onChange={e => setUnpublishReason(e.target.value)} />
+            <textarea style={{ ...inp, minHeight: 50, marginBottom: 6 }} placeholder="Reason for unpublishing (required)" value={unpublishReason} onChange={e => setUnpublishReason(e.target.value)} />
             <div style={{ display: 'flex', gap: 8 }}>
               <button style={{ ...bd, flex: 1 }} onClick={doUnpublish}>Confirm Unpublish</button>
               <button style={{ ...bs, flex: 1 }} onClick={() => setShowUnpublishBox(false)}>Cancel</button>
@@ -2552,7 +2624,7 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }
         )}
         {data.scheduled.isScheduleActive && (
           <div style={{ fontSize: 11.5, color: WARN, background: 'rgba(251,191,36,0.08)', borderRadius: 8, padding: 8 }}>
-            ⏳ Scheduled for {new Date(data.scheduled.scheduledPublishAt).toLocaleString()} ({data.scheduled.scheduledPublishTimezone})
+            ⏳ Scheduled for {new Date(data.scheduled.scheduledPublishAt).toLocaleString()} ({data.scheduled.scheduledPublishTimezone}) — auto-publishes via background scheduler.
             <button style={{ ...bd, marginTop: 6, width: '100%' }} onClick={doCancelSchedule}>Cancel Scheduled Publish</button>
           </div>
         )}
@@ -2566,8 +2638,30 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }
     <div style={cs}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: isMobile ? 'pointer' : 'default' }} onClick={() => isMobile && setHistoryOpen(!historyOpen)}>
         <div style={{ fontWeight: 700, color: TS }}>🕐 Publish History</div>
-        {isMobile && <span style={{ color: DIM }}>{historyOpen ? '▲' : '▼'}</span>}
+        <div style={{ display: 'flex', gap: 6 }}>
+          {!isMobile && data.history.length > 0 && <button style={{ ...bs, fontSize: 10.5, padding: '4px 8px' }} onClick={(e) => { e.stopPropagation(); setShowCompare(!showCompare) }}>⚖️ Compare</button>}
+          {data.history.length > 0 && <button style={{ ...bs, fontSize: 10.5, padding: '4px 8px' }} onClick={(e) => { e.stopPropagation(); downloadLog() }}>⬇️ Log</button>}
+          {isMobile && <span style={{ color: DIM }}>{historyOpen ? '▲' : '▼'}</span>}
+        </div>
       </div>
+      {showCompare && (
+        <div style={{ background: 'rgba(0,22,40,0.6)', borderRadius: 8, padding: 8, margin: '8px 0' }}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+            <select style={inp} value={compareFrom} onChange={e => setCompareFrom(e.target.value)}><option value="">From v...</option>{data.history.map((h: any) => <option key={h.version} value={h.version}>v{h.version}</option>)}</select>
+            <select style={inp} value={compareTo} onChange={e => setCompareTo(e.target.value)}><option value="">To v...</option>{data.history.map((h: any) => <option key={h.version} value={h.version}>v{h.version}</option>)}</select>
+          </div>
+          <button style={{ ...bs, width: '100%' }} onClick={loadCompare}>Compare</button>
+          {compareResult && !compareResult.error && (
+            <div style={{ marginTop: 8 }}>
+              {compareResult.diff.length === 0 ? <div style={{ fontSize: 11, color: DIM }}>No differences.</div> : compareResult.diff.map((d: any, i: number) => (
+                <div key={i} style={{ fontSize: 11, color: TS, padding: '3px 0', borderBottom: `1px solid ${BOR}` }}>
+                  <b>{d.field}</b>: <span style={{ color: BAD }}>{JSON.stringify(d.from)}</span> → <span style={{ color: GOOD }}>{JSON.stringify(d.to)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {historyOpen && (data.history.length === 0 ? <EmptyMsg text="No publish history yet." /> : (
         <div style={{ marginTop: 8 }}>
           {data.history.map((h: any, i: number) => (
@@ -2577,8 +2671,9 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }
                 <div style={{ color: DIM, fontSize: 10.5 }}>{new Date(h.publishedAt).toLocaleString()}</div>
               </div>
               <div style={{ color: DIM, fontSize: 11 }}>by {h.publishedBy} · {h.status}{h.notes ? ' · ' + h.notes : ''}{h.reason ? ' · reason: ' + h.reason : ''}</div>
+              <div style={{ color: DIM, fontSize: 10 }}>id: {h.snapshotId}</div>
               <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                <button style={{ ...bs, fontSize: 10.5, padding: '4px 8px' }} onClick={() => { setRollbackFor(h); setRollbackScope('full') }}>↩️ Rollback to this</button>
+                <button style={{ ...bs, fontSize: 10.5, padding: '4px 8px' }} onClick={() => { setRollbackFor(h); setRollbackScope('full'); setRollbackSections([]) }}>↩️ Rollback to this</button>
               </div>
             </div>
           ))}
@@ -2588,21 +2683,42 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }
   )
 
   const RollbackModal = () => !rollbackFor ? null : (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setRollbackFor(null)}>
-      <div style={{ background: CRD, borderRadius: 16, padding: 20, maxWidth: 420, width: '100%', border: `1px solid ${BOR2}` }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => { setRollbackFor(null); setRollbackWarning(null) }}>
+      <div style={{ background: CRD, borderRadius: 16, padding: 20, maxWidth: 440, width: '100%', border: `1px solid ${BOR2}`, maxHeight: '85vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div style={{ fontWeight: 700, color: TS, marginBottom: 10 }}>↩️ Rollback to v{rollbackFor.version}</div>
+        {rollbackWarning && (
+          <div style={{ background: 'rgba(251,191,36,0.1)', border: `1px solid ${WARN}`, borderRadius: 8, padding: 10, marginBottom: 10, fontSize: 12, color: WARN }}>
+            ⚠️ {rollbackWarning.message}
+          </div>
+        )}
         <label style={lbl}>Scope</label>
         <select style={{ ...inp, marginBottom: 10 }} value={rollbackScope} onChange={e => setRollbackScope(e.target.value)}>
           <option value="full">Rollback & Republish (Full)</option>
           <option value="draft_only">Restore as Draft only</option>
         </select>
+        <label style={lbl}>Restore Sections (leave empty = all)</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+          {['basicInfo', 'pricing', 'banner', 'dates', 'controls', 'other'].map(sec => (
+            <button key={sec} style={rollbackSections.includes(sec) ? bp : bs} onClick={() => setRollbackSections(rollbackSections.includes(sec) ? rollbackSections.filter(s2 => s2 !== sec) : [...rollbackSections, sec])}>{sec}</button>
+          ))}
+        </div>
         <label style={lbl}>Reason (mandatory)</label>
         <textarea style={{ ...inp, minHeight: 60, marginBottom: 12 }} value={rollbackReason} onChange={e => setRollbackReason(e.target.value)} placeholder="Why are you rolling back?" />
         <div style={{ display: 'flex', gap: 8 }}>
-          <button style={{ ...bs, flex: 1 }} onClick={() => setRollbackFor(null)}>Cancel</button>
-          <button style={{ ...bd, flex: 1 }} onClick={doRollback}>Confirm Rollback</button>
+          <button style={{ ...bs, flex: 1 }} onClick={() => { setRollbackFor(null); setRollbackWarning(null) }}>Cancel</button>
+          <button style={{ ...bd, flex: 1 }} onClick={() => doRollback(!!rollbackWarning)}>{rollbackWarning ? 'Confirm Anyway' : 'Confirm Rollback'}</button>
         </div>
       </div>
+    </div>
+  )
+
+  const MobilePreviewDrawer = () => !previewDrawer ? null : (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 998, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottom: `1px solid ${BOR}` }}>
+        <div style={{ color: TS, fontWeight: 700 }}>👁 Student Preview</div>
+        <button style={bs} onClick={() => setPreviewDrawer(false)}>✕ Close</button>
+      </div>
+      <div style={{ padding: 14, overflowY: 'auto', flex: 1 }}><PreviewContent /></div>
     </div>
   )
 
@@ -2612,16 +2728,18 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }
         <SummaryCards />
         <ChecklistPanel />
         <BlockingPanel />
-        <PreviewPanel />
+        <EditLockPanel />
         <PostPublishPanel />
         <HistoryPanel />
         <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: CRD2, borderTop: `1px solid ${BOR2}`, padding: 10, zIndex: 50, display: 'flex', gap: 8 }}>
           {!data.isPublished
-            ? <button style={{ ...bp, flex: 1 }} disabled={busy || data.blockingIssues.length > 0} onClick={doPublish}>🚀 Publish</button>
-            : <button style={{ ...bp, flex: 1 }} disabled={busy || data.blockingIssues.length > 0} onClick={doRepublish}>🔁 Republish</button>}
-          <button style={{ ...bs, flex: 1 }} onClick={() => setShowSchedule(true)}>📅 Schedule</button>
+            ? <button style={{ ...bp, flex: 1 }} disabled={busy || hardBlocking.length > 0} onClick={doPublish}>🚀 Publish</button>
+            : <button style={{ ...bp, flex: 1 }} disabled={busy || hardBlocking.length > 0} onClick={doRepublish}>🔁 Republish</button>}
+          <button style={{ ...bs, flex: 1 }} onClick={() => loadPreview(previewMode)}>👁 Preview</button>
+          <button style={{ ...bs, flex: 1 }} onClick={() => setShowSchedule(true)}>📅</button>
         </div>
         {showSchedule && <ActionsPanel />}
+        <MobilePreviewDrawer />
         <RollbackModal />
       </div>
     )
@@ -2634,6 +2752,7 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }
         <div>
           <ChecklistPanel />
           <BlockingPanel />
+          <EditLockPanel />
         </div>
         <div>
           <PreviewPanel />

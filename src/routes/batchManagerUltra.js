@@ -50,7 +50,7 @@ function genBatchCode(name) {
   return `${prefix}-${rand}`;
 }
 
-async function logAudit({ batchId, field, oldValue, newValue, changedBy, changedByName, action, source }) {
+async function logAudit({ batchId, field, oldValue, newValue, changedBy, changedByName, action, source, reason, snapshotVersion }) {
   if (!BatchAuditLog) return;
   try {
     await BatchAuditLog.create({
@@ -61,10 +61,14 @@ async function logAudit({ batchId, field, oldValue, newValue, changedBy, changed
       changedByName: changedByName || 'Admin',
       action: action || 'update',
       source: source || 'batch-manager-ultra',
+      reason: reason || '',
+      snapshotVersion: snapshotVersion === undefined ? null : snapshotVersion,
       timestamp: new Date()
     });
   } catch (e) { /* audit failures must never break main flow */ }
 }
+
+
 
 function computeHealthScore(batch, studentCount, examCount) {
   let score = 0;
@@ -1455,14 +1459,34 @@ router.get('/:id/export-snapshot', auth, isAdmin, async (req, res) => {
 
 
 
+
 // ══════════════════════════════════════════════════════════════════
-// 16) PUBLISH CENTER — Go-Live Control Center
+// 16) PUBLISH CENTER — Go-Live Control Center  [v2]
 // ══════════════════════════════════════════════════════════════════
 function scoreStatusLabel(score) {
   if (score >= 95) return 'Ready to Publish';
   if (score >= 80) return 'Almost Ready';
   if (score >= 50) return 'Partially Ready';
   return 'Not Ready';
+}
+
+const CRITICAL_FIELDS = ['examType', 'price', 'discountPrice', 'startDate', 'endDate', 'validity'];
+const SNAPSHOT_FIELDS = ['name', 'description', 'examType', 'category', 'price', 'discountPrice', 'thumbnail', 'colorIcon',
+  'startDate', 'endDate', 'validity', 'seatLimit', 'enrollmentRule', 'accessPolicy', 'visibility',
+  'teacherAssigned', 'isSpotlight', 'isBundle', 'allowFreeTrial', 'lifecycleStatus', 'status'];
+const SECTION_MAP = { basicInfo: 'settings', banner: 'banner', pricing: 'pricing', dateRange: 'settings', startDate: 'settings', endDate: 'settings', controls: 'controls', coupons: 'coupons', scheduleConflict: 'publish' };
+
+async function gatherSnapshotExtras(batch) {
+  let bannerSnap = null, couponIds = [], materialsCount = 0, announcementsCount = 0;
+  try {
+    const Banner = mongoose.model('Banner');
+    const b = await Banner.findOne({ linkedType: 'batch', linkedBatchId: batch._id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
+    if (b) bannerSnap = { id: b._id, title: b.title, tagline: b.tagline, status: b.status, primaryColor: b.primaryColor };
+  } catch (e) {}
+  try { couponIds = (await Coupon.find({ scopeType: 'batch', scopeId: batch._id, isDeleted: false }).select('_id code status').lean()).map(c => ({ id: c._id, code: c.code, status: c.status })); } catch (e) {}
+  try { if (BatchNote) materialsCount = await BatchNote.countDocuments({ batch: batch._id }); } catch (e) {}
+  try { let A; try { A = mongoose.model('Announcement'); } catch (e) { A = null; } if (A) announcementsCount = await A.countDocuments({ batchId: batch._id }); } catch (e) {}
+  return { banner: bannerSnap, coupons: couponIds, examsCount: (batch.exams && batch.exams.length) || 0, exams: (batch.exams || []).map(String), materialsCount, announcementsCount };
 }
 
 async function buildPublishChecklist(batch) {
@@ -1482,15 +1506,26 @@ async function buildPublishChecklist(batch) {
   const expiredButActive = coupons.filter(c => c.status === 'active' && c.validTill && new Date(c.validTill) < now);
   const couponIssue = expiredButActive.length > 0 ? `${expiredButActive.length} active coupon(s) already expired` : '';
 
+  const dateRangeOk = !(batch.startDate && batch.endDate) || (new Date(batch.endDate) > new Date(batch.startDate));
+  let scheduleConflict = '';
+  if (batch.scheduledPublishAt && batch.startDate && new Date(batch.scheduledPublishAt) > new Date(batch.startDate)) {
+    scheduleConflict = 'Scheduled publish time is AFTER the batch Start Date — students will miss the start.';
+  }
+  let controlMismatch = '';
+  if (batch.seatLimit > 0 && studentCount > batch.seatLimit) controlMismatch = `Enrolled students (${studentCount}) already exceed Seat Limit (${batch.seatLimit})`;
+
+  const ignored = batch.publishIgnoredIssues || [];
   const mandatory = [
-    { key: 'basicInfo', label: 'Basic Information complete', done: !!(batch.name && batch.description && batch.examType), reason: 'Name, description & exam type required' },
-    { key: 'banner', label: 'Banner ready', done: !!bannerGate.ready, reason: bannerGate.reason || '' },
-    { key: 'pricing', label: 'Pricing configured', done: !!(batch.isFree || (batch.price && batch.price > 0)), reason: 'Set a price or mark as Free' },
-    { key: 'startDate', label: 'Start Date set', done: !!batch.startDate, reason: 'Start Date missing in Settings' },
-    { key: 'endDate', label: 'End Date / Validity set', done: !!(batch.endDate || (batch.validity && batch.validity > 0)), reason: 'End Date or Validity missing' },
-    { key: 'controls', label: 'Controls configured', done: true, reason: '' },
-    { key: 'coupons', label: 'Coupon configuration checked', done: coupons.length === 0 || expiredButActive.length === 0, reason: couponIssue }
-  ];
+    { key: 'basicInfo', label: 'Basic Information complete', done: !!(batch.name && batch.description && batch.examType), reason: 'Name, description & exam type required', ignorable: false, section: 'settings' },
+    { key: 'banner', label: 'Banner ready', done: !!bannerGate.ready, reason: bannerGate.reason || '', ignorable: false, section: 'banner' },
+    { key: 'pricing', label: 'Pricing configured', done: !!(batch.isFree || (batch.price && batch.price > 0)), reason: 'Set a price or mark as Free', ignorable: false, section: 'pricing' },
+    { key: 'startDate', label: 'Start Date set', done: !!batch.startDate, reason: 'Start Date missing in Settings', ignorable: false, section: 'settings' },
+    { key: 'endDate', label: 'End Date / Validity set', done: !!(batch.endDate || (batch.validity && batch.validity > 0)), reason: 'End Date or Validity missing', ignorable: false, section: 'settings' },
+    { key: 'dateRange', label: 'Date range valid (End after Start)', done: dateRangeOk, reason: dateRangeOk ? '' : 'End Date must be after Start Date', ignorable: false, section: 'settings' },
+    { key: 'scheduleConflict', label: 'No publish-time conflict', done: !scheduleConflict, reason: scheduleConflict, ignorable: true, section: 'publish' },
+    { key: 'controls', label: 'Controls configured (no mismatch)', done: !controlMismatch, reason: controlMismatch, ignorable: true, section: 'controls' },
+    { key: 'coupons', label: 'Coupon configuration checked', done: coupons.length === 0 || expiredButActive.length === 0, reason: couponIssue, ignorable: true, section: 'coupons' }
+  ].map(m => ({ ...m, done: m.done || (m.ignorable && ignored.includes(m.key)) }));
   const optional = [
     { key: 'exams', label: 'Exams added', done: examCount > 0, count: examCount },
     { key: 'materials', label: 'Materials added', done: materialsCount > 0, count: materialsCount },
@@ -1500,27 +1535,36 @@ async function buildPublishChecklist(batch) {
     { key: 'analytics', label: 'Analytics enabled', done: true }
   ];
 
-  const weights = { basicInfo: 15, banner: 20, pricing: 15, startDate: 8, endDate: 7, controls: 10, coupons: 5 };
+  const weights = { basicInfo: 12, banner: 18, pricing: 12, startDate: 6, endDate: 6, dateRange: 5, controls: 8, coupons: 5, scheduleConflict: 3 };
   let score = 0;
   mandatory.forEach(m => { if (m.done) score += (weights[m.key] || 0); });
   score += examCount > 0 ? 15 : 0;
-  score += (batch.thumbnail || batch.colorIcon) ? 5 : 0;
+  score += (batch.thumbnail || batch.colorIcon) ? 10 : 0;
   score = Math.max(0, Math.min(100, Math.round(score)));
 
-  const blockingIssues = mandatory.filter(m => !m.done && !(batch.publishIgnoredIssues || []).includes(m.key))
-    .map(m => ({ key: m.key, message: m.reason || (m.label + ' missing') }));
+  const blockingIssues = mandatory.filter(m => !m.done)
+    .map(m => ({ key: m.key, message: m.reason || (m.label + ' missing'), ignorable: m.ignorable, section: SECTION_MAP[m.key] || 'overview' }));
 
-  return { mandatory, optional, score, scoreStatus: scoreStatusLabel(score), blockingIssues, studentCount, examCount, bannerGate };
+  return { mandatory, optional, score, scoreStatus: scoreStatusLabel(score), blockingIssues, studentCount, examCount, bannerGate, ignored };
+}
+
+function syncEffectivePublishState(currentState, isPublished, blockingIssues, publishVersion) {
+  if (currentState === 'scheduled' || isPublished) return currentState;
+  const hasIssues = blockingIssues.some(b => !b.ignorable || true) && blockingIssues.length > 0;
+  if (hasIssues) return publishVersion > 0 ? 'blocked' : 'draft';
+  return 'ready';
 }
 
 function applyPublishState(batch, isPublished) {
   batch.status = isPublished ? 'active' : (batch.status === 'draft' ? 'draft' : 'inactive');
 }
 
-function pushPublishSnapshot(batch, { action, notes, reason, visibilityMode, publishedByName }) {
+function pushPublishSnapshot(batch, { action, notes, reason, visibilityMode, publishedByName, extras }) {
   batch.publishSnapshots = batch.publishSnapshots || [];
+  const version = batch.publishVersion || 0;
   batch.publishSnapshots.push({
-    version: batch.publishVersion || 0,
+    version,
+    snapshotId: 'v' + version + '-' + Date.now(),
     publishedAt: new Date(),
     publishedBy: publishedByName || 'Admin',
     status: batch.publishState,
@@ -1529,26 +1573,34 @@ function pushPublishSnapshot(batch, { action, notes, reason, visibilityMode, pub
     reason: reason || '',
     visibilityMode: visibilityMode || batch.visibility || 'public',
     snapshotData: {
-      name: batch.name, description: batch.description, examType: batch.examType, category: batch.category,
-      price: batch.price, discountPrice: batch.discountPrice, thumbnail: batch.thumbnail, colorIcon: batch.colorIcon,
-      startDate: batch.startDate, endDate: batch.endDate, validity: batch.validity, seatLimit: batch.seatLimit,
-      enrollmentRule: batch.enrollmentRule, accessPolicy: batch.accessPolicy, visibility: batch.visibility,
-      teacherAssigned: batch.teacherAssigned, isSpotlight: batch.isSpotlight, isBundle: batch.isBundle,
-      allowFreeTrial: batch.allowFreeTrial, lifecycleStatus: batch.lifecycleStatus, status: batch.status
+      ...Object.fromEntries(SNAPSHOT_FIELDS.map(f => [f, batch[f]])),
+      banner: extras?.banner || null, coupons: extras?.coupons || [], exams: extras?.exams || [],
+      examsCount: extras?.examsCount || 0, materialsCount: extras?.materialsCount || 0, announcementsCount: extras?.announcementsCount || 0
     }
   });
-  if (batch.publishSnapshots.length > 30) batch.publishSnapshots = batch.publishSnapshots.slice(-30);
+  if (batch.publishSnapshots.length > 40) batch.publishSnapshots = batch.publishSnapshots.slice(-40);
 }
 
 // GET /:id/publish-center — full readiness + status dashboard
 router.get('/:id/publish-center', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).lean();
+    let batch = await Batch.findById(req.params.id).lean();
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
     const { mandatory, optional, score, scoreStatus, blockingIssues, examCount, bannerGate } = await buildPublishChecklist(batch);
 
+    const nextState = syncEffectivePublishState(batch.publishState || 'draft', !!batch.isPublished, blockingIssues, batch.publishVersion || 0);
+    if (nextState !== batch.publishState) {
+      await Batch.updateOne({ _id: batch._id }, { $set: { publishState: nextState } });
+      batch.publishState = nextState;
+    }
+
     let couponsActive = false;
     try { couponsActive = !!(await Coupon.exists({ scopeType: 'batch', scopeId: batch._id, isDeleted: false, status: 'active' })); } catch (e) {}
+    let scheduledExamsCount = 0;
+    try {
+      let ExamModel; try { ExamModel = mongoose.model('Exam'); } catch (e) { ExamModel = null; }
+      if (ExamModel && examCount > 0) scheduledExamsCount = await ExamModel.countDocuments({ _id: { $in: batch.exams }, 'schedule.startTime': { $gt: new Date() } });
+    } catch (e) {}
     const visibleInMarketplace = batch.status === 'active' && batch.visibility !== 'private';
     const postPublishChecks = !batch.isPublished ? null : {
       visibleInMarketplace,
@@ -1561,18 +1613,28 @@ router.get('/:id/publish-center', auth, isAdmin, async (req, res) => {
       launchStatusUpdated: true,
       state: !visibleInMarketplace ? 'Live but Hidden'
         : (batch.enrollmentRule === 'invite_only' || batch.accessPolicy !== 'open') ? 'Live but Enrollment Closed'
+        : scheduledExamsCount > 0 ? 'Live with Scheduled Exams'
         : couponsActive ? 'Live with Offer Active' : 'Fully Live'
+    };
+
+    const stateMeaning = {
+      draft: 'Setup incomplete or not yet launched', ready: 'All mandatory requirements complete — ready to go live',
+      scheduled: 'Publish time is set in the future', published: 'Live and visible to students',
+      unpublished: 'Temporarily hidden from marketplace', republish_pending: 'Live update made — re-publish required to reflect changes',
+      blocked: 'Mandatory items missing / broken after being live before'
     };
 
     res.json({
       summary: {
         readinessScore: score, scoreStatus,
         publishStatus: batch.publishState || 'draft',
+        publishStatusMeaning: stateMeaning[batch.publishState] || '',
         publishVersion: batch.publishVersion || 0,
         lastPublished: batch.lastPublishedAt || null,
         lastPublishedBy: batch.lastPublishedBy || '',
         draftChangesPending: !!batch.draftChangesPending,
-        blockingIssuesCount: blockingIssues.length
+        blockingIssuesCount: blockingIssues.filter(b => !b.ignorable).length,
+        ignorableIssuesCount: blockingIssues.filter(b => b.ignorable).length
       },
       isPublished: !!batch.isPublished,
       checklist: { mandatory, optional },
@@ -1585,7 +1647,9 @@ router.get('/:id/publish-center', auth, isAdmin, async (req, res) => {
         isScheduleActive: batch.publishState === 'scheduled'
       },
       postPublishChecks,
-      history: (batch.publishSnapshots || []).slice().reverse().slice(0, 50)
+      editLock: { active: !!batch.isPublished || batch.publishState === 'scheduled', fields: CRITICAL_FIELDS },
+      history: (batch.publishSnapshots || []).slice().reverse().slice(0, 50),
+      studentCount: (batch.students && batch.students.length) || 0
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1596,8 +1660,10 @@ router.put('/:id/publish-center/publish', auth, isAdmin, async (req, res) => {
     const batch = await Batch.findById(req.params.id);
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
     const { mandatory, blockingIssues } = await buildPublishChecklist(batch.toObject());
-    if (blockingIssues.length > 0) return res.status(423).json({ error: 'Mandatory checklist incomplete', blockingIssues, gate: 'publish_blocked' });
+    const hardBlocking = blockingIssues.filter(b => !b.ignorable);
+    if (hardBlocking.length > 0) return res.status(423).json({ error: 'Mandatory checklist incomplete', blockingIssues: hardBlocking, gate: 'publish_blocked' });
     const oldState = batch.publishState;
+    const extras = await gatherSnapshotExtras(batch);
     batch.isPublished = true;
     batch.publishState = 'published';
     batch.publishVersion = (batch.publishVersion || 0) + 1;
@@ -1605,10 +1671,11 @@ router.put('/:id/publish-center/publish', auth, isAdmin, async (req, res) => {
     batch.lastPublishedBy = req.user.name || 'Admin';
     batch.draftChangesPending = false;
     applyPublishState(batch, true);
-    pushPublishSnapshot(batch, { action: 'publish', notes: req.body.notes, visibilityMode: req.body.visibilityMode, publishedByName: req.user.name });
+    pushPublishSnapshot(batch, { action: 'publish', notes: req.body.notes, visibilityMode: req.body.visibilityMode, publishedByName: req.user.name, extras });
     batch.lastActivityAt = new Date();
+    batch.$locals = batch.$locals || {}; batch.$locals.allowCriticalEdit = true;
     await batch.save();
-    await logAudit({ batchId: batch._id, field: 'publishState', oldValue: oldState, newValue: 'published', action: 'publish_completed', changedBy: req.user.id, changedByName: req.user.name });
+    await logAudit({ batchId: batch._id, field: 'publishState', oldValue: oldState, newValue: 'published', action: 'publish_completed', changedBy: req.user.id, changedByName: req.user.name, snapshotVersion: batch.publishVersion });
     res.json({ success: true, publishState: batch.publishState, publishVersion: batch.publishVersion });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1618,13 +1685,16 @@ router.put('/:id/publish-center/unpublish', auth, isAdmin, async (req, res) => {
   try {
     const batch = await Batch.findById(req.params.id);
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    if (!req.body.reason) return res.status(400).json({ error: 'Reason is required to unpublish' });
     const oldState = batch.publishState;
+    const extras = await gatherSnapshotExtras(batch);
     batch.isPublished = false;
     batch.publishState = 'unpublished';
     applyPublishState(batch, false);
-    pushPublishSnapshot(batch, { action: 'unpublish', reason: req.body.reason, publishedByName: req.user.name });
+    pushPublishSnapshot(batch, { action: 'unpublish', reason: req.body.reason, publishedByName: req.user.name, extras });
+    batch.$locals = batch.$locals || {}; batch.$locals.allowCriticalEdit = true;
     await batch.save();
-    await logAudit({ batchId: batch._id, field: 'publishState', oldValue: oldState, newValue: 'unpublished', action: 'unpublish_initiated', changedBy: req.user.id, changedByName: req.user.name });
+    await logAudit({ batchId: batch._id, field: 'publishState', oldValue: oldState, newValue: 'unpublished', action: 'unpublish_initiated', changedBy: req.user.id, changedByName: req.user.name, reason: req.body.reason });
     res.json({ success: true, publishState: batch.publishState });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1635,8 +1705,10 @@ router.put('/:id/publish-center/republish', auth, isAdmin, async (req, res) => {
     const batch = await Batch.findById(req.params.id);
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
     const { blockingIssues } = await buildPublishChecklist(batch.toObject());
-    if (blockingIssues.length > 0) return res.status(423).json({ error: 'Mandatory checklist incomplete', blockingIssues, gate: 'publish_blocked' });
+    const hardBlocking = blockingIssues.filter(b => !b.ignorable);
+    if (hardBlocking.length > 0) return res.status(423).json({ error: 'Mandatory checklist incomplete', blockingIssues: hardBlocking, gate: 'publish_blocked' });
     const oldState = batch.publishState;
+    const extras = await gatherSnapshotExtras(batch);
     batch.isPublished = true;
     batch.publishState = 'published';
     batch.publishVersion = (batch.publishVersion || 0) + 1;
@@ -1644,9 +1716,10 @@ router.put('/:id/publish-center/republish', auth, isAdmin, async (req, res) => {
     batch.lastPublishedBy = req.user.name || 'Admin';
     batch.draftChangesPending = false;
     applyPublishState(batch, true);
-    pushPublishSnapshot(batch, { action: 'republish', notes: req.body.notes, publishedByName: req.user.name });
+    pushPublishSnapshot(batch, { action: 'republish', notes: req.body.notes, publishedByName: req.user.name, extras });
+    batch.$locals = batch.$locals || {}; batch.$locals.allowCriticalEdit = true;
     await batch.save();
-    await logAudit({ batchId: batch._id, field: 'publishState', oldValue: oldState, newValue: 'published', action: 'republish_initiated', changedBy: req.user.id, changedByName: req.user.name });
+    await logAudit({ batchId: batch._id, field: 'publishState', oldValue: oldState, newValue: 'published', action: 'republish_initiated', changedBy: req.user.id, changedByName: req.user.name, snapshotVersion: batch.publishVersion });
     res.json({ success: true, publishState: batch.publishState, publishVersion: batch.publishVersion });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1658,6 +1731,7 @@ router.put('/:id/publish-center/schedule', auth, isAdmin, async (req, res) => {
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
     const { publishAt, timezone, autoActivate, autoUnpublishAt } = req.body;
     if (!publishAt || new Date(publishAt) <= new Date()) return res.status(400).json({ error: 'Publish Date/Time must be in the future' });
+    if (batch.startDate && new Date(publishAt) > new Date(batch.startDate)) return res.status(400).json({ error: 'Publish time conflict: scheduled time is after the batch Start Date' });
     batch.scheduledPublishAt = new Date(publishAt);
     batch.scheduledPublishTimezone = timezone || 'Asia/Kolkata';
     batch.scheduledAutoActivate = autoActivate !== false;
@@ -1688,14 +1762,16 @@ router.put('/:id/publish-center/archive', auth, isAdmin, async (req, res) => {
   try {
     const batch = await Batch.findById(req.params.id);
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const extras = await gatherSnapshotExtras(batch);
     batch.isPublished = false;
     batch.publishState = 'unpublished';
     batch.lifecycleStatus = 'archived';
     batch.archivedAt = new Date();
     applyPublishState(batch, false);
-    pushPublishSnapshot(batch, { action: 'archive', reason: req.body.reason, publishedByName: req.user.name });
+    pushPublishSnapshot(batch, { action: 'archive', reason: req.body.reason, publishedByName: req.user.name, extras });
+    batch.$locals = batch.$locals || {}; batch.$locals.allowCriticalEdit = true;
     await batch.save();
-    await logAudit({ batchId: batch._id, field: 'lifecycleStatus', newValue: 'archived', action: 'publish_center_archive', changedBy: req.user.id, changedByName: req.user.name });
+    await logAudit({ batchId: batch._id, field: 'lifecycleStatus', newValue: 'archived', action: 'publish_center_archive', changedBy: req.user.id, changedByName: req.user.name, reason: req.body.reason });
     res.json({ success: true, publishState: batch.publishState });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1713,12 +1789,48 @@ router.put('/:id/publish-center/restore-draft', auth, isAdmin, async (req, res) 
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// PUT /:id/publish-center/ignore-issue — mark an ignorable optional/soft issue as ignored
+router.put('/:id/publish-center/ignore-issue', auth, isAdmin, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const { key } = req.body;
+    if (!key) return res.status(400).json({ error: 'key required' });
+    batch.publishIgnoredIssues = batch.publishIgnoredIssues || [];
+    if (!batch.publishIgnoredIssues.includes(key)) batch.publishIgnoredIssues.push(key);
+    await batch.save();
+    await logAudit({ batchId: batch._id, field: 'publishIgnoredIssues', newValue: key, action: 'issue_ignored', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, publishIgnoredIssues: batch.publishIgnoredIssues });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.delete('/:id/publish-center/ignore-issue/:key', auth, isAdmin, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    batch.publishIgnoredIssues = (batch.publishIgnoredIssues || []).filter(k => k !== req.params.key);
+    await batch.save();
+    await logAudit({ batchId: batch._id, field: 'publishIgnoredIssues', newValue: 'un-ignored:' + req.params.key, action: 'issue_unignored', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, publishIgnoredIssues: batch.publishIgnoredIssues });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET /:id/publish-center/history
 router.get('/:id/publish-center/history', auth, isAdmin, async (req, res) => {
   try {
     const batch = await Batch.findById(req.params.id).lean();
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
     res.json({ history: (batch.publishSnapshots || []).slice().reverse() });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /:id/publish-center/history/export — download publish log
+router.get('/:id/publish-center/history/export', auth, isAdmin, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id).lean();
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="publish-log-${batch.batchCode || batch._id}.json"`);
+    res.send(JSON.stringify((batch.publishSnapshots || []).slice().reverse(), null, 2));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1733,19 +1845,51 @@ router.get('/:id/publish-center/snapshot/:version', auth, isAdmin, async (req, r
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /:id/publish-center/compare?from=X&to=Y — field-level diff between two snapshot versions
+router.get('/:id/publish-center/compare', auth, isAdmin, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id).lean();
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const { from, to } = req.query;
+    const a = (batch.publishSnapshots || []).find(s => String(s.version) === String(from));
+    const b = (batch.publishSnapshots || []).find(s => String(s.version) === String(to));
+    if (!a || !b) return res.status(404).json({ error: 'One or both snapshot versions not found' });
+    const diff = [];
+    const keys = new Set([...Object.keys(a.snapshotData || {}), ...Object.keys(b.snapshotData || {})]);
+    keys.forEach(k => {
+      const av = JSON.stringify(a.snapshotData?.[k]), bv = JSON.stringify(b.snapshotData?.[k]);
+      if (av !== bv) diff.push({ field: k, from: a.snapshotData?.[k], to: b.snapshotData?.[k] });
+    });
+    res.json({ from: a.version, to: b.version, diff });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // POST /:id/publish-center/rollback
 router.post('/:id/publish-center/rollback', auth, isAdmin, async (req, res) => {
   try {
     const batch = await Batch.findById(req.params.id);
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const { toVersion, reason, scope } = req.body;
+    const { toVersion, reason, scope, sections, confirmLiveImpact } = req.body;
     if (!reason) return res.status(400).json({ error: 'Reason is mandatory for rollback' });
+    const studentCount = (batch.students && batch.students.length) || 0;
+    if (studentCount > 0 && !confirmLiveImpact) {
+      return res.status(409).json({ warning: 'live_students_affected', studentCount, message: `This batch has ${studentCount} enrolled student(s). Confirm to proceed with rollback.` });
+    }
     const snap = (batch.publishSnapshots || []).find(s => String(s.version) === String(toVersion));
     if (!snap) return res.status(404).json({ error: 'Snapshot version not found' });
     const d = snap.snapshotData || {};
-    ['name', 'description', 'examType', 'category', 'price', 'discountPrice', 'thumbnail', 'colorIcon',
-      'startDate', 'endDate', 'validity', 'seatLimit', 'enrollmentRule', 'accessPolicy', 'visibility',
-      'teacherAssigned', 'isSpotlight', 'isBundle', 'allowFreeTrial'].forEach(f => { if (d[f] !== undefined) batch[f] = d[f]; });
+    const SECTION_FIELD_GROUPS = {
+      basicInfo: ['name', 'description', 'examType', 'category'],
+      pricing: ['price', 'discountPrice'],
+      banner: ['thumbnail', 'colorIcon'],
+      dates: ['startDate', 'endDate', 'validity'],
+      controls: ['seatLimit', 'enrollmentRule', 'accessPolicy', 'visibility'],
+      other: ['teacherAssigned', 'isSpotlight', 'isBundle', 'allowFreeTrial']
+    };
+    const fieldsToRestore = (Array.isArray(sections) && sections.length > 0)
+      ? sections.flatMap(s => SECTION_FIELD_GROUPS[s] || [])
+      : SNAPSHOT_FIELDS;
+    fieldsToRestore.forEach(f => { if (d[f] !== undefined) batch[f] = d[f]; });
     if (scope === 'draft_only') {
       batch.publishState = 'draft';
       batch.draftChangesPending = true;
@@ -1757,14 +1901,16 @@ router.post('/:id/publish-center/rollback', auth, isAdmin, async (req, res) => {
       batch.lastPublishedBy = req.user.name || 'Admin';
       applyPublishState(batch, true);
     }
-    pushPublishSnapshot(batch, { action: 'rollback', reason, publishedByName: req.user.name });
+    const extras = await gatherSnapshotExtras(batch);
+    pushPublishSnapshot(batch, { action: 'rollback', reason, publishedByName: req.user.name, extras });
+    batch.$locals = batch.$locals || {}; batch.$locals.allowCriticalEdit = true;
     await batch.save();
-    await logAudit({ batchId: batch._id, field: 'publishVersion', oldValue: batch.publishVersion, newValue: toVersion, action: 'rollback_executed', changedBy: req.user.id, changedByName: req.user.name, source: 'rollback:' + reason });
+    await logAudit({ batchId: batch._id, field: 'publishVersion', oldValue: batch.publishVersion, newValue: toVersion, action: 'rollback_executed', changedBy: req.user.id, changedByName: req.user.name, reason, snapshotVersion: toVersion });
     res.json({ success: true, publishState: batch.publishState, publishVersion: batch.publishVersion });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /:id/publish-center/preview — student-facing preview (marketplace/card/detail/mobile/desktop)
+// GET /:id/publish-center/preview — student-facing preview (marketplace/card/detail/mobile/desktop/mybatches)
 router.get('/:id/publish-center/preview', auth, isAdmin, async (req, res) => {
   try {
     const batch = await Batch.findById(req.params.id).lean();
@@ -1790,6 +1936,68 @@ router.get('/:id/publish-center/preview', auth, isAdmin, async (req, res) => {
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+// POST /:id/publish-center/simulate-enroll — simulated enrollment flow (no real enrollment created)
+router.post('/:id/publish-center/simulate-enroll', auth, isAdmin, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id).lean();
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const eff = effectivePrice(batch);
+    res.json({
+      simulated: true,
+      steps: [
+        { step: 'View Batch', ok: true },
+        { step: 'Click ' + (batch.isFree ? 'Enroll Free' : 'Enroll Now'), ok: true },
+        { step: batch.isFree ? 'Free enrollment confirmed' : `Payment of ₹${eff} simulated`, ok: true },
+        { step: 'Access granted to My Batches', ok: true }
+      ],
+      note: 'This is a simulation only — no real enrollment or payment was created.'
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Scheduler: in-process check every 60s for due scheduled publishes / auto-unpublish ──
+if (!global.__proveRankBatchSchedulerStarted) {
+  global.__proveRankBatchSchedulerStarted = true;
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const due = await Batch.find({ publishState: 'scheduled', scheduledPublishAt: { $lte: now } });
+      for (const batch of due) {
+        try {
+          if (batch.scheduledAutoActivate === false) continue;
+          const { blockingIssues } = await buildPublishChecklist(batch.toObject());
+          const hardBlocking = blockingIssues.filter(b => !b.ignorable);
+          if (hardBlocking.length > 0) { batch.publishState = 'blocked'; await batch.save(); continue; }
+          const extras = await gatherSnapshotExtras(batch);
+          batch.isPublished = true; batch.publishState = 'published';
+          batch.publishVersion = (batch.publishVersion || 0) + 1;
+          batch.lastPublishedAt = new Date(); batch.lastPublishedBy = 'Scheduler (auto)';
+          batch.draftChangesPending = false;
+          applyPublishState(batch, true);
+          pushPublishSnapshot(batch, { action: 'publish', notes: 'Auto-published via schedule', publishedByName: 'Scheduler (auto)', extras });
+          batch.scheduledPublishAt = null;
+          batch.$locals = batch.$locals || {}; batch.$locals.allowCriticalEdit = true;
+          await batch.save();
+          await logAudit({ batchId: batch._id, field: 'publishState', newValue: 'published', action: 'publish_completed', changedByName: 'Scheduler (auto)', snapshotVersion: batch.publishVersion });
+        } catch (e) { /* per-batch failure must not break the loop */ }
+      }
+      const dueUnpub = await Batch.find({ isPublished: true, scheduledAutoUnpublishAt: { $lte: now, $ne: null } });
+      for (const batch of dueUnpub) {
+        try {
+          batch.isPublished = false; batch.publishState = 'unpublished';
+          applyPublishState(batch, false);
+          const extras = await gatherSnapshotExtras(batch);
+          pushPublishSnapshot(batch, { action: 'unpublish', reason: 'Auto-unpublish (scheduled)', publishedByName: 'Scheduler (auto)', extras });
+          batch.scheduledAutoUnpublishAt = null;
+          batch.$locals = batch.$locals || {}; batch.$locals.allowCriticalEdit = true;
+          await batch.save();
+          await logAudit({ batchId: batch._id, field: 'publishState', newValue: 'unpublished', action: 'unpublish_initiated', changedByName: 'Scheduler (auto)', reason: 'Auto-unpublish (scheduled)' });
+        } catch (e) {}
+      }
+    } catch (e) { /* scheduler tick failure must never crash the server */ }
+  }, 60000);
+}
 
 
 

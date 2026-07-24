@@ -10,6 +10,10 @@ const TestSeriesAuditLogSchema = new mongoose.Schema({
   changedByName: { type: String, default: 'Admin' },
   source: { type: String, default: 'test-series-manager-ultra' },
   timestamp: { type: Date, default: Date.now }
+,
+  reason: { type: String, default: '' },
+  snapshotVersion: { type: mongoose.Schema.Types.Mixed, default: null }
+
 }, { timestamps: true });
 
 module.exports = mongoose.models.TestSeriesAuditLog || mongoose.model('TestSeriesAuditLog', TestSeriesAuditLogSchema);
