@@ -304,8 +304,14 @@ router.post('/', auth, isAdmin, async (req, res) => {
       if (Banner) {
         await Banner.create({
           title: doc.name, linkedBatchId: doc._id, linkedType: 'batch',
-          examType: doc.examType, price: doc.price, status: 'draft',
-          syncState: 'synced', published: false
+          examType: doc.examType, price: String(doc.price || 0), status: 'draft',
+          syncState: 'synced', published: false,
+          tagline: '', ctaText: 'Enroll Now', ctaShape: 'pill', template: 'classic',
+          primaryColor: '#4D9FFF', secondaryColor: '#00D4FF', textColor: '#FFFFFF', accentColor: '#FFD700',
+          fontStyle: 'modern', textAlign: 'left', badge: doc.isSpotlight ? 'trending' : 'none',
+          totalTests: '0', validity: (doc.validity || 365) + ' days', duration: (doc.validity || 365) + ' days',
+          highlights: ['0 Practice Tests', (doc.validity || 365) + ' days Validity', doc.language || 'Hindi + English'],
+          createdBy: req.user.id
         });
       }
     } catch (e) { /* Banner module optional until FPR3 installed */ }
@@ -1047,9 +1053,9 @@ function buildBannerSyncFields(batch) {
   };
 }
 function checkBannerSyncState(banner, batch) {
-  if (banner.syncState === 'manual_override') return 'manual_override';
   const live = buildBannerSyncFields(batch);
   const mismatch = banner.title !== live.title || banner.price !== live.price || banner.examType !== live.examType || banner.totalTests !== live.totalTests;
+  if (banner.syncState === 'manual_override') return mismatch ? 'conflict' : 'manual_override';
   return mismatch ? 'pending_sync' : 'synced';
 }
 async function logBannerAudit({ bannerId, action, oldValue, newValue, performedBy, performedByName, linkedType, linkedBatchId, reason }) {
@@ -1116,7 +1122,7 @@ router.put('/:id/banner', auth, isAdmin, async (req, res) => {
     delete versionSnap._id; delete versionSnap.versions; delete versionSnap.__v;
     banner.versions = banner.versions || [];
     banner.versions.push({ data: versionSnap, savedAt: new Date(), label: 'v' + (banner.versions.length + 1) });
-    const editable = ['title', 'tagline', 'examType', 'price', 'totalTests', 'duration', 'validity', 'highlights', 'ctaText', 'badge', 'template', 'primaryColor', 'secondaryColor', 'textColor', 'accentColor', 'fontStyle', 'bgImage'];
+    const editable = ['title', 'tagline', 'examType', 'price', 'totalTests', 'duration', 'validity', 'highlights', 'ctaText', 'ctaShape', 'badge', 'template', 'primaryColor', 'secondaryColor', 'textColor', 'accentColor', 'fontStyle', 'bgImage', 'layers', 'textStyleOverride', 'textAlign', 'sectionVisibility', 'sectionLock', 'badgeStyle', 'cardStyle', 'gradientAngle', 'spacing'];
     for (const f of editable) { if (req.body[f] !== undefined) banner[f] = req.body[f]; }
     if (req.body.markReady) banner.status = 'ready';
     else if (req.body.saveAsDraft) banner.status = 'draft';
@@ -1215,6 +1221,20 @@ router.post('/:id/banner/restore-version/:vIdx', auth, isAdmin, async (req, res)
     banner.qualityScore = computeBannerQualityScore(banner);
     await banner.save();
     await logBannerAudit({ bannerId: banner._id, action: 'version_restored', newValue: { vIdx: req.params.vIdx }, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    res.json({ success: true, banner });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/:id/banner/duplicate-version/:vIdx', auth, isAdmin, async (req, res) => {
+  try {
+    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
+    if (!banner) return res.status(404).json({ error: 'No banner found' });
+    const v = banner.versions[parseInt(req.params.vIdx)];
+    if (!v) return res.status(404).json({ error: 'Version not found' });
+    const clone = { data: v.data, savedAt: new Date(), label: (v.label || 'v?') + ' (copy)' };
+    banner.versions.push(clone);
+    await banner.save();
+    await logBannerAudit({ bannerId: banner._id, action: 'version_duplicated', newValue: { fromVIdx: req.params.vIdx }, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
     res.json({ success: true, banner });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1494,32 +1514,5 @@ router.get('/:id/export-snapshot', auth, isAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ══════════════════════════════════════════════════════════════════
-// FPR3 — BANNER PANEL (for Batch Detail page integration)
-// ══════════════════════════════════════════════════════════════════
-router.get('/:id/banner-panel', auth, isAdmin, async (req, res) => {
-  try {
-    let Banner;
-    try { Banner = mongoose.model('Banner'); } catch (e) { Banner = require('../models/Banner'); }
-    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id }).sort({ createdAt: -1 }).lean();
-    const gate = await checkBannerGate(req.params.id);
-    res.json({ banner: banner || null, gate });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post('/:id/banner-panel/regenerate', auth, isAdmin, async (req, res) => {
-  try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    let Banner;
-    try { Banner = mongoose.model('Banner'); } catch (e) { Banner = require('../models/Banner'); }
-    const draft = await Banner.create({
-      title: batch.name, linkedBatchId: batch._id, linkedType: 'batch',
-      examType: batch.examType, price: String(effectivePrice(batch) || ''), status: 'draft',
-      syncState: 'synced', published: false, createdBy: req.user.id
-    });
-    res.json({ success: true, banner: draft });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
 
 module.exports = router;

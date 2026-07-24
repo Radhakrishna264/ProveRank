@@ -1222,67 +1222,6 @@ router.get('/:id/banner/audit', auth, isAdmin, async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════
-// CONTROLS TAB — system control center
-// ══════════════════════════════════════════════════════════════════
-router.get('/:id/controls', auth, isAdmin, async (req, res) => {
-  try {
-    const series = await TestSeries.findById(req.params.id).lean();
-    if (!series) return res.status(404).json({ error: 'Test series not found' });
-    res.json({
-      controls: {
-        isSpotlight: !!series.isSpotlight, isBundle: !!series.isBundle, allowFreeTrial: !!series.allowFreeTrial,
-        flashSaleActive: !!(series.flashSaleEndTime && new Date(series.flashSaleEndTime) > new Date()),
-        lifecycleStatus: series.lifecycleStatus, enrollmentRule: series.enrollmentRule, visibility: series.visibility,
-        seatLimit: series.seatLimit, accessPolicy: series.accessPolicy, joinCode: series.joinCode
-      },
-      snapshot: series.controlSnapshot || null
-    });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.put('/:id/controls', auth, isAdmin, async (req, res) => {
-  try {
-    const series = await TestSeries.findById(req.params.id);
-    if (!series) return res.status(404).json({ error: 'Test series not found' });
-    if (req.body.lifecycleStatus === 'active' && series.lifecycleStatus !== 'active') {
-      const gate = await checkBannerGate(series._id);
-      if (!gate.ready) return res.status(423).json({ error: gate.reason, gate: 'launch_blocked' });
-    }
-    const fields = ['isSpotlight', 'isBundle', 'allowFreeTrial', 'lifecycleStatus', 'enrollmentRule', 'visibility', 'seatLimit', 'accessPolicy', 'joinCode'];
-    for (const f of fields) {
-      if (req.body[f] !== undefined) {
-        const oldVal = series[f];
-        series[f] = req.body[f];
-        if (String(oldVal) !== String(req.body[f])) await logAudit({ seriesId: series._id, field: f, oldValue: oldVal, newValue: req.body[f], action: 'control_changed', changedBy: req.user.id, changedByName: req.user.name });
-      }
-    }
-    series.controlSnapshot = { appliedBy: req.user.name || 'Admin', appliedAt: new Date(), state: req.body };
-    series.lastActivityAt = new Date();
-    await series.save();
-    res.json({ success: true, series });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.put('/:id/controls/pause', auth, isAdmin, async (req, res) => {
-  try {
-    const series = await TestSeries.findById(req.params.id);
-    if (!series) return res.status(404).json({ error: 'Test series not found' });
-    const wasPaused = series.lifecycleStatus === 'paused';
-    if (wasPaused) {
-      const gate = await checkBannerGate(series._id);
-      if (!gate.ready) return res.status(423).json({ error: gate.reason, gate: 'launch_blocked' });
-    }
-    series.lifecycleStatus = wasPaused ? 'active' : 'paused';
-    series.enrollmentRule = wasPaused ? 'open' : 'invite_only';
-    series.isSpotlight = wasPaused ? series.isSpotlight : false;
-    series.controlSnapshot = { appliedBy: req.user.name || 'Admin', appliedAt: new Date(), state: { oneClickPause: !wasPaused } };
-    await series.save();
-    await logAudit({ seriesId: series._id, field: 'lifecycleStatus', newValue: series.lifecycleStatus, action: 'one_click_pause', changedBy: req.user.id, changedByName: req.user.name });
-    res.json({ success: true, lifecycleStatus: series.lifecycleStatus });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ══════════════════════════════════════════════════════════════════
 // MATERIALS / NOTES TAB
 // ══════════════════════════════════════════════════════════════════
 router.get('/:id/materials', auth, isAdmin, async (req, res) => {
@@ -1422,10 +1361,10 @@ router.get('/:id/settings', auth, isAdmin, async (req, res) => {
     if (!series) return res.status(404).json({ error: 'Test series not found' });
     res.json({
       settings: {
-        name: series.name, seriesCode: series.seriesCode, colorIcon: series.colorIcon,
+        name: series.name, seriesCode: series.seriesCode, description: series.description,
         startDate: series.startDate, endDate: series.endDate, visibility: series.visibility,
         seatLimit: series.seatLimit, enrollmentRule: series.enrollmentRule,
-        autoArchiveAfterEnd: !!series.autoArchiveAfterEnd, teacherAssigned: series.teacherAssigned,
+        autoArchiveAfterEnd: !!series.autoArchiveAfterEnd,
         renameHistory: series.renameHistory || [], isLocked: !!series.settingsLocked
       }
     });

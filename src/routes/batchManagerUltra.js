@@ -1270,67 +1270,6 @@ router.get('/:id/banner/audit', auth, isAdmin, async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════
-// CONTROLS TAB — system control center
-// ══════════════════════════════════════════════════════════════════
-router.get('/:id/controls', auth, isAdmin, async (req, res) => {
-  try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    res.json({
-      controls: {
-        isSpotlight: !!batch.isSpotlight, isBundle: !!batch.isBundle, allowFreeTrial: !!batch.allowFreeTrial,
-        flashSaleActive: !!(batch.flashSaleEndTime && new Date(batch.flashSaleEndTime) > new Date()),
-        lifecycleStatus: batch.lifecycleStatus, enrollmentRule: batch.enrollmentRule, visibility: batch.visibility,
-        seatLimit: batch.seatLimit, accessPolicy: batch.accessPolicy, joinCode: batch.joinCode
-      },
-      snapshot: batch.controlSnapshot || null
-    });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.put('/:id/controls', auth, isAdmin, async (req, res) => {
-  try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    if (req.body.lifecycleStatus === 'active' && batch.lifecycleStatus !== 'active') {
-      const gate = await checkBannerGate(batch._id);
-      if (!gate.ready) return res.status(423).json({ error: gate.reason, gate: 'launch_blocked' });
-    }
-    const fields = ['isSpotlight', 'isBundle', 'allowFreeTrial', 'lifecycleStatus', 'enrollmentRule', 'visibility', 'seatLimit', 'accessPolicy', 'joinCode'];
-    for (const f of fields) {
-      if (req.body[f] !== undefined) {
-        const oldVal = batch[f];
-        batch[f] = req.body[f];
-        if (String(oldVal) !== String(req.body[f])) await logAudit({ batchId: batch._id, field: f, oldValue: oldVal, newValue: req.body[f], action: 'control_changed', changedBy: req.user.id, changedByName: req.user.name });
-      }
-    }
-    batch.controlSnapshot = { appliedBy: req.user.name || 'Admin', appliedAt: new Date(), state: req.body };
-    batch.lastActivityAt = new Date();
-    await batch.save();
-    res.json({ success: true, batch });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.put('/:id/controls/pause', auth, isAdmin, async (req, res) => {
-  try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const wasPaused = batch.lifecycleStatus === 'paused';
-    if (wasPaused) {
-      const gate = await checkBannerGate(batch._id);
-      if (!gate.ready) return res.status(423).json({ error: gate.reason, gate: 'launch_blocked' });
-    }
-    batch.lifecycleStatus = wasPaused ? 'active' : 'paused';
-    batch.enrollmentRule = wasPaused ? 'open' : 'invite_only';
-    batch.isSpotlight = wasPaused ? batch.isSpotlight : false;
-    batch.controlSnapshot = { appliedBy: req.user.name || 'Admin', appliedAt: new Date(), state: { oneClickPause: !wasPaused } };
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'lifecycleStatus', newValue: batch.lifecycleStatus, action: 'one_click_pause', changedBy: req.user.id, changedByName: req.user.name });
-    res.json({ success: true, lifecycleStatus: batch.lifecycleStatus });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ══════════════════════════════════════════════════════════════════
 // MATERIALS / NOTES TAB
 // ══════════════════════════════════════════════════════════════════
 router.get('/:id/materials', auth, isAdmin, async (req, res) => {
@@ -1470,10 +1409,10 @@ router.get('/:id/settings', auth, isAdmin, async (req, res) => {
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
     res.json({
       settings: {
-        name: batch.name, batchCode: batch.batchCode, colorIcon: batch.colorIcon,
+        name: batch.name, batchCode: batch.batchCode, description: batch.description,
         startDate: batch.startDate, endDate: batch.endDate, visibility: batch.visibility,
         seatLimit: batch.seatLimit, enrollmentRule: batch.enrollmentRule,
-        autoArchiveAfterEnd: !!batch.autoArchiveAfterEnd, teacherAssigned: batch.teacherAssigned,
+        autoArchiveAfterEnd: !!batch.autoArchiveAfterEnd,
         renameHistory: batch.renameHistory || [], isLocked: !!batch.settingsLocked
       }
     });

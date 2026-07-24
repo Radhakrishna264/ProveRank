@@ -473,7 +473,7 @@ function TestSeriesDetail({ id, base, authHeaders, onBack, isMobile, showToast, 
     ['overview', '📊 Overview'], ['students', '👥 Students'], ['tests', '📝 Tests'], ['pricing', '💰 Pricing'],
     ['coupons', '🎟️ Coupons'],
     ['banner', '🖼️ Banner'],
-    ['controls', '⚙️ Controls'], ['materials', '📁 Materials'], ['analytics', '📈 Analytics'],
+    ['materials', '📁 Materials'], ['analytics', '📈 Analytics'],
     ['announcements', '📢 Announcements'], ['settings', '🔧 Settings'], ['audit', '🕐 Audit History']
   ]
 
@@ -514,7 +514,6 @@ function TestSeriesDetail({ id, base, authHeaders, onBack, isMobile, showToast, 
       {tab === 'pricing' && <PricingTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
       {tab === 'coupons' && <CouponManagementTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
       {tab === 'banner' && <BannerManagementTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
-      {tab === 'controls' && <ControlsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} load={load} />}
       {tab === 'materials' && <MaterialsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
       {tab === 'analytics' && <AnalyticsTab base={base} authHeaders={authHeaders} id={id} allSeries={allSeries} />}
       {tab === 'announcements' && <AnnouncementsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
@@ -2195,48 +2194,6 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
   )
 }
 
-// ── 10) CONTROLS TAB ──
-function ControlsTab({ base, authHeaders, id, showToast, load: loadParent }: any) {
-  const [data, setData] = useState<any>(null)
-  const load = useCallback(() => fetch(base + '/' + id + '/controls', { headers: authHeaders }).then(r => r.json()).then(setData).catch(() => {}), [])
-  useEffect(() => { load() }, [load])
-  if (!data) return <EmptyMsg text="⟳ Loading controls…" />
-  const c = data.controls
-  const update = async (patch: any) => { await fetch(base + '/' + id + '/controls', { method: 'PUT', headers: authHeaders, body: JSON.stringify(patch) }); showToast('✅ Control updated'); load(); loadParent && loadParent() }
-  const pause = async () => { await fetch(base + '/' + id + '/controls/pause', { method: 'PUT', headers: authHeaders }); showToast('✅ Pause toggled'); load(); loadParent && loadParent() }
-
-  return (
-    <div>
-      <div style={{ ...cs, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14 }}>
-        <Toggle on={c.isSpotlight} onChange={v => update({ isSpotlight: v })} label="✨ Spotlight" />
-        <Toggle on={c.isBundle} onChange={v => update({ isBundle: v })} label="📦 Bundle" />
-        <Toggle on={c.allowFreeTrial} onChange={v => update({ allowFreeTrial: v })} label="🆓 Free Trial" />
-      </div>
-      <div style={cs}>
-        <label style={lbl}>Series Status Manager</label>
-        <select style={inp} value={c.lifecycleStatus} onChange={e => update({ lifecycleStatus: e.target.value })}>
-          {['draft', 'active', 'upcoming', 'paused', 'archived'].map(x => <option key={x}>{x}</option>)}
-        </select>
-      </div>
-      <div style={cs}>
-        <label style={lbl}>Enrollment Lock / Access Policy</label>
-        <select style={{ ...inp, marginBottom: 8 }} value={c.enrollmentRule} onChange={e => update({ enrollmentRule: e.target.value })}>
-          <option value="open">Open Enrollment</option><option value="invite_only">Invite Only</option><option value="manual_approval">Manual Approval</option><option value="auto_approval">Auto-Approval</option>
-        </select>
-        <select style={inp} value={c.accessPolicy} onChange={e => update({ accessPolicy: e.target.value })}>
-          <option value="open">Open Access</option><option value="invite_only">Invite Only</option><option value="manual_approval">Manual Approval</option><option value="code_based">Code-Based Join</option>
-        </select>
-      </div>
-      <div style={cs}>
-        <label style={lbl}>Seat Limit</label>
-        <input style={inp} type="number" value={c.seatLimit} onChange={e => update({ seatLimit: e.target.value })} />
-      </div>
-      <button style={bd} onClick={pause}>{c.lifecycleStatus === 'paused' ? '▶️ Resume Series (One-Click)' : '⏸️ One-Click Pause'}</button>
-      {data.snapshot && <div style={{ fontSize: 11, color: DIM, marginTop: 10 }}>Last applied by {data.snapshot.appliedBy} at {new Date(data.snapshot.appliedAt).toLocaleString()}</div>}
-    </div>
-  )
-}
-
 // ── 11) MATERIALS TAB ──
 function MaterialsTab({ base, authHeaders, id, showToast }: any) {
   const [materials, setMaterials] = useState<any[]>([])
@@ -2352,22 +2309,29 @@ function SettingsTab({ base, authHeaders, id, showToast, load: loadParent }: any
   const load = useCallback(() => fetch(base + '/' + id + '/settings', { headers: authHeaders }).then(r => r.json()).then(d => setS(d.settings)).catch(() => {}), [])
   useEffect(() => { load() }, [load])
   if (!s) return <EmptyMsg text="⟳ Loading settings…" />
-  const save = async () => { await fetch(base + '/' + id, { method: 'PUT', headers: authHeaders, body: JSON.stringify(s) }); showToast('✅ Settings saved'); load(); loadParent && loadParent() }
-  const toggleLock = async () => { await fetch(base + '/' + id + '/settings/lock', { method: 'PUT', headers: authHeaders }); load() }
+  const locked = !!s.isLocked
+  const saveAndLock = async () => {
+    await fetch(base + '/' + id, { method: 'PUT', headers: authHeaders, body: JSON.stringify(s) })
+    await fetch(base + '/' + id + '/settings/lock', { method: 'PUT', headers: authHeaders })
+    showToast('✅ Saved & Locked')
+    load(); loadParent && loadParent()
+  }
+  const unlock = async () => { await fetch(base + '/' + id + '/settings/lock', { method: 'PUT', headers: authHeaders }); showToast('🔓 Unlocked'); load(); loadParent && loadParent() }
   return (
     <div>
       <div style={{ ...cs, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10 }}>
-        <div><label style={lbl}>Series Name</label><input style={inp} value={s.name} onChange={e => setS({ ...s, name: e.target.value })} /></div>
-        <div><label style={lbl}>Color / Icon</label><input style={inp} value={s.colorIcon} onChange={e => setS({ ...s, colorIcon: e.target.value })} /></div>
-        <div><label style={lbl}>Start Date</label><input style={inp} type="date" value={s.startDate ? s.startDate.slice(0, 10) : ''} onChange={e => setS({ ...s, startDate: e.target.value })} /></div>
-        <div><label style={lbl}>End Date</label><input style={inp} type="date" value={s.endDate ? s.endDate.slice(0, 10) : ''} onChange={e => setS({ ...s, endDate: e.target.value })} /></div>
-        <div><label style={lbl}>Seat Limit</label><input style={inp} type="number" value={s.seatLimit} onChange={e => setS({ ...s, seatLimit: e.target.value })} /></div>
-        <div><label style={lbl}>Teacher / Faculty</label><input style={inp} value={s.teacherAssigned} onChange={e => setS({ ...s, teacherAssigned: e.target.value })} /></div>
+        <div><label style={lbl}>Series Name</label><input style={inp} disabled={locked} value={s.name} onChange={e => setS({ ...s, name: e.target.value })} /></div>
+        <div><label style={lbl}>Start Date</label><input style={inp} disabled={locked} type="date" value={s.startDate ? s.startDate.slice(0, 10) : ''} onChange={e => setS({ ...s, startDate: e.target.value })} /></div>
+        <div><label style={lbl}>End Date</label><input style={inp} disabled={locked} type="date" value={s.endDate ? s.endDate.slice(0, 10) : ''} onChange={e => setS({ ...s, endDate: e.target.value })} /></div>
+        <div><label style={lbl}>Seat Limit</label><input style={inp} disabled={locked} type="number" value={s.seatLimit} onChange={e => setS({ ...s, seatLimit: e.target.value })} /></div>
       </div>
-      <div style={{ margin: '10px 0' }}><Toggle on={s.autoArchiveAfterEnd} onChange={v => setS({ ...s, autoArchiveAfterEnd: v })} label="Auto-Archive After End Date" /></div>
+      <div style={{ marginTop: 10 }}>
+        <label style={lbl}>Description</label>
+        <textarea style={{ ...inp, minHeight: 60 }} disabled={locked} value={s.description || ''} onChange={e => setS({ ...s, description: e.target.value })} />
+      </div>
+      <div style={{ margin: '10px 0' }}><Toggle on={s.autoArchiveAfterEnd} onChange={v => !locked && setS({ ...s, autoArchiveAfterEnd: v })} label="Auto-Archive After End Date" /></div>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button style={bp} onClick={save}>💾 Save Settings</button>
-        <button style={bs} onClick={toggleLock}>{s.isLocked ? '🔓 Unlock Series' : '🔒 Lock Series'}</button>
+        {locked ? <button style={bs} onClick={unlock}>🔓 Unlock Series</button> : <button style={bp} onClick={saveAndLock}>💾🔒 Save & Lock Series</button>}
       </div>
       {s.renameHistory?.length > 0 && (
         <div style={{ ...cs, marginTop: 14 }}>
