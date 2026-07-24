@@ -57,6 +57,11 @@ function normalizeSeries(s){
 function baseSeriesFilter(){
   return{ lifecycleStatus:'active', visibility:{$ne:'private'}, isTemplate:{$ne:true} };
 }
+// Marketplace-only filter (adds isPublished check) — NOT used for /my so already-enrolled
+// students keep access to their batch/series even if it's later unpublished from marketplace.
+function marketplaceSeriesFilter(){
+  return{ ...baseSeriesFilter(), isPublished:{$ne:false} };
+}
 
 // GET /api/student/batches  (now also returns published Test Series, merged in)
 router.get('/',optAuth,async(req,res)=>{
@@ -67,7 +72,7 @@ router.get('/',optAuth,async(req,res)=>{
       offerType,flashSaleActive,emiEligible,enrollmentState
     }=req.query;
 
-    const filter={status:'active'};
+    const filter={status:'active',isPublished:{$ne:false}};
     if(examType)filter.examType=examType;
     if(isFree!==undefined)filter.isFree=isFree==='true';
     if(category)filter.category=category;
@@ -89,7 +94,7 @@ router.get('/',optAuth,async(req,res)=>{
     if(enrollmentState==='full')filter.$expr={$and:[{$gt:['$seatLimit',0]},{$gte:['$enrolledCount','$seatLimit']}]};
 
     // ── Series filter mirrors the Batch filter above, mapped to TestSeries fields ──
-    const seriesFilter=baseSeriesFilter();
+    const seriesFilter=marketplaceSeriesFilter();
     if(examType)seriesFilter.examType=examType;
     if(isFree!==undefined)seriesFilter.isFree=isFree==='true';
     if(subject)seriesFilter.subject=subject;

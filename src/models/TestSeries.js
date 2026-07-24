@@ -53,6 +53,32 @@ const TestSeriesSchema = new mongoose.Schema({
   tests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Exam' }],
   enrollments: [{ student: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, status: { type: String, default: 'active', enum: ['active', 'inactive'] }, joinedAt: { type: Date, default: Date.now } }],
   renameHistory: [{ oldName: String, newName: String, changedBy: String, changedAt: { type: Date, default: Date.now } }],
+
+  // ── Publish Center (Go-Live Control Center) ──
+  isPublished:{type:Boolean,default:true},
+  publishState:{type:String,default:'draft',enum:['draft','ready','scheduled','published','unpublished','republish_pending','blocked']},
+  publishVersion:{type:Number,default:0},
+  lastPublishedAt:{type:Date,default:null},
+  lastPublishedBy:{type:String,default:''},
+  scheduledPublishAt:{type:Date,default:null},
+  scheduledPublishTimezone:{type:String,default:'Asia/Kolkata'},
+  scheduledAutoActivate:{type:Boolean,default:true},
+  scheduledAutoUnpublishAt:{type:Date,default:null},
+  draftChangesPending:{type:Boolean,default:false},
+  publishIgnoredIssues:[{type:String}],
+  publishSnapshots:[{
+    version:Number,
+    publishedAt:{type:Date,default:Date.now},
+    publishedBy:String,
+    status:String,
+    action:String,
+    notes:String,
+    reason:String,
+    visibilityMode:String,
+    snapshotData:mongoose.Schema.Types.Mixed
+  }],
+
+
 }, { timestamps: true });
 
 module.exports = mongoose.models.TestSeries || mongoose.model('TestSeries', TestSeriesSchema);

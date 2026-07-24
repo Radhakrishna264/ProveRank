@@ -495,7 +495,7 @@ function BatchDetail({ id, base, authHeaders, onBack, isMobile, showToast, allBa
     ['coupons', '🎟️ Coupons'],
     ['banner', '🖼️ Banner'],
     ['materials', '📁 Materials'], ['analytics', '📈 Analytics'],
-    ['announcements', '📢 Announcements'], ['settings', '🔧 Settings'], ['audit', '🕐 Audit History']
+    ['announcements', '📢 Announcements'], ['settings', '🔧 Settings'], ['publish', '🚀 Publish Center'], ['audit', '🕐 Audit History']
   ]
 
   if (!detail) return <EmptyMsg text="⟳ Loading batch details…" />
@@ -539,6 +539,7 @@ function BatchDetail({ id, base, authHeaders, onBack, isMobile, showToast, allBa
       {tab === 'analytics' && <AnalyticsTab base={base} authHeaders={authHeaders} id={id} allBatches={allBatches} />}
       {tab === 'announcements' && <AnnouncementsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} />}
       {tab === 'settings' && <SettingsTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} load={load} />}
+      {tab === 'publish' && <PublishCenterTab base={base} authHeaders={authHeaders} id={id} showToast={showToast} load={load} />}
       {tab === 'audit' && <AuditTab base={base} authHeaders={authHeaders} id={id} />}
 
       {modal && <StudentAddTransferModal base={base} authHeaders={authHeaders} batchId={id} mode={modal} batches={allBatches} onClose={() => setModal('')} onDone={load} showToast={showToast} />}
@@ -2367,6 +2368,311 @@ function SettingsTab({ base, authHeaders, id, showToast, load: loadParent }: any
 }
 
 // ── 15) AUDIT HISTORY TAB ──
+
+// ── 16) PUBLISH CENTER TAB — Go-Live Control Center ──
+function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent }: any) {
+  const isMobile = useIsMobile()
+  const [data, setData] = useState<any>(null)
+  const [previewMode, setPreviewMode] = useState('marketplace')
+  const [preview, setPreview] = useState<any>(null)
+  const [showPreview, setShowPreview] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [showSchedule, setShowSchedule] = useState(false)
+  const [sched, setSched] = useState<any>({ publishAt: '', timezone: 'Asia/Kolkata', autoActivate: true, autoUnpublishAt: '' })
+  const [rollbackFor, setRollbackFor] = useState<any>(null)
+  const [rollbackReason, setRollbackReason] = useState('')
+  const [rollbackScope, setRollbackScope] = useState('full')
+  const [unpublishReason, setUnpublishReason] = useState('')
+  const [showUnpublishBox, setShowUnpublishBox] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(!isMobile)
+  const [checklistOpen, setChecklistOpen] = useState(true)
+
+  const load = useCallback(() => fetch(base + '/' + id + '/publish-center', { headers: authHeaders }).then(r => r.json()).then(setData).catch(() => {}), [])
+  useEffect(() => { load() }, [load])
+
+  const loadPreview = async (mode: string) => {
+    setPreviewMode(mode)
+    const d = await fetch(base + '/' + id + '/publish-center/preview?mode=' + mode, { headers: authHeaders }).then(r => r.json()).catch(() => null)
+    setPreview(d?.preview || null)
+    setShowPreview(true)
+  }
+
+  const act = async (path: string, method: string, body?: any, okMsg?: string) => {
+    setBusy(true)
+    try {
+      const r = await fetch(base + '/' + id + '/publish-center/' + path, { method, headers: authHeaders, body: body ? JSON.stringify(body) : undefined })
+      const d = await r.json()
+      if (!r.ok) { showToast('⚠️ ' + (d.error || 'Action failed')); setBusy(false); return d }
+      showToast(okMsg || '✅ Done')
+      await load(); loadParent && loadParent()
+      setBusy(false)
+      return d
+    } catch (e) { showToast('⚠️ Network error'); setBusy(false); return null }
+  }
+
+  const doPublish = () => act('publish', 'PUT', { notes }, '🚀 Published successfully')
+  const doRepublish = () => act('republish', 'PUT', { notes }, '🚀 Republished successfully')
+  const doUnpublish = async () => { await act('unpublish', 'PUT', { reason: unpublishReason }, '⛔ Unpublished'); setShowUnpublishBox(false); setUnpublishReason('') }
+  const doArchive = () => { if (!window.confirm('Archive this batch? It will be hidden from marketplace and moved to Archived.')) return; act('archive', 'PUT', {}, '📦 Archived') }
+  const doRestoreDraft = () => { if (!window.confirm('Restore to Draft? This will keep it unpublished for further editing.')) return; act('restore-draft', 'PUT', {}, '📝 Restored to Draft') }
+  const doSchedule = async () => {
+    if (!sched.publishAt) return showToast('⚠️ Select publish date & time')
+    const iso = new Date(sched.publishAt).toISOString()
+    await act('schedule', 'PUT', { publishAt: iso, timezone: sched.timezone, autoActivate: sched.autoActivate, autoUnpublishAt: sched.autoUnpublishAt ? new Date(sched.autoUnpublishAt).toISOString() : null }, '📅 Publish scheduled')
+    setShowSchedule(false)
+  }
+  const doCancelSchedule = () => act('schedule/cancel', 'PUT', {}, '✅ Scheduled publish cancelled')
+  const doRollback = async () => {
+    if (!rollbackReason.trim()) return showToast('⚠️ Reason is mandatory for rollback')
+    if (!window.confirm(`Rollback to version ${rollbackFor.version}? This will overwrite current draft/live data.`)) return
+    await act('rollback', 'POST', { toVersion: rollbackFor.version, reason: rollbackReason, scope: rollbackScope }, '↩️ Rolled back to v' + rollbackFor.version)
+    setRollbackFor(null); setRollbackReason('')
+  }
+
+  if (!data) return <EmptyMsg text="⟳ Loading Publish Center…" />
+  const s = data.summary
+  const scoreColor = s.readinessScore >= 95 ? GOOD : s.readinessScore >= 80 ? ACC : s.readinessScore >= 50 ? WARN : BAD
+  const statusChip = (label: string, color: string) => <span style={chip(color, 'rgba(255,255,255,0.05)')}>{label}</span>
+  const stateColor: any = { draft: DIM, ready: ACC, scheduled: WARN, published: GOOD, unpublished: BAD, republish_pending: WARN, blocked: BAD }
+
+  const SummaryCards = () => (
+    <div style={{ ...cs, display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(6,1fr)', gap: 10 }}>
+      <div style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setChecklistOpen(true)}>
+        <div style={{ fontSize: 22, fontWeight: 800, color: scoreColor }}>{s.readinessScore}%</div>
+        <div style={{ fontSize: 9, color: DIM }}>READINESS · {s.scoreStatus}</div>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: stateColor[s.publishStatus] || TS, textTransform: 'capitalize' }}>{(s.publishStatus || 'draft').replace('_', ' ')}</div>
+        <div style={{ fontSize: 9, color: DIM }}>PUBLISH STATUS</div>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: '#7DD3FC' }}>v{s.publishVersion}</div>
+        <div style={{ fontSize: 9, color: DIM }}>VERSION</div>
+      </div>
+      <div style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setHistoryOpen(true)}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: TS }}>{s.lastPublished ? new Date(s.lastPublished).toLocaleDateString() : '—'}</div>
+        <div style={{ fontSize: 9, color: DIM }}>LAST PUBLISHED</div>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: s.draftChangesPending ? WARN : GOOD }}>{s.draftChangesPending ? 'Pending' : 'None'}</div>
+        <div style={{ fontSize: 9, color: DIM }}>DRAFT CHANGES</div>
+      </div>
+      <div style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setChecklistOpen(true)}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: s.blockingIssuesCount > 0 ? BAD : GOOD }}>{s.blockingIssuesCount}</div>
+        <div style={{ fontSize: 9, color: DIM }}>BLOCKING ISSUES</div>
+      </div>
+    </div>
+  )
+
+  const ChecklistPanel = () => (
+    <div style={cs}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: isMobile ? 'pointer' : 'default' }} onClick={() => isMobile && setChecklistOpen(!checklistOpen)}>
+        <div style={{ fontWeight: 700, color: TS, marginBottom: checklistOpen ? 10 : 0 }}>✅ Pre-Publish Checklist</div>
+        {isMobile && <span style={{ color: DIM }}>{checklistOpen ? '▲' : '▼'}</span>}
+      </div>
+      {checklistOpen && <>
+        <div style={{ fontSize: 10.5, color: DIM, marginBottom: 6, textTransform: 'uppercase', fontWeight: 700 }}>Mandatory</div>
+        {data.checklist.mandatory.map((m: any) => (
+          <div key={m.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${BOR}` }}>
+            <div style={{ fontSize: 12.5, color: m.done ? TS : BAD }}>{m.done ? '✅' : '🔴'} {m.label}</div>
+            {!m.done && <span style={{ fontSize: 10, color: DIM }}>{m.reason}</span>}
+          </div>
+        ))}
+        <div style={{ fontSize: 10.5, color: DIM, margin: '10px 0 6px', textTransform: 'uppercase', fontWeight: 700 }}>Optional</div>
+        {data.checklist.optional.map((o: any) => (
+          <div key={o.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0' }}>
+            <div style={{ fontSize: 12, color: o.done ? '#7DD3FC' : DIM }}>{o.done ? '☑️' : '⬜'} {o.label}</div>
+            {o.count !== undefined && <span style={{ fontSize: 10, color: DIM }}>{o.count}</span>}
+          </div>
+        ))}
+        <button style={{ ...bs, marginTop: 10, width: '100%' }} onClick={load}>🔄 Recheck Readiness</button>
+      </>}
+    </div>
+  )
+
+  const BlockingPanel = () => data.blockingIssues.length === 0 ? null : (
+    <div style={{ ...cs, border: `1px solid rgba(239,68,68,0.35)` }}>
+      <div style={{ fontWeight: 700, color: BAD, marginBottom: 8 }}>🚫 Blocking Issues ({data.blockingIssues.length})</div>
+      {data.blockingIssues.map((b: any) => <div key={b.key} style={{ fontSize: 12, color: TS, padding: '4px 0' }}>• {b.message}</div>)}
+    </div>
+  )
+
+  const PreviewPanel = () => (
+    <div style={cs}>
+      <div style={{ fontWeight: 700, color: TS, marginBottom: 8 }}>👁 Student Preview</div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+        {['marketplace', 'card', 'detail', 'mobile', 'desktop'].map(m => (
+          <button key={m} style={previewMode === m && showPreview ? bp : bs} onClick={() => loadPreview(m)}>{m === 'marketplace' ? '🏪 Marketplace' : m === 'card' ? '🃏 Card' : m === 'detail' ? '📄 Detail Page' : m === 'mobile' ? '📱 Mobile' : '🖥️ Desktop'}</button>
+        ))}
+      </div>
+      {showPreview && preview && (
+        <div style={{ background: 'rgba(0,22,40,0.85)', border: `1px solid ${BOR2}`, borderRadius: 12, padding: 14, maxWidth: previewMode === 'mobile' ? 260 : '100%', margin: previewMode === 'mobile' ? '0 auto' : 0 }}>
+          {preview.banner?.bgImage && <div style={{ height: 90, borderRadius: 8, marginBottom: 8, background: `linear-gradient(135deg,${preview.banner.primaryColor || '#4D9FFF'},#00263F) center/cover` }} />}
+          <div style={{ fontWeight: 800, fontSize: 14, color: '#93C5FD' }}>{preview.title}</div>
+          {preview.banner?.tagline && <div style={{ fontSize: 11, color: DIM }}>{preview.banner.tagline}</div>}
+          <div style={{ display: 'flex', gap: 6, margin: '8px 0', flexWrap: 'wrap' }}>
+            {preview.offerBadges?.map((b: string) => <span key={b} style={chip(ACC, 'rgba(77,159,255,0.1)')}>{b}</span>)}
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: GOOD }}>₹{preview.effectivePrice}{preview.discountPct > 0 && <span style={{ fontSize: 11, color: DIM, marginLeft: 6, textDecoration: 'line-through' }}>₹{preview.price}</span>}{preview.discountPct > 0 && <span style={{ fontSize: 10, color: WARN, marginLeft: 6 }}>{preview.discountPct}% OFF</span>}</div>
+          <div style={{ fontSize: 11, color: DIM, marginTop: 4 }}>📝 {preview.examsSummary?.count || 0} Exams · ⏳ {preview.validity} days validity · 🔓 {preview.enrollmentState}</div>
+          <button style={{ ...bp, marginTop: 10, width: '100%' }} disabled>{preview.cta}</button>
+        </div>
+      )}
+      {!showPreview && <div style={{ fontSize: 11.5, color: DIM }}>Select a preview mode to see exactly what students will see before you publish.</div>}
+    </div>
+  )
+
+  const PostPublishPanel = () => !data.postPublishChecks ? null : (
+    <div style={cs}>
+      <div style={{ fontWeight: 700, color: TS, marginBottom: 8 }}>📡 Post-Publish Status — <span style={{ color: GOOD }}>{data.postPublishChecks.state}</span></div>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 8 }}>
+        {[['Visible in Marketplace', data.postPublishChecks.visibleInMarketplace], ['Banner Loaded', data.postPublishChecks.bannerLoaded], ['Exams Accessible', data.postPublishChecks.examsAccessible],
+        ['Coupons Active', data.postPublishChecks.couponsActive], ['Controls Applied', data.postPublishChecks.controlsApplied], ['Searchable', data.postPublishChecks.searchable],
+        ['Notifications On', data.postPublishChecks.notificationEnabled], ['Launch Status Updated', data.postPublishChecks.launchStatusUpdated]].map(([l, v]: any) => (
+          <div key={l as string} style={{ fontSize: 11, color: v ? GOOD : DIM }}>{v ? '✅' : '⬜'} {l}</div>
+        ))}
+      </div>
+    </div>
+  )
+
+  const ActionsPanel = () => (
+    <div style={cs}>
+      <div style={{ fontWeight: 700, color: TS, marginBottom: 10 }}>🚀 Publish Actions</div>
+      <textarea style={{ ...inp, minHeight: 50, marginBottom: 8 }} placeholder="Notes for this publish (optional)" value={notes} onChange={e => setNotes(e.target.value)} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {!data.isPublished ? (
+          <button style={bp} disabled={busy || data.blockingIssues.length > 0} onClick={doPublish}>🚀 Publish{data.blockingIssues.length > 0 ? ' (Blocked)' : ''}</button>
+        ) : (
+          <button style={bp} disabled={busy || data.blockingIssues.length > 0} onClick={doRepublish}>🔁 Republish</button>
+        )}
+        {data.isPublished && !showUnpublishBox && <button style={bd} disabled={busy} onClick={() => setShowUnpublishBox(true)}>⛔ Unpublish</button>}
+        {showUnpublishBox && (
+          <div>
+            <textarea style={{ ...inp, minHeight: 50, marginBottom: 6 }} placeholder="Reason for unpublishing" value={unpublishReason} onChange={e => setUnpublishReason(e.target.value)} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button style={{ ...bd, flex: 1 }} onClick={doUnpublish}>Confirm Unpublish</button>
+              <button style={{ ...bs, flex: 1 }} onClick={() => setShowUnpublishBox(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+        {!showSchedule ? (
+          <button style={bs} disabled={busy} onClick={() => setShowSchedule(true)}>📅 Schedule Publish</button>
+        ) : (
+          <div style={{ background: 'rgba(0,22,40,0.6)', borderRadius: 10, padding: 10 }}>
+            <label style={lbl}>Publish Date & Time</label>
+            <input style={{ ...inp, marginBottom: 8 }} type="datetime-local" value={sched.publishAt} onChange={e => setSched({ ...sched, publishAt: e.target.value })} />
+            <label style={lbl}>Timezone</label>
+            <input style={{ ...inp, marginBottom: 8 }} value={sched.timezone} onChange={e => setSched({ ...sched, timezone: e.target.value })} />
+            <div style={{ marginBottom: 8 }}><Toggle on={sched.autoActivate} onChange={(v: boolean) => setSched({ ...sched, autoActivate: v })} label="Auto-activate at publish time" /></div>
+            <label style={lbl}>Auto-Unpublish At (optional)</label>
+            <input style={{ ...inp, marginBottom: 8 }} type="datetime-local" value={sched.autoUnpublishAt} onChange={e => setSched({ ...sched, autoUnpublishAt: e.target.value })} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button style={{ ...bp, flex: 1 }} onClick={doSchedule}>Confirm Schedule</button>
+              <button style={{ ...bs, flex: 1 }} onClick={() => setShowSchedule(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+        {data.scheduled.isScheduleActive && (
+          <div style={{ fontSize: 11.5, color: WARN, background: 'rgba(251,191,36,0.08)', borderRadius: 8, padding: 8 }}>
+            ⏳ Scheduled for {new Date(data.scheduled.scheduledPublishAt).toLocaleString()} ({data.scheduled.scheduledPublishTimezone})
+            <button style={{ ...bd, marginTop: 6, width: '100%' }} onClick={doCancelSchedule}>Cancel Scheduled Publish</button>
+          </div>
+        )}
+        <button style={bs} disabled={busy} onClick={doArchive}>🗄️ Archive</button>
+        <button style={bs} disabled={busy} onClick={doRestoreDraft}>📝 Restore as Draft</button>
+      </div>
+    </div>
+  )
+
+  const HistoryPanel = () => (
+    <div style={cs}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: isMobile ? 'pointer' : 'default' }} onClick={() => isMobile && setHistoryOpen(!historyOpen)}>
+        <div style={{ fontWeight: 700, color: TS }}>🕐 Publish History</div>
+        {isMobile && <span style={{ color: DIM }}>{historyOpen ? '▲' : '▼'}</span>}
+      </div>
+      {historyOpen && (data.history.length === 0 ? <EmptyMsg text="No publish history yet." /> : (
+        <div style={{ marginTop: 8 }}>
+          {data.history.map((h: any, i: number) => (
+            <div key={i} style={{ padding: '8px 0', borderBottom: `1px solid ${BOR}` }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ color: TS, fontWeight: 700, fontSize: 12.5 }}>v{h.version} · {h.action}</div>
+                <div style={{ color: DIM, fontSize: 10.5 }}>{new Date(h.publishedAt).toLocaleString()}</div>
+              </div>
+              <div style={{ color: DIM, fontSize: 11 }}>by {h.publishedBy} · {h.status}{h.notes ? ' · ' + h.notes : ''}{h.reason ? ' · reason: ' + h.reason : ''}</div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                <button style={{ ...bs, fontSize: 10.5, padding: '4px 8px' }} onClick={() => { setRollbackFor(h); setRollbackScope('full') }}>↩️ Rollback to this</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+
+  const RollbackModal = () => !rollbackFor ? null : (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setRollbackFor(null)}>
+      <div style={{ background: CRD, borderRadius: 16, padding: 20, maxWidth: 420, width: '100%', border: `1px solid ${BOR2}` }} onClick={e => e.stopPropagation()}>
+        <div style={{ fontWeight: 700, color: TS, marginBottom: 10 }}>↩️ Rollback to v{rollbackFor.version}</div>
+        <label style={lbl}>Scope</label>
+        <select style={{ ...inp, marginBottom: 10 }} value={rollbackScope} onChange={e => setRollbackScope(e.target.value)}>
+          <option value="full">Rollback & Republish (Full)</option>
+          <option value="draft_only">Restore as Draft only</option>
+        </select>
+        <label style={lbl}>Reason (mandatory)</label>
+        <textarea style={{ ...inp, minHeight: 60, marginBottom: 12 }} value={rollbackReason} onChange={e => setRollbackReason(e.target.value)} placeholder="Why are you rolling back?" />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button style={{ ...bs, flex: 1 }} onClick={() => setRollbackFor(null)}>Cancel</button>
+          <button style={{ ...bd, flex: 1 }} onClick={doRollback}>Confirm Rollback</button>
+        </div>
+      </div>
+    </div>
+  )
+
+  if (isMobile) {
+    return (
+      <div style={{ paddingBottom: 70 }}>
+        <SummaryCards />
+        <ChecklistPanel />
+        <BlockingPanel />
+        <PreviewPanel />
+        <PostPublishPanel />
+        <HistoryPanel />
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: CRD2, borderTop: `1px solid ${BOR2}`, padding: 10, zIndex: 50, display: 'flex', gap: 8 }}>
+          {!data.isPublished
+            ? <button style={{ ...bp, flex: 1 }} disabled={busy || data.blockingIssues.length > 0} onClick={doPublish}>🚀 Publish</button>
+            : <button style={{ ...bp, flex: 1 }} disabled={busy || data.blockingIssues.length > 0} onClick={doRepublish}>🔁 Republish</button>}
+          <button style={{ ...bs, flex: 1 }} onClick={() => setShowSchedule(true)}>📅 Schedule</button>
+        </div>
+        {showSchedule && <ActionsPanel />}
+        <RollbackModal />
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <SummaryCards />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr 1fr', gap: 14, alignItems: 'start' }}>
+        <div>
+          <ChecklistPanel />
+          <BlockingPanel />
+        </div>
+        <div>
+          <PreviewPanel />
+          <PostPublishPanel />
+        </div>
+        <div>
+          <ActionsPanel />
+          <HistoryPanel />
+        </div>
+      </div>
+      <RollbackModal />
+    </div>
+  )
+}
+
+
 function AuditTab({ base, authHeaders, id }: any) {
   const [audit, setAudit] = useState<any[]>([])
   useEffect(() => { fetch(base + '/' + id + '/audit', { headers: authHeaders }).then(r => r.json()).then(d => setAudit(d.audit || [])).catch(() => {}) }, [])

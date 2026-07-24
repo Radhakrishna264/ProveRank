@@ -1406,4 +1406,343 @@ router.get('/:id/export-snapshot', auth, isAdmin, async (req, res) => {
 });
 
 
+
+// ══════════════════════════════════════════════════════════════════
+// 16) PUBLISH CENTER — Go-Live Control Center
+// ══════════════════════════════════════════════════════════════════
+function scoreStatusLabel(score) {
+  if (score >= 95) return 'Ready to Publish';
+  if (score >= 80) return 'Almost Ready';
+  if (score >= 50) return 'Partially Ready';
+  return 'Not Ready';
+}
+
+async function buildPublishChecklist(series) {
+  const studentCount = (series.students && series.students.length) || 0;
+  const examCount = (series.tests && series.tests.length) || 0;
+  const bannerGate = await checkBannerGate(series._id);
+  let materialsCount = 0;
+  try { if (BatchNote) materialsCount = await BatchNote.countDocuments({ series: series._id }); } catch (e) {}
+  let announcementsCount = 0;
+  try {
+    let Announcement; try { Announcement = mongoose.model('Announcement'); } catch (e) { Announcement = null; }
+    if (Announcement) announcementsCount = await Announcement.countDocuments({ seriesId: series._id });
+  } catch (e) {}
+  let coupons = [];
+  try { coupons = await Coupon.find({ scopeType: 'series', scopeId: series._id, isDeleted: false }).lean(); } catch (e) {}
+  const now = new Date();
+  const expiredButActive = coupons.filter(c => c.status === 'active' && c.validTill && new Date(c.validTill) < now);
+  const couponIssue = expiredButActive.length > 0 ? `${expiredButActive.length} active coupon(s) already expired` : '';
+
+  const mandatory = [
+    { key: 'basicInfo', label: 'Basic Information complete', done: !!(series.name && series.description && series.examType), reason: 'Name, description & exam type required' },
+    { key: 'banner', label: 'Banner ready', done: !!bannerGate.ready, reason: bannerGate.reason || '' },
+    { key: 'pricing', label: 'Pricing configured', done: !!(series.isFree || (series.price && series.price > 0)), reason: 'Set a price or mark as Free' },
+    { key: 'startDate', label: 'Start Date set', done: !!series.startDate, reason: 'Start Date missing in Settings' },
+    { key: 'endDate', label: 'End Date / Validity set', done: !!(series.endDate || (series.validity && series.validity > 0)), reason: 'End Date or Validity missing' },
+    { key: 'controls', label: 'Controls configured', done: true, reason: '' },
+    { key: 'coupons', label: 'Coupon configuration checked', done: coupons.length === 0 || expiredButActive.length === 0, reason: couponIssue }
+  ];
+  const optional = [
+    { key: 'exams', label: 'Exams added', done: examCount > 0, count: examCount },
+    { key: 'materials', label: 'Materials added', done: materialsCount > 0, count: materialsCount },
+    { key: 'announcements', label: 'Announcements prepared', done: announcementsCount > 0, count: announcementsCount },
+    { key: 'faq', label: 'FAQ / Help content', done: true },
+    { key: 'leaderboard', label: 'Leaderboard enabled', done: true },
+    { key: 'analytics', label: 'Analytics enabled', done: true }
+  ];
+
+  const weights = { basicInfo: 15, banner: 20, pricing: 15, startDate: 8, endDate: 7, controls: 10, coupons: 5 };
+  let score = 0;
+  mandatory.forEach(m => { if (m.done) score += (weights[m.key] || 0); });
+  score += examCount > 0 ? 15 : 0;
+  score += (series.thumbnail || series.colorIcon) ? 5 : 0;
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  const blockingIssues = mandatory.filter(m => !m.done && !(series.publishIgnoredIssues || []).includes(m.key))
+    .map(m => ({ key: m.key, message: m.reason || (m.label + ' missing') }));
+
+  return { mandatory, optional, score, scoreStatus: scoreStatusLabel(score), blockingIssues, studentCount, examCount, bannerGate };
+}
+
+function applyPublishState(series, isPublished) {
+  series.status = isPublished ? 'active' : (series.status === 'draft' ? 'draft' : 'inactive');
+}
+
+function pushPublishSnapshot(series, { action, notes, reason, visibilityMode, publishedByName }) {
+  series.publishSnapshots = series.publishSnapshots || [];
+  series.publishSnapshots.push({
+    version: series.publishVersion || 0,
+    publishedAt: new Date(),
+    publishedBy: publishedByName || 'Admin',
+    status: series.publishState,
+    action,
+    notes: notes || '',
+    reason: reason || '',
+    visibilityMode: visibilityMode || series.visibility || 'public',
+    snapshotData: {
+      name: series.name, description: series.description, examType: series.examType, category: series.category,
+      price: series.price, discountPrice: series.discountPrice, thumbnail: series.thumbnail, colorIcon: series.colorIcon,
+      startDate: series.startDate, endDate: series.endDate, validity: series.validity, seatLimit: series.seatLimit,
+      enrollmentRule: series.enrollmentRule, accessPolicy: series.accessPolicy, visibility: series.visibility,
+      teacherAssigned: series.teacherAssigned, isSpotlight: series.isSpotlight, isBundle: series.isBundle,
+      allowFreeTrial: series.allowFreeTrial, lifecycleStatus: series.lifecycleStatus, status: series.status
+    }
+  });
+  if (series.publishSnapshots.length > 30) series.publishSnapshots = series.publishSnapshots.slice(-30);
+}
+
+// GET /:id/publish-center — full readiness + status dashboard
+router.get('/:id/publish-center', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const { mandatory, optional, score, scoreStatus, blockingIssues, examCount, bannerGate } = await buildPublishChecklist(series);
+
+    let couponsActive = false;
+    try { couponsActive = !!(await Coupon.exists({ scopeType: 'series', scopeId: series._id, isDeleted: false, status: 'active' })); } catch (e) {}
+    const visibleInMarketplace = series.status === 'active' && series.visibility !== 'private';
+    const postPublishChecks = !series.isPublished ? null : {
+      visibleInMarketplace,
+      bannerLoaded: !!bannerGate.ready,
+      examsAccessible: examCount > 0,
+      couponsActive,
+      controlsApplied: true,
+      searchable: series.visibility === 'public',
+      notificationEnabled: true,
+      launchStatusUpdated: true,
+      state: !visibleInMarketplace ? 'Live but Hidden'
+        : (series.enrollmentRule === 'invite_only' || series.accessPolicy !== 'open') ? 'Live but Enrollment Closed'
+        : couponsActive ? 'Live with Offer Active' : 'Fully Live'
+    };
+
+    res.json({
+      summary: {
+        readinessScore: score, scoreStatus,
+        publishStatus: series.publishState || 'draft',
+        publishVersion: series.publishVersion || 0,
+        lastPublished: series.lastPublishedAt || null,
+        lastPublishedBy: series.lastPublishedBy || '',
+        draftChangesPending: !!series.draftChangesPending,
+        blockingIssuesCount: blockingIssues.length
+      },
+      isPublished: !!series.isPublished,
+      checklist: { mandatory, optional },
+      blockingIssues,
+      scheduled: {
+        scheduledPublishAt: series.scheduledPublishAt || null,
+        scheduledPublishTimezone: series.scheduledPublishTimezone || 'Asia/Kolkata',
+        scheduledAutoActivate: series.scheduledAutoActivate !== false,
+        scheduledAutoUnpublishAt: series.scheduledAutoUnpublishAt || null,
+        isScheduleActive: series.publishState === 'scheduled'
+      },
+      postPublishChecks,
+      history: (series.publishSnapshots || []).slice().reverse().slice(0, 50)
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /:id/publish-center/publish
+router.put('/:id/publish-center/publish', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const { mandatory, blockingIssues } = await buildPublishChecklist(series.toObject());
+    if (blockingIssues.length > 0) return res.status(423).json({ error: 'Mandatory checklist incomplete', blockingIssues, gate: 'publish_blocked' });
+    const oldState = series.publishState;
+    series.isPublished = true;
+    series.publishState = 'published';
+    series.publishVersion = (series.publishVersion || 0) + 1;
+    series.lastPublishedAt = new Date();
+    series.lastPublishedBy = req.user.name || 'Admin';
+    series.draftChangesPending = false;
+    applyPublishState(series, true);
+    pushPublishSnapshot(series, { action: 'publish', notes: req.body.notes, visibilityMode: req.body.visibilityMode, publishedByName: req.user.name });
+    series.lastActivityAt = new Date();
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'publishState', oldValue: oldState, newValue: 'published', action: 'publish_completed', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, publishState: series.publishState, publishVersion: series.publishVersion });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /:id/publish-center/unpublish
+router.put('/:id/publish-center/unpublish', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const oldState = series.publishState;
+    series.isPublished = false;
+    series.publishState = 'unpublished';
+    applyPublishState(series, false);
+    pushPublishSnapshot(series, { action: 'unpublish', reason: req.body.reason, publishedByName: req.user.name });
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'publishState', oldValue: oldState, newValue: 'unpublished', action: 'unpublish_initiated', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, publishState: series.publishState });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /:id/publish-center/republish
+router.put('/:id/publish-center/republish', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const { blockingIssues } = await buildPublishChecklist(series.toObject());
+    if (blockingIssues.length > 0) return res.status(423).json({ error: 'Mandatory checklist incomplete', blockingIssues, gate: 'publish_blocked' });
+    const oldState = series.publishState;
+    series.isPublished = true;
+    series.publishState = 'published';
+    series.publishVersion = (series.publishVersion || 0) + 1;
+    series.lastPublishedAt = new Date();
+    series.lastPublishedBy = req.user.name || 'Admin';
+    series.draftChangesPending = false;
+    applyPublishState(series, true);
+    pushPublishSnapshot(series, { action: 'republish', notes: req.body.notes, publishedByName: req.user.name });
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'publishState', oldValue: oldState, newValue: 'published', action: 'republish_initiated', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, publishState: series.publishState, publishVersion: series.publishVersion });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /:id/publish-center/schedule
+router.put('/:id/publish-center/schedule', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const { publishAt, timezone, autoActivate, autoUnpublishAt } = req.body;
+    if (!publishAt || new Date(publishAt) <= new Date()) return res.status(400).json({ error: 'Publish Date/Time must be in the future' });
+    series.scheduledPublishAt = new Date(publishAt);
+    series.scheduledPublishTimezone = timezone || 'Asia/Kolkata';
+    series.scheduledAutoActivate = autoActivate !== false;
+    series.scheduledAutoUnpublishAt = autoUnpublishAt ? new Date(autoUnpublishAt) : null;
+    series.publishState = 'scheduled';
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'scheduledPublishAt', newValue: series.scheduledPublishAt, action: 'scheduled_publish_set', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, scheduledPublishAt: series.scheduledPublishAt });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /:id/publish-center/schedule/cancel
+router.put('/:id/publish-center/schedule/cancel', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    series.scheduledPublishAt = null;
+    series.scheduledAutoUnpublishAt = null;
+    series.publishState = series.isPublished ? 'published' : 'draft';
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'scheduledPublishAt', newValue: null, action: 'scheduled_publish_cancelled', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, publishState: series.publishState });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /:id/publish-center/archive
+router.put('/:id/publish-center/archive', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    series.isPublished = false;
+    series.publishState = 'unpublished';
+    series.lifecycleStatus = 'archived';
+    series.archivedAt = new Date();
+    applyPublishState(series, false);
+    pushPublishSnapshot(series, { action: 'archive', reason: req.body.reason, publishedByName: req.user.name });
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'lifecycleStatus', newValue: 'archived', action: 'publish_center_archive', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, publishState: series.publishState });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /:id/publish-center/restore-draft
+router.put('/:id/publish-center/restore-draft', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    series.publishState = 'draft';
+    series.draftChangesPending = true;
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'publishState', newValue: 'draft', action: 'restore_draft', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, publishState: series.publishState });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /:id/publish-center/history
+router.get('/:id/publish-center/history', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    res.json({ history: (series.publishSnapshots || []).slice().reverse() });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /:id/publish-center/snapshot/:version
+router.get('/:id/publish-center/snapshot/:version', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const snap = (series.publishSnapshots || []).find(s => String(s.version) === String(req.params.version));
+    if (!snap) return res.status(404).json({ error: 'Snapshot not found' });
+    res.json({ snapshot: snap });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /:id/publish-center/rollback
+router.post('/:id/publish-center/rollback', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const { toVersion, reason, scope } = req.body;
+    if (!reason) return res.status(400).json({ error: 'Reason is mandatory for rollback' });
+    const snap = (series.publishSnapshots || []).find(s => String(s.version) === String(toVersion));
+    if (!snap) return res.status(404).json({ error: 'Snapshot version not found' });
+    const d = snap.snapshotData || {};
+    ['name', 'description', 'examType', 'category', 'price', 'discountPrice', 'thumbnail', 'colorIcon',
+      'startDate', 'endDate', 'validity', 'seatLimit', 'enrollmentRule', 'accessPolicy', 'visibility',
+      'teacherAssigned', 'isSpotlight', 'isBundle', 'allowFreeTrial'].forEach(f => { if (d[f] !== undefined) series[f] = d[f]; });
+    if (scope === 'draft_only') {
+      series.publishState = 'draft';
+      series.draftChangesPending = true;
+    } else {
+      series.isPublished = true;
+      series.publishState = 'published';
+      series.publishVersion = (series.publishVersion || 0) + 1;
+      series.lastPublishedAt = new Date();
+      series.lastPublishedBy = req.user.name || 'Admin';
+      applyPublishState(series, true);
+    }
+    pushPublishSnapshot(series, { action: 'rollback', reason, publishedByName: req.user.name });
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'publishVersion', oldValue: series.publishVersion, newValue: toVersion, action: 'rollback_executed', changedBy: req.user.id, changedByName: req.user.name, source: 'rollback:' + reason });
+    res.json({ success: true, publishState: series.publishState, publishVersion: series.publishVersion });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /:id/publish-center/preview — student-facing preview (marketplace/card/detail/mobile/desktop)
+router.get('/:id/publish-center/preview', auth, isAdmin, async (req, res) => {
+  try {
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const eff = effectivePrice(series);
+    const base = series.price || 0;
+    const discountPct = (!base || base <= eff) ? 0 : Math.round(((base - eff) / base) * 100);
+    let banner = null;
+    try {
+      const Banner = mongoose.model('Banner');
+      banner = await Banner.findOne({ linkedType: 'series', linkedBatchId: series._id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
+    } catch (e) {}
+    const examCount = (series.tests && series.tests.length) || 0;
+    res.json({
+      mode: req.query.mode || 'marketplace',
+      preview: {
+        title: series.name, banner: banner ? { title: banner.title, tagline: banner.tagline, bgImage: banner.bgImage, primaryColor: banner.primaryColor } : null,
+        price: base, effectivePrice: eff, discountPct,
+        cta: series.isFree ? 'Enroll Free' : (series.allowFreeTrial ? 'Start Free Trial' : 'Enroll Now'),
+        examsSummary: { count: examCount }, validity: series.validity, offerBadges: [series.isSpotlight && 'Spotlight', series.isBundle && 'Bundle', series.allowFreeTrial && 'Free Trial'].filter(Boolean),
+        enrollmentState: series.enrollmentRule
+      }
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+
+
 module.exports = router;
