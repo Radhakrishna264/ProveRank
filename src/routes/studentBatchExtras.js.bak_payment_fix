@@ -3,7 +3,6 @@ const router   = express.Router();
 const mongoose = require('mongoose');
 const jwt      = require('jsonwebtoken');
 const Batch    = require('../models/Batch');
-const TestSeries=require('../models/TestSeries');
 const User     = require('../models/User');
 const Review   = require('../models/Review');
 const JWT      = process.env.JWT_SECRET || 'proverank_jwt_super_secret_key_2024';
@@ -81,8 +80,7 @@ router.get('/:id/reviews', async (req, res) => {
 // POST /:id/razorpay-order — create payment order (test mode safe)
 router.post('/:id/razorpay-order', auth, async (req, res) => {
   try {
-    let batch = await Batch.findById(req.params.id);
-    if (!batch) batch = await TestSeries.findById(req.params.id);
+    const batch = await Batch.findById(req.params.id);
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
     const amount = ((batch.discountPrice || batch.price) * 100);
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
