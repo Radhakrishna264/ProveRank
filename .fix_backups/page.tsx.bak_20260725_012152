@@ -1436,10 +1436,10 @@ const [aiQImgs,setAiQImgs]=useState({})
       get(`${API}/api/admin/features`),
     fetch(`${API}/api/admin/notifications`,{headers:{Authorization:`Bearer ${getToken()}`}}).then(r=>r.json()),
       getFirst(`${API}/api/admin/batches`,`${API}/api/admin/manage/batches`),
+      getFirst(`${API}/api/admin/test-series-manager?limit=200`,`${API}/api/testseries`),
       get(`${API}/api/admin/manage/admins`),
       getFirst(`${API}/api/results`,`${API}/api/admin/results`),
       get(`${API}/api/admin/maintenance`),
-      getFirst(`${API}/api/admin/test-series-manager?limit=200`,`${API}/api/testseries`),
     ])
     if(Array.isArray(us))setStudents(us)
     else if(us&&Array.isArray(us.students))setStudents(us.students)
