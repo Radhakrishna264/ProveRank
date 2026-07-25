@@ -54,7 +54,7 @@ const BatchSchema=new mongoose.Schema({
   previewCount:{type:Number,default:0},
 
   // ── Publish Center (Go-Live Control Center) ──
-  isPublished:{type:Boolean,default:false},
+  isPublished:{type:Boolean,default:true},
   publishState:{type:String,default:'draft',enum:['draft','ready','scheduled','published','unpublished','republish_pending','blocked']},
   publishVersion:{type:Number,default:0},
   lastPublishedAt:{type:Date,default:null},
