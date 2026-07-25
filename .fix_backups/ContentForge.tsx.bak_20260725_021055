@@ -65,11 +65,11 @@ interface ExamDetailsState {
 }
 
 interface AssignmentState {
-  assignmentType: 'batch' | 'series' | 'individual';
+  assignmentType: 'batch' | 'series' | 'mini_test' | 'individual';
   batch: string;
   multiBatchEnabled: boolean;
   multiBatch: string[];
-  testSeriesId: string;
+  seriesName: string;
   notifyStudents: boolean;
 }
 
@@ -93,7 +93,7 @@ function defaultExamDetails(): ExamDetailsState {
   };
 }
 function defaultAssignment(): AssignmentState {
-  return { assignmentType: 'individual', batch: '', multiBatchEnabled: false, multiBatch: [], testSeriesId: '', notifyStudents: false };
+  return { assignmentType: 'individual', batch: '', multiBatchEnabled: false, multiBatch: [], seriesName: '', notifyStudents: false };
 }
 function defaultPostCreate(): PostCreateState {
   return { scheduledPublishEnabled: false, publishAt: '', isTemplate: false, publishNow: false };
@@ -571,7 +571,7 @@ function ExamDetailsForm({ d, setD, totalParsed, detectedSubjects }: { d:ExamDet
 function AssignmentSelector({ a, setA, API, token }: { a:AssignmentState; setA:React.Dispatch<React.SetStateAction<AssignmentState>>; API:string; token:string }) {
   const upd = (patch: Partial<AssignmentState>) => setA(prev => ({ ...prev, ...patch }));
   const [batches, setBatches] = useState<{_id:string; name:string; studentCount?:number}[]>([]);
-  const [seriesList, setSeriesList] = useState<{_id:string; name:string; title?:string; lifecycleStatus?:string}[]>([]);
+  const [seriesList, setSeriesList] = useState<string[]>([]);
 
   useEffect(() => {
     fetch(`${API}/api/admin/batches`, { headers:{ Authorization:`Bearer ${token}` } })
@@ -583,13 +583,14 @@ function AssignmentSelector({ a, setA, API, token }: { a:AssignmentState; setA:R
   const cards: { key:AssignmentState['assignmentType']; icon:string; label:string }[] = [
     { key:'batch', icon:'🏫', label:'Assign to Batch' },
     { key:'series', icon:'📚', label:'Test Series' },
+    { key:'mini_test', icon:'🧪', label:'Mini Test' },
     { key:'individual', icon:'👤', label:'Individual / Open' },
   ];
 
   return (
     <div style={{ ...S.card }}>
       <div style={{ fontSize:13, fontWeight:800, color:C.ts, marginBottom:14 }}>🎯 Step — Assignment</div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:14 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:14 }}>
         {cards.map(c=>(
           <div key={c.key} onClick={()=>upd({assignmentType:c.key})}
             style={{ textAlign:'center', padding:'14px 8px', borderRadius:12, cursor:'pointer',
@@ -603,7 +604,7 @@ function AssignmentSelector({ a, setA, API, token }: { a:AssignmentState; setA:R
         ))}
       </div>
 
-      {a.assignmentType==='batch' && (
+      {(a.assignmentType==='batch' || a.assignmentType==='mini_test') && (
         <div style={{ marginBottom:10 }}>
           <label style={S.lbl}>Batch</label>
           <select value={a.batch} onChange={e=>upd({batch:e.target.value})} style={S.inp}>
@@ -626,11 +627,9 @@ function AssignmentSelector({ a, setA, API, token }: { a:AssignmentState; setA:R
 
       {a.assignmentType==='series' && (
         <div style={{ marginBottom:10 }}>
-          <label style={S.lbl}>Test Series</label>
-          <select value={a.testSeriesId} onChange={e=>upd({testSeriesId:e.target.value})} style={S.inp}>
-            <option value="">— Select Test Series —</option>
-            {seriesList.map(s=><option key={s._id} value={s._id}>{s.name||s.title}{s.lifecycleStatus?` · ${s.lifecycleStatus}`:''}</option>)}
-          </select>
+          <label style={S.lbl}>Test Series Name</label>
+          <input value={a.seriesName} onChange={e=>upd({seriesName:e.target.value})} placeholder="e.g. Weekly Test Series — Batch A" list="series-list" style={S.inp} />
+          <datalist id="series-list">{seriesList.map(s=><option key={s} value={s} />)}</datalist>
           <label style={{ ...S.lbl, marginTop:8 }}>Batch (optional)</label>
           <select value={a.batch} onChange={e=>upd({batch:e.target.value})} style={S.inp}>
             <option value="">— Select Batch —</option>
@@ -1348,7 +1347,7 @@ function CopyPasteCreateExamView({ API, token, onNav }: { API:string; token:stri
         assignment: {
           assignmentType: assign.assignmentType, batch: assign.batch,
           multiBatch: assign.multiBatchEnabled ? assign.multiBatch : [],
-          testSeriesId: assign.testSeriesId, notifyStudents: assign.notifyStudents,
+          seriesName: assign.seriesName, notifyStudents: assign.notifyStudents,
         },
         postCreate: {
           scheduledPublish: { enabled: postC.scheduledPublishEnabled, publishAt: postC.publishAt||null },
@@ -1823,7 +1822,7 @@ function ExcelCreateExamView({ API, token, onNav }: { API:string; token:string; 
         assignment: {
           assignmentType: assign.assignmentType, batch: assign.batch,
           multiBatch: assign.multiBatchEnabled ? assign.multiBatch : [],
-          testSeriesId: assign.testSeriesId, notifyStudents: assign.notifyStudents,
+          seriesName: assign.seriesName, notifyStudents: assign.notifyStudents,
         },
         postCreate: {
           scheduledPublish: { enabled: postC.scheduledPublishEnabled, publishAt: postC.publishAt||null },
@@ -2188,7 +2187,7 @@ function PDFCreateExamView({ API, token, onNav }: { API:string; token:string; on
         assignment: {
           assignmentType: assign.assignmentType, batch: assign.batch,
           multiBatch: assign.multiBatchEnabled ? assign.multiBatch : [],
-          testSeriesId: assign.testSeriesId, notifyStudents: assign.notifyStudents,
+          seriesName: assign.seriesName, notifyStudents: assign.notifyStudents,
         },
         postCreate: {
           scheduledPublish: { enabled: postC.scheduledPublishEnabled, publishAt: postC.publishAt||null },

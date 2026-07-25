@@ -7,7 +7,6 @@ const { verifyToken, isAdmin } = require('../middleware/auth');
 
 const Question = require('../models/Question');
 const Exam = require('../models/Exam');
-const TestSeries = require('../models/TestSeries');
 const ContentForgeImportLog = require('../models/ContentForgeImportLog'); // F20.15 import history
 
 const { parseQuestionExcel, parseQuestionCSVString, generateTemplateBuffer } = require('../utils/excelParser');
@@ -274,8 +273,7 @@ router.post('/check-duplicates', verifyToken, isAdmin, async (req, res) => {
 
 router.get('/series', verifyToken, isAdmin, async (req, res) => {
   try {
-    // 🔧 FIX (Assign System) — real TestSeries collection instead of distinct exam seriesName text
-    const series = await TestSeries.find({}).select('name title lifecycleStatus').sort({ createdAt: -1 }).limit(200).lean();
+    const series = await Exam.distinct('seriesName', { seriesName: { $ne: '' } });
     res.json({ success: true, series });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });

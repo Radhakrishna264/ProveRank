@@ -1,7 +1,6 @@
 const Question = require('../models/Question');
 const Exam = require('../models/Exam');
 const Batch = require('../models/Batch');
-const TestSeries = require('../models/TestSeries');
 const StudentNotification = require('../models/StudentNotification');
 const User = require('../models/User');
 
@@ -122,16 +121,8 @@ async function createExamFromQuestions({ parsedQuestions, examDetails, assignmen
 
   // F19B.6 / F20B.6 / F21B.9 — Assignment Type resolution
   const assignmentType = assignment.assignmentType || 'individual';
-  const category = examDetails.category || 'Full Mock';
-
-  // 🔧 FIX (Assign System) — resolve real Test Series name instead of storing raw text
-  let resolvedSeriesName = '';
-  if (assignmentType === 'series' && assignment.testSeriesId) {
-    try {
-      const seriesDoc = await TestSeries.findById(assignment.testSeriesId).select('name title').lean();
-      resolvedSeriesName = seriesDoc ? (seriesDoc.name || seriesDoc.title || '') : '';
-    } catch {}
-  }
+  let category = examDetails.category || 'Full Mock';
+  if (assignmentType === 'mini_test') category = 'Mini Test'; // F19B.6.3/20B.6.3/21B.9.3
 
   // F19B.5.16 / F20B.5.16 / F21B.8.16 — Unlimited attempts -> large maxAttempts (no other code needs to change)
   const maxAttempts = examDetails.unlimitedAttempts ? 99999 : (examDetails.maxAttempts || 1);
@@ -147,11 +138,10 @@ async function createExamFromQuestions({ parsedQuestions, examDetails, assignmen
     password: examDetails.password || '',
     schedule: examDetails.schedule || {},
     category,
-    batch: (assignmentType === 'batch' || assignmentType === 'series') ? (assignment.batch || '') : '',
+    batch: assignmentType === 'batch' || assignmentType === 'series' ? (assignment.batch || '') : '',
     multiBatch: assignment.multiBatch || [],
     assignmentType,
-    testSeriesId: assignmentType === 'series' ? (assignment.testSeriesId || null) : null,
-    seriesName: resolvedSeriesName,
+    seriesName: assignment.seriesName || '',
     watermark: examDetails.watermark !== false,
     customInstructions: examDetails.customInstructions || '',
     reviewWindow: examDetails.reviewWindow || { enabled: false, durationMinutes: 0 },
@@ -177,21 +167,6 @@ async function createExamFromQuestions({ parsedQuestions, examDetails, assignmen
   });
 
   await Question.updateMany({ _id: { $in: inserted.map(d => d._id) } }, { $inc: { usageCount: 1 } }).catch(() => {});
-
-  // 🔧 FIX (Assign System) — link the exam back into the Batch/TestSeries so it actually
-  // "uploads" into that batch/series (same fix applied to Create Exam wizard + Smart Paper Gen).
-  try {
-    if (assignmentType === 'batch' && assignment.batch) {
-      await Batch.findByIdAndUpdate(assignment.batch, { $addToSet: { exams: exam._id } });
-    } else if (assignmentType === 'series' && assignment.testSeriesId) {
-      await TestSeries.findByIdAndUpdate(assignment.testSeriesId, { $addToSet: { tests: exam._id } });
-    }
-    if (assignment.multiBatch && assignment.multiBatch.length) {
-      await Batch.updateMany({ _id: { $in: assignment.multiBatch } }, { $addToSet: { exams: exam._id } });
-    }
-  } catch (linkErr) {
-    console.error('Assign-link warning (exam created but batch/series link failed):', linkErr.message);
-  }
 
   // F19B.8.6 / F20B.8.6 / F21B.11.6 — Notify Students toggle
   let notifiedCount = 0;
