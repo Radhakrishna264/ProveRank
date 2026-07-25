@@ -43,12 +43,8 @@ const examSchema = new mongoose.Schema({
   // F19B.6 / F20B.6 / F21B.9 — Assignment Type selector
   assignmentType: { type: String, enum: ['batch', 'series', 'mini_test', 'individual'], default: 'individual' },
 
-  // F19B.6.2/6.3 / F20B.6.2/6.3 / F21B.9.2/9.3 — Test Series label (grouping, also used for Step-8 "exam series/group")
+  // F19B.6.2/6.3 / F20B.6.2/6.3 / F21B.9.2/9.3 — Test Series / Mini Test Series label (grouping, also used for Step-8 "exam series/group")
   seriesName: { type: String, default: '' },
-
-  // 🔧 FIX (Assign System) — was missing from schema; route was writing this field but Mongoose
-  // silently dropped it since it wasn't declared here. This is why Test Series assignment never saved.
-  testSeriesId: { type: mongoose.Schema.Types.ObjectId, ref: 'TestSeries', default: null },
 
   category: { type: String, enum: ['Full Mock', 'Chapter Test', 'Part Test', 'Grand Test', 'Mini Test'], default: 'Full Mock' },
 
@@ -125,3 +121,4 @@ const examSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 module.exports = mongoose.model('Exam', examSchema);
+

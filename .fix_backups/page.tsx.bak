@@ -1131,7 +1131,6 @@ const [topStudents,setTopStudents]=useState<{rank:number,name:string,bestScore:n
   const [features,setFeatures]=useState<Feature[]>(DEF_FEATURES)
   const [stats,setStats]=useState<any>(null)
   const [batches,setBatches]=useState<Batch[]>([])
-  const [testSeries,setTestSeries]=useState<any[]>([])
   const [selectedBatch,setSelectedBatch]=useState<any>(null)
   const [adminUsers,setAdminUsers]=useState<AdminUser[]>([])
   const [results,setResults]=useState<Result[]>([])
@@ -1424,7 +1423,7 @@ const [aiQImgs,setAiQImgs]=useState({})
     setLoading(true)
     const get=async(u:string)=>{try{const r=await fetch(u,{headers:{Authorization:`Bearer ${token}`}});return r.ok?r.json():null}catch{return null}}
     const getFirst=async(...urls:string[])=>{for(const u of urls){try{const r=await fetch(u,{headers:{Authorization:`Bearer ${token}`}});if(r.ok){const d=await r.json();if(d)return d}}catch{}}return null}
-    const [us,ex,qs,st,fl,al,tk,sn,ft,nf,bt,au,rs,mn,tsr]=await Promise.all([
+    const [us,ex,qs,st,fl,al,tk,sn,ft,nf,bt,au,rs,mn]=await Promise.all([
       getFirst(`${API}/api/admin/users`,`${API}/api/admin/students`),
       get(`${API}/api/exams`),
       get(`${API}/api/questions`),
@@ -1436,7 +1435,6 @@ const [aiQImgs,setAiQImgs]=useState({})
       get(`${API}/api/admin/features`),
     fetch(`${API}/api/admin/notifications`,{headers:{Authorization:`Bearer ${getToken()}`}}).then(r=>r.json()),
       getFirst(`${API}/api/admin/batches`,`${API}/api/admin/manage/batches`),
-      getFirst(`${API}/api/admin/test-series-manager?limit=200`,`${API}/api/testseries`),
       get(`${API}/api/admin/manage/admins`),
       getFirst(`${API}/api/results`,`${API}/api/admin/results`),
       get(`${API}/api/admin/maintenance`),
@@ -1455,8 +1453,6 @@ const [aiQImgs,setAiQImgs]=useState({})
     if(Array.isArray(nf))setNotifs(nf)
 else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifications)
     if(Array.isArray(bt))setBatches(bt)
-    if(tsr&&Array.isArray(tsr.series))setTestSeries(tsr.series)
-    else if(Array.isArray(tsr))setTestSeries(tsr)
     // Auto-open batch from URL (refresh fix)
     if(typeof window!=='undefined'){
       const _bid=new URLSearchParams(window.location.search).get('batch')
@@ -2811,7 +2807,6 @@ const confirmAndAdd=useCallback(async()=>{
               T={T}
               fetchAll={fetchAll}
               batches={batches||[]}
-              testSeries={testSeries||[]}
               exams={exams||[]}
               questions={questions||[]}
               pendingTemplate={pendingTemplate}

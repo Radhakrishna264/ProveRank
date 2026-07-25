@@ -17,8 +17,6 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
 const getExam     = () => mongoose.model('Exam');
 const getQuestion = () => mongoose.model('Question');
 const getUser     = () => mongoose.model('User');
-const getBatch      = () => mongoose.model('Batch');
-const getTestSeries = () => mongoose.model('TestSeries');
 
 function parseAnswerKey(text = '') {
   const map = {};
@@ -112,22 +110,12 @@ router.post('/exam-wizard/create', verifyToken, isAdmin, async (req, res) => {
       instructions, passwordEnabled, password,
       whitelist, waitingRoom, waitingMinutes,
       reattempt, reattemptUnlimited, reviewWindow, sectionWise, watermark,
-      liveQsRange, assignType, batchId, testSeriesId, multiBatches,
+      liveQsRange, assignType, batchId, testSeriesId, miniSeriesId, multiBatches,
       status
     } = req.body;
 
     if (!title || !title.trim())   return res.status(400).json({ success: false, message: 'Exam title is required' });
     if (!duration || duration < 1) return res.status(400).json({ success: false, message: 'Duration is required' });
-
-    // 🔧 FIX (Assign System) — resolve real Test Series name instead of storing raw ID in seriesName
-    let resolvedSeriesName = '';
-    if (assignType === 'series' && testSeriesId) {
-      try {
-        const TestSeries = getTestSeries();
-        const seriesDoc = await TestSeries.findById(testSeriesId).select('name title').lean();
-        resolvedSeriesName = seriesDoc ? (seriesDoc.name || seriesDoc.title || '') : '';
-      } catch {}
-    }
 
     const examData = {
       title: title.trim(),
@@ -154,33 +142,18 @@ router.post('/exam-wizard/create', verifyToken, isAdmin, async (req, res) => {
       sectionWise: sectionWise || false,
       watermark: watermark || false,
       liveQsRange: liveQsRange || [],
-      // 🔧 FIX — batch/multiBatch/testSeriesId now match actual Exam schema field names
-      batch: assignType === 'batch' ? (batchId || '') : '',
-      multiBatch: multiBatches || [],
-      testSeriesId: assignType === 'series' ? (testSeriesId || null) : null,
-      seriesName: resolvedSeriesName,
-      assignmentType: assignType === 'batch' ? 'batch' : assignType === 'series' ? 'series' : 'individual',
+      batch: batchId || '',
+      batches: multiBatches || [],
+      testSeriesId: testSeriesId || null,
+      miniSeriesId: miniSeriesId || null,
+      seriesName: testSeriesId || miniSeriesId || '', // Feature 33.5 — real schema field for series-based filtering
+      assignType: assignType || 'open',
       status: status || 'draft',
       questions: [],
       createdBy: req.user.id,
     };
 
     const exam = await Exam.create(examData);
-
-    // 🔧 FIX (Assign System) — link the exam back into the Batch/TestSeries so it actually
-    // "uploads" into that batch/series (previously this reverse-link never happened).
-    try {
-      if (assignType === 'batch' && batchId) {
-        const Batch = getBatch();
-        await Batch.findByIdAndUpdate(batchId, { $addToSet: { exams: exam._id } });
-      } else if (assignType === 'series' && testSeriesId) {
-        const TestSeries = getTestSeries();
-        await TestSeries.findByIdAndUpdate(testSeriesId, { $addToSet: { tests: exam._id } });
-      }
-    } catch (linkErr) {
-      console.error('Assign-link warning (exam created but batch/series link failed):', linkErr.message);
-    }
-
     res.status(201).json({ success: true, message: 'Exam created!', exam, examId: exam._id });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
