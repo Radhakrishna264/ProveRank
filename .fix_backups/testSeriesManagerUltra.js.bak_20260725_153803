@@ -400,7 +400,7 @@ router.put('/:id', auth, isAdmin, async (req, res) => {
     const series = await TestSeries.findById(req.params.id);
     if (!series) return res.status(404).json({ error: 'Test series not found' });
     const editable = ['name', 'description', 'examType', 'thumbnail', 'colorIcon', 'teacherAssigned',
-      'startDate', 'endDate', 'visibility', 'seatLimit', 'enrollmentRule', 'accessPolicy', 'joinCode', 'autoArchiveAfterEnd', 'totalTests'];
+      'startDate', 'endDate', 'visibility', 'seatLimit', 'enrollmentRule', 'accessPolicy', 'joinCode', 'autoArchiveAfterEnd'];
     for (const f of editable) {
       if (req.body[f] !== undefined) {
         const oldVal = series[f];
@@ -984,11 +984,15 @@ function computeBannerQualityScore(b) {
   return Math.min(100, score);
 }
 function buildBannerSyncFields(series) {
-  // 🔧 CHANGE (Validity removed) — always derive from real Start/End Date, no more
-  // fallback 'validity days' number. dateRange is the single source of truth now.
-  let dateRange = 'Dates not set';
+  let validity, duration;
   if (series.startDate && series.endDate) {
-    dateRange = new Date(series.startDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) + ' → ' + new Date(series.endDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+    const days = Math.max(1, Math.round((new Date(series.endDate) - new Date(series.startDate)) / 86400000));
+    validity = new Date(series.startDate).toLocaleDateString() + ' → ' + new Date(series.endDate).toLocaleDateString();
+    duration = days + ' days';
+  } else {
+    const days = series.validity || 365;
+    validity = days + ' days';
+    duration = days + ' days';
   }
   const eff = (series.discountPrice && (!series.discountValidTill || new Date(series.discountValidTill) >= new Date())) ? series.discountPrice : (series.price || 0);
   return {
@@ -997,10 +1001,10 @@ function buildBannerSyncFields(series) {
     examType: series.examType || 'NEET',
     price: String(eff || 0),
     totalTests: String(series.totalTests || 0),
-    dateRange,
+    validity, duration,
     highlights: [
       (series.totalTests || 0) + ' Practice Tests',
-      dateRange,
+      duration + ' Validity',
       series.language || 'Hindi + English'
     ],
     badge: series.isSpotlight ? 'trending' : 'none'
@@ -1366,7 +1370,6 @@ router.get('/:id/settings', auth, isAdmin, async (req, res) => {
         name: series.name, seriesCode: series.seriesCode, description: series.description,
         startDate: series.startDate, endDate: series.endDate, visibility: series.visibility,
         seatLimit: series.seatLimit, enrollmentRule: series.enrollmentRule,
-        totalTests: series.totalTests || 0,
         autoArchiveAfterEnd: !!series.autoArchiveAfterEnd,
         renameHistory: series.renameHistory || [], isLocked: !!series.settingsLocked
       }

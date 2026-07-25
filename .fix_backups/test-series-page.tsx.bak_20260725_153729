@@ -43,7 +43,6 @@ type Batch = {
   totalTests: number; enrolledCount: number; language: string; batchType: string;
   isSpotlight: boolean; flashSaleEndTime?: string; flashSalePrice?: number;
   allowFreeTrial: boolean; trialDays: number; isBundle: boolean; validity: number;
-  startDate?: string; endDate?: string;
   rating: number; isEnrolled?: boolean; isWishlisted?: boolean; createdAt: string;
   difficulty?: string; subject?: string;
   effectivePrice?: number; discountPct?: number; fitScore?: number;
@@ -456,7 +455,7 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
         <div style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.55)',lineHeight:1.5,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',marginBottom:9 }}>{b.description||'Premium test series — NCERT based, expert curated.'}</div>
         <Stars r={b.rating} />
         <div style={{ display:'flex',gap:7,marginTop:7,flexWrap:'wrap' }}>
-          {[{i:'📝',v:`${b.totalTests} Tests`},{i:'📅',v:b.startDate&&b.endDate?`${new Date(b.startDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}-${new Date(b.endDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}`:'Ongoing'}].map((it,idx)=>(
+          {[{i:'📝',v:`${b.totalTests} Tests`},{i:'👥',v:b.enrolledCount.toLocaleString()},{i:'📅',v:`${b.validity}d`}].map((it,idx)=>(
             <span key={idx} style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.45)' }}>{it.i} {it.v}</span>
           ))}
         </div>
@@ -532,7 +531,8 @@ function QuickPreviewModal({ batchId, tok, onClose, onBuy, onEnrollUpdate }: { b
         <Stars r={b.rating||0} />
         <div style={{ display:'flex',gap:10,flexWrap:'wrap',margin:'10px 0' }}>
           <span style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)' }}>📝 {b.totalTests} Tests</span>
-          <span style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)' }}>📅 {b.startDate&&b.endDate?`${new Date(b.startDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})} → ${new Date(b.endDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}`:'Ongoing'}</span>
+          <span style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)' }}>📅 {b.validity}d validity</span>
+          <span style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)' }}>👥 {(b.enrolledCount||0).toLocaleString()} enrolled</span>
           {typeof b.fitScore==='number'&&<span style={{ fontSize:11,color:'#00D4FF',fontWeight:700 }}>🎯 {b.fitScore}% Fit for you</span>}
         </div>
         <div style={{ fontSize:22,fontWeight:900,color:'var(--pr-text)',fontFamily:'Playfair Display,serif',marginBottom:12 }}>
@@ -551,6 +551,7 @@ function QuickPreviewModal({ batchId, tok, onClose, onBuy, onEnrollUpdate }: { b
         {b.socialProof&&(
           <div style={{ display:'flex',gap:14,marginBottom:14,fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)' }}>
             <span>⭐ {b.socialProof.rating} ({b.socialProof.ratingCount} reviews)</span>
+            <span>👥 {b.socialProof.enrolledCount} students</span>
           </div>
         )}
         {b.faqPreview&&b.faqPreview.length>0&&(
@@ -877,7 +878,7 @@ export default function TestSeriesPage() {
               <span style={{ fontSize:17 }}>⭐</span>
               <span style={{ fontFamily:'Playfair Display,serif',fontSize:16,fontWeight:700,color:'var(--pr-text)' }}>Spotlight Picks</span>
             </div>
-            <div style={{ display:'grid',gridTemplateColumns:isDesktop?'repeat(auto-fill,minmax(230px,1fr))':'1fr',gap:14 }}>
+            <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:14 }}>
               {spotlights.map(b=><BatchCard key={b._id} b={b} tok={tok} onUpdate={fetchBatches} onBuy={handleBuy} onReview={setReviewBatch} onPreview={x=>setPreviewBatchId(x._id)} />)}
             </div>
           </div>
@@ -943,11 +944,11 @@ export default function TestSeriesPage() {
 
             {/* BATCH GRID */}
             {loading?(
-              <div style={{ display:'grid',gridTemplateColumns:isDesktop?'repeat(auto-fill,minmax(230px,1fr))':'1fr',gap:16 }}>
+              <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:16 }}>
                 {[1,2,3,4].map(i=><div key={i} style={{ height:380,background:'rgba(var(--pr-card-rgb),0.8)',borderRadius:20,border:'1px solid rgba(77,159,255,0.06)',animation:'shimmer 1.5s ease infinite',animationDelay:`${i*0.14}s` }} />)}
               </div>
             ):batches.length===0?<EmptyState />:(
-              <div style={{ display:'grid',gridTemplateColumns:isDesktop?'repeat(auto-fill,minmax(230px,1fr))':'1fr',gap:16 }}>
+              <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:16 }}>
                 {batches.map((b,i)=>(
                   <div key={b._id} style={{ animation:`slideUp ${0.28+i*0.04}s ease both` }}>
                     <BatchCard b={b} tok={tok} onUpdate={fetchBatches} compareList={compareList} toggleCompare={toggleCompare} onBuy={handleBuy} onReview={setReviewBatch} onPreview={x=>setPreviewBatchId(x._id)} showPriceWatch={tab==='wishlist'} />

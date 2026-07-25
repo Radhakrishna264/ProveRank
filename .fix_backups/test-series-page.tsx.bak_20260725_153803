@@ -43,7 +43,6 @@ type Batch = {
   totalTests: number; enrolledCount: number; language: string; batchType: string;
   isSpotlight: boolean; flashSaleEndTime?: string; flashSalePrice?: number;
   allowFreeTrial: boolean; trialDays: number; isBundle: boolean; validity: number;
-  startDate?: string; endDate?: string;
   rating: number; isEnrolled?: boolean; isWishlisted?: boolean; createdAt: string;
   difficulty?: string; subject?: string;
   effectivePrice?: number; discountPct?: number; fitScore?: number;
@@ -456,7 +455,7 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
         <div style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.55)',lineHeight:1.5,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',marginBottom:9 }}>{b.description||'Premium test series — NCERT based, expert curated.'}</div>
         <Stars r={b.rating} />
         <div style={{ display:'flex',gap:7,marginTop:7,flexWrap:'wrap' }}>
-          {[{i:'📝',v:`${b.totalTests} Tests`},{i:'📅',v:b.startDate&&b.endDate?`${new Date(b.startDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}-${new Date(b.endDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}`:'Ongoing'}].map((it,idx)=>(
+          {[{i:'📝',v:`${b.totalTests} Tests`},{i:'📅',v:`${b.validity}d`}].map((it,idx)=>(
             <span key={idx} style={{ fontSize:10,color:'rgba(var(--pr-sub-rgb),0.45)' }}>{it.i} {it.v}</span>
           ))}
         </div>
@@ -532,7 +531,7 @@ function QuickPreviewModal({ batchId, tok, onClose, onBuy, onEnrollUpdate }: { b
         <Stars r={b.rating||0} />
         <div style={{ display:'flex',gap:10,flexWrap:'wrap',margin:'10px 0' }}>
           <span style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)' }}>📝 {b.totalTests} Tests</span>
-          <span style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)' }}>📅 {b.startDate&&b.endDate?`${new Date(b.startDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})} → ${new Date(b.endDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}`:'Ongoing'}</span>
+          <span style={{ fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)' }}>📅 {b.validity}d validity</span>
           {typeof b.fitScore==='number'&&<span style={{ fontSize:11,color:'#00D4FF',fontWeight:700 }}>🎯 {b.fitScore}% Fit for you</span>}
         </div>
         <div style={{ fontSize:22,fontWeight:900,color:'var(--pr-text)',fontFamily:'Playfair Display,serif',marginBottom:12 }}>

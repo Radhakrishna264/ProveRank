@@ -1601,7 +1601,7 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
           <div style={{ fontWeight: 700, color: TS, marginBottom: 8 }}>No banner yet for this test series</div>
           <div style={{ fontSize: 11.5, color: DIM, marginBottom: 10 }}>Auto-generate a draft — it will pre-fill from current batch details:</div>
           <div style={{ fontSize: 11.5, color: DIM, lineHeight: 1.8, marginBottom: 12 }}>
-            Title: <b style={{ color: TS }}>{data.syncPreview?.title}</b> · Price: <b style={{ color: TS }}>₹{data.syncPreview?.price}</b> · Tests: <b style={{ color: TS }}>{data.syncPreview?.totalTests}</b> · Dates: <b style={{ color: TS }}>{data.syncPreview?.dateRange}</b>
+            Title: <b style={{ color: TS }}>{data.syncPreview?.title}</b> · Price: <b style={{ color: TS }}>₹{data.syncPreview?.price}</b> · Tests: <b style={{ color: TS }}>{data.syncPreview?.totalTests}</b> · Validity: <b style={{ color: TS }}>{data.syncPreview?.validity}</b>
           </div>
           <button style={bp} onClick={autoGenerate}>✨ Auto-Generate Draft</button>
         </div>
@@ -1666,7 +1666,8 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
               <div><label style={lbl}>Tagline / Subtitle {(form.sectionLock || {}).tagline && '🔒'}</label><input style={{ ...inp, opacity: (form.sectionLock || {}).tagline ? 0.5 : 1 }} value={form.tagline || ''} disabled={!!(form.sectionLock || {}).tagline} onChange={e => setForm({ ...form, tagline: e.target.value })} /></div>
               <div><label style={lbl}>Base Price ₹ {(form.sectionLock || {}).price && '🔒'}</label><input style={{ ...inp, opacity: (form.sectionLock || {}).price ? 0.5 : 1 }} value={form.price || ''} disabled={!!(form.sectionLock || {}).price} onChange={e => setForm({ ...form, price: e.target.value })} /></div>
               <div><label style={lbl}>Total Tests</label><input style={inp} value={form.totalTests || ''} onChange={e => setForm({ ...form, totalTests: e.target.value })} /></div>
-              <div><label style={lbl}>Start – End Date (read-only)</label><input style={{ ...inp, opacity: 0.6 }} value={data?.syncPreview?.dateRange || ''} disabled /></div>
+              <div><label style={lbl}>Validity (read-only)</label><input style={{ ...inp, opacity: 0.6 }} value={form.validity || ''} disabled /></div>
+              <div><label style={lbl}>Duration (auto)</label><input style={{ ...inp, opacity: 0.6 }} value={form.duration || ''} disabled /></div>
               <div><label style={lbl}>CTA Button Text {(form.sectionLock || {}).cta && '🔒'}</label><input style={{ ...inp, opacity: (form.sectionLock || {}).cta ? 0.5 : 1 }} value={form.ctaText || ''} disabled={!!(form.sectionLock || {}).cta} onChange={e => setForm({ ...form, ctaText: e.target.value })} /></div>
               <div><label style={lbl}>Badge / Ribbon {(form.sectionLock || {}).badge && '🔒'}</label>
                 <select style={{ ...inp, opacity: (form.sectionLock || {}).badge ? 0.5 : 1 }} value={form.badge || 'none'} disabled={!!(form.sectionLock || {}).badge} onChange={e => setForm({ ...form, badge: e.target.value })}>
@@ -2324,7 +2325,6 @@ function SettingsTab({ base, authHeaders, id, showToast, load: loadParent }: any
         <div><label style={lbl}>Start Date</label><input style={inp} disabled={locked} type="date" value={s.startDate ? s.startDate.slice(0, 10) : ''} onChange={e => setS({ ...s, startDate: e.target.value })} /></div>
         <div><label style={lbl}>End Date</label><input style={inp} disabled={locked} type="date" value={s.endDate ? s.endDate.slice(0, 10) : ''} onChange={e => setS({ ...s, endDate: e.target.value })} /></div>
         <div><label style={lbl}>Seat Limit</label><input style={inp} disabled={locked} type="number" value={s.seatLimit} onChange={e => setS({ ...s, seatLimit: e.target.value })} /></div>
-        <div><label style={lbl}>Total Tests (Planned)</label><input style={inp} disabled={locked} type="number" value={s.totalTests || ''} onChange={e => setS({ ...s, totalTests: e.target.value })} /></div>
       </div>
       <div style={{ marginTop: 10 }}>
         <label style={lbl}>Description</label>
