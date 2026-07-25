@@ -259,7 +259,9 @@ router.post('/', auth, isAdmin, async (req, res) => {
     if (!body.name || !body.name.trim()) return res.status(400).json({ error: 'Test series name required' });
 
     // Duplicate name/code detector
-    const dup = await TestSeries.findOne({ $or: [{ name: body.name.trim() }, { seriesCode: body.seriesCode }] });
+    const dupOr = [{ name: body.name.trim() }];
+    if (body.seriesCode && String(body.seriesCode).trim()) dupOr.push({ seriesCode: String(body.seriesCode).trim() });
+    const dup = await TestSeries.findOne({ $or: dupOr });
     if (dup && !body.confirmDuplicate) {
       return res.status(409).json({ warning: 'duplicate', message: 'Similar series name/code already exists', existing: { id: dup._id, name: dup.name, seriesCode: dup.seriesCode } });
     }

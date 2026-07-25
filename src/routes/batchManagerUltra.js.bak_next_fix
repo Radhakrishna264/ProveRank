@@ -259,9 +259,7 @@ router.post('/', auth, isAdmin, async (req, res) => {
     if (!body.name || !body.name.trim()) return res.status(400).json({ error: 'Batch name required' });
 
     // Duplicate name/code detector
-    const dupOr = [{ name: body.name.trim() }];
-    if (body.batchCode && String(body.batchCode).trim()) dupOr.push({ batchCode: String(body.batchCode).trim() });
-    const dup = await Batch.findOne({ $or: dupOr });
+    const dup = await Batch.findOne({ $or: [{ name: body.name.trim() }, { batchCode: body.batchCode }] });
     if (dup && !body.confirmDuplicate) {
       return res.status(409).json({ warning: 'duplicate', message: 'Similar batch name/code already exists', existing: { id: dup._id, name: dup.name, batchCode: dup.batchCode } });
     }

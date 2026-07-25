@@ -1,33 +1,33 @@
 // ══════════════════════════════════════════════════════════════════
-// FPR1 — BATCH MANAGEMENT ULTRA SaaS UPGRADE (Admin)
-// Mounted at: /api/admin/batch-manager
+// FPR2 — TEST SERIES MANAGEMENT ULTRA SaaS UPGRADE (Admin)
+// Mounted at: /api/admin/test-series-manager
 // Covers: Home (cards/search/filter/create), Detail (10 tabs), Students
-// Add/Transfer by ID+Email, Pricing, Controls, Materials, Analytics,
+// Add by ID+Email, Pricing, Controls, Materials, Analytics,
 // Announcements, Settings, Audit History, Templates, Compare, Snapshot.
 // ══════════════════════════════════════════════════════════════════
 const express  = require('express');
 const router   = express.Router();
 const mongoose = require('mongoose');
 const jwt      = require('jsonwebtoken');
-const Batch    = require('../models/Batch');
+const TestSeries = require('../models/TestSeries');
 const User     = require('../models/User');
 const Coupon   = require('../models/Coupon');
 const Banner   = require('../models/Banner');
 const BannerAuditLog = require('../models/BannerAuditLog');
-let BatchAuditLog, BatchTemplate, BatchNote;
-try { BatchAuditLog = require('../models/BatchAuditLog'); } catch (e) { BatchAuditLog = null; }
-try { BatchTemplate  = require('../models/BatchTemplate'); } catch (e) { BatchTemplate = null; }
+let TestSeriesAuditLog, TestSeriesTemplate, BatchNote;
+try { TestSeriesAuditLog = require('../models/TestSeriesAuditLog'); } catch (e) { TestSeriesAuditLog = null; }
+try { TestSeriesTemplate  = require('../models/TestSeriesTemplate'); } catch (e) { TestSeriesTemplate = null; }
 try { BatchNote      = require('../models/BatchNote'); } catch (e) { BatchNote = null; }
 let StudentNotification;
 try { StudentNotification = require('../models/StudentNotification'); } catch (e) { StudentNotification = null; }
 
-// Lightweight local model for Batch Manager filter presets (per-admin)
+// Lightweight local model for TestSeries Manager filter presets (per-admin)
 const FilterPresetSchema = new mongoose.Schema({
   adminId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
   name: { type: String, required: true },
   filters: { type: mongoose.Schema.Types.Mixed, default: {} }
 }, { timestamps: true });
-const BatchFilterPreset = mongoose.models.BatchFilterPreset || mongoose.model('BatchFilterPreset', FilterPresetSchema);
+const TestSeriesFilterPreset = mongoose.models.TestSeriesFilterPreset || mongoose.model('TestSeriesFilterPreset', FilterPresetSchema);
 
 const JWT = process.env.JWT_SECRET || 'proverank_jwt_super_secret_key_2024';
 
@@ -44,23 +44,23 @@ const isAdmin = (req, res, next) => {
 };
 
 // ── Helpers ──────────────────────────────────────────────────────
-function genBatchCode(name) {
+function genSeriesCode(name) {
   const prefix = (name || 'BAT').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase().padEnd(3, 'X');
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
   return `${prefix}-${rand}`;
 }
 
-async function logAudit({ batchId, field, oldValue, newValue, changedBy, changedByName, action, source, reason, snapshotVersion }) {
-  if (!BatchAuditLog) return;
+async function logAudit({ seriesId, field, oldValue, newValue, changedBy, changedByName, action, source, reason, snapshotVersion }) {
+  if (!TestSeriesAuditLog) return;
   try {
-    await BatchAuditLog.create({
-      batchId, field: field || action || 'update',
+    await TestSeriesAuditLog.create({
+      seriesId, field: field || action || 'update',
       oldValue: oldValue === undefined ? null : oldValue,
       newValue: newValue === undefined ? null : newValue,
       changedBy: changedBy || null,
       changedByName: changedByName || 'Admin',
       action: action || 'update',
-      source: source || 'batch-manager-ultra',
+      source: source || 'series-manager-ultra',
       reason: reason || '',
       snapshotVersion: snapshotVersion === undefined ? null : snapshotVersion,
       timestamp: new Date()
@@ -70,15 +70,15 @@ async function logAudit({ batchId, field, oldValue, newValue, changedBy, changed
 
 
 
-function computeHealthScore(batch, studentCount, examCount) {
+function computeHealthScore(series, studentCount, testCount) {
   let score = 0;
-  const seatUtil = batch.seatLimit > 0 ? Math.min(1, studentCount / batch.seatLimit) : (studentCount > 0 ? 0.7 : 0);
+  const seatUtil = series.seatLimit > 0 ? Math.min(1, studentCount / series.seatLimit) : (studentCount > 0 ? 0.7 : 0);
   score += seatUtil * 30;
-  score += Math.min(1, examCount / 10) * 20;
-  score += (batch.lifecycleStatus === 'active' ? 1 : batch.lifecycleStatus === 'paused' ? 0.4 : 0.6) * 20;
-  const daysSinceActivity = batch.lastActivityAt ? (Date.now() - new Date(batch.lastActivityAt).getTime()) / 86400000 : 999;
+  score += Math.min(1, testCount / 10) * 20;
+  score += (series.lifecycleStatus === 'active' ? 1 : series.lifecycleStatus === 'paused' ? 0.4 : 0.6) * 20;
+  const daysSinceActivity = series.lastActivityAt ? (Date.now() - new Date(series.lastActivityAt).getTime()) / 86400000 : 999;
   score += Math.max(0, 1 - Math.min(1, daysSinceActivity / 30)) * 20;
-  score += (batch.isSpotlight || batch.allowFreeTrial || batch.isBundle ? 1 : 0.4) * 10;
+  score += (series.isSpotlight || series.allowFreeTrial || series.isBundle ? 1 : 0.4) * 10;
   return Math.round(Math.min(100, Math.max(0, score)));
 }
 
@@ -88,15 +88,15 @@ function effectivePrice(b) {
 }
 
 // ── FPR3 Publish Gate: block launch (lifecycleStatus -> 'active') without a ready banner ──
-async function checkBannerGate(batchId) {
+async function checkBannerGate(seriesId) {
   try {
     let Banner;
     try { Banner = mongoose.model('Banner'); } catch (e) { Banner = require('../models/Banner'); }
-    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: batchId, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
-    if (!banner) return { ready: false, reason: 'No banner has been created for this batch yet. Open Banner Management to generate one before launching.' };
+    const banner = await Banner.findOne({ linkedType: 'series', linkedBatchId: seriesId, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
+    if (!banner) return { ready: false, reason: 'No banner has been created for this test series yet. Open Banner Management to generate one before launching.' };
     const ready = (['ready', 'scheduled', 'published'].includes(banner.status) || banner.published);
     return { ready, reason: ready ? '' : 'Banner draft is not marked ready/approved yet. Open Banner Management to complete it before launching.', bannerId: banner._id };
-  } catch (e) { return { ready: true, reason: '' }; } // fail-open on transient errors so a banner-service hiccup never bricks the whole batch
+  } catch (e) { return { ready: true, reason: '' }; }
 }
 
 async function findStudentByIdOrEmail({ studentId, email }) {
@@ -112,7 +112,7 @@ async function findStudentByIdOrEmail({ studentId, email }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 1) BATCH MANAGER HOME — list, search, filter, sort
+// 1) TEST SERIES MANAGER HOME — list, search, filter, sort
 // ══════════════════════════════════════════════════════════════════
 router.get('/', auth, isAdmin, async (req, res) => {
   try {
@@ -126,7 +126,7 @@ router.get('/', auth, isAdmin, async (req, res) => {
     if (q) {
       filter.$or = [
         { name: new RegExp(q, 'i') },
-        { batchCode: new RegExp(q, 'i') },
+        { seriesCode: new RegExp(q, 'i') },
         { examType: new RegExp(q, 'i') },
         { teacherAssigned: new RegExp(q, 'i') }
       ];
@@ -155,40 +155,40 @@ router.get('/', auth, isAdmin, async (req, res) => {
     if (sort === 'price_high') sortObj = { price: -1 };
     if (sort === 'price_low') sortObj = { price: 1 };
 
-    let batches = await Batch.find(filter).sort(sortObj).lean();
+    let testSeries = await TestSeries.find(filter).sort(sortObj).lean();
 
     // student/exam count enrichment + search-range filtering post query (studentCount virtual-ish)
-    batches = batches.map(b => {
+    testSeries = testSeries.map(b => {
       const studentCount = (b.students && b.students.length) || b.studentCount || 0;
-      const examCount = (b.exams && b.exams.length) || b.examCount || 0;
+      const testCount = (b.tests && b.tests.length) || b.testCount || 0;
       return {
         ...b,
         studentCount,
-        examCount,
+        testCount,
         effectivePrice: effectivePrice(b),
-        healthScore: computeHealthScore(b, studentCount, examCount)
+        healthScore: computeHealthScore(b, studentCount, testCount)
       };
     });
 
-    if (studentMin) batches = batches.filter(b => b.studentCount >= Number(studentMin));
-    if (studentMax) batches = batches.filter(b => b.studentCount <= Number(studentMax));
-    if (sort === 'most_students') batches.sort((a, b) => b.studentCount - a.studentCount);
-    if (sort === 'most_active') batches.sort((a, b) => (b.healthScore || 0) - (a.healthScore || 0));
+    if (studentMin) testSeries = testSeries.filter(b => b.studentCount >= Number(studentMin));
+    if (studentMax) testSeries = testSeries.filter(b => b.studentCount <= Number(studentMax));
+    if (sort === 'most_students') testSeries.sort((a, b) => b.studentCount - a.studentCount);
+    if (sort === 'most_active') testSeries.sort((a, b) => (b.healthScore || 0) - (a.healthScore || 0));
 
-    const total = batches.length;
+    const total = testSeries.length;
     const start = (Number(page) - 1) * Number(limit);
-    const paged = batches.slice(start, start + Number(limit));
+    const paged = testSeries.slice(start, start + Number(limit));
 
     res.json({
-      batches: paged, total,
+      series: paged, total,
       summary: {
-        active: batches.filter(b => b.lifecycleStatus === 'active').length,
-        paused: batches.filter(b => b.lifecycleStatus === 'paused').length,
-        archived: batches.filter(b => b.lifecycleStatus === 'archived').length,
-        draft: batches.filter(b => b.lifecycleStatus === 'draft').length,
-        upcoming: batches.filter(b => b.lifecycleStatus === 'upcoming').length,
-        totalStudents: batches.reduce((s, b) => s + b.studentCount, 0),
-        totalRevenuePotential: batches.reduce((s, b) => s + (b.effectivePrice * b.studentCount), 0)
+        active: testSeries.filter(b => b.lifecycleStatus === 'active').length,
+        paused: testSeries.filter(b => b.lifecycleStatus === 'paused').length,
+        archived: testSeries.filter(b => b.lifecycleStatus === 'archived').length,
+        draft: testSeries.filter(b => b.lifecycleStatus === 'draft').length,
+        upcoming: testSeries.filter(b => b.lifecycleStatus === 'upcoming').length,
+        totalStudents: testSeries.reduce((s, b) => s + b.studentCount, 0),
+        totalRevenuePotential: testSeries.reduce((s, b) => s + (b.effectivePrice * b.studentCount), 0)
       }
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -197,20 +197,20 @@ router.get('/', auth, isAdmin, async (req, res) => {
 // ── Filter Preset Save/Load ──
 router.get('/filter-presets', auth, isAdmin, async (req, res) => {
   try {
-    const presets = await BatchFilterPreset.find({ adminId: req.user.id }).sort({ createdAt: -1 }).lean();
+    const presets = await TestSeriesFilterPreset.find({ adminId: req.user.id }).sort({ createdAt: -1 }).lean();
     res.json({ presets });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 router.post('/filter-presets', auth, isAdmin, async (req, res) => {
   try {
     const { name, filters } = req.body;
-    const preset = await BatchFilterPreset.create({ adminId: req.user.id, name, filters });
+    const preset = await TestSeriesFilterPreset.create({ adminId: req.user.id, name, filters });
     res.json({ success: true, preset });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 router.delete('/filter-presets/:id', auth, isAdmin, async (req, res) => {
   try {
-    await BatchFilterPreset.findOneAndDelete({ _id: req.params.id, adminId: req.user.id });
+    await TestSeriesFilterPreset.findOneAndDelete({ _id: req.params.id, adminId: req.user.id });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -220,70 +220,68 @@ router.delete('/filter-presets/:id', auth, isAdmin, async (req, res) => {
 // ══════════════════════════════════════════════════════════════════
 router.get('/templates', auth, isAdmin, async (req, res) => {
   try {
-    if (!BatchTemplate) return res.json({ templates: [] });
-    const templates = await BatchTemplate.find({}).sort({ createdAt: -1 }).lean();
+    if (!TestSeriesTemplate) return res.json({ templates: [] });
+    const templates = await TestSeriesTemplate.find({}).sort({ createdAt: -1 }).lean();
     res.json({ templates });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/templates', auth, isAdmin, async (req, res) => {
   try {
-    if (!BatchTemplate) return res.status(500).json({ error: 'Template model unavailable' });
-    const { name, sourceBatchId, config } = req.body;
+    if (!TestSeriesTemplate) return res.status(500).json({ error: 'Template model unavailable' });
+    const { name, sourceSeriesId, config } = req.body;
     let cfg = config || {};
-    if (sourceBatchId) {
-      const src = await Batch.findById(sourceBatchId).lean();
+    if (sourceSeriesId) {
+      const src = await TestSeries.findById(sourceSeriesId).lean();
       if (src) {
-        const { name: _n, students, exams, _id, createdAt, updatedAt, ...rest } = src;
+        const { name: _n, students, tests, _id, createdAt, updatedAt, ...rest } = src;
         cfg = rest;
       }
     }
-    const tpl = await BatchTemplate.create({ name, config: cfg, createdBy: req.user.id, createdByName: req.user.name || 'Admin' });
+    const tpl = await TestSeriesTemplate.create({ name, config: cfg, createdBy: req.user.id, createdByName: req.user.name || 'Admin' });
     res.json({ success: true, template: tpl });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.delete('/templates/:id', auth, isAdmin, async (req, res) => {
   try {
-    if (BatchTemplate) await BatchTemplate.findByIdAndDelete(req.params.id);
+    if (TestSeriesTemplate) await TestSeriesTemplate.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ══════════════════════════════════════════════════════════════════
-// CREATE BATCH — full config wizard
+// CREATE TEST SERIES — full config wizard
 // ══════════════════════════════════════════════════════════════════
 router.post('/', auth, isAdmin, async (req, res) => {
   try {
     const body = req.body || {};
-    if (!body.name || !body.name.trim()) return res.status(400).json({ error: 'Batch name required' });
+    if (!body.name || !body.name.trim()) return res.status(400).json({ error: 'Test series name required' });
 
     // Duplicate name/code detector
-    const dupOr = [{ name: body.name.trim() }];
-    if (body.batchCode && String(body.batchCode).trim()) dupOr.push({ batchCode: String(body.batchCode).trim() });
-    const dup = await Batch.findOne({ $or: dupOr });
+    const dup = await TestSeries.findOne({ $or: [{ name: body.name.trim() }, { seriesCode: body.seriesCode }] });
     if (dup && !body.confirmDuplicate) {
-      return res.status(409).json({ warning: 'duplicate', message: 'Similar batch name/code already exists', existing: { id: dup._id, name: dup.name, batchCode: dup.batchCode } });
+      return res.status(409).json({ warning: 'duplicate', message: 'Similar series name/code already exists', existing: { id: dup._id, name: dup.name, seriesCode: dup.seriesCode } });
     }
 
     let baseConfig = {};
-    if (body.templateId && BatchTemplate) {
-      const tpl = await BatchTemplate.findById(body.templateId).lean();
+    if (body.templateId && TestSeriesTemplate) {
+      const tpl = await TestSeriesTemplate.findById(body.templateId).lean();
       if (tpl) baseConfig = tpl.config || {};
     }
-    if (body.cloneFromBatchId) {
-      const src = await Batch.findById(body.cloneFromBatchId).lean();
+    if (body.cloneFromSeriesId) {
+      const src = await TestSeries.findById(body.cloneFromSeriesId).lean();
       if (src) {
-        const { name: _n, students, exams, _id, createdAt, updatedAt, batchCode: _bc, ...rest } = src;
+        const { name: _n, students, tests, _id, createdAt, updatedAt, seriesCode: _bc, ...rest } = src;
         baseConfig = { ...rest, clonedFrom: src._id };
       }
     }
 
-    const batchCode = body.batchCode || genBatchCode(body.name);
-    const doc = await Batch.create({
+    const seriesCode = body.seriesCode || genSeriesCode(body.name);
+    const doc = await TestSeries.create({
       ...baseConfig,
       name: body.name.trim(),
-      batchCode,
+      seriesCode,
       examType: body.examType || baseConfig.examType || 'NEET',
       description: body.description || '',
       thumbnail: body.coverImage || body.thumbnail || '',
@@ -301,7 +299,7 @@ router.post('/', auth, isAdmin, async (req, res) => {
       isTemplate: false
     });
 
-    await logAudit({ batchId: doc._id, field: 'batch', action: 'created', newValue: { name: doc.name, batchCode: doc.batchCode }, changedBy: req.user.id, changedByName: req.user.name });
+    await logAudit({ seriesId: doc._id, field: 'series', action: 'created', newValue: { name: doc.name, seriesCode: doc.seriesCode }, changedBy: req.user.id, changedByName: req.user.name });
 
     // ── Soft-hook: auto-generate linked banner draft (FPR3 Publish Gate) ──
     try {
@@ -309,7 +307,7 @@ router.post('/', auth, isAdmin, async (req, res) => {
       try { Banner = mongoose.model('Banner'); } catch (e) { Banner = require('../models/Banner'); }
       if (Banner) {
         await Banner.create({
-          title: doc.name, linkedBatchId: doc._id, linkedType: 'batch',
+          title: doc.name, linkedBatchId: doc._id, linkedType: 'series',
           examType: doc.examType, price: String(doc.price || 0), status: 'draft',
           syncState: 'synced', published: false,
           tagline: '', ctaText: 'Enroll Now', ctaShape: 'pill', template: 'classic',
@@ -322,25 +320,25 @@ router.post('/', auth, isAdmin, async (req, res) => {
       }
     } catch (e) { /* Banner module optional until FPR3 installed */ }
 
-    res.json({ success: true, batch: doc });
+    res.json({ success: true, series: doc });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ══════════════════════════════════════════════════════════════════
-// COMPARE two batches (must precede /:id routes)
+// COMPARE two testSeries (must precede /:id routes)
 // ══════════════════════════════════════════════════════════════════
 router.get('/compare', auth, isAdmin, async (req, res) => {
   try {
     const ids = (req.query.ids || '').split(',').filter(Boolean);
     if (ids.length < 2) return res.status(400).json({ error: 'Provide at least 2 ids' });
-    const batches = await Batch.find({ _id: { $in: ids } }).lean();
-    const rows = batches.map(b => ({
+    const testSeries = await TestSeries.find({ _id: { $in: ids } }).lean();
+    const rows = testSeries.map(b => ({
       id: b._id, name: b.name, price: effectivePrice(b),
       studentCount: (b.students && b.students.length) || 0,
-      examCount: (b.exams && b.exams.length) || 0,
+      testCount: (b.tests && b.tests.length) || 0,
       seatLimit: b.seatLimit || 0,
       lifecycleStatus: b.lifecycleStatus,
-      healthScore: computeHealthScore(b, (b.students && b.students.length) || 0, (b.exams && b.exams.length) || 0)
+      healthScore: computeHealthScore(b, (b.students && b.students.length) || 0, (b.tests && b.tests.length) || 0)
     }));
     res.json({ comparison: rows });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -363,32 +361,32 @@ router.get('/student-lookup', auth, isAdmin, async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════
-// BATCH DETAIL — Overview aggregate
+// TEST SERIES DETAIL — Overview aggregate
 // ══════════════════════════════════════════════════════════════════
 router.get('/:id', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const studentCount = (batch.students && batch.students.length) || 0;
-    const examCount = (batch.exams && batch.exams.length) || 0;
-    const healthScore = computeHealthScore(batch, studentCount, examCount);
-    const seatUtilPct = batch.seatLimit > 0 ? Math.round((studentCount / batch.seatLimit) * 100) : null;
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const studentCount = (series.students && series.students.length) || 0;
+    const testCount = (series.tests && series.tests.length) || 0;
+    const healthScore = computeHealthScore(series, studentCount, testCount);
+    const seatUtilPct = series.seatLimit > 0 ? Math.round((studentCount / series.seatLimit) * 100) : null;
     let recentAudit = [];
-    if (BatchAuditLog) recentAudit = await BatchAuditLog.find({ batchId: batch._id }).sort({ timestamp: -1 }).limit(8).lean();
+    if (TestSeriesAuditLog) recentAudit = await TestSeriesAuditLog.find({ seriesId: series._id }).sort({ timestamp: -1 }).limit(8).lean();
 
     res.json({
-      batch: {
-        ...batch,
-        studentCount, examCount, healthScore, seatUtilPct,
-        effectivePrice: effectivePrice(batch),
-        engagementMeter: Math.min(100, examCount * 8 + Math.round(studentCount / Math.max(1, batch.seatLimit || studentCount || 1) * 40)),
-        revenueMeter: Math.min(100, Math.round((effectivePrice(batch) * studentCount) / 1000))
+      series: {
+        ...series,
+        studentCount, testCount, healthScore, seatUtilPct,
+        effectivePrice: effectivePrice(series),
+        engagementMeter: Math.min(100, testCount * 8 + Math.round(studentCount / Math.max(1, series.seatLimit || studentCount || 1) * 40)),
+        revenueMeter: Math.min(100, Math.round((effectivePrice(series) * studentCount) / 1000))
       },
       recentActivity: recentAudit,
       alerts: [
-        ...(batch.seatLimit > 0 && studentCount >= batch.seatLimit ? [{ type: 'warning', message: 'Batch at full seat capacity' }] : []),
-        ...(batch.endDate && new Date(batch.endDate) < new Date() && batch.lifecycleStatus !== 'archived' ? [{ type: 'warning', message: 'Batch end date has passed — consider archiving' }] : []),
-        ...(examCount === 0 ? [{ type: 'info', message: 'No exams assigned yet' }] : [])
+        ...(series.seatLimit > 0 && studentCount >= series.seatLimit ? [{ type: 'warning', message: 'Test series at full seat capacity' }] : []),
+        ...(series.endDate && new Date(series.endDate) < new Date() && series.lifecycleStatus !== 'archived' ? [{ type: 'warning', message: 'Test series end date has passed — consider archiving' }] : []),
+        ...(testCount === 0 ? [{ type: 'info', message: 'No tests assigned yet' }] : [])
       ]
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -397,64 +395,64 @@ router.get('/:id', auth, isAdmin, async (req, res) => {
 // ── Generic Update (Overview / Settings general fields) ──
 router.put('/:id', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
     const editable = ['name', 'description', 'examType', 'thumbnail', 'colorIcon', 'teacherAssigned',
       'startDate', 'endDate', 'visibility', 'seatLimit', 'enrollmentRule', 'accessPolicy', 'joinCode', 'autoArchiveAfterEnd'];
     for (const f of editable) {
       if (req.body[f] !== undefined) {
-        const oldVal = batch[f];
+        const oldVal = series[f];
         if (f === 'name' && oldVal !== req.body.name) {
-          batch.renameHistory = batch.renameHistory || [];
-          batch.renameHistory.push({ oldName: oldVal, newName: req.body.name, changedBy: req.user.name || 'Admin', changedAt: new Date() });
+          series.renameHistory = series.renameHistory || [];
+          series.renameHistory.push({ oldName: oldVal, newName: req.body.name, changedBy: req.user.name || 'Admin', changedAt: new Date() });
         }
-        batch[f] = req.body[f];
+        series[f] = req.body[f];
         if (String(oldVal) !== String(req.body[f])) {
-          await logAudit({ batchId: batch._id, field: f, oldValue: oldVal, newValue: req.body[f], changedBy: req.user.id, changedByName: req.user.name, action: 'field_update' });
+          await logAudit({ seriesId: series._id, field: f, oldValue: oldVal, newValue: req.body[f], changedBy: req.user.id, changedByName: req.user.name, action: 'field_update' });
         }
       }
     }
-    batch.lastActivityAt = new Date();
-    await batch.save();
-    res.json({ success: true, batch });
+    series.lastActivityAt = new Date();
+    await series.save();
+    res.json({ success: true, series });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Duplicate ──
 router.post('/:id/duplicate', auth, isAdmin, async (req, res) => {
   try {
-    const src = await Batch.findById(req.params.id).lean();
-    if (!src) return res.status(404).json({ error: 'Batch not found' });
-    const { _id, createdAt, updatedAt, students, exams, batchCode, ...rest } = src;
-    const clone = await Batch.create({
-      ...rest, name: rest.name + ' (Copy)', batchCode: genBatchCode(rest.name),
-      lifecycleStatus: 'draft', students: [], exams: [], clonedFrom: src._id, lastActivityAt: new Date()
+    const src = await TestSeries.findById(req.params.id).lean();
+    if (!src) return res.status(404).json({ error: 'Test series not found' });
+    const { _id, createdAt, updatedAt, students, tests, seriesCode, ...rest } = src;
+    const clone = await TestSeries.create({
+      ...rest, name: rest.name + ' (Copy)', seriesCode: genSeriesCode(rest.name),
+      lifecycleStatus: 'draft', students: [], tests: [], clonedFrom: src._id, lastActivityAt: new Date()
     });
-    await logAudit({ batchId: clone._id, field: 'batch', action: 'duplicated', oldValue: src._id, newValue: clone._id, changedBy: req.user.id, changedByName: req.user.name });
-    res.json({ success: true, batch: clone });
+    await logAudit({ seriesId: clone._id, field: 'series', action: 'duplicated', oldValue: src._id, newValue: clone._id, changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, series: clone });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Archive / Unarchive ──
 router.put('/:id/archive', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const wasArchived = batch.lifecycleStatus === 'archived';
-    batch.lifecycleStatus = wasArchived ? 'active' : 'archived';
-    if (!wasArchived) batch.archivedAt = new Date();
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'lifecycleStatus', oldValue: wasArchived ? 'archived' : 'active', newValue: batch.lifecycleStatus, action: wasArchived ? 'unarchived' : 'archived', changedBy: req.user.id, changedByName: req.user.name });
-    res.json({ success: true, lifecycleStatus: batch.lifecycleStatus });
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const wasArchived = series.lifecycleStatus === 'archived';
+    series.lifecycleStatus = wasArchived ? 'active' : 'archived';
+    if (!wasArchived) series.archivedAt = new Date();
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'lifecycleStatus', oldValue: wasArchived ? 'archived' : 'active', newValue: series.lifecycleStatus, action: wasArchived ? 'unarchived' : 'archived', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, lifecycleStatus: series.lifecycleStatus });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Delete ──
 router.delete('/:id', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findByIdAndDelete(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    await logAudit({ batchId: batch._id, field: 'batch', action: 'deleted', oldValue: { name: batch.name }, changedBy: req.user.id, changedByName: req.user.name });
+    const series = await TestSeries.findByIdAndDelete(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    await logAudit({ seriesId: series._id, field: 'series', action: 'deleted', oldValue: { name: series.name }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -464,12 +462,12 @@ router.delete('/:id', auth, isAdmin, async (req, res) => {
 // ══════════════════════════════════════════════════════════════════
 router.get('/:id/students', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).populate('students', 'name email studentId customStudentId createdAt lastLogin').lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const series = await TestSeries.findById(req.params.id).populate('students', 'name email studentId customStudentId createdAt lastLogin').lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
     const { q, status, sort } = req.query;
     const enrollMap = {};
-    (batch.enrollments || []).forEach(e => { enrollMap[String(e.student)] = e; });
-    let list = (batch.students || []).map(s => ({
+    (series.enrollments || []).forEach(e => { enrollMap[String(e.student)] = e; });
+    let list = (series.students || []).map(s => ({
       _id: s._id, name: s.name, email: s.email,
       studentId: s.studentId || s.customStudentId || '-',
       status: (enrollMap[String(s._id)] && enrollMap[String(s._id)].status) || 'active',
@@ -487,12 +485,12 @@ router.get('/:id/students', auth, isAdmin, async (req, res) => {
 
 router.get('/:id/students/export', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).populate('students', 'name email studentId customStudentId createdAt').lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const series = await TestSeries.findById(req.params.id).populate('students', 'name email studentId customStudentId createdAt').lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
     const header = 'Name,Email,Student ID,Joined Date\n';
-    const rows = (batch.students || []).map(s => `"${s.name || ''}","${s.email || ''}","${s.studentId || s.customStudentId || ''}","${s.createdAt ? new Date(s.createdAt).toISOString() : ''}"`).join('\n');
+    const rows = (series.students || []).map(s => `"${s.name || ''}","${s.email || ''}","${s.studentId || s.customStudentId || ''}","${s.createdAt ? new Date(s.createdAt).toISOString() : ''}"`).join('\n');
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="batch-${batch.batchCode || batch._id}-students.csv"`);
+    res.setHeader('Content-Disposition', `attachment; filename="series-${series.seriesCode || series._id}-students.csv"`);
     res.send(header + rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -502,90 +500,42 @@ router.post('/:id/students/add', auth, isAdmin, async (req, res) => {
   try {
     const { studentId, email } = req.body;
     if (!studentId && !email) return res.status(400).json({ error: 'Provide Student ID or Registered Email' });
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
     const student = await findStudentByIdOrEmail({ studentId, email });
     if (!student) return res.status(404).json({ error: 'No matching student found for given ID/Email' });
 
-    const before = batch.students.length;
-    if (batch.seatLimit > 0 && before >= batch.seatLimit) {
-      return res.status(409).json({ error: 'Batch at full seat capacity — cannot add more students' });
+    const before = series.students.length;
+    if (series.seatLimit > 0 && before >= series.seatLimit) {
+      return res.status(409).json({ error: 'Test series at full seat capacity — cannot add more students' });
     }
-    if (batch.students.some(s => String(s) === String(student._id))) {
-      return res.status(409).json({ error: 'Student already in this batch' });
+    if (series.students.some(s => String(s) === String(student._id))) {
+      return res.status(409).json({ error: 'Student already in this series' });
     }
-    batch.students.push(student._id);
-    batch.enrollments = batch.enrollments || [];
-    batch.enrollments.push({ student: student._id, status: 'active', joinedAt: new Date() });
-    batch.lastActivityAt = new Date();
-    await batch.save();
+    series.students.push(student._id);
+    series.enrollments = series.enrollments || [];
+    series.enrollments.push({ student: student._id, status: 'active', joinedAt: new Date() });
+    series.lastActivityAt = new Date();
+    await series.save();
 
-    await logAudit({ batchId: batch._id, field: 'students', action: 'student_added', oldValue: { name: null }, newValue: { studentId: student._id, name: student.name, email: student.email }, changedBy: req.user.id, changedByName: req.user.name });
+    await logAudit({ seriesId: series._id, field: 'students', action: 'student_added', oldValue: { name: null }, newValue: { studentId: student._id, name: student.name, email: student.email }, changedBy: req.user.id, changedByName: req.user.name });
 
     res.json({
       success: true,
       student: { _id: student._id, name: student.name, email: student.email },
-      before: { count: before }, after: { count: batch.students.length }
-    });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ── Transfer Student by Student ID OR Registered Email ──
-router.post('/:id/students/transfer', auth, isAdmin, async (req, res) => {
-  try {
-    const { studentId, email, toBatchId } = req.body;
-    if (!studentId && !email) return res.status(400).json({ error: 'Provide Student ID or Registered Email' });
-    if (!toBatchId) return res.status(400).json({ error: 'Target batch required' });
-    const fromBatch = await Batch.findById(req.params.id);
-    const toBatch = await Batch.findById(toBatchId);
-    if (!fromBatch || !toBatch) return res.status(404).json({ error: 'Batch not found' });
-    if (String(fromBatch._id) === String(toBatch._id)) return res.status(400).json({ error: 'Source and target batch cannot be same' });
-
-    const student = await findStudentByIdOrEmail({ studentId, email });
-    if (!student) return res.status(404).json({ error: 'No matching student found for given ID/Email' });
-    if (!fromBatch.students.some(s => String(s) === String(student._id))) {
-      return res.status(409).json({ error: 'Student is not part of the source batch' });
-    }
-    if (toBatch.seatLimit > 0 && toBatch.students.length >= toBatch.seatLimit) {
-      return res.status(409).json({ error: 'Target batch at full seat capacity' });
-    }
-
-    const beforeFrom = fromBatch.students.length;
-    const beforeTo = toBatch.students.length;
-
-    fromBatch.students = fromBatch.students.filter(s => String(s) !== String(student._id));
-    fromBatch.enrollments = (fromBatch.enrollments || []).filter(e => String(e.student) !== String(student._id));
-    fromBatch.lastActivityAt = new Date();
-    await fromBatch.save();
-
-    if (!toBatch.students.some(s => String(s) === String(student._id))) {
-      toBatch.students.push(student._id);
-      toBatch.enrollments = toBatch.enrollments || [];
-      toBatch.enrollments.push({ student: student._id, status: 'active', joinedAt: new Date() });
-    }
-    toBatch.lastActivityAt = new Date();
-    await toBatch.save();
-
-    await logAudit({ batchId: fromBatch._id, field: 'students', action: 'student_transferred_out', newValue: { toBatch: toBatch._id, name: student.name }, changedBy: req.user.id, changedByName: req.user.name });
-    await logAudit({ batchId: toBatch._id, field: 'students', action: 'student_transferred_in', newValue: { fromBatch: fromBatch._id, name: student.name }, changedBy: req.user.id, changedByName: req.user.name });
-
-    res.json({
-      success: true,
-      student: { _id: student._id, name: student.name, email: student.email },
-      before: { fromCount: beforeFrom, toCount: beforeTo },
-      after: { fromCount: fromBatch.students.length, toCount: toBatch.students.length }
+      before: { count: before }, after: { count: series.students.length }
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.delete('/:id/students/:studentId', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    batch.students = batch.students.filter(s => String(s) !== String(req.params.studentId));
-    batch.enrollments = (batch.enrollments || []).filter(e => String(e.student) !== String(req.params.studentId));
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'students', action: 'student_removed', newValue: { studentId: req.params.studentId }, changedBy: req.user.id, changedByName: req.user.name });
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    series.students = series.students.filter(s => String(s) !== String(req.params.studentId));
+    series.enrollments = (series.enrollments || []).filter(e => String(e.student) !== String(req.params.studentId));
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'students', action: 'student_removed', newValue: { studentId: req.params.studentId }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -593,13 +543,13 @@ router.delete('/:id/students/:studentId', auth, isAdmin, async (req, res) => {
 router.put('/:id/students/:studentId/status', auth, isAdmin, async (req, res) => {
   try {
     const { status } = req.body; // active | inactive
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    batch.enrollments = batch.enrollments || [];
-    let entry = batch.enrollments.find(e => String(e.student) === String(req.params.studentId));
-    if (!entry) { entry = { student: req.params.studentId, status: 'active', joinedAt: new Date() }; batch.enrollments.push(entry); }
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    series.enrollments = series.enrollments || [];
+    let entry = series.enrollments.find(e => String(e.student) === String(req.params.studentId));
+    if (!entry) { entry = { student: req.params.studentId, status: 'active', joinedAt: new Date() }; series.enrollments.push(entry); }
     entry.status = status || 'inactive';
-    await batch.save();
+    await series.save();
     res.json({ success: true, status: entry.status });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -607,42 +557,42 @@ router.put('/:id/students/:studentId/status', auth, isAdmin, async (req, res) =>
 // ══════════════════════════════════════════════════════════════════
 // EXAMS TAB
 // ══════════════════════════════════════════════════════════════════
-router.get('/:id/exams', auth, isAdmin, async (req, res) => {
+router.get('/:id/tests', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
     let Exam;
     try { Exam = mongoose.model('Exam'); } catch (e) { Exam = null; }
     let assigned = [], available = [];
     if (Exam) {
-      assigned = await Exam.find({ _id: { $in: batch.exams || [] } }).lean();
-      available = await Exam.find({ _id: { $nin: batch.exams || [] } }).limit(50).lean();
+      assigned = await Exam.find({ _id: { $in: series.tests || [] } }).lean();
+      available = await Exam.find({ _id: { $nin: series.tests || [] } }).limit(50).lean();
     }
-    res.json({ assigned, available, examCount: assigned.length });
+    res.json({ assigned, available, testCount: assigned.length });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.post('/:id/exams/assign', auth, isAdmin, async (req, res) => {
+router.post('/:id/tests/assign', auth, isAdmin, async (req, res) => {
   try {
-    const { examId } = req.body;
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    batch.exams = batch.exams || [];
-    if (!batch.exams.some(e => String(e) === String(examId))) batch.exams.push(examId);
-    batch.lastActivityAt = new Date();
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'exams', action: 'exam_assigned', newValue: { examId }, changedBy: req.user.id, changedByName: req.user.name });
+    const { testId } = req.body;
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    series.tests = series.tests || [];
+    if (!series.tests.some(e => String(e) === String(testId))) series.tests.push(testId);
+    series.lastActivityAt = new Date();
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'tests', action: 'test_assigned', newValue: { testId }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete('/:id/exams/:examId', auth, isAdmin, async (req, res) => {
+router.delete('/:id/tests/:testId', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    batch.exams = (batch.exams || []).filter(e => String(e) !== String(req.params.examId));
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'exams', action: 'exam_removed', newValue: { examId: req.params.examId }, changedBy: req.user.id, changedByName: req.user.name });
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    series.tests = (series.tests || []).filter(e => String(e) !== String(req.params.testId));
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'tests', action: 'test_removed', newValue: { testId: req.params.testId }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -652,22 +602,22 @@ router.delete('/:id/exams/:examId', auth, isAdmin, async (req, res) => {
 // ══════════════════════════════════════════════════════════════════
 router.get('/:id/pricing', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const studentCount = (batch.students && batch.students.length) || 0;
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const studentCount = (series.students && series.students.length) || 0;
     res.json({
       pricing: {
-        basePrice: batch.price || 0,
-        discountPrice: batch.discountPrice || null,
-        discountValidTill: batch.discountValidTill || null,
-        priceLocked: !!batch.priceLocked,
-        effectivePrice: effectivePrice(batch)
+        basePrice: series.price || 0,
+        discountPrice: series.discountPrice || null,
+        discountValidTill: series.discountValidTill || null,
+        priceLocked: !!series.priceLocked,
+        effectivePrice: effectivePrice(series)
       },
-      history: batch.priceHistory || [],
+      history: series.priceHistory || [],
       forecast: {
-        expectedIncome: effectivePrice(batch) * Math.max(studentCount, 1) * 1.15,
+        expectedIncome: effectivePrice(series) * Math.max(studentCount, 1) * 1.15,
         conversionEstimate: Math.min(95, 20 + studentCount * 2),
-        offerPerformance: (batch.isSpotlight || batch.isBundle) ? 'High' : 'Moderate'
+        offerPerformance: (series.isSpotlight || series.isBundle) ? 'High' : 'Moderate'
       }
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -675,44 +625,44 @@ router.get('/:id/pricing', auth, isAdmin, async (req, res) => {
 
 router.put('/:id/pricing', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    if (batch.priceLocked && !req.body.forceUnlock) {
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    if (series.priceLocked && !req.body.forceUnlock) {
       return res.status(423).json({ error: 'Price is locked. Unlock before editing.' });
     }
     const fields = ['price', 'discountPrice'];
-    batch.priceHistory = batch.priceHistory || [];
+    series.priceHistory = series.priceHistory || [];
     for (const f of fields) {
-      if (req.body[f] !== undefined && String(batch[f]) !== String(req.body[f])) {
-        batch.priceHistory.push({ oldPrice: batch[f], newPrice: req.body[f], field: f, updatedBy: req.user.id, updatedByName: req.user.name || 'Admin', updatedAt: new Date() });
-        batch[f] = req.body[f];
+      if (req.body[f] !== undefined && String(series[f]) !== String(req.body[f])) {
+        series.priceHistory.push({ oldPrice: series[f], newPrice: req.body[f], field: f, updatedBy: req.user.id, updatedByName: req.user.name || 'Admin', updatedAt: new Date() });
+        series[f] = req.body[f];
       }
     }
     if (req.body.discountValidTill !== undefined) {
-      batch.discountValidTill = req.body.discountValidTill ? new Date(req.body.discountValidTill) : null;
+      series.discountValidTill = req.body.discountValidTill ? new Date(req.body.discountValidTill) : null;
     }
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'pricing', action: 'pricing_updated', newValue: req.body, changedBy: req.user.id, changedByName: req.user.name });
-    res.json({ success: true, batch });
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'pricing', action: 'pricing_updated', newValue: req.body, changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, series });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.put('/:id/pricing/lock', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    batch.priceLocked = !batch.priceLocked;
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'priceLocked', newValue: batch.priceLocked, action: 'price_lock_toggled', changedBy: req.user.id, changedByName: req.user.name });
-    res.json({ success: true, priceLocked: batch.priceLocked });
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    series.priceLocked = !series.priceLocked;
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'priceLocked', newValue: series.priceLocked, action: 'price_lock_toggled', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, priceLocked: series.priceLocked });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.get('/:id/pricing/compare', auth, isAdmin, async (req, res) => {
   try {
     const { withId } = req.query;
-    const a = await Batch.findById(req.params.id).lean();
-    const b = withId ? await Batch.findById(withId).lean() : null;
+    const a = await TestSeries.findById(req.params.id).lean();
+    const b = withId ? await TestSeries.findById(withId).lean() : null;
     res.json({
       a: a ? { name: a.name, price: effectivePrice(a) } : null,
       b: b ? { name: b.name, price: effectivePrice(b) } : null
@@ -721,7 +671,7 @@ router.get('/:id/pricing/compare', auth, isAdmin, async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════
-// COUPON MANAGEMENT TAB — batch-scoped coupons only (no global system)
+// COUPON MANAGEMENT TAB — series-scoped coupons only (no global system)
 // ══════════════════════════════════════════════════════════════════
 function getEffectiveCouponStatus(c) {
   if (c.isDeleted) return 'deleted';
@@ -743,7 +693,7 @@ router.get('/:id/coupons', auth, isAdmin, async (req, res) => {
   try {
     const scopeId = req.params.id;
     const { status, sort } = req.query;
-    const all = await Coupon.find({ scopeType: 'batch', scopeId, isDeleted: false }).lean();
+    const all = await Coupon.find({ scopeType: 'series', scopeId, isDeleted: false }).lean();
     const withStatus = all.map(c => ({ ...c, effectiveStatus: getEffectiveCouponStatus(c) }));
     let coupons = withStatus;
     if (status && status !== 'all') coupons = coupons.filter(c => c.effectiveStatus === status);
@@ -769,8 +719,8 @@ router.get('/:id/coupons', auth, isAdmin, async (req, res) => {
 router.post('/:id/coupons', auth, isAdmin, async (req, res) => {
   try {
     const scopeId = req.params.id;
-    const batch = await Batch.findById(scopeId).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const series = await TestSeries.findById(scopeId).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
     const b = req.body;
     if (!b.code || !b.code.trim()) return res.status(400).json({ error: 'Coupon code required' });
     const code = b.code.trim().toUpperCase();
@@ -779,10 +729,10 @@ router.post('/:id/coupons', auth, isAdmin, async (req, res) => {
     if (!b.value || Number(b.value) <= 0) return res.status(400).json({ error: 'Value must be greater than 0' });
     if (b.type === 'percent' && b.maxDiscount !== undefined && b.maxDiscount !== null && b.maxDiscount !== '' && Number(b.maxDiscount) <= 0) return res.status(400).json({ error: 'Max discount must be greater than 0' });
     if (b.usageLimit !== undefined && b.usageLimit !== '' && Number(b.usageLimit) <= 0) return res.status(400).json({ error: 'Usage limit must be greater than 0' });
-    const dup = await Coupon.findOne({ scopeType: 'batch', scopeId, code, isDeleted: false });
-    if (dup) return res.status(409).json({ error: 'Coupon code already exists for this batch' });
+    const dup = await Coupon.findOne({ scopeType: 'series', scopeId, code, isDeleted: false });
+    if (dup) return res.status(409).json({ error: 'Coupon code already exists for this test series' });
     const doc = await Coupon.create({
-      code, scopeType: 'batch', scopeId,
+      code, scopeType: 'series', scopeId,
       type: b.type === 'flat' ? 'flat' : 'percent',
       value: Number(b.value),
       maxDiscount: b.type === 'percent' && b.maxDiscount ? Number(b.maxDiscount) : null,
@@ -799,25 +749,25 @@ router.post('/:id/coupons', auth, isAdmin, async (req, res) => {
       createdBy: req.user.id, createdByName: req.user.name || 'Admin',
       history: [{ field: 'coupon', action: 'created', performedBy: req.user.id, performedByName: req.user.name || 'Admin', newValue: code }]
     });
-    await logAudit({ batchId: scopeId, field: 'coupon', action: 'coupon_created', newValue: { code }, changedBy: req.user.id, changedByName: req.user.name });
+    await logAudit({ seriesId: scopeId, field: 'coupon', action: 'coupon_created', newValue: { code }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true, coupon: doc });
   } catch (e) {
-    if (e.code === 11000) return res.status(409).json({ error: 'Coupon code already exists for this batch' });
+    if (e.code === 11000) return res.status(409).json({ error: 'Coupon code already exists for this test series' });
     res.status(500).json({ error: e.message });
   }
 });
 
 router.put('/:id/coupons/:couponId', auth, isAdmin, async (req, res) => {
   try {
-    const c = await Coupon.findOne({ _id: req.params.couponId, scopeType: 'batch', scopeId: req.params.id, isDeleted: false });
+    const c = await Coupon.findOne({ _id: req.params.couponId, scopeType: 'series', scopeId: req.params.id, isDeleted: false });
     if (!c) return res.status(404).json({ error: 'Coupon not found' });
     const b = req.body;
     if (b.validFrom && b.validTill && new Date(b.validTill) <= new Date(b.validFrom)) return res.status(400).json({ error: 'Valid Till must be after Valid From' });
     if (b.value !== undefined && Number(b.value) <= 0) return res.status(400).json({ error: 'Value must be greater than 0' });
     if (b.code && b.code.trim().toUpperCase() !== c.code) {
       const newCode = b.code.trim().toUpperCase();
-      const dup = await Coupon.findOne({ scopeType: 'batch', scopeId: req.params.id, code: newCode, isDeleted: false, _id: { $ne: c._id } });
-      if (dup) return res.status(409).json({ error: 'Coupon code already exists for this batch' });
+      const dup = await Coupon.findOne({ scopeType: 'series', scopeId: req.params.id, code: newCode, isDeleted: false, _id: { $ne: c._id } });
+      if (dup) return res.status(409).json({ error: 'Coupon code already exists for this test series' });
       c.history.push({ field: 'code', oldValue: c.code, newValue: newCode, action: 'edited', performedBy: req.user.id, performedByName: req.user.name || 'Admin' });
       c.code = newCode;
     }
@@ -834,17 +784,17 @@ router.put('/:id/coupons/:couponId', auth, isAdmin, async (req, res) => {
     }
     c.updatedBy = req.user.id; c.updatedByName = req.user.name || 'Admin';
     await c.save();
-    await logAudit({ batchId: req.params.id, field: 'coupon', action: 'coupon_updated', newValue: { code: c.code }, changedBy: req.user.id, changedByName: req.user.name });
+    await logAudit({ seriesId: req.params.id, field: 'coupon', action: 'coupon_updated', newValue: { code: c.code }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true, coupon: c });
   } catch (e) {
-    if (e.code === 11000) return res.status(409).json({ error: 'Coupon code already exists for this batch' });
+    if (e.code === 11000) return res.status(409).json({ error: 'Coupon code already exists for this test series' });
     res.status(500).json({ error: e.message });
   }
 });
 
 router.put('/:id/coupons/:couponId/status', auth, isAdmin, async (req, res) => {
   try {
-    const c = await Coupon.findOne({ _id: req.params.couponId, scopeType: 'batch', scopeId: req.params.id, isDeleted: false });
+    const c = await Coupon.findOne({ _id: req.params.couponId, scopeType: 'series', scopeId: req.params.id, isDeleted: false });
     if (!c) return res.status(404).json({ error: 'Coupon not found' });
     const { status } = req.body;
     if (!['draft', 'active', 'disabled'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
@@ -854,18 +804,18 @@ router.put('/:id/coupons/:couponId/status', auth, isAdmin, async (req, res) => {
     c.statusChangedAt = new Date();
     c.history.push({ field: 'status', oldValue: old, newValue: status, action: 'status_changed', performedBy: req.user.id, performedByName: req.user.name || 'Admin' });
     await c.save();
-    await logAudit({ batchId: req.params.id, field: 'coupon_status', action: 'coupon_status_changed', newValue: { code: c.code, status }, changedBy: req.user.id, changedByName: req.user.name });
+    await logAudit({ seriesId: req.params.id, field: 'coupon_status', action: 'coupon_status_changed', newValue: { code: c.code, status }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true, status: c.status, effectiveStatus: getEffectiveCouponStatus(c) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/:id/coupons/:couponId/duplicate', auth, isAdmin, async (req, res) => {
   try {
-    const src = await Coupon.findOne({ _id: req.params.couponId, scopeType: 'batch', scopeId: req.params.id, isDeleted: false }).lean();
+    const src = await Coupon.findOne({ _id: req.params.couponId, scopeType: 'series', scopeId: req.params.id, isDeleted: false }).lean();
     if (!src) return res.status(404).json({ error: 'Coupon not found' });
     let newCode = src.code + '-COPY';
     let n = 1;
-    while (await Coupon.findOne({ scopeType: 'batch', scopeId: req.params.id, code: newCode, isDeleted: false })) {
+    while (await Coupon.findOne({ scopeType: 'series', scopeId: req.params.id, code: newCode, isDeleted: false })) {
       n++; newCode = src.code + '-COPY' + n;
     }
     const { _id, createdAt, updatedAt, __v, usageCount, uniqueStudents, revenueGenerated, discountGiven, firstUsedAt, lastUsedAt, usageHistory, history, statusChangedBy, statusChangedAt, ...rest } = src;
@@ -874,28 +824,28 @@ router.post('/:id/coupons/:couponId/duplicate', auth, isAdmin, async (req, res) 
       createdBy: req.user.id, createdByName: req.user.name || 'Admin',
       history: [{ field: 'coupon', action: 'duplicated', performedBy: req.user.id, performedByName: req.user.name || 'Admin', newValue: newCode, oldValue: src.code }]
     });
-    await logAudit({ batchId: req.params.id, field: 'coupon', action: 'coupon_duplicated', newValue: { from: src.code, to: newCode }, changedBy: req.user.id, changedByName: req.user.name });
+    await logAudit({ seriesId: req.params.id, field: 'coupon', action: 'coupon_duplicated', newValue: { from: src.code, to: newCode }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true, coupon: doc });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.delete('/:id/coupons/:couponId', auth, isAdmin, async (req, res) => {
   try {
-    const c = await Coupon.findOne({ _id: req.params.couponId, scopeType: 'batch', scopeId: req.params.id, isDeleted: false });
+    const c = await Coupon.findOne({ _id: req.params.couponId, scopeType: 'series', scopeId: req.params.id, isDeleted: false });
     if (!c) return res.status(404).json({ error: 'Coupon not found' });
     c.isDeleted = true;
     c.deletedBy = req.user.name || 'Admin';
     c.deletedAt = new Date();
     c.history.push({ field: 'coupon', action: 'deleted', performedBy: req.user.id, performedByName: req.user.name || 'Admin' });
     await c.save();
-    await logAudit({ batchId: req.params.id, field: 'coupon', action: 'coupon_deleted', newValue: { code: c.code }, changedBy: req.user.id, changedByName: req.user.name });
+    await logAudit({ seriesId: req.params.id, field: 'coupon', action: 'coupon_deleted', newValue: { code: c.code }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.get('/:id/coupons/analytics', auth, isAdmin, async (req, res) => {
   try {
-    const coupons = await Coupon.find({ scopeType: 'batch', scopeId: req.params.id, isDeleted: false }).lean();
+    const coupons = await Coupon.find({ scopeType: 'series', scopeId: req.params.id, isDeleted: false }).lean();
     const withStatus = coupons.map(c => ({ ...c, effectiveStatus: getEffectiveCouponStatus(c) }));
     const sorted = withStatus.slice().sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
     const best = sorted[0] || null;
@@ -918,7 +868,7 @@ router.get('/:id/coupons/analytics', auth, isAdmin, async (req, res) => {
 
 router.get('/:id/coupons/:couponId/usage', auth, isAdmin, async (req, res) => {
   try {
-    const c = await Coupon.findOne({ _id: req.params.couponId, scopeType: 'batch', scopeId: req.params.id, isDeleted: false }).lean();
+    const c = await Coupon.findOne({ _id: req.params.couponId, scopeType: 'series', scopeId: req.params.id, isDeleted: false }).lean();
     if (!c) return res.status(404).json({ error: 'Coupon not found' });
     res.json({
       usage: (c.usageHistory || []).slice().reverse(),
@@ -936,10 +886,10 @@ router.get('/:id/coupons/:couponId/usage', auth, isAdmin, async (req, res) => {
 
 router.get('/:id/coupons/:couponId/analytics', auth, isAdmin, async (req, res) => {
   try {
-    const c = await Coupon.findOne({ _id: req.params.couponId, scopeType: 'batch', scopeId: req.params.id, isDeleted: false }).lean();
+    const c = await Coupon.findOne({ _id: req.params.couponId, scopeType: 'series', scopeId: req.params.id, isDeleted: false }).lean();
     if (!c) return res.status(404).json({ error: 'Coupon not found' });
-    const batch = await Batch.findById(req.params.id).lean();
-    const enrolledCount = (batch && batch.enrolledCount) || 0;
+    const series = await TestSeries.findById(req.params.id).lean();
+    const enrolledCount = (series && series.enrolledCount) || 0;
     const conversionRate = enrolledCount > 0 ? Math.min(100, Math.round(((c.usageCount || 0) / enrolledCount) * 100)) : 0;
     const now = new Date();
     const daysToExpiry = c.validTill ? Math.ceil((new Date(c.validTill) - now) / 86400000) : null;
@@ -966,9 +916,9 @@ router.post('/:id/coupons/validate', auth, async (req, res) => {
   try {
     const { code } = req.body;
     if (!code) return res.status(400).json({ error: 'Coupon code required' });
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const c = await Coupon.findOne({ scopeType: 'batch', scopeId: req.params.id, code: code.trim().toUpperCase(), isDeleted: false });
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const c = await Coupon.findOne({ scopeType: 'series', scopeId: req.params.id, code: code.trim().toUpperCase(), isDeleted: false });
     if (!c) return res.status(404).json({ error: 'Invalid coupon code' });
     const eff = getEffectiveCouponStatus(c);
     if (eff !== 'active') return res.status(400).json({ error: `Coupon is ${eff}` });
@@ -978,7 +928,7 @@ router.post('/:id/coupons/validate', auth, async (req, res) => {
       const usedByStudent = (c.usageHistory || []).filter(u => String(u.student) === String(req.user.id)).length;
       if (usedByStudent >= limit) return res.status(400).json({ error: 'You have already used this coupon the maximum number of times' });
     }
-    const base = batch.price || 0;
+    const base = series.price || 0;
     const discount = computeCouponDiscount(c, base);
     res.json({ valid: true, code: c.code, discount, finalPrice: Math.max(0, base - discount) });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -987,9 +937,9 @@ router.post('/:id/coupons/validate', auth, async (req, res) => {
 router.post('/:id/coupons/redeem', auth, async (req, res) => {
   try {
     const { code, appliedAmount, orderRef } = req.body;
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const c = await Coupon.findOne({ scopeType: 'batch', scopeId: req.params.id, code: (code || '').trim().toUpperCase(), isDeleted: false });
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const c = await Coupon.findOne({ scopeType: 'series', scopeId: req.params.id, code: (code || '').trim().toUpperCase(), isDeleted: false });
     if (!c) return res.status(404).json({ error: 'Invalid coupon code' });
     const eff = getEffectiveCouponStatus(c);
     if (eff !== 'active') return res.status(400).json({ error: `Coupon is ${eff}` });
@@ -999,7 +949,7 @@ router.post('/:id/coupons/redeem', auth, async (req, res) => {
       const usedByStudent = (c.usageHistory || []).filter(u => String(u.student) === String(req.user.id)).length;
       if (usedByStudent >= limit) return res.status(400).json({ error: 'Coupon usage limit reached for this student' });
     }
-    const base = Number(appliedAmount) || batch.price || 0;
+    const base = Number(appliedAmount) || series.price || 0;
     const discount = computeCouponDiscount(c, base);
     c.usageCount += 1;
     if (!c.uniqueStudents.some(s => String(s) === String(req.user.id))) c.uniqueStudents.push(req.user.id);
@@ -1014,10 +964,10 @@ router.post('/:id/coupons/redeem', auth, async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════
-// BANNER MANAGEMENT TAB — batch-scoped banner only (no global list).
+// BANNER MANAGEMENT TAB — series-scoped banner only (no global list).
 // Publish/Launch is intentionally NOT done here — reserved for a
 // future Publish Center. This tab only manages the ONE banner linked
-// to this batch: create/auto-generate/edit/sync/version/analyze.
+// to this series: create/auto-generate/edit/sync/version/analyze.
 // ══════════════════════════════════════════════════════════════════
 function computeBannerQualityScore(b) {
   let score = 0;
@@ -1031,35 +981,35 @@ function computeBannerQualityScore(b) {
   if (b.primaryColor && b.accentColor) score += 5;
   return Math.min(100, score);
 }
-function buildBannerSyncFields(batch) {
+function buildBannerSyncFields(series) {
   let validity, duration;
-  if (batch.startDate && batch.endDate) {
-    const days = Math.max(1, Math.round((new Date(batch.endDate) - new Date(batch.startDate)) / 86400000));
-    validity = new Date(batch.startDate).toLocaleDateString() + ' → ' + new Date(batch.endDate).toLocaleDateString();
+  if (series.startDate && series.endDate) {
+    const days = Math.max(1, Math.round((new Date(series.endDate) - new Date(series.startDate)) / 86400000));
+    validity = new Date(series.startDate).toLocaleDateString() + ' → ' + new Date(series.endDate).toLocaleDateString();
     duration = days + ' days';
   } else {
-    const days = batch.validity || 365;
+    const days = series.validity || 365;
     validity = days + ' days';
     duration = days + ' days';
   }
-  const eff = (batch.discountPrice && (!batch.discountValidTill || new Date(batch.discountValidTill) >= new Date())) ? batch.discountPrice : (batch.price || 0);
+  const eff = (series.discountPrice && (!series.discountValidTill || new Date(series.discountValidTill) >= new Date())) ? series.discountPrice : (series.price || 0);
   return {
-    batchName: batch.name || '',
-    title: batch.name || '',
-    examType: batch.examType || 'NEET',
+    batchName: series.name || '',
+    title: series.name || '',
+    examType: series.examType || 'NEET',
     price: String(eff || 0),
-    totalTests: String(batch.totalTests || 0),
+    totalTests: String(series.totalTests || 0),
     validity, duration,
     highlights: [
-      (batch.totalTests || 0) + ' Practice Tests',
+      (series.totalTests || 0) + ' Practice Tests',
       duration + ' Validity',
-      batch.language || 'Hindi + English'
+      series.language || 'Hindi + English'
     ],
-    badge: batch.isSpotlight ? 'trending' : 'none'
+    badge: series.isSpotlight ? 'trending' : 'none'
   };
 }
-function checkBannerSyncState(banner, batch) {
-  const live = buildBannerSyncFields(batch);
+function checkBannerSyncState(banner, series) {
+  const live = buildBannerSyncFields(series);
   const mismatch = banner.title !== live.title || banner.price !== live.price || banner.examType !== live.examType || banner.totalTests !== live.totalTests;
   if (banner.syncState === 'manual_override') return mismatch ? 'conflict' : 'manual_override';
   return mismatch ? 'pending_sync' : 'synced';
@@ -1072,12 +1022,12 @@ async function logBannerAudit({ bannerId, action, oldValue, newValue, performedB
 
 router.get('/:id/banner', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
-    const syncPreview = buildBannerSyncFields(batch);
-    if (!banner) return res.json({ banner: null, overview: { status: 'none', readiness: 'banner_required' }, syncPreview, batchName: batch.name });
-    const liveSyncState = checkBannerSyncState(banner, batch);
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const banner = await Banner.findOne({ linkedType: 'series', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
+    const syncPreview = buildBannerSyncFields(series);
+    if (!banner) return res.json({ banner: null, overview: { status: 'none', readiness: 'banner_required' }, syncPreview, batchName: series.name });
+    const liveSyncState = checkBannerSyncState(banner, series);
     const qualityScore = banner.qualityScore || computeBannerQualityScore(banner);
     res.json({
       banner: { ...banner, syncState: liveSyncState, qualityScore },
@@ -1088,36 +1038,36 @@ router.get('/:id/banner', auth, isAdmin, async (req, res) => {
         recentVersion: banner.versions && banner.versions.length ? banner.versions[banner.versions.length - 1] : null,
         readiness: qualityScore >= 60 && banner.status !== 'draft' ? 'ready' : 'incomplete'
       },
-      syncPreview, batchName: batch.name
+      syncPreview, batchName: series.name
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/:id/banner/auto-generate', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const existing = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } });
-    if (existing) return res.status(409).json({ error: 'A banner already exists for this batch. Edit or replace it instead.' });
-    const fields = buildBannerSyncFields(batch);
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const existing = await Banner.findOne({ linkedType: 'series', linkedBatchId: req.params.id, status: { $ne: 'removed' } });
+    if (existing) return res.status(409).json({ error: 'A banner already exists for this test series. Edit or replace it instead.' });
+    const fields = buildBannerSyncFields(series);
     const banner = await Banner.create({
       ...fields, batchId: String(req.params.id),
       tagline: '', ctaText: 'Enroll Now', template: 'classic',
       primaryColor: '#4D9FFF', secondaryColor: '#00D4FF', textColor: '#FFFFFF', accentColor: '#FFD700',
       fontStyle: 'modern', bgImage: '', published: false,
-      linkedType: 'batch', linkedBatchId: req.params.id, status: 'draft', syncState: 'synced',
+      linkedType: 'series', linkedBatchId: req.params.id, status: 'draft', syncState: 'synced',
       createdBy: req.user.id
     });
     banner.qualityScore = computeBannerQualityScore(banner);
     await banner.save();
-    await logBannerAudit({ bannerId: banner._id, action: 'created', newValue: { title: banner.title }, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    await logBannerAudit({ bannerId: banner._id, action: 'created', newValue: { title: banner.title }, linkedType: 'series', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
     res.json({ success: true, banner });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.put('/:id/banner', auth, isAdmin, async (req, res) => {
   try {
-    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
+    const banner = await Banner.findOne({ linkedType: 'series', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
     if (!banner) return res.status(404).json({ error: 'No banner found. Auto-generate a draft first.' });
     if (banner.status === 'published' && !req.body.forceUnlock) {
       const lockedFields = ['title', 'price', 'examType'];
@@ -1135,31 +1085,31 @@ router.put('/:id/banner', auth, isAdmin, async (req, res) => {
     banner.syncState = 'manual_override';
     banner.qualityScore = computeBannerQualityScore(banner);
     await banner.save();
-    await logBannerAudit({ bannerId: banner._id, action: 'edited', linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    await logBannerAudit({ bannerId: banner._id, action: 'edited', linkedType: 'series', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
     res.json({ success: true, banner });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/:id/banner/sync', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const banner = await Banner.findOne({ linkedType: 'series', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
     if (!banner) return res.status(404).json({ error: 'No banner found. Auto-generate a draft first.' });
     const oldVal = { title: banner.title, price: banner.price };
-    const fields = buildBannerSyncFields(batch);
+    const fields = buildBannerSyncFields(series);
     Object.assign(banner, fields);
     banner.syncState = 'synced';
     banner.qualityScore = computeBannerQualityScore(banner);
     await banner.save();
-    await logBannerAudit({ bannerId: banner._id, action: 'synced', oldValue: oldVal, newValue: { title: banner.title, price: banner.price }, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    await logBannerAudit({ bannerId: banner._id, action: 'synced', oldValue: oldVal, newValue: { title: banner.title, price: banner.price }, linkedType: 'series', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
     res.json({ success: true, banner });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/:id/banner/duplicate', auth, isAdmin, async (req, res) => {
   try {
-    const orig = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
+    const orig = await Banner.findOne({ linkedType: 'series', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
     if (!orig) return res.status(404).json({ error: 'No banner found' });
     delete orig._id; delete orig.createdAt; delete orig.updatedAt;
     orig.title = orig.title + ' (Copy)';
@@ -1167,87 +1117,87 @@ router.post('/:id/banner/duplicate', auth, isAdmin, async (req, res) => {
     orig.analytics = { views: 0, clicks: 0, enrolls: 0 };
     orig.linkedType = 'none'; orig.linkedBatchId = null;
     const dup = await Banner.create(orig);
-    await logBannerAudit({ bannerId: dup._id, action: 'duplicated', oldValue: { from: req.params.id }, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    await logBannerAudit({ bannerId: dup._id, action: 'duplicated', oldValue: { from: req.params.id }, linkedType: 'series', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
     res.json({ success: true, banner: dup });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/:id/banner/remove', auth, isAdmin, async (req, res) => {
   try {
-    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
+    const banner = await Banner.findOne({ linkedType: 'series', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
     if (!banner) return res.status(404).json({ error: 'No banner found' });
     banner.status = 'removed';
     banner.removedAt = new Date();
     banner.published = false;
     await banner.save();
-    await logBannerAudit({ bannerId: banner._id, action: 'removed', reason: req.body.reason, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    await logBannerAudit({ bannerId: banner._id, action: 'removed', reason: req.body.reason, linkedType: 'series', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/:id/banner/restore-removed', auth, isAdmin, async (req, res) => {
   try {
-    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: 'removed' }).sort({ removedAt: -1 });
+    const banner = await Banner.findOne({ linkedType: 'series', linkedBatchId: req.params.id, status: 'removed' }).sort({ removedAt: -1 });
     if (!banner) return res.status(404).json({ error: 'No removed banner found' });
     banner.status = 'draft';
     banner.removedAt = null;
     await banner.save();
-    await logBannerAudit({ bannerId: banner._id, action: 'restored_from_removed', linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    await logBannerAudit({ bannerId: banner._id, action: 'restored_from_removed', linkedType: 'series', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
     res.json({ success: true, banner });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/:id/banner/replace', auth, isAdmin, async (req, res) => {
   try {
-    const old = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
+    const old = await Banner.findOne({ linkedType: 'series', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
     if (!old) return res.status(404).json({ error: 'No banner found to replace' });
     const oldObj = old.toObject();
     delete oldObj._id; delete oldObj.createdAt; delete oldObj.updatedAt; delete oldObj.versions; delete oldObj.__v;
     const replacement = await Banner.create({
       ...oldObj, ...req.body, status: 'draft', published: false, replacedFrom: old._id,
-      linkedType: 'batch', linkedBatchId: req.params.id,
+      linkedType: 'series', linkedBatchId: req.params.id,
       versions: [], analytics: { views: 0, clicks: 0, enrolls: 0 }
     });
     old.status = 'replaced';
     old.replacedBy = replacement._id;
     old.published = false;
     await old.save();
-    await logBannerAudit({ bannerId: replacement._id, action: 'replaced', oldValue: { replacedFrom: old._id }, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    await logBannerAudit({ bannerId: replacement._id, action: 'replaced', oldValue: { replacedFrom: old._id }, linkedType: 'series', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
     res.json({ success: true, banner: replacement });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/:id/banner/restore-version/:vIdx', auth, isAdmin, async (req, res) => {
   try {
-    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
+    const banner = await Banner.findOne({ linkedType: 'series', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
     if (!banner) return res.status(404).json({ error: 'No banner found' });
     const v = banner.versions[parseInt(req.params.vIdx)];
     if (!v) return res.status(404).json({ error: 'Version not found' });
     Object.assign(banner, v.data);
     banner.qualityScore = computeBannerQualityScore(banner);
     await banner.save();
-    await logBannerAudit({ bannerId: banner._id, action: 'version_restored', newValue: { vIdx: req.params.vIdx }, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    await logBannerAudit({ bannerId: banner._id, action: 'version_restored', newValue: { vIdx: req.params.vIdx }, linkedType: 'series', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
     res.json({ success: true, banner });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/:id/banner/duplicate-version/:vIdx', auth, isAdmin, async (req, res) => {
   try {
-    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
+    const banner = await Banner.findOne({ linkedType: 'series', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
     if (!banner) return res.status(404).json({ error: 'No banner found' });
     const v = banner.versions[parseInt(req.params.vIdx)];
     if (!v) return res.status(404).json({ error: 'Version not found' });
     const clone = { data: v.data, savedAt: new Date(), label: (v.label || 'v?') + ' (copy)' };
     banner.versions.push(clone);
     await banner.save();
-    await logBannerAudit({ bannerId: banner._id, action: 'version_duplicated', newValue: { fromVIdx: req.params.vIdx }, linkedType: 'batch', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
+    await logBannerAudit({ bannerId: banner._id, action: 'version_duplicated', newValue: { fromVIdx: req.params.vIdx }, linkedType: 'series', linkedBatchId: req.params.id, performedBy: req.user.id, performedByName: req.user.name });
     res.json({ success: true, banner });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.get('/:id/banner/analytics', auth, isAdmin, async (req, res) => {
   try {
-    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
+    const banner = await Banner.findOne({ linkedType: 'series', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
     if (!banner) return res.json({ analytics: null });
     const a = banner.analytics || { views: 0, clicks: 0, enrolls: 0 };
     res.json({ analytics: { views: a.views || 0, clicks: a.clicks || 0, enrolls: a.enrolls || 0, clickRate: a.views ? +((a.clicks / a.views) * 100).toFixed(1) : 0, conversionRate: a.views ? +((a.enrolls / a.views) * 100).toFixed(1) : 0, template: banner.template, ctaText: banner.ctaText } });
@@ -1256,7 +1206,7 @@ router.get('/:id/banner/analytics', auth, isAdmin, async (req, res) => {
 
 router.post('/:id/banner/track', async (req, res) => {
   try {
-    const banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
+    const banner = await Banner.findOne({ linkedType: 'series', linkedBatchId: req.params.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 });
     if (!banner) return res.json({ success: false });
     const { type } = req.body;
     const inc = {};
@@ -1270,7 +1220,7 @@ router.post('/:id/banner/track', async (req, res) => {
 
 router.get('/:id/banner/audit', auth, isAdmin, async (req, res) => {
   try {
-    const audit = await BannerAuditLog.find({ linkedType: 'batch', linkedBatchId: req.params.id }).sort({ timestamp: -1 }).limit(100).lean();
+    const audit = await BannerAuditLog.find({ linkedType: 'series', linkedBatchId: req.params.id }).sort({ timestamp: -1 }).limit(100).lean();
     res.json({ audit });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1281,7 +1231,7 @@ router.get('/:id/banner/audit', auth, isAdmin, async (req, res) => {
 router.get('/:id/materials', auth, isAdmin, async (req, res) => {
   try {
     if (!BatchNote) return res.json({ materials: [] });
-    const materials = await BatchNote.find({ batch: req.params.id }).sort({ pinned: -1, createdAt: -1 }).lean();
+    const materials = await BatchNote.find({ series: req.params.id }).sort({ pinned: -1, createdAt: -1 }).lean();
     res.json({ materials });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1290,8 +1240,8 @@ router.post('/:id/materials', auth, isAdmin, async (req, res) => {
   try {
     if (!BatchNote) return res.status(500).json({ error: 'Materials model unavailable' });
     const { title, type, url, category, expiryDate } = req.body;
-    const note = await BatchNote.create({ batch: req.params.id, title, type, url, subject: category || 'General', expiryDate: expiryDate ? new Date(expiryDate) : null, pinned: false, version: 1, createdBy: req.user.id });
-    await logAudit({ batchId: req.params.id, field: 'materials', action: 'material_added', newValue: { title }, changedBy: req.user.id, changedByName: req.user.name });
+    const note = await BatchNote.create({ series: req.params.id, title, type, url, subject: category || 'General', expiryDate: expiryDate ? new Date(expiryDate) : null, pinned: false, version: 1, createdBy: req.user.id });
+    await logAudit({ seriesId: req.params.id, field: 'materials', action: 'material_added', newValue: { title }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true, material: note });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1314,7 +1264,7 @@ router.put('/:id/materials/:noteId', auth, isAdmin, async (req, res) => {
 router.delete('/:id/materials/:noteId', auth, isAdmin, async (req, res) => {
   try {
     if (BatchNote) await BatchNote.findByIdAndDelete(req.params.noteId);
-    await logAudit({ batchId: req.params.id, field: 'materials', action: 'material_deleted', newValue: { noteId: req.params.noteId }, changedBy: req.user.id, changedByName: req.user.name });
+    await logAudit({ seriesId: req.params.id, field: 'materials', action: 'material_deleted', newValue: { noteId: req.params.noteId }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1324,17 +1274,17 @@ router.delete('/:id/materials/:noteId', auth, isAdmin, async (req, res) => {
 // ══════════════════════════════════════════════════════════════════
 router.get('/:id/analytics', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const studentCount = (batch.students && batch.students.length) || 0;
-    const examCount = (batch.exams && batch.exams.length) || 0;
-    const healthScore = computeHealthScore(batch, studentCount, examCount);
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const studentCount = (series.students && series.students.length) || 0;
+    const testCount = (series.tests && series.tests.length) || 0;
+    const healthScore = computeHealthScore(series, studentCount, testCount);
 
     let ExamSubmission;
     try { ExamSubmission = mongoose.model('ExamSubmission'); } catch (e) { ExamSubmission = null; }
     let participation = 0, avgScore = null;
     if (ExamSubmission) {
-      const subs = await ExamSubmission.find({ examId: { $in: batch.exams || [] } }).lean();
+      const subs = await ExamSubmission.find({ testId: { $in: series.tests || [] } }).lean();
       participation = subs.length;
       if (subs.length) avgScore = Math.round(subs.reduce((s, x) => s + (x.score || 0), 0) / subs.length);
     }
@@ -1346,16 +1296,16 @@ router.get('/:id/analytics', auth, isAdmin, async (req, res) => {
         activeUsers: studentCount,
         examParticipation: participation,
         avgScore,
-        revenueSummary: effectivePrice(batch) * studentCount,
-        seatUtilization: batch.seatLimit > 0 ? Math.round((studentCount / batch.seatLimit) * 100) : null,
-        engagementTrend: Math.min(100, examCount * 10),
+        revenueSummary: effectivePrice(series) * studentCount,
+        seatUtilization: series.seatLimit > 0 ? Math.round((studentCount / series.seatLimit) * 100) : null,
+        engagementTrend: Math.min(100, testCount * 10),
         conversionFunnel: {
           views: studentCount * 4,
           wishlisted: Math.round(studentCount * 1.4),
           enrolled: studentCount
         },
-        revenuePerSeat: batch.seatLimit > 0 ? Math.round((effectivePrice(batch) * studentCount) / batch.seatLimit) : effectivePrice(batch),
-        churnTrend: Math.max(0, Math.round((batch.enrollments || []).filter(e => e.status === 'inactive').length))
+        revenuePerSeat: series.seatLimit > 0 ? Math.round((effectivePrice(series) * studentCount) / series.seatLimit) : effectivePrice(series),
+        churnTrend: Math.max(0, Math.round((series.enrollments || []).filter(e => e.status === 'inactive').length))
       }
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1364,22 +1314,22 @@ router.get('/:id/analytics', auth, isAdmin, async (req, res) => {
 router.get('/:id/analytics/compare', auth, isAdmin, async (req, res) => {
   try {
     const { withId } = req.query;
-    const a = await Batch.findById(req.params.id).lean();
-    const b = withId ? await Batch.findById(withId).lean() : null;
+    const a = await TestSeries.findById(req.params.id).lean();
+    const b = withId ? await TestSeries.findById(withId).lean() : null;
     const mk = (x) => x ? { name: x.name, studentCount: (x.students || []).length, revenue: effectivePrice(x) * (x.students || []).length } : null;
     res.json({ a: mk(a), b: mk(b) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ══════════════════════════════════════════════════════════════════
-// ANNOUNCEMENTS TAB (batch-scoped)
+// ANNOUNCEMENTS TAB (series-scoped)
 // ══════════════════════════════════════════════════════════════════
 router.get('/:id/announcements', auth, isAdmin, async (req, res) => {
   try {
     let Announcement;
     try { Announcement = mongoose.model('Announcement'); } catch (e) { Announcement = null; }
     if (!Announcement) return res.json({ announcements: [] });
-    const list = await Announcement.find({ batchId: req.params.id }).sort({ createdAt: -1 }).lean();
+    const list = await Announcement.find({ seriesId: req.params.id }).sort({ createdAt: -1 }).lean();
     res.json({ announcements: list });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1391,18 +1341,18 @@ router.post('/:id/announcements', auth, isAdmin, async (req, res) => {
     try { Announcement = mongoose.model('Announcement'); } catch (e) { Announcement = null; }
     let created = null;
     if (Announcement) {
-      created = await Announcement.create({ title, message, batchId: req.params.id, urgent: !!urgent, scheduledAt: scheduledAt ? new Date(scheduledAt) : null, createdBy: req.user.id });
+      created = await Announcement.create({ title, message, seriesId: req.params.id, urgent: !!urgent, scheduledAt: scheduledAt ? new Date(scheduledAt) : null, createdBy: req.user.id });
     }
-    const batch = await Batch.findById(req.params.id);
-    if (batch && StudentNotification) {
-      const notifs = (batch.students || []).map(sid => ({
-        userId: sid, type: 'announcement', title: title || '📢 Batch Update', message,
-        batchId: batch._id, isRead: false, link: '/dashboard/announcements'
+    const series = await TestSeries.findById(req.params.id);
+    if (series && StudentNotification) {
+      const notifs = (series.students || []).map(sid => ({
+        userId: sid, type: 'announcement', title: title || '📢 Test Series Update', message,
+        seriesId: series._id, isRead: false, link: '/dashboard/announcements'
       }));
       if (notifs.length) await StudentNotification.insertMany(notifs);
     }
-    await logAudit({ batchId: req.params.id, field: 'announcements', action: 'announcement_sent', newValue: { title }, changedBy: req.user.id, changedByName: req.user.name });
-    res.json({ success: true, announcement: created, notified: (batch?.students || []).length });
+    await logAudit({ seriesId: req.params.id, field: 'announcements', action: 'announcement_sent', newValue: { title }, changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, announcement: created, notified: (series?.students || []).length });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1411,15 +1361,15 @@ router.post('/:id/announcements', auth, isAdmin, async (req, res) => {
 // ══════════════════════════════════════════════════════════════════
 router.get('/:id/settings', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
     res.json({
       settings: {
-        name: batch.name, batchCode: batch.batchCode, description: batch.description,
-        startDate: batch.startDate, endDate: batch.endDate, visibility: batch.visibility,
-        seatLimit: batch.seatLimit, enrollmentRule: batch.enrollmentRule,
-        autoArchiveAfterEnd: !!batch.autoArchiveAfterEnd,
-        renameHistory: batch.renameHistory || [], isLocked: !!batch.settingsLocked
+        name: series.name, seriesCode: series.seriesCode, description: series.description,
+        startDate: series.startDate, endDate: series.endDate, visibility: series.visibility,
+        seatLimit: series.seatLimit, enrollmentRule: series.enrollmentRule,
+        autoArchiveAfterEnd: !!series.autoArchiveAfterEnd,
+        renameHistory: series.renameHistory || [], isLocked: !!series.settingsLocked
       }
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1427,11 +1377,11 @@ router.get('/:id/settings', auth, isAdmin, async (req, res) => {
 
 router.put('/:id/settings/lock', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    batch.settingsLocked = !batch.settingsLocked;
-    await batch.save();
-    res.json({ success: true, isLocked: batch.settingsLocked });
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    series.settingsLocked = !series.settingsLocked;
+    await series.save();
+    res.json({ success: true, isLocked: series.settingsLocked });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1440,8 +1390,8 @@ router.put('/:id/settings/lock', auth, isAdmin, async (req, res) => {
 // ══════════════════════════════════════════════════════════════════
 router.get('/:id/audit', auth, isAdmin, async (req, res) => {
   try {
-    if (!BatchAuditLog) return res.json({ audit: [] });
-    const audit = await BatchAuditLog.find({ batchId: req.params.id }).sort({ timestamp: -1 }).limit(200).lean();
+    if (!TestSeriesAuditLog) return res.json({ audit: [] });
+    const audit = await TestSeriesAuditLog.find({ seriesId: req.params.id }).sort({ timestamp: -1 }).limit(200).lean();
     res.json({ audit });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1451,11 +1401,11 @@ router.get('/:id/audit', auth, isAdmin, async (req, res) => {
 // ══════════════════════════════════════════════════════════════════
 router.get('/:id/export-snapshot', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="batch-${batch.batchCode || batch._id}-snapshot.json"`);
-    res.send(JSON.stringify(batch, null, 2));
+    res.setHeader('Content-Disposition', `attachment; filename="series-${series.seriesCode || series._id}-snapshot.json"`);
+    res.send(JSON.stringify(series, null, 2));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1478,51 +1428,51 @@ const SNAPSHOT_FIELDS = ['name', 'description', 'examType', 'category', 'price',
   'teacherAssigned', 'isSpotlight', 'isBundle', 'allowFreeTrial', 'lifecycleStatus', 'status'];
 const SECTION_MAP = { basicInfo: 'settings', banner: 'banner', pricing: 'pricing', dateRange: 'settings', startDate: 'settings', endDate: 'settings', controls: 'controls', coupons: 'coupons', scheduleConflict: 'publish' };
 
-async function gatherSnapshotExtras(batch) {
+async function gatherSnapshotExtras(series) {
   let bannerSnap = null, couponIds = [], materialsCount = 0, announcementsCount = 0;
   try {
     const Banner = mongoose.model('Banner');
-    const b = await Banner.findOne({ linkedType: 'batch', linkedBatchId: batch._id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
+    const b = await Banner.findOne({ linkedType: 'series', linkedBatchId: series._id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
     if (b) bannerSnap = { id: b._id, title: b.title, tagline: b.tagline, status: b.status, primaryColor: b.primaryColor };
   } catch (e) {}
-  try { couponIds = (await Coupon.find({ scopeType: 'batch', scopeId: batch._id, isDeleted: false }).select('_id code status').lean()).map(c => ({ id: c._id, code: c.code, status: c.status })); } catch (e) {}
-  try { if (BatchNote) materialsCount = await BatchNote.countDocuments({ batch: batch._id }); } catch (e) {}
-  try { let A; try { A = mongoose.model('Announcement'); } catch (e) { A = null; } if (A) announcementsCount = await A.countDocuments({ batchId: batch._id }); } catch (e) {}
-  return { banner: bannerSnap, coupons: couponIds, examsCount: (batch.exams && batch.exams.length) || 0, exams: (batch.exams || []).map(String), materialsCount, announcementsCount };
+  try { couponIds = (await Coupon.find({ scopeType: 'series', scopeId: series._id, isDeleted: false }).select('_id code status').lean()).map(c => ({ id: c._id, code: c.code, status: c.status })); } catch (e) {}
+  try { if (BatchNote) materialsCount = await BatchNote.countDocuments({ batch: series._id }); } catch (e) {}
+  try { let A; try { A = mongoose.model('Announcement'); } catch (e) { A = null; } if (A) announcementsCount = await A.countDocuments({ seriesId: series._id }); } catch (e) {}
+  return { banner: bannerSnap, coupons: couponIds, examsCount: (series.exams && series.exams.length) || 0, exams: (series.exams || []).map(String), materialsCount, announcementsCount };
 }
 
-async function buildPublishChecklist(batch) {
-  const studentCount = (batch.students && batch.students.length) || 0;
-  const examCount = (batch.exams && batch.exams.length) || 0;
-  const bannerGate = await checkBannerGate(batch._id);
+async function buildPublishChecklist(series) {
+  const studentCount = (series.students && series.students.length) || 0;
+  const examCount = (series.exams && series.exams.length) || 0;
+  const bannerGate = await checkBannerGate(series._id);
   let materialsCount = 0;
-  try { if (BatchNote) materialsCount = await BatchNote.countDocuments({ batch: batch._id }); } catch (e) {}
+  try { if (BatchNote) materialsCount = await BatchNote.countDocuments({ batch: series._id }); } catch (e) {}
   let announcementsCount = 0;
   try {
     let Announcement; try { Announcement = mongoose.model('Announcement'); } catch (e) { Announcement = null; }
-    if (Announcement) announcementsCount = await Announcement.countDocuments({ batchId: batch._id });
+    if (Announcement) announcementsCount = await Announcement.countDocuments({ seriesId: series._id });
   } catch (e) {}
   let coupons = [];
-  try { coupons = await Coupon.find({ scopeType: 'batch', scopeId: batch._id, isDeleted: false }).lean(); } catch (e) {}
+  try { coupons = await Coupon.find({ scopeType: 'series', scopeId: series._id, isDeleted: false }).lean(); } catch (e) {}
   const now = new Date();
   const expiredButActive = coupons.filter(c => c.status === 'active' && c.validTill && new Date(c.validTill) < now);
   const couponIssue = expiredButActive.length > 0 ? `${expiredButActive.length} active coupon(s) already expired` : '';
 
-  const dateRangeOk = !(batch.startDate && batch.endDate) || (new Date(batch.endDate) > new Date(batch.startDate));
+  const dateRangeOk = !(series.startDate && series.endDate) || (new Date(series.endDate) > new Date(series.startDate));
   let scheduleConflict = '';
-  if (batch.scheduledPublishAt && batch.startDate && new Date(batch.scheduledPublishAt) > new Date(batch.startDate)) {
-    scheduleConflict = 'Scheduled publish time is AFTER the batch Start Date — students will miss the start.';
+  if (series.scheduledPublishAt && series.startDate && new Date(series.scheduledPublishAt) > new Date(series.startDate)) {
+    scheduleConflict = 'Scheduled publish time is AFTER the series Start Date — students will miss the start.';
   }
   let controlMismatch = '';
-  if (batch.seatLimit > 0 && studentCount > batch.seatLimit) controlMismatch = `Enrolled students (${studentCount}) already exceed Seat Limit (${batch.seatLimit})`;
+  if (series.seatLimit > 0 && studentCount > series.seatLimit) controlMismatch = `Enrolled students (${studentCount}) already exceed Seat Limit (${series.seatLimit})`;
 
-  const ignored = batch.publishIgnoredIssues || [];
+  const ignored = series.publishIgnoredIssues || [];
   const mandatory = [
-    { key: 'basicInfo', label: 'Basic Information complete', done: !!(batch.name && batch.description && batch.examType), reason: 'Name, description & exam type required', ignorable: false, section: 'settings' },
+    { key: 'basicInfo', label: 'Basic Information complete', done: !!(series.name && series.description && series.examType), reason: 'Name, description & exam type required', ignorable: false, section: 'settings' },
     { key: 'banner', label: 'Banner ready', done: !!bannerGate.ready, reason: bannerGate.reason || '', ignorable: false, section: 'banner' },
-    { key: 'pricing', label: 'Pricing configured', done: !!(batch.isFree || (batch.price && batch.price > 0)), reason: 'Set a price or mark as Free', ignorable: false, section: 'pricing' },
-    { key: 'startDate', label: 'Start Date set', done: !!batch.startDate, reason: 'Start Date missing in Settings', ignorable: false, section: 'settings' },
-    { key: 'endDate', label: 'End Date / Validity set', done: !!(batch.endDate || (batch.validity && batch.validity > 0)), reason: 'End Date or Validity missing', ignorable: false, section: 'settings' },
+    { key: 'pricing', label: 'Pricing configured', done: !!(series.isFree || (series.price && series.price > 0)), reason: 'Set a price or mark as Free', ignorable: false, section: 'pricing' },
+    { key: 'startDate', label: 'Start Date set', done: !!series.startDate, reason: 'Start Date missing in Settings', ignorable: false, section: 'settings' },
+    { key: 'endDate', label: 'End Date / Validity set', done: !!(series.endDate || (series.validity && series.validity > 0)), reason: 'End Date or Validity missing', ignorable: false, section: 'settings' },
     { key: 'dateRange', label: 'Date range valid (End after Start)', done: dateRangeOk, reason: dateRangeOk ? '' : 'End Date must be after Start Date', ignorable: false, section: 'settings' },
     { key: 'scheduleConflict', label: 'No publish-time conflict', done: !scheduleConflict, reason: scheduleConflict, ignorable: true, section: 'publish' },
     { key: 'controls', label: 'Controls configured (no mismatch)', done: !controlMismatch, reason: controlMismatch, ignorable: true, section: 'controls' },
@@ -1541,7 +1491,7 @@ async function buildPublishChecklist(batch) {
   let score = 0;
   mandatory.forEach(m => { if (m.done) score += (weights[m.key] || 0); });
   score += examCount > 0 ? 15 : 0;
-  score += (batch.thumbnail || batch.colorIcon) ? 10 : 0;
+  score += (series.thumbnail || series.colorIcon) ? 10 : 0;
   score = Math.max(0, Math.min(100, Math.round(score)));
 
   const blockingIssues = mandatory.filter(m => !m.done)
@@ -1557,64 +1507,64 @@ function syncEffectivePublishState(currentState, isPublished, blockingIssues, pu
   return 'ready';
 }
 
-function applyPublishState(batch, isPublished) {
-  batch.status = isPublished ? 'active' : (batch.status === 'draft' ? 'draft' : 'inactive');
+function applyPublishState(series, isPublished) {
+  series.status = isPublished ? 'active' : (series.status === 'draft' ? 'draft' : 'inactive');
 }
 
-function pushPublishSnapshot(batch, { action, notes, reason, visibilityMode, publishedByName, extras }) {
-  batch.publishSnapshots = batch.publishSnapshots || [];
-  const version = batch.publishVersion || 0;
-  batch.publishSnapshots.push({
+function pushPublishSnapshot(series, { action, notes, reason, visibilityMode, publishedByName, extras }) {
+  series.publishSnapshots = series.publishSnapshots || [];
+  const version = series.publishVersion || 0;
+  series.publishSnapshots.push({
     version,
     snapshotId: 'v' + version + '-' + Date.now(),
     publishedAt: new Date(),
     publishedBy: publishedByName || 'Admin',
-    status: batch.publishState,
+    status: series.publishState,
     action,
     notes: notes || '',
     reason: reason || '',
-    visibilityMode: visibilityMode || batch.visibility || 'public',
+    visibilityMode: visibilityMode || series.visibility || 'public',
     snapshotData: {
-      ...Object.fromEntries(SNAPSHOT_FIELDS.map(f => [f, batch[f]])),
+      ...Object.fromEntries(SNAPSHOT_FIELDS.map(f => [f, series[f]])),
       banner: extras?.banner || null, coupons: extras?.coupons || [], exams: extras?.exams || [],
       examsCount: extras?.examsCount || 0, materialsCount: extras?.materialsCount || 0, announcementsCount: extras?.announcementsCount || 0
     }
   });
-  if (batch.publishSnapshots.length > 40) batch.publishSnapshots = batch.publishSnapshots.slice(-40);
+  if (series.publishSnapshots.length > 40) series.publishSnapshots = series.publishSnapshots.slice(-40);
 }
 
 // GET /:id/publish-center — full readiness + status dashboard
 router.get('/:id/publish-center', auth, isAdmin, async (req, res) => {
   try {
-    let batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const { mandatory, optional, score, scoreStatus, blockingIssues, examCount, bannerGate } = await buildPublishChecklist(batch);
+    let series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const { mandatory, optional, score, scoreStatus, blockingIssues, examCount, bannerGate } = await buildPublishChecklist(series);
 
-    const nextState = syncEffectivePublishState(batch.publishState || 'draft', !!batch.isPublished, blockingIssues, batch.publishVersion || 0);
-    if (nextState !== batch.publishState) {
-      await Batch.updateOne({ _id: batch._id }, { $set: { publishState: nextState } });
-      batch.publishState = nextState;
+    const nextState = syncEffectivePublishState(series.publishState || 'draft', !!series.isPublished, blockingIssues, series.publishVersion || 0);
+    if (nextState !== series.publishState) {
+      await TestSeries.updateOne({ _id: series._id }, { $set: { publishState: nextState } });
+      series.publishState = nextState;
     }
 
     let couponsActive = false;
-    try { couponsActive = !!(await Coupon.exists({ scopeType: 'batch', scopeId: batch._id, isDeleted: false, status: 'active' })); } catch (e) {}
+    try { couponsActive = !!(await Coupon.exists({ scopeType: 'series', scopeId: series._id, isDeleted: false, status: 'active' })); } catch (e) {}
     let scheduledExamsCount = 0;
     try {
       let ExamModel; try { ExamModel = mongoose.model('Exam'); } catch (e) { ExamModel = null; }
-      if (ExamModel && examCount > 0) scheduledExamsCount = await ExamModel.countDocuments({ _id: { $in: batch.exams }, 'schedule.startTime': { $gt: new Date() } });
+      if (ExamModel && examCount > 0) scheduledExamsCount = await ExamModel.countDocuments({ _id: { $in: series.exams }, 'schedule.startTime': { $gt: new Date() } });
     } catch (e) {}
-    const visibleInMarketplace = batch.status === 'active' && batch.visibility !== 'private';
-    const postPublishChecks = !batch.isPublished ? null : {
+    const visibleInMarketplace = series.status === 'active' && series.visibility !== 'private';
+    const postPublishChecks = !series.isPublished ? null : {
       visibleInMarketplace,
       bannerLoaded: !!bannerGate.ready,
       examsAccessible: examCount > 0,
       couponsActive,
       controlsApplied: true,
-      searchable: batch.visibility === 'public',
+      searchable: series.visibility === 'public',
       notificationEnabled: true,
       launchStatusUpdated: true,
       state: !visibleInMarketplace ? 'Live but Hidden'
-        : (batch.enrollmentRule === 'invite_only' || batch.accessPolicy !== 'open') ? 'Live but Enrollment Closed'
+        : (series.enrollmentRule === 'invite_only' || series.accessPolicy !== 'open') ? 'Live but Enrollment Closed'
         : scheduledExamsCount > 0 ? 'Live with Scheduled Exams'
         : couponsActive ? 'Live with Offer Active' : 'Fully Live'
     };
@@ -1629,29 +1579,29 @@ router.get('/:id/publish-center', auth, isAdmin, async (req, res) => {
     res.json({
       summary: {
         readinessScore: score, scoreStatus,
-        publishStatus: batch.publishState || 'draft',
-        publishStatusMeaning: stateMeaning[batch.publishState] || '',
-        publishVersion: batch.publishVersion || 0,
-        lastPublished: batch.lastPublishedAt || null,
-        lastPublishedBy: batch.lastPublishedBy || '',
-        draftChangesPending: !!batch.draftChangesPending,
+        publishStatus: series.publishState || 'draft',
+        publishStatusMeaning: stateMeaning[series.publishState] || '',
+        publishVersion: series.publishVersion || 0,
+        lastPublished: series.lastPublishedAt || null,
+        lastPublishedBy: series.lastPublishedBy || '',
+        draftChangesPending: !!series.draftChangesPending,
         blockingIssuesCount: blockingIssues.filter(b => !b.ignorable).length,
         ignorableIssuesCount: blockingIssues.filter(b => b.ignorable).length
       },
-      isPublished: !!batch.isPublished,
+      isPublished: !!series.isPublished,
       checklist: { mandatory, optional },
       blockingIssues,
       scheduled: {
-        scheduledPublishAt: batch.scheduledPublishAt || null,
-        scheduledPublishTimezone: batch.scheduledPublishTimezone || 'Asia/Kolkata',
-        scheduledAutoActivate: batch.scheduledAutoActivate !== false,
-        scheduledAutoUnpublishAt: batch.scheduledAutoUnpublishAt || null,
-        isScheduleActive: batch.publishState === 'scheduled'
+        scheduledPublishAt: series.scheduledPublishAt || null,
+        scheduledPublishTimezone: series.scheduledPublishTimezone || 'Asia/Kolkata',
+        scheduledAutoActivate: series.scheduledAutoActivate !== false,
+        scheduledAutoUnpublishAt: series.scheduledAutoUnpublishAt || null,
+        isScheduleActive: series.publishState === 'scheduled'
       },
       postPublishChecks,
-      editLock: { active: !!batch.isPublished || batch.publishState === 'scheduled', fields: CRITICAL_FIELDS },
-      history: (batch.publishSnapshots || []).slice().reverse().slice(0, 50),
-      studentCount: (batch.students && batch.students.length) || 0
+      editLock: { active: !!series.isPublished || series.publishState === 'scheduled', fields: CRITICAL_FIELDS },
+      history: (series.publishSnapshots || []).slice().reverse().slice(0, 50),
+      studentCount: (series.students && series.students.length) || 0
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1659,189 +1609,189 @@ router.get('/:id/publish-center', auth, isAdmin, async (req, res) => {
 // PUT /:id/publish-center/publish
 router.put('/:id/publish-center/publish', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const { mandatory, blockingIssues } = await buildPublishChecklist(batch.toObject());
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const { mandatory, blockingIssues } = await buildPublishChecklist(series.toObject());
     const hardBlocking = blockingIssues.filter(b => !b.ignorable);
     if (hardBlocking.length > 0) return res.status(423).json({ error: 'Mandatory checklist incomplete', blockingIssues: hardBlocking, gate: 'publish_blocked' });
-    const oldState = batch.publishState;
-    const extras = await gatherSnapshotExtras(batch);
-    batch.isPublished = true;
-    batch.publishState = 'published';
-    batch.publishVersion = (batch.publishVersion || 0) + 1;
-    batch.lastPublishedAt = new Date();
-    batch.lastPublishedBy = req.user.name || 'Admin';
-    batch.draftChangesPending = false;
-    applyPublishState(batch, true);
-    pushPublishSnapshot(batch, { action: 'publish', notes: req.body.notes, visibilityMode: req.body.visibilityMode, publishedByName: req.user.name, extras });
-    batch.lastActivityAt = new Date();
-    batch.$locals = batch.$locals || {}; batch.$locals.allowCriticalEdit = true;
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'publishState', oldValue: oldState, newValue: 'published', action: 'publish_completed', changedBy: req.user.id, changedByName: req.user.name, snapshotVersion: batch.publishVersion });
-    res.json({ success: true, publishState: batch.publishState, publishVersion: batch.publishVersion });
+    const oldState = series.publishState;
+    const extras = await gatherSnapshotExtras(series);
+    series.isPublished = true;
+    series.publishState = 'published';
+    series.publishVersion = (series.publishVersion || 0) + 1;
+    series.lastPublishedAt = new Date();
+    series.lastPublishedBy = req.user.name || 'Admin';
+    series.draftChangesPending = false;
+    applyPublishState(series, true);
+    pushPublishSnapshot(series, { action: 'publish', notes: req.body.notes, visibilityMode: req.body.visibilityMode, publishedByName: req.user.name, extras });
+    series.lastActivityAt = new Date();
+    series.$locals = series.$locals || {}; series.$locals.allowCriticalEdit = true;
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'publishState', oldValue: oldState, newValue: 'published', action: 'publish_completed', changedBy: req.user.id, changedByName: req.user.name, snapshotVersion: series.publishVersion });
+    res.json({ success: true, publishState: series.publishState, publishVersion: series.publishVersion });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // PUT /:id/publish-center/unpublish
 router.put('/:id/publish-center/unpublish', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
     if (!req.body.reason) return res.status(400).json({ error: 'Reason is required to unpublish' });
-    const oldState = batch.publishState;
-    const extras = await gatherSnapshotExtras(batch);
-    batch.isPublished = false;
-    batch.publishState = 'unpublished';
-    applyPublishState(batch, false);
-    pushPublishSnapshot(batch, { action: 'unpublish', reason: req.body.reason, publishedByName: req.user.name, extras });
-    batch.$locals = batch.$locals || {}; batch.$locals.allowCriticalEdit = true;
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'publishState', oldValue: oldState, newValue: 'unpublished', action: 'unpublish_initiated', changedBy: req.user.id, changedByName: req.user.name, reason: req.body.reason });
-    res.json({ success: true, publishState: batch.publishState });
+    const oldState = series.publishState;
+    const extras = await gatherSnapshotExtras(series);
+    series.isPublished = false;
+    series.publishState = 'unpublished';
+    applyPublishState(series, false);
+    pushPublishSnapshot(series, { action: 'unpublish', reason: req.body.reason, publishedByName: req.user.name, extras });
+    series.$locals = series.$locals || {}; series.$locals.allowCriticalEdit = true;
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'publishState', oldValue: oldState, newValue: 'unpublished', action: 'unpublish_initiated', changedBy: req.user.id, changedByName: req.user.name, reason: req.body.reason });
+    res.json({ success: true, publishState: series.publishState });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // PUT /:id/publish-center/republish
 router.put('/:id/publish-center/republish', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const { blockingIssues } = await buildPublishChecklist(batch.toObject());
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const { blockingIssues } = await buildPublishChecklist(series.toObject());
     const hardBlocking = blockingIssues.filter(b => !b.ignorable);
     if (hardBlocking.length > 0) return res.status(423).json({ error: 'Mandatory checklist incomplete', blockingIssues: hardBlocking, gate: 'publish_blocked' });
-    const oldState = batch.publishState;
-    const extras = await gatherSnapshotExtras(batch);
-    batch.isPublished = true;
-    batch.publishState = 'published';
-    batch.publishVersion = (batch.publishVersion || 0) + 1;
-    batch.lastPublishedAt = new Date();
-    batch.lastPublishedBy = req.user.name || 'Admin';
-    batch.draftChangesPending = false;
-    applyPublishState(batch, true);
-    pushPublishSnapshot(batch, { action: 'republish', notes: req.body.notes, publishedByName: req.user.name, extras });
-    batch.$locals = batch.$locals || {}; batch.$locals.allowCriticalEdit = true;
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'publishState', oldValue: oldState, newValue: 'published', action: 'republish_initiated', changedBy: req.user.id, changedByName: req.user.name, snapshotVersion: batch.publishVersion });
-    res.json({ success: true, publishState: batch.publishState, publishVersion: batch.publishVersion });
+    const oldState = series.publishState;
+    const extras = await gatherSnapshotExtras(series);
+    series.isPublished = true;
+    series.publishState = 'published';
+    series.publishVersion = (series.publishVersion || 0) + 1;
+    series.lastPublishedAt = new Date();
+    series.lastPublishedBy = req.user.name || 'Admin';
+    series.draftChangesPending = false;
+    applyPublishState(series, true);
+    pushPublishSnapshot(series, { action: 'republish', notes: req.body.notes, publishedByName: req.user.name, extras });
+    series.$locals = series.$locals || {}; series.$locals.allowCriticalEdit = true;
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'publishState', oldValue: oldState, newValue: 'published', action: 'republish_initiated', changedBy: req.user.id, changedByName: req.user.name, snapshotVersion: series.publishVersion });
+    res.json({ success: true, publishState: series.publishState, publishVersion: series.publishVersion });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // PUT /:id/publish-center/schedule
 router.put('/:id/publish-center/schedule', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
     const { publishAt, timezone, autoActivate, autoUnpublishAt } = req.body;
     if (!publishAt || new Date(publishAt) <= new Date()) return res.status(400).json({ error: 'Publish Date/Time must be in the future' });
-    if (batch.startDate && new Date(publishAt) > new Date(batch.startDate)) return res.status(400).json({ error: 'Publish time conflict: scheduled time is after the batch Start Date' });
-    batch.scheduledPublishAt = new Date(publishAt);
-    batch.scheduledPublishTimezone = timezone || 'Asia/Kolkata';
-    batch.scheduledAutoActivate = autoActivate !== false;
-    batch.scheduledAutoUnpublishAt = autoUnpublishAt ? new Date(autoUnpublishAt) : null;
-    batch.publishState = 'scheduled';
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'scheduledPublishAt', newValue: batch.scheduledPublishAt, action: 'scheduled_publish_set', changedBy: req.user.id, changedByName: req.user.name });
-    res.json({ success: true, scheduledPublishAt: batch.scheduledPublishAt });
+    if (series.startDate && new Date(publishAt) > new Date(series.startDate)) return res.status(400).json({ error: 'Publish time conflict: scheduled time is after the series Start Date' });
+    series.scheduledPublishAt = new Date(publishAt);
+    series.scheduledPublishTimezone = timezone || 'Asia/Kolkata';
+    series.scheduledAutoActivate = autoActivate !== false;
+    series.scheduledAutoUnpublishAt = autoUnpublishAt ? new Date(autoUnpublishAt) : null;
+    series.publishState = 'scheduled';
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'scheduledPublishAt', newValue: series.scheduledPublishAt, action: 'scheduled_publish_set', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, scheduledPublishAt: series.scheduledPublishAt });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // PUT /:id/publish-center/schedule/cancel
 router.put('/:id/publish-center/schedule/cancel', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    batch.scheduledPublishAt = null;
-    batch.scheduledAutoUnpublishAt = null;
-    batch.publishState = batch.isPublished ? 'published' : 'draft';
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'scheduledPublishAt', newValue: null, action: 'scheduled_publish_cancelled', changedBy: req.user.id, changedByName: req.user.name });
-    res.json({ success: true, publishState: batch.publishState });
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    series.scheduledPublishAt = null;
+    series.scheduledAutoUnpublishAt = null;
+    series.publishState = series.isPublished ? 'published' : 'draft';
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'scheduledPublishAt', newValue: null, action: 'scheduled_publish_cancelled', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, publishState: series.publishState });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // PUT /:id/publish-center/archive
 router.put('/:id/publish-center/archive', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const extras = await gatherSnapshotExtras(batch);
-    batch.isPublished = false;
-    batch.publishState = 'unpublished';
-    batch.lifecycleStatus = 'archived';
-    batch.archivedAt = new Date();
-    applyPublishState(batch, false);
-    pushPublishSnapshot(batch, { action: 'archive', reason: req.body.reason, publishedByName: req.user.name, extras });
-    batch.$locals = batch.$locals || {}; batch.$locals.allowCriticalEdit = true;
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'lifecycleStatus', newValue: 'archived', action: 'publish_center_archive', changedBy: req.user.id, changedByName: req.user.name, reason: req.body.reason });
-    res.json({ success: true, publishState: batch.publishState });
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const extras = await gatherSnapshotExtras(series);
+    series.isPublished = false;
+    series.publishState = 'unpublished';
+    series.lifecycleStatus = 'archived';
+    series.archivedAt = new Date();
+    applyPublishState(series, false);
+    pushPublishSnapshot(series, { action: 'archive', reason: req.body.reason, publishedByName: req.user.name, extras });
+    series.$locals = series.$locals || {}; series.$locals.allowCriticalEdit = true;
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'lifecycleStatus', newValue: 'archived', action: 'publish_center_archive', changedBy: req.user.id, changedByName: req.user.name, reason: req.body.reason });
+    res.json({ success: true, publishState: series.publishState });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // PUT /:id/publish-center/restore-draft
 router.put('/:id/publish-center/restore-draft', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    batch.publishState = 'draft';
-    batch.draftChangesPending = true;
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'publishState', newValue: 'draft', action: 'restore_draft', changedBy: req.user.id, changedByName: req.user.name });
-    res.json({ success: true, publishState: batch.publishState });
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    series.publishState = 'draft';
+    series.draftChangesPending = true;
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'publishState', newValue: 'draft', action: 'restore_draft', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, publishState: series.publishState });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // PUT /:id/publish-center/ignore-issue — mark an ignorable optional/soft issue as ignored
 router.put('/:id/publish-center/ignore-issue', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
     const { key } = req.body;
     if (!key) return res.status(400).json({ error: 'key required' });
-    batch.publishIgnoredIssues = batch.publishIgnoredIssues || [];
-    if (!batch.publishIgnoredIssues.includes(key)) batch.publishIgnoredIssues.push(key);
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'publishIgnoredIssues', newValue: key, action: 'issue_ignored', changedBy: req.user.id, changedByName: req.user.name });
-    res.json({ success: true, publishIgnoredIssues: batch.publishIgnoredIssues });
+    series.publishIgnoredIssues = series.publishIgnoredIssues || [];
+    if (!series.publishIgnoredIssues.includes(key)) series.publishIgnoredIssues.push(key);
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'publishIgnoredIssues', newValue: key, action: 'issue_ignored', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, publishIgnoredIssues: series.publishIgnoredIssues });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 router.delete('/:id/publish-center/ignore-issue/:key', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    batch.publishIgnoredIssues = (batch.publishIgnoredIssues || []).filter(k => k !== req.params.key);
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'publishIgnoredIssues', newValue: 'un-ignored:' + req.params.key, action: 'issue_unignored', changedBy: req.user.id, changedByName: req.user.name });
-    res.json({ success: true, publishIgnoredIssues: batch.publishIgnoredIssues });
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    series.publishIgnoredIssues = (series.publishIgnoredIssues || []).filter(k => k !== req.params.key);
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'publishIgnoredIssues', newValue: 'un-ignored:' + req.params.key, action: 'issue_unignored', changedBy: req.user.id, changedByName: req.user.name });
+    res.json({ success: true, publishIgnoredIssues: series.publishIgnoredIssues });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /:id/publish-center/history
 router.get('/:id/publish-center/history', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    res.json({ history: (batch.publishSnapshots || []).slice().reverse() });
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    res.json({ history: (series.publishSnapshots || []).slice().reverse() });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /:id/publish-center/history/export — download publish log
 router.get('/:id/publish-center/history/export', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="publish-log-${batch.batchCode || batch._id}.json"`);
-    res.send(JSON.stringify((batch.publishSnapshots || []).slice().reverse(), null, 2));
+    res.setHeader('Content-Disposition', `attachment; filename="publish-log-${series.seriesCode || series._id}.json"`);
+    res.send(JSON.stringify((series.publishSnapshots || []).slice().reverse(), null, 2));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /:id/publish-center/snapshot/:version
 router.get('/:id/publish-center/snapshot/:version', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const snap = (batch.publishSnapshots || []).find(s => String(s.version) === String(req.params.version));
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const snap = (series.publishSnapshots || []).find(s => String(s.version) === String(req.params.version));
     if (!snap) return res.status(404).json({ error: 'Snapshot not found' });
     res.json({ snapshot: snap });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1850,11 +1800,11 @@ router.get('/:id/publish-center/snapshot/:version', auth, isAdmin, async (req, r
 // GET /:id/publish-center/compare?from=X&to=Y — field-level diff between two snapshot versions
 router.get('/:id/publish-center/compare', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
     const { from, to } = req.query;
-    const a = (batch.publishSnapshots || []).find(s => String(s.version) === String(from));
-    const b = (batch.publishSnapshots || []).find(s => String(s.version) === String(to));
+    const a = (series.publishSnapshots || []).find(s => String(s.version) === String(from));
+    const b = (series.publishSnapshots || []).find(s => String(s.version) === String(to));
     if (!a || !b) return res.status(404).json({ error: 'One or both snapshot versions not found' });
     const diff = [];
     const keys = new Set([...Object.keys(a.snapshotData || {}), ...Object.keys(b.snapshotData || {})]);
@@ -1869,15 +1819,15 @@ router.get('/:id/publish-center/compare', auth, isAdmin, async (req, res) => {
 // POST /:id/publish-center/rollback
 router.post('/:id/publish-center/rollback', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id);
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const series = await TestSeries.findById(req.params.id);
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
     const { toVersion, reason, scope, sections, confirmLiveImpact } = req.body;
     if (!reason) return res.status(400).json({ error: 'Reason is mandatory for rollback' });
-    const studentCount = (batch.students && batch.students.length) || 0;
+    const studentCount = (series.students && series.students.length) || 0;
     if (studentCount > 0 && !confirmLiveImpact) {
-      return res.status(409).json({ warning: 'live_students_affected', studentCount, message: `This batch has ${studentCount} enrolled student(s). Confirm to proceed with rollback.` });
+      return res.status(409).json({ warning: 'live_students_affected', studentCount, message: `This series has ${studentCount} enrolled student(s). Confirm to proceed with rollback.` });
     }
-    const snap = (batch.publishSnapshots || []).find(s => String(s.version) === String(toVersion));
+    const snap = (series.publishSnapshots || []).find(s => String(s.version) === String(toVersion));
     if (!snap) return res.status(404).json({ error: 'Snapshot version not found' });
     const d = snap.snapshotData || {};
     const SECTION_FIELD_GROUPS = {
@@ -1891,49 +1841,49 @@ router.post('/:id/publish-center/rollback', auth, isAdmin, async (req, res) => {
     const fieldsToRestore = (Array.isArray(sections) && sections.length > 0)
       ? sections.flatMap(s => SECTION_FIELD_GROUPS[s] || [])
       : SNAPSHOT_FIELDS;
-    fieldsToRestore.forEach(f => { if (d[f] !== undefined) batch[f] = d[f]; });
+    fieldsToRestore.forEach(f => { if (d[f] !== undefined) series[f] = d[f]; });
     if (scope === 'draft_only') {
-      batch.publishState = 'draft';
-      batch.draftChangesPending = true;
+      series.publishState = 'draft';
+      series.draftChangesPending = true;
     } else {
-      batch.isPublished = true;
-      batch.publishState = 'published';
-      batch.publishVersion = (batch.publishVersion || 0) + 1;
-      batch.lastPublishedAt = new Date();
-      batch.lastPublishedBy = req.user.name || 'Admin';
-      applyPublishState(batch, true);
+      series.isPublished = true;
+      series.publishState = 'published';
+      series.publishVersion = (series.publishVersion || 0) + 1;
+      series.lastPublishedAt = new Date();
+      series.lastPublishedBy = req.user.name || 'Admin';
+      applyPublishState(series, true);
     }
-    const extras = await gatherSnapshotExtras(batch);
-    pushPublishSnapshot(batch, { action: 'rollback', reason, publishedByName: req.user.name, extras });
-    batch.$locals = batch.$locals || {}; batch.$locals.allowCriticalEdit = true;
-    await batch.save();
-    await logAudit({ batchId: batch._id, field: 'publishVersion', oldValue: batch.publishVersion, newValue: toVersion, action: 'rollback_executed', changedBy: req.user.id, changedByName: req.user.name, reason, snapshotVersion: toVersion });
-    res.json({ success: true, publishState: batch.publishState, publishVersion: batch.publishVersion });
+    const extras = await gatherSnapshotExtras(series);
+    pushPublishSnapshot(series, { action: 'rollback', reason, publishedByName: req.user.name, extras });
+    series.$locals = series.$locals || {}; series.$locals.allowCriticalEdit = true;
+    await series.save();
+    await logAudit({ seriesId: series._id, field: 'publishVersion', oldValue: series.publishVersion, newValue: toVersion, action: 'rollback_executed', changedBy: req.user.id, changedByName: req.user.name, reason, snapshotVersion: toVersion });
+    res.json({ success: true, publishState: series.publishState, publishVersion: series.publishVersion });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /:id/publish-center/preview — student-facing preview (marketplace/card/detail/mobile/desktop/mybatches)
 router.get('/:id/publish-center/preview', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const eff = effectivePrice(batch);
-    const base = batch.price || 0;
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const eff = effectivePrice(series);
+    const base = series.price || 0;
     const discountPct = (!base || base <= eff) ? 0 : Math.round(((base - eff) / base) * 100);
     let banner = null;
     try {
       const Banner = mongoose.model('Banner');
-      banner = await Banner.findOne({ linkedType: 'batch', linkedBatchId: batch._id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
+      banner = await Banner.findOne({ linkedType: 'series', linkedBatchId: series._id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
     } catch (e) {}
-    const examCount = (batch.exams && batch.exams.length) || 0;
+    const examCount = (series.exams && series.exams.length) || 0;
     res.json({
       mode: req.query.mode || 'marketplace',
       preview: {
-        title: batch.name, banner: banner ? { title: banner.title, tagline: banner.tagline, bgImage: banner.bgImage, primaryColor: banner.primaryColor } : null,
+        title: series.name, banner: banner ? { title: banner.title, tagline: banner.tagline, bgImage: banner.bgImage, primaryColor: banner.primaryColor } : null,
         price: base, effectivePrice: eff, discountPct,
-        cta: batch.isFree ? 'Enroll Free' : (batch.allowFreeTrial ? 'Start Free Trial' : 'Enroll Now'),
-        examsSummary: { count: examCount }, validity: batch.validity, offerBadges: [batch.isSpotlight && 'Spotlight', batch.isBundle && 'Bundle', batch.allowFreeTrial && 'Free Trial'].filter(Boolean),
-        enrollmentState: batch.enrollmentRule
+        cta: series.isFree ? 'Enroll Free' : (series.allowFreeTrial ? 'Start Free Trial' : 'Enroll Now'),
+        examsSummary: { count: examCount }, validity: series.validity, offerBadges: [series.isSpotlight && 'Spotlight', series.isBundle && 'Bundle', series.allowFreeTrial && 'Free Trial'].filter(Boolean),
+        enrollmentState: series.enrollmentRule
       }
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1942,15 +1892,15 @@ router.get('/:id/publish-center/preview', auth, isAdmin, async (req, res) => {
 // POST /:id/publish-center/simulate-enroll — simulated enrollment flow (no real enrollment created)
 router.post('/:id/publish-center/simulate-enroll', auth, isAdmin, async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id).lean();
-    if (!batch) return res.status(404).json({ error: 'Batch not found' });
-    const eff = effectivePrice(batch);
+    const series = await TestSeries.findById(req.params.id).lean();
+    if (!series) return res.status(404).json({ error: 'Test series not found' });
+    const eff = effectivePrice(series);
     res.json({
       simulated: true,
       steps: [
         { step: 'View Batch', ok: true },
-        { step: 'Click ' + (batch.isFree ? 'Enroll Free' : 'Enroll Now'), ok: true },
-        { step: batch.isFree ? 'Free enrollment confirmed' : `Payment of ₹${eff} simulated`, ok: true },
+        { step: 'Click ' + (series.isFree ? 'Enroll Free' : 'Enroll Now'), ok: true },
+        { step: series.isFree ? 'Free enrollment confirmed' : `Payment of ₹${eff} simulated`, ok: true },
         { step: 'Access granted to My Batches', ok: true }
       ],
       note: 'This is a simulation only — no real enrollment or payment was created.'
@@ -1959,42 +1909,42 @@ router.post('/:id/publish-center/simulate-enroll', auth, isAdmin, async (req, re
 });
 
 // ── Scheduler: in-process check every 60s for due scheduled publishes / auto-unpublish ──
-if (!global.__proveRankBatchSchedulerStarted) {
-  global.__proveRankBatchSchedulerStarted = true;
+if (!global.__proveRankSeriesSchedulerStarted) {
+  global.__proveRankSeriesSchedulerStarted = true;
   setInterval(async () => {
     try {
       const now = new Date();
-      const due = await Batch.find({ publishState: 'scheduled', scheduledPublishAt: { $lte: now } });
-      for (const batch of due) {
+      const due = await TestSeries.find({ publishState: 'scheduled', scheduledPublishAt: { $lte: now } });
+      for (const series of due) {
         try {
-          if (batch.scheduledAutoActivate === false) continue;
-          const { blockingIssues } = await buildPublishChecklist(batch.toObject());
+          if (series.scheduledAutoActivate === false) continue;
+          const { blockingIssues } = await buildPublishChecklist(series.toObject());
           const hardBlocking = blockingIssues.filter(b => !b.ignorable);
-          if (hardBlocking.length > 0) { batch.publishState = 'blocked'; await batch.save(); continue; }
-          const extras = await gatherSnapshotExtras(batch);
-          batch.isPublished = true; batch.publishState = 'published';
-          batch.publishVersion = (batch.publishVersion || 0) + 1;
-          batch.lastPublishedAt = new Date(); batch.lastPublishedBy = 'Scheduler (auto)';
-          batch.draftChangesPending = false;
-          applyPublishState(batch, true);
-          pushPublishSnapshot(batch, { action: 'publish', notes: 'Auto-published via schedule', publishedByName: 'Scheduler (auto)', extras });
-          batch.scheduledPublishAt = null;
-          batch.$locals = batch.$locals || {}; batch.$locals.allowCriticalEdit = true;
-          await batch.save();
-          await logAudit({ batchId: batch._id, field: 'publishState', newValue: 'published', action: 'publish_completed', changedByName: 'Scheduler (auto)', snapshotVersion: batch.publishVersion });
+          if (hardBlocking.length > 0) { series.publishState = 'blocked'; await series.save(); continue; }
+          const extras = await gatherSnapshotExtras(series);
+          series.isPublished = true; series.publishState = 'published';
+          series.publishVersion = (series.publishVersion || 0) + 1;
+          series.lastPublishedAt = new Date(); series.lastPublishedBy = 'Scheduler (auto)';
+          series.draftChangesPending = false;
+          applyPublishState(series, true);
+          pushPublishSnapshot(series, { action: 'publish', notes: 'Auto-published via schedule', publishedByName: 'Scheduler (auto)', extras });
+          series.scheduledPublishAt = null;
+          series.$locals = series.$locals || {}; series.$locals.allowCriticalEdit = true;
+          await series.save();
+          await logAudit({ seriesId: series._id, field: 'publishState', newValue: 'published', action: 'publish_completed', changedByName: 'Scheduler (auto)', snapshotVersion: series.publishVersion });
         } catch (e) { /* per-batch failure must not break the loop */ }
       }
-      const dueUnpub = await Batch.find({ isPublished: true, scheduledAutoUnpublishAt: { $lte: now, $ne: null } });
-      for (const batch of dueUnpub) {
+      const dueUnpub = await TestSeries.find({ isPublished: true, scheduledAutoUnpublishAt: { $lte: now, $ne: null } });
+      for (const series of dueUnpub) {
         try {
-          batch.isPublished = false; batch.publishState = 'unpublished';
-          applyPublishState(batch, false);
-          const extras = await gatherSnapshotExtras(batch);
-          pushPublishSnapshot(batch, { action: 'unpublish', reason: 'Auto-unpublish (scheduled)', publishedByName: 'Scheduler (auto)', extras });
-          batch.scheduledAutoUnpublishAt = null;
-          batch.$locals = batch.$locals || {}; batch.$locals.allowCriticalEdit = true;
-          await batch.save();
-          await logAudit({ batchId: batch._id, field: 'publishState', newValue: 'unpublished', action: 'unpublish_initiated', changedByName: 'Scheduler (auto)', reason: 'Auto-unpublish (scheduled)' });
+          series.isPublished = false; series.publishState = 'unpublished';
+          applyPublishState(series, false);
+          const extras = await gatherSnapshotExtras(series);
+          pushPublishSnapshot(series, { action: 'unpublish', reason: 'Auto-unpublish (scheduled)', publishedByName: 'Scheduler (auto)', extras });
+          series.scheduledAutoUnpublishAt = null;
+          series.$locals = series.$locals || {}; series.$locals.allowCriticalEdit = true;
+          await series.save();
+          await logAudit({ seriesId: series._id, field: 'publishState', newValue: 'unpublished', action: 'unpublish_initiated', changedByName: 'Scheduler (auto)', reason: 'Auto-unpublish (scheduled)' });
         } catch (e) {}
       }
     } catch (e) { /* scheduler tick failure must never crash the server */ }
