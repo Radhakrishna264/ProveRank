@@ -326,7 +326,7 @@ const BN_BADGES = [
 const BN_EXAM_ICON: any = { NEET: '🧬', 'NEET UG': '🧬', 'NEET PG': '🩺', JEE: '⚛️', 'JEE Main': '⚛️', 'JEE Advanced': '⚛️', CUET: '📘', 'CUET UG': '📘', 'CUET PG': '📗', SSC: '📋', 'SSC CGL': '📋', 'SSC CHSL': '📋', UPSC: '🏛️', 'UPSC CSE': '🏛️', NDA: '🎖️', CDS: '🎖️', CAT: '📊', CLAT: '⚖️', GATE: '🔧', 'IIT JAM': '🔬', 'CSIR NET': '🔬', 'UGC NET': '📖', 'Railway (RRB)': '🚆', 'Banking (IBPS / SBI)': '🏦', 'State PSC': '🏛️' }
 
 // ── STUDENT BANNER CARD (renders the admin-designed Creative Studio banner) ──
-function StudentBannerCard({ banner: b, onCtaClick, ctaLabel, ctaLoading }: any) {
+function StudentBannerCard({ banner: b }: any) {
   const tpl = BN_TEMPLATES.find(t => t.id === b.template) || BN_TEMPLATES[0]
   let bg = b.bgImage ? (/^(linear|radial)-gradient|^#|^rgba?\(/.test(b.bgImage) ? b.bgImage : `url(${b.bgImage}) center/cover`) : (tpl.bg)
   if (b.gradientAngle && b.gradientAngle !== 135 && typeof bg === 'string' && bg.indexOf('135deg') >= 0) bg = bg.replace('135deg', b.gradientAngle + 'deg')
@@ -374,11 +374,7 @@ function StudentBannerCard({ banner: b, onCtaClick, ctaLabel, ctaLoading }: any)
       {(sv.price !== false || sv.cta !== false) && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
           {sv.price !== false ? <span style={{ fontSize: 12, fontWeight: 800, color: b.accentColor || tpl.accent }}>{b.price && Number(b.price) > 0 ? '₹' + b.price : 'FREE'}</span> : <span />}
-          {sv.cta !== false && (
-            <button onClick={e => { e.stopPropagation(); onCtaClick && onCtaClick() }} disabled={ctaLoading} style={{ fontSize: 8.5, fontWeight: 700, padding: '4px 9px', borderRadius: ctaRadius, background: ctaIsOutline ? 'transparent' : (b.accentColor || tpl.accent), color: ctaIsOutline ? (b.accentColor || tpl.accent) : '#1a1a2e', border: ctaIsOutline ? `1.5px solid ${b.accentColor || tpl.accent}` : 'none', cursor: onCtaClick ? 'pointer' : 'default' }}>
-              {ctaLoading ? '…' : (ctaLabel || b.ctaText || 'Enroll Now')} →
-            </button>
-          )}
+          {sv.cta !== false && <span style={{ fontSize: 8.5, fontWeight: 700, padding: '4px 9px', borderRadius: ctaRadius, background: ctaIsOutline ? 'transparent' : (b.accentColor || tpl.accent), color: ctaIsOutline ? (b.accentColor || tpl.accent) : '#1a1a2e', border: ctaIsOutline ? `1.5px solid ${b.accentColor || tpl.accent}` : 'none' }}>{b.ctaText || 'Enroll Now'} →</span>}
         </div>
       )}
     </div>
@@ -435,17 +431,12 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
       <button onClick={e=>{e.stopPropagation();toggleWish()}} style={{ position:'absolute',top:10,right:10,zIndex:5,background:'rgba(0,0,20,0.6)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'50%',width:36,height:36,cursor:'pointer',fontSize:15,display:'flex',alignItems:'center',justifyContent:'center' }}>{b.isWishlisted?'❤️':'🤍'}</button>
 
       <div style={{ height:140,position:'relative',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',...(b.banner?{}:{background:b.thumbnail?`url(${b.thumbnail}) center/cover`:`linear-gradient(135deg,${ec}12,${ec}05,rgba(2,8,22,0.9))`}) }}>
-        {b.banner&&<StudentBannerCard banner={b.banner}
-        ctaLabel={b.isEnrolled?'Go to Batch':b.isFree?(loading?'Enrolling...':'Enroll Free'):b.allowFreeTrial?(loading?'Starting...':'Free Trial'):(`Buy ₹${finalPrice}`)}
-        ctaLoading={loading}
-        onCtaClick={b.isEnrolled?undefined:(b.isFree||b.allowFreeTrial?enroll:()=>onBuy&&onBuy(b))}
-      />}
+        {b.banner&&<StudentBannerCard banner={b.banner} />}
         {!b.banner&&<div style={{ position:'absolute',inset:0,background:'linear-gradient(180deg,transparent 30%,rgba(4,12,30,0.95))',zIndex:1 }} />}
         {!b.banner&&!b.thumbnail&&<span style={{ fontSize:46,filter:`drop-shadow(0 0 16px ${ec})`,zIndex:2,opacity:0.88 }}>{CICONS[b.examType]||'📚'}</span>}
         {isFlash&&b.flashSaleEndTime&&<div style={{ position:'absolute',bottom:0,left:0,right:0,background:'rgba(200,40,40,0.92)',padding:'4px 0',textAlign:'center',fontSize:10,fontWeight:700,color:'#fff',zIndex:3 }}>⚡ Flash: <FlashTimer end={b.flashSaleEndTime} /></div>}
         {b.isEnrolled&&<div style={{ position:'absolute',inset:0,background:'rgba(39,174,96,0.16)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2 }}><span style={{ background:'rgba(39,174,96,0.9)',color:'#fff',padding:'5px 14px',borderRadius:20,fontSize:11,fontWeight:800 }}>✅ Enrolled</span></div>}
       </div>
-      {!b.banner && (
       <div style={{ padding:'13px 14px 15px' }}>
         <div style={{ display:'flex',gap:5,flexWrap:'wrap',marginBottom:7 }}>
           <span style={{ background:`${ec}16`,color:ec,fontSize:9,fontWeight:700,padding:'3px 9px',borderRadius:20,border:`1px solid ${ec}25` }}>{b.examType}</span>
@@ -485,7 +476,6 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
           </button>
         )}
       </div>
-      )}
     </div>
   )
 }
