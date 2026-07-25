@@ -52,9 +52,7 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 }
 
 // ═══ MAIN COMPONENT ═══
-export default function SmartPaperGen({ API, token, batches, testSeries }: { API: string; token: string; batches?: any[]; testSeries?: any[] }) {
-  const uaeBatches = batches || [];
-  const uaeTestSeries = testSeries || [];
+export default function SmartPaperGen({ API, token }: { API: string; token: string }) {
   const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('pr_token') || '' : token;
 
   // ── 17.1 Subject select
@@ -97,9 +95,7 @@ export default function SmartPaperGen({ API, token, batches, testSeries }: { API
   // ── 17.11 Use as Exam modal
   const [showUAE,     setShowUAE]       = useState(false);
   const [uaeTitle,    setUaeTitle]      = useState('');
-  const [uaeAssignType, setUaeAssignType] = useState<'open'|'batch'|'series'>('open');
-  const [uaeBatchId,    setUaeBatchId]    = useState('');
-  const [uaeTestSeriesId, setUaeTestSeriesId] = useState('');
+  const [uaeBatch,    setUaeBatch]      = useState('');
   const [uaeType,     setUaeType]       = useState('Full Mock');
   const [uaeSet,      setUaeSet]        = useState('A');
   const [uaeSaving,   setUaeSaving]     = useState(false);
@@ -265,9 +261,7 @@ export default function SmartPaperGen({ API, token, batches, testSeries }: { API
           meta:             paper.meta,
           answerKey:        paper.answerKey,
           examTitle:        uaeTitle || paper.meta.examTitle,
-          assignType:       uaeAssignType,
-          batchId:          uaeBatchId,
-          testSeriesId:     uaeTestSeriesId,
+          batch:            uaeBatch,
           type:             uaeType,
           selectedSetLabel: uaeSet,
           medium:           examMedium
@@ -1004,26 +998,8 @@ export default function SmartPaperGen({ API, token, batches, testSeries }: { API
               {['Full Mock','Chapter Test','Part Test','Grand Test'].map(t => <option key={t} value={t}>{t}</option>)}
             </select>
 
-            <label style={S.label}>Assign To (optional, 17.11)</label>
-            <div style={{ display:'flex', gap:8, marginBottom:12 }}>
-              {([['open','🌐 Open'],['batch','🏫 Batch'],['series','📚 Test Series']] as const).map(([v,l]) => (
-                <button key={v} onClick={() => { setUaeAssignType(v); if (v!=='batch') setUaeBatchId(''); if (v!=='series') setUaeTestSeriesId(''); }} style={{ flex:1, padding:'8px', borderRadius:8, border:`1px solid ${uaeAssignType===v ? '#6366F1':'rgba(255,255,255,0.1)'}`, background: uaeAssignType===v ? 'rgba(99,102,241,0.2)':'rgba(255,255,255,0.04)', color: uaeAssignType===v ? '#A5B4FC':'#64748B', cursor:'pointer', fontWeight:700, fontSize:11 }}>
-                  {l}
-                </button>
-              ))}
-            </div>
-            {uaeAssignType === 'batch' && (
-              <select value={uaeBatchId} onChange={e => setUaeBatchId(e.target.value)} style={{ ...S.inp, marginBottom:12 }}>
-                <option value="">— Select Batch —</option>
-                {uaeBatches.map((b:any) => <option key={b._id} value={b._id}>{b.name}{b.lifecycleStatus?` · ${b.lifecycleStatus}`:''}</option>)}
-              </select>
-            )}
-            {uaeAssignType === 'series' && (
-              <select value={uaeTestSeriesId} onChange={e => setUaeTestSeriesId(e.target.value)} style={{ ...S.inp, marginBottom:12 }}>
-                <option value="">— Select Test Series —</option>
-                {uaeTestSeries.map((s:any) => <option key={s._id} value={s._id}>{s.name||s.title}{s.lifecycleStatus?` · ${s.lifecycleStatus}`:''}</option>)}
-              </select>
-            )}
+            <label style={S.label}>Assign to Batch (optional, 17.11)</label>
+            <input value={uaeBatch} onChange={e => setUaeBatch(e.target.value)} placeholder="e.g. Batch A, NEET 2025..." style={{ ...S.inp, marginBottom:12 }} />
 
             <label style={S.label}>Default Language Medium (17.30)</label>
             <div style={{ display:'flex', gap:8, marginBottom:20 }}>

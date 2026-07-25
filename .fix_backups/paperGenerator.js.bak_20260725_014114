@@ -4,8 +4,6 @@
 // ═══════════════════════════════════════════════════════════════
 const Question = require('../models/Question');
 const Exam     = require('../models/Exam');
-const Batch      = require('../models/Batch');
-const TestSeries = require('../models/TestSeries');
 
 // 17.18 — In-memory saved templates (upgradeable to DB later)
 let savedPaperTemplates = [];
@@ -318,7 +316,7 @@ exports.generatePaper = async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 exports.useAsExam = async (req, res) => {
   try {
-    const { sets, meta, answerKey, examTitle, assignType, batchId, testSeriesId, type, targetType, selectedSetLabel } = req.body;
+    const { sets, meta, answerKey, examTitle, batch, type, targetType, selectedSetLabel } = req.body;
 
     if (!sets || sets.length === 0)
       return res.status(400).json({ success: false, message: 'No sets provided' });
@@ -360,15 +358,6 @@ exports.useAsExam = async (req, res) => {
       marks:         count * ((meta.markingScheme && meta.markingScheme.correct) || 4)
     }));
 
-    // 🔧 FIX (Assign System) — resolve real Test Series name instead of storing raw ID
-    let resolvedSeriesName = '';
-    if (assignType === 'series' && testSeriesId) {
-      try {
-        const seriesDoc = await TestSeries.findById(testSeriesId).select('name title').lean();
-        resolvedSeriesName = seriesDoc ? (seriesDoc.name || seriesDoc.title || '') : '';
-      } catch {}
-    }
-
     const exam = await Exam.create({
       title:      examTitle || meta.examTitle || 'Smart Generated Exam',
       duration:   meta.duration || 200,
@@ -381,11 +370,7 @@ exports.useAsExam = async (req, res) => {
         incorrect:   (meta.markingScheme && meta.markingScheme.incorrect)   || -1,
         unattempted: (meta.markingScheme && meta.markingScheme.unattempted) || 0
       },
-      // 🔧 FIX — batch/testSeriesId now match real Exam schema fields, resolved via proper IDs
-      batch:          assignType === 'batch'  ? (batchId || '') : '',
-      testSeriesId:   assignType === 'series' ? (testSeriesId || null) : null,
-      seriesName:     resolvedSeriesName,
-      assignmentType: assignType === 'batch' ? 'batch' : assignType === 'series' ? 'series' : 'individual',
+      batch:      batch    || '',
       category:   type     || 'Full Mock',
       type:       (meta.mode || 'Custom').toUpperCase(),
       status:     'draft',
@@ -396,18 +381,6 @@ exports.useAsExam = async (req, res) => {
     // Update usageCount for selected questions
     const qIds = primarySet.questions.map(q => q.questionId);
     await Question.updateMany({ _id: { $in: qIds } }, { $inc: { usageCount: 1 } });
-
-    // 🔧 FIX (Assign System) — link the exam back into the Batch/TestSeries so it actually
-    // "uploads" into that batch/series (same fix as the main Create Exam wizard).
-    try {
-      if (assignType === 'batch' && batchId) {
-        await Batch.findByIdAndUpdate(batchId, { $addToSet: { exams: exam._id } });
-      } else if (assignType === 'series' && testSeriesId) {
-        await TestSeries.findByIdAndUpdate(testSeriesId, { $addToSet: { tests: exam._id } });
-      }
-    } catch (linkErr) {
-      console.error('Assign-link warning (exam created but batch/series link failed):', linkErr.message);
-    }
 
     return res.json({ success: true, message: 'Exam created! ✅', exam: { _id: exam._id, title: exam.title }, examId: exam._id });
 
