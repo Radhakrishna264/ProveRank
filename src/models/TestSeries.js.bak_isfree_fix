@@ -7,7 +7,7 @@ const TestSeriesSchema = new mongoose.Schema({
   price: { type: Number, default: 0 },
   discountPrice: { type: Number, default: 0 },
   discountValidTill: { type: Date },
-  isFree: { type: Boolean, default: false },
+  isFree: { type: Boolean, default: true },
   thumbnail: { type: String, default: '' },
   totalTests: { type: Number, default: 0 },
   enrolledCount: { type: Number, default: 0 },

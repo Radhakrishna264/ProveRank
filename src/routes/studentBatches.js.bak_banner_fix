@@ -3,7 +3,6 @@ const router=express.Router();
 const mongoose=require('mongoose');
 const Batch=require('../models/Batch');
 const TestSeries=require('../models/TestSeries');
-const Banner=require('../models/Banner');
 const User=require('../models/User');
 const jwt=require('jsonwebtoken');
 const JWT=process.env.JWT_SECRET||'proverank_jwt_super_secret_key_2024';
@@ -125,12 +124,6 @@ router.get('/',optAuth,async(req,res)=>{
     series=series.map(normalizeSeries);
     batches=batches.concat(series);
 
-    // ── Attach latest linked Banner (Creative Studio design) to each card ──
-    const bannerIds=batches.map(x=>x._id);
-    const banners=await Banner.find({ linkedBatchId:{ $in:bannerIds }, status:{ $nin:['removed','replaced'] } }).sort({ createdAt:-1 }).lean();
-    const bannerMap={};
-    banners.forEach(bn=>{ const key=String(bn.linkedBatchId); if(!bannerMap[key])bannerMap[key]=bn; });
-
     if(sort==='discount')batches=batches.sort((a,b)=>discountPct(b)-discountPct(a));
     else if(sort==='newest')batches=batches.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
 
@@ -146,7 +139,6 @@ router.get('/',optAuth,async(req,res)=>{
       const watched=priceWatchMap[b._id.toString()];
       return{
         ...b,
-        banner:bannerMap[b._id.toString()]||null,
         isEnrolled:enrolledIds.includes(b._id.toString()),
         isWishlisted:wishlistIds.includes(b._id.toString()),
         effectivePrice:eff,
