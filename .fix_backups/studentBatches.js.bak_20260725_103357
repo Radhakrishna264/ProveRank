@@ -204,16 +204,12 @@ router.get('/:id',optAuth,async(req,res)=>{
     if(req.user){
       user=await User.collection.findOne({_id:new mongoose.Types.ObjectId(req.user.id)});
     }
-    // 🔧 FIX (Banner not showing in preview modal) — this route never attached the
-    // linked Banner (Creative Studio design) like the list route (GET /) already does.
-    const banner=await Banner.findOne({ linkedBatchId:batch._id, status:{ $nin:['removed','replaced'] } }).sort({ createdAt:-1 }).lean();
     const totalTests=batch.totalTests||0;
     const validityDays=batch.validity||365;
     const studyLoadPerWeek=totalTests>0?Math.max(1,Math.round((totalTests/(validityDays/7)))):0;
     res.json({
       batch:{
         ...batch,
-        banner:banner||null,
         effectivePrice:effectivePrice(batch),
         discountPct:discountPct(batch),
         fitScore:computeFitScore(batch,user),

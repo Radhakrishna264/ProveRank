@@ -489,11 +489,6 @@ function QuickPreviewModal({ batchId, tok, onClose, onBuy, onEnrollUpdate }: { b
   return (
     <div onClick={onClose} style={{ position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}>
       <div onClick={e=>e.stopPropagation()} style={{ background:'rgba(var(--pr-card-rgb),0.99)',border:`1px solid ${ec}30`,borderRadius:22,padding:24,maxWidth:440,width:'100%',maxHeight:'88vh',overflowY:'auto',backdropFilter:'blur(30px)' }}>
-        {b.banner&&(
-          <div style={{ height:120,borderRadius:14,overflow:'hidden',marginBottom:14,position:'relative' }}>
-            <StudentBannerCard banner={b.banner} />
-          </div>
-        )}
         <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14 }}>
           <div>
             <span style={{ background:`${ec}16`,color:ec,fontSize:9,fontWeight:700,padding:'3px 9px',borderRadius:20 }}>{b.examType}</span>
