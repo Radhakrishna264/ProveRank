@@ -331,13 +331,9 @@ function StudentBannerCard({ banner: b }: any) {
   let bg = b.bgImage ? (/^(linear|radial)-gradient|^#|^rgba?\(/.test(b.bgImage) ? b.bgImage : `url(${b.bgImage}) center/cover`) : (tpl.bg)
   if (b.gradientAngle && b.gradientAngle !== 135 && typeof bg === 'string' && bg.indexOf('135deg') >= 0) bg = bg.replace('135deg', b.gradientAngle + 'deg')
   const badgeObj = BN_BADGES.find((x: any) => x.id === b.badge)
-  // 🔧 FIX (Banner highlights/price/CTA missing) — default now matches admin's own default,
-  // which includes highlights/price/cta (student card was silently hiding these sections).
-  const sv = b.sectionVisibility || { icon: true, badge: true, title: true, tagline: true, highlights: true, price: true, cta: true }
+  const sv = b.sectionVisibility || { icon: true, badge: true, title: true, tagline: true }
   const badgeRadius = b.badgeStyle === 'corner' ? 0 : b.badgeStyle === 'ribbon' ? 3 : 20
   const pad = b.spacing === 'compact' ? 8 : b.spacing === 'spacious' ? 16 : 12
-  const ctaRadius = b.ctaShape === 'square' ? 4 : b.ctaShape === 'rounded' ? 8 : 16
-  const ctaIsOutline = b.ctaShape === 'outline'
   const renderLayerContent = (l: any) => {
     if (l.type === 'icon') return <span style={{ fontSize: 18 }}>{l.content}</span>
     if (!l.content) return null
@@ -358,23 +354,10 @@ function StudentBannerCard({ banner: b }: any) {
           {sv.badge !== false && badgeObj && badgeObj.id !== 'none' && <span style={{ fontSize: 8, fontWeight: 700, padding: '2px 7px', borderRadius: badgeRadius, background: b.accentColor || tpl.accent, color: '#1a1a2e' }}>{badgeObj.label}</span>}
         </div>
       )}
-      {(sv.title !== false || sv.tagline !== false || sv.highlights !== false) && (
+      {(sv.title !== false || sv.tagline !== false) && (
         <div style={{ textAlign: (b.textAlign || 'left') as any }}>
           {sv.title !== false && <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{b.title}</div>}
           {sv.tagline !== false && b.tagline && <div style={{ fontSize: 9.5, opacity: 0.85, marginTop: 2 }}>{b.tagline}</div>}
-          {sv.highlights !== false && (b.highlights || []).filter(Boolean).length > 0 && (
-            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 5, justifyContent: b.textAlign === 'center' ? 'center' : b.textAlign === 'right' ? 'flex-end' : 'flex-start' }}>
-              {(b.highlights || []).filter(Boolean).slice(0, 3).map((h: string, i: number) => (
-                <span key={i} style={{ fontSize: 7.5, padding: '2px 6px', borderRadius: 6, background: 'rgba(255,255,255,0.15)' }}>{h}</span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      {(sv.price !== false || sv.cta !== false) && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-          {sv.price !== false ? <span style={{ fontSize: 12, fontWeight: 800, color: b.accentColor || tpl.accent }}>{b.price && Number(b.price) > 0 ? '₹' + b.price : 'FREE'}</span> : <span />}
-          {sv.cta !== false && <span style={{ fontSize: 8.5, fontWeight: 700, padding: '4px 9px', borderRadius: ctaRadius, background: ctaIsOutline ? 'transparent' : (b.accentColor || tpl.accent), color: ctaIsOutline ? (b.accentColor || tpl.accent) : '#1a1a2e', border: ctaIsOutline ? `1.5px solid ${b.accentColor || tpl.accent}` : 'none' }}>{b.ctaText || 'Enroll Now'} →</span>}
         </div>
       )}
     </div>
