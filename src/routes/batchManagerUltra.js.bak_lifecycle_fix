@@ -1559,7 +1559,6 @@ function syncEffectivePublishState(currentState, isPublished, blockingIssues, pu
 
 function applyPublishState(batch, isPublished) {
   batch.status = isPublished ? 'active' : (batch.status === 'draft' ? 'draft' : 'inactive');
-  batch.lifecycleStatus = isPublished ? 'active' : (batch.lifecycleStatus === 'archived' ? 'archived' : 'paused');
 }
 
 function pushPublishSnapshot(batch, { action, notes, reason, visibilityMode, publishedByName, extras }) {

@@ -1511,6 +1511,7 @@ function syncEffectivePublishState(currentState, isPublished, blockingIssues, pu
 
 function applyPublishState(series, isPublished) {
   series.status = isPublished ? 'active' : (series.status === 'draft' ? 'draft' : 'inactive');
+  series.lifecycleStatus = isPublished ? 'active' : (series.lifecycleStatus === 'archived' ? 'archived' : 'paused');
 }
 
 function pushPublishSnapshot(series, { action, notes, reason, visibilityMode, publishedByName, extras }) {
