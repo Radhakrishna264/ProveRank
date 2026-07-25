@@ -397,8 +397,8 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
     onUpdate()
   }
   return (
-    <div onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} onClick={()=>onPreview&&onPreview(b)}
-      style={{ background:'rgba(var(--pr-card-rgb),0.95)',border:`1px solid ${hov?ec+'50':ec+'18'}`,borderRadius:20,overflow:'hidden',backdropFilter:'blur(22px)',position:'relative',transition:'all 0.3s',transform:hov?'translateY(-5px)':'none',boxShadow:hov?`0 20px 50px ${ec}18`:'0 4px 18px rgba(0,10,40,0.4)',cursor:onPreview?'pointer':'default' }}>
+    <div onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+      style={{ background:'rgba(var(--pr-card-rgb),0.95)',border:`1px solid ${hov?ec+'50':ec+'18'}`,borderRadius:20,overflow:'hidden',backdropFilter:'blur(22px)',position:'relative',transition:'all 0.3s',transform:hov?'translateY(-5px)':'none',boxShadow:hov?`0 20px 50px ${ec}18`:'0 4px 18px rgba(0,10,40,0.4)' }}>
       <div style={{ position:'absolute',top:10,left:10,zIndex:5,display:'flex',flexDirection:'column',gap:4 }}>
         {isNew&&<span style={{ background:'linear-gradient(135deg,#27AE60,#1E8449)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:20 }}>✨ NEW</span>}
         {typeof b.fitScore==='number'&&b.fitScore>=70&&<span style={{ background:'linear-gradient(135deg,#00D4FF,#0090B0)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:20 }}>🎯 {b.fitScore}% Fit</span>}
@@ -411,8 +411,8 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
           {compareList.find(x=>x._id===b._id)?'✓':'⚖'}
         </button>
       )}
-      <button onClick={e=>{e.stopPropagation();toggleWish()}} style={{ position:'absolute',top:10,right:10,zIndex:5,background:'rgba(0,0,20,0.6)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'50%',width:36,height:36,cursor:'pointer',fontSize:15,display:'flex',alignItems:'center',justifyContent:'center' }}>{b.isWishlisted?'❤️':'🤍'}</button>
-
+      <button onClick={toggleWish} style={{ position:'absolute',top:10,right:10,zIndex:5,background:'rgba(0,0,20,0.6)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'50%',width:36,height:36,cursor:'pointer',fontSize:15,display:'flex',alignItems:'center',justifyContent:'center' }}>{b.isWishlisted?'❤️':'🤍'}</button>
+      {onPreview&&<button onClick={e=>{e.stopPropagation();onPreview(b)}} style={{ position:'absolute',top:52,right:10,zIndex:5,background:'rgba(0,0,20,0.6)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'50%',width:32,height:32,cursor:'pointer',fontSize:13,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff' }}>👁️</button>}
       <div style={{ height:140,position:'relative',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',...(b.banner?{}:{background:b.thumbnail?`url(${b.thumbnail}) center/cover`:`linear-gradient(135deg,${ec}12,${ec}05,rgba(2,8,22,0.9))`}) }}>
         {b.banner&&<StudentBannerCard banner={b.banner} />}
         {!b.banner&&<div style={{ position:'absolute',inset:0,background:'linear-gradient(180deg,transparent 30%,rgba(4,12,30,0.95))',zIndex:1 }} />}
@@ -440,21 +440,21 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
         </div>
         {b.priceDropped&&<div style={{ fontSize:10,color:'#27AE60',fontWeight:700,marginBottom:8 }}>📉 Price dropped since you watched!</div>}
         {showPriceWatch&&!b.isFree&&(
-          <button onClick={e=>{e.stopPropagation();togglePriceWatch()}} style={{ width:'100%',padding:'6px',marginBottom:8,background:b.isPriceWatched?'rgba(0,212,255,0.12)':'rgba(77,159,255,0.05)',border:`1px solid ${b.isPriceWatched?'rgba(0,212,255,0.35)':'rgba(77,159,255,0.12)'}`,borderRadius:10,color:b.isPriceWatched?'#00D4FF':'rgba(var(--pr-sub-rgb),0.5)',cursor:'pointer',fontSize:10,fontWeight:700 }}>
+          <button onClick={togglePriceWatch} style={{ width:'100%',padding:'6px',marginBottom:8,background:b.isPriceWatched?'rgba(0,212,255,0.12)':'rgba(77,159,255,0.05)',border:`1px solid ${b.isPriceWatched?'rgba(0,212,255,0.35)':'rgba(77,159,255,0.12)'}`,borderRadius:10,color:b.isPriceWatched?'#00D4FF':'rgba(var(--pr-sub-rgb),0.5)',cursor:'pointer',fontSize:10,fontWeight:700 }}>
             {b.isPriceWatched?'👁️ Watching Price':'🔔 Watch Price'}
           </button>
         )}
         {b.isEnrolled?(
-          <div style={{ display:'flex',gap:6 }} onClick={e=>e.stopPropagation()}>
+          <div style={{ display:'flex',gap:6 }}>
             <button style={{ flex:1,padding:'10px',background:`linear-gradient(135deg,${ec}20,${ec}10)`,border:`1px solid ${ec}40`,borderRadius:11,color:ec,fontWeight:700,cursor:'pointer',fontSize:11 }}>Go to Batch →</button>
             {onReview&&<button onClick={()=>onReview(b)} style={{ padding:'10px 10px',background:'rgba(255,215,0,0.08)',border:'1px solid rgba(255,215,0,0.2)',borderRadius:11,color:'#FFD700',cursor:'pointer',fontSize:11 }}>⭐</button>}
           </div>
         ):b.isFree?(
-          <button onClick={e=>{e.stopPropagation();enroll()}} disabled={loading} style={{ width:'100%',padding:'10px',background:'linear-gradient(135deg,#27AE60,#1E8449)',border:'none',borderRadius:11,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:11 }}>{loading?'Enrolling...':'🚀 Enroll Free'}</button>
+          <button onClick={enroll} disabled={loading} style={{ width:'100%',padding:'10px',background:'linear-gradient(135deg,#27AE60,#1E8449)',border:'none',borderRadius:11,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:11 }}>{loading?'Enrolling...':'🚀 Enroll Free'}</button>
         ):b.allowFreeTrial?(
-          <button onClick={e=>{e.stopPropagation();enroll()}} disabled={loading} style={{ width:'100%',padding:'10px',background:`linear-gradient(135deg,${ec},${ec}BB)`,border:'none',borderRadius:11,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:11 }}>{loading?'Starting...':'🎯 Free Trial'}</button>
+          <button onClick={enroll} disabled={loading} style={{ width:'100%',padding:'10px',background:`linear-gradient(135deg,${ec},${ec}BB)`,border:'none',borderRadius:11,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:11 }}>{loading?'Starting...':'🎯 Free Trial'}</button>
         ):(
-          <button onClick={e=>{e.stopPropagation();onBuy&&onBuy(b)}} style={{ width:'100%',padding:'10px',background:`linear-gradient(135deg,${ec},${ec}BB)`,border:'none',borderRadius:11,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:11 }}>
+          <button onClick={()=>onBuy&&onBuy(b)} style={{ width:'100%',padding:'10px',background:`linear-gradient(135deg,${ec},${ec}BB)`,border:'none',borderRadius:11,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:11 }}>
             🛒 Buy ₹{finalPrice}
           </button>
         )}
@@ -808,6 +808,7 @@ export default function TestSeriesPage() {
       <div style={{ position:'relative',zIndex:2,padding:'14px 14px 80px',maxWidth:1300,margin:'0 auto' }}>
         {/* HERO */}
         <div style={{ padding:'22px 18px 20px',marginBottom:16,textAlign:'center',animation:'slideUp 0.5s ease',position:'relative' }}>
+          <div style={{ position:'absolute',top:8,right:8 }}><NotificationBell tok={tok} /></div>
           <div style={{ display:'flex',alignItems:'center',gap:12,marginBottom:4,justifyContent:'center' }}>
             <span style={{ fontSize:34,filter:'drop-shadow(0 0 13px rgba(77,159,255,0.5))' }}>🎓</span>
             <div style={{ fontFamily:'Playfair Display,serif',fontSize:25,fontWeight:700,background:'linear-gradient(135deg,#4D9FFF 0%,#00D4FF 45%,#9B59B6 100%)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundSize:'200%',animation:'gradShift 6s ease infinite' }}>Batches & Test Series</div>
