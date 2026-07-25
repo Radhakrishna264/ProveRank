@@ -190,33 +190,7 @@ function NotificationBell({ tok }: { tok: string | null }) {
 // ── PAYMENT CHECKOUT MODAL ──
 function PaymentModal({ batch, tok, onClose, onSuccess }: { batch: Batch; tok: string; onClose: () => void; onSuccess: () => void }) {
   const [loading,setLoading]=useState(false)
-  const [receipt,setReceipt]=useState<any>(null)
-  const [dlLoading,setDlLoading]=useState(false)
   const price=batch.discountPrice||batch.price
-
-  const verifyAndShowReceipt=async(response:any)=>{
-    try{
-      const r=await fetch(`${API}/api/student/batch-extras/${batch._id}/razorpay-verify`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify({razorpay_order_id:response.razorpay_order_id,razorpay_payment_id:response.razorpay_payment_id,razorpay_signature:response.razorpay_signature})})
-      const d=await r.json()
-      if(!d.success){alert(d.error||'Payment verification failed — contact support with your payment ID.');return}
-      setReceipt(d.receipt)
-      onSuccess()
-    }catch(e){alert('Payment succeeded but verification failed — contact support.')}
-  }
-
-  const downloadReceiptPdf=async()=>{
-    if(!receipt)return
-    setDlLoading(true)
-    try{
-      const r=await fetch(`${API}/api/student/batch-extras/${batch._id}/receipt/${receipt.paymentId}/pdf`,{headers:{Authorization:`Bearer ${tok}`}})
-      const blob=await r.blob()
-      const url=window.URL.createObjectURL(blob)
-      const a=document.createElement('a')
-      a.href=url;a.download=`receipt_${receipt.receiptNo}.pdf`;document.body.appendChild(a);a.click();a.remove()
-      window.URL.revokeObjectURL(url)
-    }catch(e){alert('Could not download receipt')}
-    finally{setDlLoading(false)}
-  }
 
   const handlePayFull=async()=>{
     if(!tok)return
@@ -225,41 +199,12 @@ function PaymentModal({ batch, tok, onClose, onSuccess }: { batch: Batch; tok: s
       const r=await fetch(`${API}/api/student/batch-extras/${batch._id}/razorpay-order`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'}})
       const d=await r.json()
       if(!d.success)return alert(d.error||'Error')
-      if(d.testMode){
-        const r2=await fetch(`${API}/api/student/batch-extras/${batch._id}/razorpay-verify`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify({razorpay_order_id:d.orderId,razorpay_payment_id:'pay_test_'+Date.now(),razorpay_signature:''})})
-        const d2=await r2.json()
-        if(!d2.success)return alert(d2.error||'Error')
-        setReceipt(d2.receipt)
-        onSuccess()
-        return
-      }
+      if(d.testMode){alert(`TEST MODE\n\nBatch: ${d.batchName}\nFull Amount: ₹${Math.round(d.amount/100)}\nOrder: ${d.orderId}\n\nAdd Razorpay keys in Render to enable real payments.`);onClose();return}
       const loaded=await loadRazorpay()
       if(!loaded)return alert('Could not load payment gateway')
-      const rzp=new (window as any).Razorpay({key:d.key,amount:d.amount,currency:d.currency,order_id:d.orderId,name:'ProveRank',description:batch.name,handler:(response:any)=>{verifyAndShowReceipt(response)},theme:{color:'#4D9FFF'}})
-      rzp.open()
+      const rzp=new (window as any).Razorpay({key:d.key,amount:d.amount,currency:d.currency,order_id:d.orderId,name:'ProveRank',description:batch.name,handler:()=>{onSuccess();onClose()},theme:{color:'#4D9FFF'}})
+      rzp.open();onClose()
     }finally{setLoading(false)}
-  }
-
-  if(receipt){
-    return (
-      <div style={{ position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.88)',display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}>
-        <div style={{ background:'rgba(var(--pr-card-rgb),0.99)',border:'1px solid rgba(39,174,96,0.3)',borderRadius:22,padding:26,maxWidth:400,width:'100%',backdropFilter:'blur(30px)',boxShadow:'0 30px 80px rgba(0,0,0,0.6)' }}>
-          <div style={{ textAlign:'center',marginBottom:16 }}>
-            <div style={{ fontSize:40,marginBottom:6 }}>✅</div>
-            <div style={{ fontFamily:'Playfair Display,serif',fontSize:18,fontWeight:700,color:'var(--pr-text)' }}>Payment Successful</div>
-            {receipt.testMode&&<div style={{ fontSize:10,color:'#E67E22',marginTop:4 }}>(Test Mode — no real payment was charged)</div>}
-          </div>
-          <div style={{ background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:14,padding:16,marginBottom:16 }}>
-            <div style={{ display:'flex',justifyContent:'space-between',fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)',marginBottom:8 }}><span>Receipt No.</span><span style={{ color:'var(--pr-text)',fontWeight:700 }}>{receipt.receiptNo}</span></div>
-            <div style={{ display:'flex',justifyContent:'space-between',fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)',marginBottom:8 }}><span>Item</span><span style={{ color:'var(--pr-text)',fontWeight:700,textAlign:'right',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{receipt.itemName}</span></div>
-            <div style={{ display:'flex',justifyContent:'space-between',fontSize:11,color:'rgba(var(--pr-sub-rgb),0.6)',marginBottom:8 }}><span>Payment ID</span><span style={{ color:'var(--pr-text)',fontWeight:700,fontSize:10 }}>{receipt.razorpayPaymentId}</span></div>
-            <div style={{ display:'flex',justifyContent:'space-between',fontSize:13,paddingTop:8,borderTop:'1px solid rgba(255,255,255,0.08)' }}><span style={{ color:'rgba(var(--pr-sub-rgb),0.7)',fontWeight:700 }}>Amount Paid</span><span style={{ color:'#27AE60',fontWeight:900,fontSize:16 }}>₹{receipt.amount}</span></div>
-          </div>
-          <button onClick={downloadReceiptPdf} disabled={dlLoading} style={{ width:'100%',padding:'12px',marginBottom:10,background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',border:'none',borderRadius:13,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:12 }}>{dlLoading?'Preparing PDF...':'⬇️ Download Receipt (PDF)'}</button>
-          <button onClick={onClose} style={{ width:'100%',padding:'11px',background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:13,color:'var(--pr-text)',fontWeight:700,cursor:'pointer',fontSize:12 }}>Done</button>
-        </div>
-      </div>
-    )
   }
 
   return (
