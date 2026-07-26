@@ -43,7 +43,7 @@ async function findEnrolledDoc(id){
 function buildEnriched(b,m,now){
   const enrolledAt=m.enrolledAt?new Date(m.enrolledAt):new Date();
   const validityDays=b.validity||365;
-  const expiresAt=m.expiresAt?new Date(m.expiresAt):(b.endDate?new Date(b.endDate):new Date(enrolledAt.getTime()+validityDays*86400000));
+  const expiresAt=m.expiresAt?new Date(m.expiresAt):new Date(enrolledAt.getTime()+validityDays*86400000);
   const daysLeft=Math.max(0,Math.ceil((expiresAt-now)/86400000));
   const testsCompleted=m.testsCompleted||0;
   const totalTests=b.totalTests||0;

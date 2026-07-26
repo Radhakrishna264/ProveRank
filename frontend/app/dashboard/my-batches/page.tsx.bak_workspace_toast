@@ -42,7 +42,6 @@ type BatchMeta = {
   lastAccessedAt: string; daysSinceAccess: number; streak: number;
   isExpired: boolean; isCompleted: boolean; isWishlisted?: boolean;
   isFree: boolean; rating: number; language: string; difficulty: string;
-  _kind?: string;
 }
 type Stats = { total: number; testsCompleted: number; activeBatches: number; certificates: number; wishlistCount?: number; avgProgress?: number; currentStreak?: number; renewalDueSoon?: number }
 type Activity = { _id: string; type: string; title: string; message: string; icon: string; createdAt: string }
@@ -192,7 +191,6 @@ export default function MyBatchesPage() {
   const [tab,setTab]=useState<'active'|'completed'|'wishlist'>('active')
   const [tok,setTok]=useState('')
   const [loading,setLoading]=useState(true)
-  const [wsMsg,setWsMsg]=useState<string|null>(null)
   const pageTheme = usePageTheme()
   const vars = THEME_VARS[pageTheme]
   const [progressView,setProgressView]=useState<'ring'|'bar'>('ring')
@@ -376,7 +374,7 @@ export default function MyBatchesPage() {
                   }
                 </div>
               </div>
-              <button onClick={()=>{accessBatch(lastAccessed._id);setWsMsg(`📚 ${lastAccessed._kind==='series'?'Test Series':'Batch'} Workspace is coming soon!`);setTimeout(()=>setWsMsg(null),3000)}}
+              <button onClick={()=>{accessBatch(lastAccessed._id);alert('📚 Batch Workspace is coming soon!')}}
                 style={{background:`linear-gradient(135deg,${ECOLS[lastAccessed.examType]||'#4D9FFF'},${ECOLS[lastAccessed.examType]||'#4D9FFF'}BB)`,border:'none',borderRadius:12,padding:'10px 16px',color:'#fff',fontWeight:700,cursor:'pointer',fontSize:12,flexShrink:0,boxShadow:`0 4px 14px ${ECOLS[lastAccessed.examType]||'#4D9FFF'}30`}}>Resume →</button>
             </div>
           </div>
@@ -499,7 +497,7 @@ export default function MyBatchesPage() {
                           {renewingId===b._id?'Renewing…':'🔄 Renew Now'}
                         </button>
                       ):(
-                        <button onClick={()=>{accessBatch(b._id);setWsMsg(`📚 ${b._kind==='series'?'Test Series':'Batch'} Workspace is coming soon!`);setTimeout(()=>setWsMsg(null),3000)}}
+                        <button onClick={()=>{accessBatch(b._id);alert('📚 Batch Workspace is coming soon!')}}
                           style={{flex:1,padding:'9px',background:`linear-gradient(135deg,${ec},${ec}BB)`,border:'none',borderRadius:11,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:11,boxShadow:`0 4px 12px ${ec}25`}}>▶️ Continue</button>
                       )}
                       {tab!=='wishlist'&&!b.isExpired&&!b.isCompleted&&b.daysLeft<=7&&(
@@ -531,7 +529,6 @@ export default function MyBatchesPage() {
 
       </div>
     </div>
-    {wsMsg&&<div style={{position:'fixed',bottom:24,left:'50%',transform:'translateX(-50%)',zIndex:2000,background:'rgba(20,20,35,0.95)',border:'1px solid rgba(77,159,255,0.35)',borderRadius:12,padding:'10px 18px',fontSize:12,color:'#fff',fontWeight:600,boxShadow:'0 10px 30px rgba(0,0,0,0.4)',whiteSpace:'nowrap'}}>{wsMsg}</div>}
     </StudentShell>
   )
 }

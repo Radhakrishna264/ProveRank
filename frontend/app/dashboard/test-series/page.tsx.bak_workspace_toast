@@ -48,7 +48,7 @@ type Batch = {
   difficulty?: string; subject?: string;
   effectivePrice?: number; discountPct?: number; fitScore?: number;
   isPriceWatched?: boolean; priceDropped?: boolean; watchedPrice?: number|null;
-  teacherAssigned?: string; seatLimit?: number; _kind?: string;
+  teacherAssigned?: string; seatLimit?: number;
 }
 type AcSuggestion = { _id: string; name: string; examType: string; isFree: boolean }
 type Notif = { _id: string; title: string; message: string; isRead: boolean; createdAt: string; link?: string }
@@ -449,9 +449,6 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
 }) {
   const [loading,setLoading]=useState(false)
   const [hov,setHov]=useState(false)
-  const [wsMsg,setWsMsg]=useState<string|null>(null)
-  const workspaceLabel=b._kind==='series'?'Test Series':'Batch'
-  const showWorkspaceComingSoon=()=>{setWsMsg(`📚 ${workspaceLabel} Workspace is coming soon!`);setTimeout(()=>setWsMsg(null),3000)}
   const isFlash=!!(b.flashSaleEndTime&&new Date(b.flashSaleEndTime)>new Date())
   const isNew=Date.now()-new Date(b.createdAt).getTime()<7*86400000
   const ec=ECOLS[b.examType]||'#4D9FFF'
@@ -479,7 +476,6 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
   return (
     <div onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} onClick={()=>onPreview&&onPreview(b)}
       style={{ background:'rgba(var(--pr-card-rgb),0.95)',border:`1px solid ${hov?ec+'50':ec+'18'}`,borderRadius:20,overflow:'hidden',backdropFilter:'blur(22px)',position:'relative',transition:'all 0.3s',transform:hov?'translateY(-5px)':'none',boxShadow:hov?`0 20px 50px ${ec}18`:'0 4px 18px rgba(0,10,40,0.4)',cursor:onPreview?'pointer':'default' }}>
-      {wsMsg&&<div style={{ position:'absolute',bottom:8,left:8,right:8,zIndex:30,background:'rgba(10,10,20,0.95)',border:`1px solid ${ec}40`,borderRadius:10,padding:'8px 10px',fontSize:10,color:'#fff',textAlign:'center',fontWeight:600,boxShadow:'0 8px 20px rgba(0,0,0,0.4)' }}>{wsMsg}</div>}
       <div style={{ position:'absolute',top:10,left:10,zIndex:5,display:'flex',flexDirection:'column',gap:4 }}>
         {isNew&&<span style={{ background:'linear-gradient(135deg,#27AE60,#1E8449)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:20 }}>✨ NEW</span>}
         {typeof b.fitScore==='number'&&b.fitScore>=70&&<span style={{ background:'linear-gradient(135deg,#00D4FF,#0090B0)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:20 }}>🎯 {b.fitScore}% Fit</span>}
@@ -496,7 +492,7 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
 
       <div style={{ height:140,position:'relative',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',...(b.banner?{}:{background:b.thumbnail?`url(${b.thumbnail}) center/cover`:`linear-gradient(135deg,${ec}12,${ec}05,rgba(2,8,22,0.9))`}) }}>
         {b.banner&&<StudentBannerCard banner={b.banner}
-        ctaLabel={b.isEnrolled?`Go to ${workspaceLabel}`:b.isFree?(loading?'Enrolling...':'Enroll Free'):b.allowFreeTrial?(loading?'Starting...':'Free Trial'):(`Buy ₹${finalPrice}`)}
+        ctaLabel={b.isEnrolled?'Go to Batch':b.isFree?(loading?'Enrolling...':'Enroll Free'):b.allowFreeTrial?(loading?'Starting...':'Free Trial'):(`Buy ₹${finalPrice}`)}
         ctaLoading={loading}
         onCtaClick={b.isEnrolled?undefined:(b.isFree||b.allowFreeTrial?enroll:()=>onBuy&&onBuy(b))}
       />}
@@ -532,7 +528,7 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
         )}
         {b.isEnrolled?(
           <div style={{ display:'flex',gap:6 }} onClick={e=>e.stopPropagation()}>
-            <button onClick={e=>{e.stopPropagation();showWorkspaceComingSoon()}} style={{ flex:1,padding:'10px',background:`linear-gradient(135deg,${ec}20,${ec}10)`,border:`1px solid ${ec}40`,borderRadius:11,color:ec,fontWeight:700,cursor:'pointer',fontSize:11 }}>Go to {workspaceLabel} →</button>
+            <button onClick={e=>{e.stopPropagation();alert('📚 Batch Workspace is coming soon!')}} style={{ flex:1,padding:'10px',background:`linear-gradient(135deg,${ec}20,${ec}10)`,border:`1px solid ${ec}40`,borderRadius:11,color:ec,fontWeight:700,cursor:'pointer',fontSize:11 }}>Go to Batch →</button>
             {onReview&&<button onClick={()=>onReview(b)} style={{ padding:'10px 10px',background:'rgba(255,215,0,0.08)',border:'1px solid rgba(255,215,0,0.2)',borderRadius:11,color:'#FFD700',cursor:'pointer',fontSize:11 }}>⭐</button>}
           </div>
         ):b.isFree?(
@@ -625,7 +621,7 @@ function QuickPreviewModal({ batchId, tok, onClose, onBuy, onEnrollUpdate }: { b
         )}
         <div style={{ display:'flex',gap:8 }}>
           {b.isEnrolled?(
-            <button onClick={e=>{e.stopPropagation();showWorkspaceComingSoon()}} style={{ flex:1,padding:'11px',background:`linear-gradient(135deg,${ec}30,${ec}15)`,border:`1px solid ${ec}50`,borderRadius:12,color:ec,fontWeight:700,cursor:'pointer',fontSize:12 }}>Go to {workspaceLabel} →</button>
+            <button onClick={e=>{e.stopPropagation();alert('📚 Batch Workspace is coming soon!')}} style={{ flex:1,padding:'11px',background:`linear-gradient(135deg,${ec}30,${ec}15)`,border:`1px solid ${ec}50`,borderRadius:12,color:ec,fontWeight:700,cursor:'pointer',fontSize:12 }}>Go to Batch →</button>
           ):b.isFree?(
             <button onClick={enroll} style={{ flex:1,padding:'11px',background:'linear-gradient(135deg,#27AE60,#1E8449)',border:'none',borderRadius:12,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:12 }}>🚀 Enroll Free</button>
           ):(
