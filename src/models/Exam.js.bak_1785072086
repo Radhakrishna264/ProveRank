@@ -13,8 +13,8 @@ const examSchema = new mongoose.Schema({
     questionCount: Number,
     timeLimit:     Number,
     marks:         Number,
-    fromQNo:       Number,
-    toQNo:         Number
+    fromQNo:       Number, // F19B.5.21 / F20B.5.21 / F21B.8.21 — subject Q-no range start
+    toQNo:         Number  // F19B.5.21 / F20B.5.21 / F21B.8.21 — subject Q-no range end
   }],
 
   markingScheme: {
@@ -29,17 +29,25 @@ const examSchema = new mongoose.Schema({
   schedule: {
     startTime:  Date,
     endTime:    Date,
-    resultTime: Date
+    resultTime: Date  // when result/scorecard becomes visible to students
   },
 
   audioMonitoringEnabled: { type: Boolean, default: false },
   status: { type: String, enum: ['draft', 'scheduled', 'live', 'ended'], default: 'draft' },
 
   batch:    { type: String, default: '' },
+
+  // F19B.6.8 / F20B.6.8 / F21B.9.7 — Multi-batch assign toggle (additional batch IDs besides primary `batch`)
   multiBatch: [{ type: String, default: [] }],
 
+  // F19B.6 / F20B.6 / F21B.9 — Assignment Type selector
   assignmentType: { type: String, enum: ['batch', 'series', 'mini_test', 'individual'], default: 'individual' },
+
+  // F19B.6.2/6.3 / F20B.6.2/6.3 / F21B.9.2/9.3 — Test Series label (grouping, also used for Step-8 "exam series/group")
   seriesName: { type: String, default: '' },
+
+  // 🔧 FIX (Assign System) — was missing from schema; route was writing this field but Mongoose
+  // silently dropped it since it wasn't declared here. This is why Test Series assignment never saved.
   testSeriesId: { type: mongoose.Schema.Types.ObjectId, ref: 'TestSeries', default: null },
 
   category: { type: String, enum: ['Full Mock', 'Chapter Test', 'Part Test', 'Grand Test', 'Mini Test'], default: 'Full Mock' },
@@ -61,16 +69,11 @@ const examSchema = new mongoose.Schema({
   type:       { type: String, default: 'NEET' },
 
   waitingRoomEnabled: { type: Boolean, default: false },
-  // Rule 1.15.1 — default waiting-room window is 20 min before exam start (admin-configurable per exam)
-  waitingRoomMinutes: { type: Number, default: 20 },
-  // Rule 1.15.6 — admin-configurable chat duration inside waiting room (minutes from join)
-  waitingChatMinutes: { type: Number, default: 10 },
-  // Rule 1.15.5/1.15.6 — admin-configurable auto-close buffer: waiting room force-closes
-  // to Instructions screen this many minutes before exam start
-  waitingAutoCloseBufferMinutes: { type: Number, default: 8 },
+  waitingRoomMinutes: { type: Number, default: 10 },
 
   maxAttempts:    { type: Number, default: 1 },
   reattemptCount: { type: String, enum: ['best', 'last'], default: 'last' },
+  // F19B.5.16 / F20B.5.16 / F21B.8.16 — Unlimited attempt option (maxAttempts auto-set to a large number when true)
   unlimitedAttempts: { type: Boolean, default: false },
   questionSnapshot:  { type: Array, default: [] },
   snapshotLocked:    { type: Boolean, default: false },
@@ -80,16 +83,22 @@ const examSchema = new mongoose.Schema({
   whitelistedStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   whitelistedGroups:   [{ type: String }],
 
+  // F19B.5.5 / F20B.5.5 / F21B.8.5 — Subject wise Qs count input
   subjectWiseCount: [{ subject: String, count: Number }],
+  // F19B.5.4 / F20B.5.4 / F21B.8.4 — Total Questions requested (auto-select N out of M parsed)
   totalQuestionsRequested: { type: Number, default: 0 },
 
+  // F19B.8.1 / F20B.8.1 / F21B.11.1 — Scheduled auto-publish
   scheduledPublish: {
     enabled:   { type: Boolean, default: false },
     publishAt: { type: Date, default: null }
   },
+  // F19B.8.6 / F20B.8.6 / F21B.11.6 — Notify Students toggle
   notifyStudents: { type: Boolean, default: false },
+  // F19B.8.4 / F20B.8.4 / F21B.11.4 — Save as Template
   isTemplate: { type: Boolean, default: false },
 
+  // F19B.7 / F20B / F21B — source tracking (which method created this exam + parse stats)
   sourceMeta: {
     sourceType:     { type: String, enum: ['paste', 'excel', 'pdf', 'manual', ''], default: '' },
     fileName:        { type: String, default: '' },
@@ -102,9 +111,13 @@ const examSchema = new mongoose.Schema({
 
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 
+  // Feature 33.20 — Pinned exams (important exams shown at top of All Exams list)
   isPinned: { type: Boolean, default: false },
+
+  // Feature 31 — Exam Clone/Duplicate: tracks which exam this was cloned from
   clonedFrom: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam', default: null },
 
+  // Feature 34 — Exam Delete: soft-delete / Recycle Bin (34.5 / 34.9 / 34.10 / 34.24)
   isArchived:  { type: Boolean, default: false },
   archivedAt:  { type: Date, default: null },
   archivedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }

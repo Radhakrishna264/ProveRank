@@ -64,79 +64,27 @@ export default function ExamAttempt() {
     if (user && examId) startAttempt()
   },[user, examId])
 
-  // F57 v3 — Anti-cheat: tab switch + window blur + fullscreen enforcement
-  // (real /api/anticheat/* routes, attemptId + examId both sent as required by backend)
+  // Anti-cheat: tab switch
   useEffect(()=>{
-    const logWarning = (type) => setWarningHistory(h => [{ type, at: new Date().toLocaleTimeString() }, ...h].slice(0, 15))
-
     const onVis = () => {
       if (document.hidden && attempt) {
-        logWarning('Tab Switch')
-        if (user && attempt?._id) {
-          fetch(`${API}/api/anticheat/tab-switch`,{
-            method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${user.token}`},
-            body:JSON.stringify({attemptId: attempt._id, examId})
-          }).then(r=>r.json()).then(d=>{
-            if (typeof d?.warningCount === 'number') setWarnings(d.warningCount)
-            if (d?.autoSubmitted) autoSubmit()
-          }).catch(()=>{
-            setWarnings(w => { const next = w+1; if (next >= 3) autoSubmit(); return next })
-          })
-        }
-      }
-    }
-
-    const onBlur = () => {
-      if (attempt) {
-        logWarning('Window Blur')
-        if (user && attempt?._id) {
-          fetch(`${API}/api/anticheat/window-blur`,{
-            method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${user.token}`},
-            body:JSON.stringify({attemptId: attempt._id, examId})
-          }).then(r=>r.json()).then(d=>{
-            if (typeof d?.warningCount === 'number') setWarnings(d.warningCount)
-            if (d?.autoSubmitted) autoSubmit()
-          }).catch(()=>{})
-        }
-      }
-    }
-
-    const requestFS = () => { try { document.documentElement.requestFullscreen?.() } catch(e){} }
-    const onFsChange = () => {
-      const isFs = !!document.fullscreenElement
-      setFsCompliant(isFs)
-      setFocusLocked(isFs)
-      if (!isFs && attempt) {
-        setShowFSWarning(true)
-        logWarning('Fullscreen Exit')
-        fsExitTimerRef.current = setTimeout(() => {
+        setWarnings(w => {
+          const next = w+1
+          if (next >= 3) { autoSubmit(); return next }
+          // Save warning to backend
           if (user && attempt?._id) {
-            fetch(`${API}/api/anticheat/fullscreen-exit`,{
+            fetch(`${API}/api/attempts/${attempt._id}/tab-switch`,{
               method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${user.token}`},
-              body:JSON.stringify({attemptId: attempt._id, examId})
-            }).then(r=>r.json()).then(d=>{
-              if (typeof d?.warningCount === 'number') setWarnings(d.warningCount)
-              if (d?.autoSubmitted) autoSubmit()
+              body:JSON.stringify({count:next})
             }).catch(()=>{})
           }
-        }, 5000) // 5-second grace period before warning counted
-      } else {
-        setShowFSWarning(false)
-        if (fsExitTimerRef.current) { clearTimeout(fsExitTimerRef.current); fsExitTimerRef.current = null }
+          return next
+        })
       }
     }
-
-    requestFS()
-    document.addEventListener('fullscreenchange', onFsChange)
-    window.addEventListener('blur', onBlur)
     document.addEventListener('visibilitychange', onVis)
-    return () => {
-      document.removeEventListener('visibilitychange', onVis)
-      document.removeEventListener('fullscreenchange', onFsChange)
-      window.removeEventListener('blur', onBlur)
-      if (fsExitTimerRef.current) clearTimeout(fsExitTimerRef.current)
-    }
-  },[attempt, user, examId])
+    return () => document.removeEventListener('visibilitychange', onVis)
+  },[attempt, user])
 
   // Timer
   useEffect(()=>{
@@ -293,12 +241,6 @@ export default function ExamAttempt() {
           {/* Warnings + Submit */}
           <div style={{display:'flex',gap:10,alignItems:'center'}}>
             {warnings>0 && <span className="badge badge-red">⚠️ {warnings}/3</span>}
-            <span style={{fontSize:10,padding:'2px 8px',borderRadius:20,background:focusLocked?'#123b1e':'#3a1414',color:focusLocked?'#7CFC9C':'#ff8080'}}>
-              {focusLocked ? '🔒 Focus Locked' : '🔓 Focus Lost'}
-            </span>
-            <span style={{fontSize:10,padding:'2px 8px',borderRadius:20,background: integrityImpact==='none'?'#123b1e':integrityImpact==='low'?'#3a2a00':integrityImpact==='medium'?'#3a2200':'#3a1414', color: integrityImpact==='none'?'#7CFC9C':integrityImpact==='low'?'#f2d38a':integrityImpact==='medium'?'#ffb066':'#ff8080'}}>
-              🛡️ {integrityImpact}
-            </span>
             <button className="lb" style={{background:'linear-gradient(135deg,#FF4757,#CC2233)',boxShadow:'0 4px 15px rgba(255,71,87,0.3)'}} onClick={()=>setShowSubmit(true)}>
               {t.submit}
             </button>
@@ -422,20 +364,7 @@ export default function ExamAttempt() {
         </div>
       )}
       
-{/* ── F57 v3: Fullscreen Exit Warning Modal ── */}
-      {showFSWarning && (
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300,backdropFilter:'blur(4px)'}}>
-          <div style={{background:'rgba(30,5,5,0.97)',border:'1px solid #FF4757',borderRadius:20,padding:'32px',maxWidth:400,width:'90%',textAlign:'center'}}>
-            <div style={{fontSize:44,marginBottom:12}}>⚠️</div>
-            <h2 style={{fontFamily:'Playfair Display,serif',fontSize:19,fontWeight:700,color:'#FF4757',marginBottom:10}}>{lang==='en'?'Fullscreen Exited!':'फुलस्क्रीन बंद हो गया!'}</h2>
-            <p style={{color:'#ddd',fontSize:13,marginBottom:20}}>{lang==='en'?'You must stay in fullscreen during the exam. Return now to avoid a warning.':'परीक्षा के दौरान फुलस्क्रीन में रहना अनिवार्य है। चेतावनी से बचने के लिए तुरंत वापस लौटें।'}</p>
-            <button onClick={()=>document.documentElement.requestFullscreen?.()} style={{width:'100%',padding:14,borderRadius:10,border:'none',background:'linear-gradient(135deg,#4D9FFF,#0055CC)',color:'#fff',fontWeight:700,fontSize:14,cursor:'pointer'}}>
-              {lang==='en'?'↩ Return to Fullscreen':'↩ फुलस्क्रीन पर लौटें'}
-            </button>
-          </div>
-        </div>
-      )}
-      {/* ── Feature 32: Time Extension Notification ── */}
+{/* ── Feature 32: Time Extension Notification ── */}
 {timeExtNotif && (
   <div style={{
     position:'fixed', top:20, right:20, zIndex:9999,

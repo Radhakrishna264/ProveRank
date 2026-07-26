@@ -1,157 +1,337 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import StudentShell, { useShell, C } from '@/src/components/StudentShell'
+
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 
-function TestTubeSVG() {
-  return (
-    <svg width="55" height="110" viewBox="0 0 55 110" fill="none" style={{animation:'floatR 5s ease-in-out infinite',flexShrink:0}}>
-      <rect x="18" y="5" width="19" height="65" rx="3" stroke="#4D9FFF" strokeWidth="1.5" fill="none"/>
-      <path d="M18 70 Q18 100 27.5 100 Q37 100 37 70Z" stroke="#4D9FFF" strokeWidth="1.5" fill="rgba(77,159,255,0.2)"/>
-      <rect x="13" y="5" width="5" height="5" fill="#4D9FFF" rx="1"/>
-      <rect x="37" y="5" width="5" height="5" fill="#4D9FFF" rx="1"/>
-      <line x1="18" y1="50" x2="37" y2="50" stroke="rgba(77,159,255,0.4)" strokeWidth="1" strokeDasharray="2 2"/>
-      <line x1="18" y1="60" x2="37" y2="60" stroke="rgba(77,159,255,0.4)" strokeWidth="1" strokeDasharray="2 2"/>
-      <circle cx="45" cy="15" r="4" fill="#FFD700" opacity=".7"/>
-      <circle cx="10" cy="40" r="3" fill="#00C48C" opacity=".7"/>
-      <circle cx="8" cy="20" r="2" fill="#FF6B9D" opacity=".6"/>
-    </svg>
-  )
+function fmtTime(d: any) {
+  if (!d) return ''
+  const dt = new Date(d)
+  return dt.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+function dayLabel(d: any) {
+  if (!d) return ''
+  const dt = new Date(d); const now = new Date()
+  const diffDays = Math.floor((new Date(dt.toDateString()).getTime() - new Date(now.toDateString()).getTime()) / 86400000)
+  if (diffDays === 0) return 'Today'
+  if (diffDays === 1) return 'Tomorrow'
+  if (diffDays < 0) return 'Past'
+  return dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
 }
 
 function MyExamsContent() {
-  const {lang,darkMode:dm,token}=useShell()
-  const [exams,  setExams]  = useState<any[]>([])
-  const [filter, setFilter] = useState<'all'|'upcoming'|'completed'>('all')
+  const router = useRouter()
+  const shell = useShell() as any
+  const token = shell?.token
+  const toast = shell?.toast
+  const lang = shell?.lang || 'en'
+  const t = (en: string, hi: string) => (lang === 'hi' ? hi : en)
+
+  const [exams, setExams] = useState<any[]>([])
+  const [synced, setSynced] = useState<{ batches: string[]; series: string[] }>({ batches: [], series: [] })
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [loading,setLoading]= useState(true)
-  const t=(en:string,hi:string)=>lang==='en'?en:hi
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [subjectFilter, setSubjectFilter] = useState('all')
+  const [batchFilter, setBatchFilter] = useState('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [previewExam, setPreviewExam] = useState<any>(null)
+  const [pwModal, setPwModal] = useState<any>(null)
+  const [pwInput, setPwInput] = useState('')
+  const [pwErr, setPwErr] = useState('')
+  const [now, setNow] = useState(Date.now())
+  const [joining, setJoining] = useState<string | null>(null)
 
-  useEffect(()=>{
-    if(!token) return
-    fetch(`${API}/api/exams`,{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.ok?r.json():[]).then(d=>{setExams(Array.isArray(d)?d:[]);setLoading(false)}).catch(()=>setLoading(false))
-  },[token])
+  // F52 §10.5 — Filter Memory (persist last used filters)
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('pr_myexams_filters') || '{}')
+      if (saved.statusFilter) setStatusFilter(saved.statusFilter)
+      if (saved.subjectFilter) setSubjectFilter(saved.subjectFilter)
+      if (saved.batchFilter) setBatchFilter(saved.batchFilter)
+      if (saved.categoryFilter) setCategoryFilter(saved.categoryFilter)
+      if (saved.search) setSearch(saved.search)
+    } catch (e) {}
+  }, [])
+  useEffect(() => {
+    localStorage.setItem('pr_myexams_filters', JSON.stringify({ statusFilter, subjectFilter, batchFilter, categoryFilter, search }))
+  }, [statusFilter, subjectFilter, batchFilter, categoryFilter, search])
 
-  const now=new Date()
-  const filtered=exams.filter(e=>{
-    const match=!search||e.title?.toLowerCase().includes(search.toLowerCase())
-    if(filter==='upcoming') return match&&new Date(e.scheduledAt)>now
-    if(filter==='completed') return match&&new Date(e.scheduledAt)<=now
-    return match
-  })
-  const upcoming=exams.filter(e=>new Date(e.scheduledAt)>now)
-  const completed=exams.filter(e=>new Date(e.scheduledAt)<=now)
-  const daysLeft=Math.max(0,Math.ceil((new Date('2026-05-03').getTime()-Date.now())/86400000))
+  const load = () => {
+    if (!token) return
+    fetch(`${API}/api/exams/my-exams`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => {
+        if (d?.success) {
+          setExams(d.exams || [])
+          setSynced({ batches: d.syncedBatches || [], series: d.syncedSeries || [] })
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }
+  useEffect(() => { load(); const iv = setInterval(load, 30000); return () => clearInterval(iv) }, [token])
+  useEffect(() => { const iv = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(iv) }, [])
+
+  const filtered = useMemo(() => {
+    return exams.filter(e => {
+      if (search && !e.title?.toLowerCase().includes(search.toLowerCase())) return false
+      if (statusFilter === 'upcoming' && e.derivedStatus !== 'scheduled') return false
+      if (statusFilter === 'live' && e.derivedStatus !== 'live') return false
+      if (statusFilter === 'completed' && !(e.derivedStatus === 'ended' || e.activeAttemptId === null && e.performance)) return false
+      if (subjectFilter !== 'all' && e.subject !== subjectFilter) return false
+      if (categoryFilter !== 'all' && e.category !== categoryFilter) return false
+      if (batchFilter !== 'all' && e.batch !== batchFilter && !(e.multiBatch || []).includes(batchFilter)) return false
+      return true
+    })
+  }, [exams, search, statusFilter, subjectFilter, batchFilter, categoryFilter])
+
+  const stats = useMemo(() => ({
+    total: exams.length,
+    upcoming: exams.filter(e => e.derivedStatus === 'scheduled').length,
+    live: exams.filter(e => e.derivedStatus === 'live').length,
+    completed: exams.filter(e => e.derivedStatus === 'ended').length,
+    attempted: exams.filter(e => e.performance).length,
+    bestScore: Math.max(0, ...exams.filter(e => e.performance).map(e => e.performance.bestScore || 0))
+  }), [exams])
+
+  // F52 §10.1 — Timeline strip (upcoming exams grouped by day)
+  const timeline = useMemo(() => {
+    return exams
+      .filter(e => e.derivedStatus === 'scheduled' && e.schedule?.startTime)
+      .sort((a, b) => new Date(a.schedule.startTime).getTime() - new Date(b.schedule.startTime).getTime())
+      .slice(0, 8)
+  }, [exams])
+
+  async function doJoinWaitingRoom(e: any) {
+    setJoining(e._id)
+    try {
+      await fetch(`${API}/api/exams/${e._id}/join-waiting-room`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+      router.push(`/exam/${e._id}/waiting`)
+    } catch (err) {
+      toast?.(t('Could not join waiting room, try again', 'Waiting room join nahi ho paya, dobara try karo'), 'error')
+    } finally { setJoining(null) }
+  }
+
+  const go = (e: any) => {
+    if (e.passwordProtected && !e.activeAttemptId) { setPwModal(e); setPwErr(''); setPwInput(''); return }
+    if (e.activeAttemptId) { router.push(`/exam/${e._id}/attempt`); return }
+
+    if (e.derivedStatus === 'scheduled' && e.waitingRoomWindowOpen) { doJoinWaitingRoom(e); return }
+    if (e.derivedStatus === 'scheduled') {
+      toast?.(t('Waiting room will open ' + e.waitMins + ' minutes before start', 'Waiting room shuru se ' + e.waitMins + ' minute pehle khulega'), 'info')
+      return
+    }
+    if (e.derivedStatus === 'live' && e.joinState === 'join_closed') {
+      toast?.(t('Join window has closed. Available again: ' + fmtTime(e.nextAvailableAttemptTime), 'Join window band ho gayi. Dobara available: ' + fmtTime(e.nextAvailableAttemptTime)), 'error')
+      return
+    }
+    if (e.joinState === 'locked') { toast?.(t('No attempts left for this exam', 'Is exam ke liye attempts khatam ho gaye'), 'error'); return }
+
+    // live join_open OR ended+available_again(skipWaitingRoom) -> straight to instructions
+    router.push(`/exam/${e._id}/instructions`)
+  }
+
+  const submitPassword = () => {
+    if (!pwInput.trim()) { setPwErr(t('Enter password', 'Password daalo')); return }
+    fetch(`${API}/api/exams/${pwModal._id}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => {
+        if (d?.exam?.password && d.exam.password !== pwInput) { setPwErr(t('Incorrect password', 'Galat password')); return }
+        const e = pwModal; setPwModal(null)
+        if (e.derivedStatus === 'scheduled' && e.waitingRoomWindowOpen) { doJoinWaitingRoom(e); return }
+        router.push(`/exam/${e._id}/instructions`)
+      })
+      .catch(() => setPwErr(t('Error verifying password', 'Password verify karne me error')))
+  }
+
+  const toggleReminder = (e: any) => {
+    const next = !e.reminderEnabled
+    setExams(prev => prev.map(x => x._id === e._id ? { ...x, reminderEnabled: next } : x))
+    fetch(`${API}/api/exams/${e._id}/reminder`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ enabled: next }) }).catch(() => {})
+  }
+
+  function startBtn(e: any) {
+    if (e.activeAttemptId) return { label: t('Continue Attempt', 'Jaari Rakhein'), col: C.gold, icon: '▶️', disabled: false }
+    if (e.passwordProtected && !e.activeAttemptId) return { label: t('Password Required', 'Password Chahiye'), col: C.purple, icon: '🔒', disabled: false }
+    if (e.derivedStatus === 'scheduled' && e.waitingRoomWindowOpen) {
+      return e.hasJoinedWaitingRoom
+        ? { label: t('Resume Waiting Room', 'Waiting Room Resume Karo'), col: C.blue, icon: '🔁', disabled: false }
+        : { label: t('Join Waiting Room', 'Waiting Room Join Karo'), col: C.blue, icon: '🚪', disabled: false }
+    }
+    if (e.derivedStatus === 'scheduled') return { label: t('Available Later', 'Baad Me Available'), col: '#888', icon: '⏳', disabled: true }
+    if (e.derivedStatus === 'live' && e.joinState === 'join_open') return { label: t('Start Now', 'Abhi Shuru Karo'), col: C.green, icon: '🔴', disabled: false }
+    if (e.derivedStatus === 'live' && e.joinState === 'join_closed') return { label: t('Join Closed', 'Join Band'), col: '#888', icon: '🚫', disabled: true }
+    if (e.joinState === 'available_again') return { label: t('Start Exam', 'Exam Shuru Karo'), col: C.green, icon: '▶️', disabled: false }
+    if (e.joinState === 'locked') return { label: t('Locked', 'Locked'), col: '#888', icon: '🔒', disabled: true }
+    return { label: t('View', 'Dekho'), col: C.gold, icon: '👁️', disabled: false }
+  }
+
+  const subjects = useMemo(() => Array.from(new Set(exams.map(e => e.subject).filter(Boolean))), [exams])
+  const batches = useMemo(() => Array.from(new Set([...synced.batches, ...exams.map(e => e.batch).filter(Boolean)])), [exams, synced])
+  const categories = useMemo(() => Array.from(new Set(exams.map(e => e.category).filter(Boolean))), [exams])
 
   return (
-    <div style={{animation:'fadeIn .4s ease'}}>
-      <h1 style={{fontFamily:'Playfair Display,serif',fontSize:26,fontWeight:700,background:`linear-gradient(90deg,${C.primary},#fff)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',margin:'0 0 4px'}}>📝 {t('My Exams','मेरी परीक्षाएं')}</h1>
-      <div style={{fontSize:13,color:C.sub,marginBottom:20}}>{t('Upcoming & completed exams — your NEET journey documented','आगामी और पूर्ण परीक्षाएं — आपकी NEET यात्रा दर्ज')}</div>
-
-      {/* Banner with TestTube SVG */}
-      <div style={{background:'linear-gradient(135deg,rgba(77,159,255,.1),rgba(0,22,40,.88))',border:'1px solid rgba(77,159,255,.22)',borderRadius:20,padding:20,marginBottom:22,display:'flex',alignItems:'center',gap:16,flexWrap:'wrap',position:'relative',overflow:'hidden',boxShadow:'0 4px 24px rgba(0,0,0,.2)'}}>
-        <TestTubeSVG/>
-        <div style={{flex:1}}>
-          <div style={{fontSize:15,color:C.primary,fontStyle:'italic',fontWeight:700,marginBottom:6}}>{t('"Every exam is a stepping stone — not a stumbling block."','"हर परीक्षा एक सीढ़ी है — रुकावट नहीं।"')}</div>
-          <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-            <div style={{textAlign:'center',padding:'8px 14px',background:'rgba(77,159,255,.1)',borderRadius:10,border:`1px solid ${C.border}`}}>
-              <div style={{fontWeight:800,fontSize:18,color:C.primary}}>{upcoming.length}</div>
-              <div style={{fontSize:9,color:C.sub}}>{t('Upcoming','आगामी')}</div>
-            </div>
-            <div style={{textAlign:'center',padding:'8px 14px',background:'rgba(0,196,140,.08)',borderRadius:10,border:'1px solid rgba(0,196,140,.2)'}}>
-              <div style={{fontWeight:800,fontSize:18,color:C.success}}>{completed.length}</div>
-              <div style={{fontSize:9,color:C.sub}}>{t('Completed','पूर्ण')}</div>
-            </div>
-            <div style={{textAlign:'center',padding:'8px 14px',background:'rgba(255,215,0,.08)',borderRadius:10,border:'1px solid rgba(255,215,0,.2)'}}>
-              <div style={{fontWeight:800,fontSize:18,color:C.gold}}>{daysLeft}</div>
-              <div style={{fontSize:9,color:C.sub}}>{t('Days to NEET','NEET तक')}</div>
-            </div>
+    <div style={{ padding: 16, maxWidth: 1100, margin: '0 auto' }}>
+      {/* Header & Quick Stats — F52 §2 */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+        {[
+          ['📚', stats.total, t('Total', 'Total')],
+          ['⏳', stats.upcoming, t('Upcoming', 'Upcoming')],
+          ['🔴', stats.live, t('Live', 'Live')],
+          ['✅', stats.completed, t('Completed', 'Completed')],
+          ['🎯', stats.attempted, t('Attempted', 'Attempted')],
+          ['🏆', stats.bestScore, t('Best Score', 'Best Score')]
+        ].map(([icon, val, label]: any, i) => (
+          <div key={i} style={{ flex: '1 1 100px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px 12px', textAlign: 'center' }}>
+            <div style={{ fontSize: 18 }}>{icon}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{val}</div>
+            <div style={{ fontSize: 11, color: C.textDim }}>{label}</div>
           </div>
-        </div>
+        ))}
       </div>
 
-      {/* Search + Filter */}
-      <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}}>
-        <div style={{position:'relative',flex:1,minWidth:200}}>
-          <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',fontSize:13}}>🔍</span>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t('Search exams...','परीक्षा खोजें...')} style={{width:'100%',padding:'10px 12px 10px 34px',background:'rgba(0,22,40,.85)',border:'1.5px solid rgba(77,159,255,.3)',borderRadius:10,color:C.text,fontSize:13,fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box'}}/>
-        </div>
-        <div style={{display:'flex',gap:7}}>
-          {(['all','upcoming','completed']as const).map(f=>(
-            <button key={f} onClick={()=>setFilter(f)} style={{padding:'9px 14px',borderRadius:9,border:`1px solid ${filter===f?C.primary:C.border}`,background:filter===f?`${C.primary}22`:C.card,color:filter===f?C.primary:C.sub,cursor:'pointer',fontSize:11,fontWeight:filter===f?700:400,fontFamily:'Inter,sans-serif',transition:'all .2s'}}>
-              {f==='all'?t('All','सभी'):f==='upcoming'?t('Upcoming','आगामी'):t('Completed','पूर्ण')}
-            </button>
+      {/* F52 §10.1 — Timeline strip */}
+      {timeline.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, marginBottom: 14 }}>
+          {timeline.map(e => (
+            <div key={e._id} onClick={() => setPreviewExam(e)} style={{ cursor: 'pointer', minWidth: 130, background: C.card, border: `1px solid ${e.derivedStatus === 'live' ? C.green : C.border}`, borderRadius: 10, padding: 8 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.gold }}>{dayLabel(e.schedule?.startTime)}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.title}</div>
+              <div style={{ fontSize: 10, color: C.textDim }}>{fmtTime(e.schedule?.startTime)}</div>
+            </div>
           ))}
         </div>
+      )}
+
+      {/* Search + Filter Bar — F52 §3 */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('Search exam title...', 'Exam title search karo...')}
+          style={{ flex: '2 1 200px', padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, background: C.bg, color: C.text }} />
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ padding: 10, borderRadius: 10, border: `1px solid ${C.border}`, background: C.bg, color: C.text }}>
+          <option value="all">{t('All', 'All')}</option>
+          <option value="upcoming">{t('Upcoming', 'Upcoming')}</option>
+          <option value="live">{t('Live', 'Live')}</option>
+          <option value="completed">{t('Completed', 'Completed')}</option>
+        </select>
+        <select value={subjectFilter} onChange={e => setSubjectFilter(e.target.value)} style={{ padding: 10, borderRadius: 10, border: `1px solid ${C.border}`, background: C.bg, color: C.text }}>
+          <option value="all">{t('All Subjects', 'All Subjects')}</option>
+          {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select value={batchFilter} onChange={e => setBatchFilter(e.target.value)} style={{ padding: 10, borderRadius: 10, border: `1px solid ${C.border}`, background: C.bg, color: C.text }}>
+          <option value="all">{t('All Batches', 'All Batches')}</option>
+          {batches.map(b => <option key={b} value={b}>{b}</option>)}
+        </select>
+        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} style={{ padding: 10, borderRadius: 10, border: `1px solid ${C.border}`, background: C.bg, color: C.text }}>
+          <option value="all">{t('All Categories', 'All Categories')}</option>
+          {categories.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
       </div>
 
-      {/* Exam cards */}
-      {loading?<div style={{textAlign:'center',padding:'50px',color:C.sub}}><div style={{fontSize:36,animation:'pulse 1.5s infinite'}}>📝</div></div>:
-        filtered.length===0?(
-          <div style={{textAlign:'center',padding:'60px 20px',background:dm?C.card:C.cardL,borderRadius:20,border:`1px solid ${C.border}`,backdropFilter:'blur(14px)'}}>
-            <svg width="80" height="80" viewBox="0 0 80 80" style={{display:'block',margin:'0 auto 14px'}} fill="none">
-              <rect x="10" y="12" width="60" height="56" rx="6" stroke="#4D9FFF" strokeWidth="1.5" fill="none"/>
-              <path d="M10 28h60" stroke="#4D9FFF" strokeWidth="1"/>
-              <circle cx="25" cy="20" r="4" fill="#4D9FFF"/>
-              <circle cx="55" cy="20" r="4" fill="#4D9FFF"/>
-              <path d="M25 44h30M25 54h20" stroke="#4D9FFF" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-            <div style={{fontWeight:700,fontSize:16,color:dm?C.text:C.textL,marginBottom:6}}>{t('No exams found','कोई परीक्षा नहीं मिली')}</div>
-            <div style={{fontSize:12,color:C.sub}}>{t('Scheduled exams will appear here. Check back soon!','निर्धारित परीक्षाएं यहां दिखेंगी। जल्द जांचें!')}</div>
-          </div>
-        ):filtered.map((e:any)=>{
-          const ed=new Date(e.scheduledAt)
-          const diff=ed.getTime()-Date.now()
-          const isLive=diff>-60000*e.duration&&diff<0
-          const isUp=diff>0
-          const dLeft=Math.ceil(diff/86400000)
-          const sCol=isLive?C.danger:isUp?C.primary:C.sub
-          const sTxt=isLive?'🔴 LIVE':isUp?dLeft===0?t('Today!','आज!'):t(`In ${dLeft} days`,`${dLeft} दिन में`):t('Completed','पूर्ण')
-          return (
-            <div key={e._id} className="card-h" style={{background:dm?C.card:C.cardL,border:`1px solid ${isLive?C.danger:isUp?'rgba(77,159,255,.35)':C.border}`,borderRadius:16,padding:18,marginBottom:12,backdropFilter:'blur(14px)',position:'relative',overflow:'hidden',transition:'all .25s',boxShadow:'0 2px 14px rgba(0,0,0,.15)'}}>
-              {isLive&&<div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${C.danger},#ff8080)`,animation:'shimmer 1.5s infinite'}}/>}
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:10}}>
-                <div style={{flex:1,minWidth:200}}>
-                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:7,flexWrap:'wrap'}}>
-                    <span style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:dm?C.text:C.textL}}>{e.title}</span>
-                    <span style={{fontSize:10,padding:'2px 8px',borderRadius:20,background:`${sCol}22`,color:sCol,border:`1px solid ${sCol}44`,fontWeight:700}}>{sTxt}</span>
-                    {e.category&&<span style={{fontSize:10,padding:'2px 8px',borderRadius:20,background:`${C.gold}15`,color:C.gold,fontWeight:600}}>{e.category}</span>}
-                  </div>
-                  <div style={{display:'flex',gap:14,fontSize:11,color:C.sub,flexWrap:'wrap'}}>
-                    <span>📅 {ed.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</span>
-                    <span>⏱️ {e.duration} {t('min','मिनट')}</span>
-                    <span>🎯 {e.totalMarks} {t('marks','अंक')}</span>
-                    {e.batch&&<span>📦 {e.batch}</span>}
-                  </div>
+      {/* Exam List */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: C.textDim }}>{t('Loading exams...', 'Exams load ho rahe hai...')}</div>
+      ) : filtered.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, color: C.textDim }}>
+          <div style={{ fontSize: 40 }}>📭</div>
+          <div style={{ marginTop: 8 }}>{exams.length === 0 ? t('No exams scheduled yet', 'Abhi koi exam schedule nahi hai') : t('No exams match your filters', 'Filters se koi exam match nahi hua')}</div>
+          {exams.length > 0 && <button onClick={() => { setSearch(''); setStatusFilter('all'); setSubjectFilter('all'); setBatchFilter('all'); setCategoryFilter('all') }} style={{ marginTop: 10, padding: '8px 16px', borderRadius: 8, border: `1px solid ${C.border}`, background: 'transparent', color: C.text, cursor: 'pointer' }}>{t('Reset Filters', 'Filters Reset Karo')}</button>}
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
+          {filtered.map(e => {
+            const btn = startBtn(e)
+            const minsToStart = e.schedule?.startTime ? Math.round((new Date(e.schedule.startTime).getTime() - now) / 60000) : null
+            return (
+              <div key={e._id} style={{ background: C.card, border: `1px solid ${e.derivedStatus === 'live' ? C.green : C.border}`, borderRadius: 14, padding: 14, position: 'relative' }}>
+                {e.derivedStatus === 'live' && e.joinState === 'join_open' && (
+                  <span style={{ position: 'absolute', top: 10, right: 10, fontSize: 10, fontWeight: 800, color: '#fff', background: C.green, padding: '3px 8px', borderRadius: 20, animation: 'pulse 1.5s infinite' }}>🔴 LIVE</span>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: C.text, maxWidth: '80%' }}>{e.title}</div>
+                  <button onClick={() => setPreviewExam(e)} title={t('Quick preview', 'Quick preview')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14 }}>ℹ️</button>
                 </div>
-                <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-                  {isLive&&<a href={`/exam/${e._id}`} style={{padding:'10px 18px',background:`linear-gradient(135deg,${C.danger},#cc0000)`,color:'#fff',borderRadius:10,textDecoration:'none',fontWeight:700,fontSize:12,animation:'glow 1.5s infinite'}}>🔴 {t('Start Now','अभी शुरू')}</a>}
-                  {isUp&&!isLive&&<a href={`/exam/${e._id}`} style={{padding:'10px 18px',background:`linear-gradient(135deg,${C.primary},#0055CC)`,color:'#fff',borderRadius:10,textDecoration:'none',fontWeight:700,fontSize:12,boxShadow:`0 4px 14px ${C.primary}44`}}>{t('Start Exam →','परीक्षा शुरू →')}</a>}
-                  {!isUp&&!isLive&&<a href="/results" style={{padding:'9px 16px',background:'rgba(77,159,255,.12)',color:C.primary,border:`1px solid rgba(77,159,255,.3)`,borderRadius:10,textDecoration:'none',fontWeight:600,fontSize:12}}>{t('View Result','परिणाम देखें')}</a>}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0' }}>
+                  <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: C.textDim }}>{e.subject}</span>
+                  <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: C.textDim }}>{e.duration} min</span>
+                  <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: C.textDim }}>{e.totalMarks} marks</span>
+                  {e.category && <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: C.textDim }}>{e.category}</span>}
+                  {e.batch && <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: C.gold }}>{e.batch}</span>}
+                </div>
+                <div style={{ fontSize: 11, color: C.textDim, marginBottom: 8 }}>{fmtTime(e.schedule?.startTime)}</div>
+
+                {/* Rule 1.15.2 — explicit countdown before waiting-room window opens */}
+                {e.derivedStatus === 'scheduled' && !e.waitingRoomWindowOpen && minsToStart != null && minsToStart > 0 && (
+                  <div style={{ fontSize: 12, color: C.gold, marginBottom: 8 }}>⏱ {t('Starts in', 'Shuru hoga')} {minsToStart > 60 ? Math.floor(minsToStart / 60) + 'h ' + (minsToStart % 60) + 'm' : minsToStart + 'm'}</div>
+                )}
+                {/* F52 §10.8 — live join warning w/ next-available time */}
+                {e.joinState === 'join_closed' && (
+                  <div style={{ fontSize: 11, color: '#ff6666', marginBottom: 8 }}>⚠️ {t('Join closed. Available again:', 'Join band. Dobara available:')} {fmtTime(e.nextAvailableAttemptTime)}</div>
+                )}
+
+                {/* F52 §10.6 — Performance summary chips */}
+                {e.performance && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: C.gold }}>{t('Best', 'Best')}: {e.performance.bestScore}</span>
+                    <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: C.textDim }}>{t('Avg', 'Avg')}: {e.performance.avgScore}</span>
+                    <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: C.textDim }}>{t('Attempts', 'Attempts')}: {e.performance.attemptCount}</span>
+                    <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: e.performance.rankTrend === 'up' ? C.green : e.performance.rankTrend === 'down' ? '#ff6666' : C.textDim }}>
+                      {e.performance.rankTrend === 'up' ? '📈' : e.performance.rankTrend === 'down' ? '📉' : '➖'} {t('Rank', 'Rank')} {e.performance.rankTrend}
+                    </span>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button disabled={btn.disabled || joining === e._id} onClick={() => go(e)} style={{ flex: 1, padding: '10px 14px', borderRadius: 10, border: 'none', background: btn.disabled ? '#444' : btn.col, color: '#fff', fontWeight: 700, cursor: btn.disabled ? 'not-allowed' : 'pointer', opacity: joining === e._id ? 0.6 : 1 }}>
+                    {btn.icon} {joining === e._id ? t('Joining...', 'Join ho raha hai...') : btn.label}
+                  </button>
+                  {e.derivedStatus === 'scheduled' && (
+                    <button onClick={() => toggleReminder(e)} title={t('Reminder', 'Reminder')} style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, background: e.reminderEnabled ? C.gold : 'transparent', color: e.reminderEnabled ? '#000' : C.text, cursor: 'pointer' }}>
+                      {e.reminderEnabled ? '🔔' : '🔕'}
+                    </button>
+                  )}
                 </div>
               </div>
-            </div>
-          )
-        })
-      }
+            )
+          })}
+        </div>
+      )}
 
-      {/* NEET Countdown */}
-      <div style={{background:'linear-gradient(135deg,rgba(255,215,0,.1),rgba(0,22,40,.92))',border:'1px solid rgba(255,215,0,.22)',borderRadius:20,padding:24,marginTop:16,textAlign:'center',position:'relative',overflow:'hidden',boxShadow:'0 4px 24px rgba(0,0,0,.2)'}}>
-        <div style={{position:'absolute',inset:0,opacity:.03}}><svg width="100%" height="100%" viewBox="0 0 600 150"><text x="50%" y="75%" textAnchor="middle" fontSize="110" fontFamily="Playfair Display,serif" fontWeight="700" fill="#FFD700">NEET</text></svg></div>
-        <div style={{fontSize:13,color:C.gold,fontWeight:700,marginBottom:4}}>🏆 NEET 2026 Countdown</div>
-        <div style={{fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:700,color:dm?C.text:C.textL,marginBottom:6}}>
-          <span style={{color:C.gold,textShadow:`0 0 20px ${C.gold}66`,fontSize:28}}>{daysLeft}</span> {t('Days Remaining','दिन शेष')}
+      {/* F52 §10.4 — Exam Preview Mini Panel */}
+      {previewExam && (
+        <div onClick={() => setPreviewExam(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20, maxWidth: 340, width: '90%' }}>
+            <div style={{ fontWeight: 800, fontSize: 16, color: C.text, marginBottom: 8 }}>{previewExam.title}</div>
+            <div style={{ fontSize: 13, color: C.textDim, lineHeight: 1.8 }}>
+              <div>⏱ {t('Duration', 'Duration')}: {previewExam.duration} min</div>
+              <div>🎯 {t('Marks', 'Marks')}: {previewExam.totalMarks}</div>
+              <div>📚 {t('Subject', 'Subject')}: {previewExam.subject}</div>
+              <div>🏷 {t('Category', 'Category')}: {previewExam.category || '-'}</div>
+              <div>📅 {fmtTime(previewExam.schedule?.startTime)}</div>
+              <div>📍 {t('Status', 'Status')}: {previewExam.derivedStatus} / {previewExam.joinState}</div>
+            </div>
+            <button onClick={() => { const e = previewExam; setPreviewExam(null); go(e) }} style={{ marginTop: 14, width: '100%', padding: 10, borderRadius: 10, border: 'none', background: C.gold, color: '#000', fontWeight: 700, cursor: 'pointer' }}>{t('Open', 'Kholo')}</button>
+          </div>
         </div>
-        <div style={{fontSize:12,color:C.sub,marginBottom:16}}>{t('NEET 2026 — May 3, 2026 · 180 Questions · 720 Marks','NEET 2026 — 3 मई 2026 · 180 प्रश्न · 720 अंक')}</div>
-        <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
-          <a href="/pyq-bank" style={{padding:'8px 18px',background:`${C.gold}20`,border:`1px solid ${C.gold}44`,color:C.gold,borderRadius:10,textDecoration:'none',fontWeight:600,fontSize:12}}>{t('📚 PYQ Bank','📚 PYQ बैंक')}</a>
-          <a href="/revision" style={{padding:'8px 18px',background:`${C.primary}20`,border:`1px solid ${C.primary}44`,color:C.primary,borderRadius:10,textDecoration:'none',fontWeight:600,fontSize:12}}>{t('🧠 Smart Revision','🧠 स्मार्ट रिवीजन')}</a>
+      )}
+
+      {/* Password Modal — F52 §6.3 */}
+      {pwModal && (
+        <div onClick={() => setPwModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20, maxWidth: 320, width: '90%' }}>
+            <div style={{ fontWeight: 800, color: C.text, marginBottom: 10 }}>🔒 {t('Enter Exam Password', 'Exam Password Daalo')}</div>
+            <input type="password" value={pwInput} onChange={e => setPwInput(e.target.value)} placeholder={t('Password', 'Password')}
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, marginBottom: 8 }} />
+            {pwErr && <div style={{ color: '#ff6666', fontSize: 12, marginBottom: 8 }}>{pwErr}</div>}
+            <button onClick={submitPassword} style={{ width: '100%', padding: 10, borderRadius: 8, border: 'none', background: C.gold, color: '#000', fontWeight: 700, cursor: 'pointer' }}>{t('Submit', 'Submit')}</button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
 
 export default function MyExamsPage() {
-  return <StudentShell pageKey="my-exams"><MyExamsContent/></StudentShell>
+  return <StudentShell pageKey="my-exams"><MyExamsContent /></StudentShell>
 }

@@ -12,7 +12,7 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
     const exam = await Exam.create({ ...req.body, createdBy: req.user.id });
     if (Array.isArray(exam.questions) && exam.questions.length > 0) {
       const Question = require('../models/Question');
-      await Question.updateMany({ _id: { $in: exam.questions } }, { $inc: { usageCount: 1 } });
+      await Question.updateMany({ _id: { $in: exam.questions } }, { $inc: { usageCount: 1 } }); // QsBank: increment usageCount on create
     }
     res.status(201).json({ message: 'Exam created', exam });
   } catch (err) {
@@ -66,6 +66,7 @@ router.delete('/:id', verifyToken, isAdmin, async (req, res) => {
   }
 });
 
+
 // GET attempt by ID - Phase 4.1 Step 7+8
 router.get('/attempt/:attemptId', verifyToken, async (req, res) => {
   try {
@@ -82,6 +83,7 @@ router.get('/attempt/:attemptId', verifyToken, async (req, res) => {
     return res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
+
 
 // ── QsBank -> Exam Integration: Add multiple questions to existing exam (Feature 1.3a) ──
 router.patch('/:id/questions', verifyToken, isAdmin, async (req, res) => {
@@ -105,7 +107,8 @@ router.patch('/:id/questions', verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// START ATTEMPT — Phase 4.1
+module.exports = router;
+
 router.post('/:examId/start-attempt', verifyToken, async (req, res) => {
   try {
     const { examId } = req.params;
@@ -114,51 +117,13 @@ router.post('/:examId/start-attempt', verifyToken, async (req, res) => {
     const studentObjId = new mongoose.Types.ObjectId(studentId);
     const exam = await Exam.findById(examObjId);
     if (!exam) return res.status(404).json({ error: 'Exam not found' });
-
-    // Rule 1.15.9 — defense-in-depth: block NEW attempt creation once the live
-    // join grace period (5 min) has passed while exam is still 'live'. Once the
-    // exam's schedule.endTime passes (or status flips to 'ended'), this no
-    // longer applies and the exam becomes attemptable again (frontend then
-    // skips Waiting Room entirely and goes straight to Instructions).
-    if (exam.status === 'live' && exam.schedule && exam.schedule.startTime) {
-      const startMs = new Date(exam.schedule.startTime).getTime();
-      const endMs = exam.schedule.endTime ? new Date(exam.schedule.endTime).getTime() : null;
-      const graceMs = 5 * 60 * 1000;
-      const nowMs = Date.now();
-      const pastGrace = nowMs > startMs + graceMs;
-      const stillWithinLiveWindow = endMs ? nowMs <= endMs : true;
-      if (pastGrace && stillWithinLiveWindow) {
-        return res.status(403).json({
-          error: 'Live join window has closed for this exam. You can try again after the exam ends.',
-          code: 'JOIN_WINDOW_CLOSED'
-        });
-      }
-    }
-
-    const usedAttempts = await Attempt.countDocuments({ examId: examObjId, studentId: studentObjId, status: { $in: ['submitted', 'timeout'] } });
-    const maxAttempts = exam.unlimitedAttempts ? Infinity : exam.maxAttempts;
-    if (usedAttempts >= maxAttempts) return res.status(403).json({ error: 'Attempt limit reached' });
-
+    const usedAttempts = await Attempt.countDocuments({ examId: examObjId, studentId: studentObjId });
+    if (usedAttempts >= exam.maxAttempts) return res.status(403).json({ error: 'Attempt limit reached' });
     const student = await User.findById(studentObjId);
     if (!student) return res.status(404).json({ error: 'Student not found' });
     if (!student.termsAccepted) return res.status(403).json({ error: 'Terms not accepted' });
-
-    const newAttempt = new Attempt({
-      examId: examObjId,
-      studentId: studentObjId,
-      startedAt: new Date(),
-      status: 'active',
-      attemptNumber: usedAttempts + 1,
-      termsAccepted: true,
-      termsAcceptedAt: new Date(),
-      ipAddress: req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown'
-    });
+    const newAttempt = new Attempt({ examId: examObjId, studentId: studentObjId, startedAt: new Date(), status: 'active', ipAddress: req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown' });
     await newAttempt.save();
-
-    // Rule 1.15.10 — once attempt is active, waiting room is no longer valid for this exam.
-    // (Waiting-room join record is intentionally left as-is for history; the frontend/backend
-    //  guard is enforced via GET /api/exams/my-exams -> activeAttemptId on the waiting/instructions pages.)
-
     res.status(200).json({ success: true, attemptId: newAttempt._id, message: 'Attempt started' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -213,5 +178,3 @@ router.post('/:examId/questions', verifyToken, async (req, res) => {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
-
-module.exports = router;
