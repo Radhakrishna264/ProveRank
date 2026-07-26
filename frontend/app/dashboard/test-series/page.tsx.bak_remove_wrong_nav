@@ -528,7 +528,7 @@ function BatchCard({ b, tok, onUpdate, compareList, toggleCompare, onBuy, onRevi
         )}
         {b.isEnrolled?(
           <div style={{ display:'flex',gap:6 }} onClick={e=>e.stopPropagation()}>
-            <button onClick={e=>{e.stopPropagation();alert('📚 Batch Workspace is coming soon!')}} style={{ flex:1,padding:'10px',background:`linear-gradient(135deg,${ec}20,${ec}10)`,border:`1px solid ${ec}40`,borderRadius:11,color:ec,fontWeight:700,cursor:'pointer',fontSize:11 }}>Go to Batch →</button>
+            <button style={{ flex:1,padding:'10px',background:`linear-gradient(135deg,${ec}20,${ec}10)`,border:`1px solid ${ec}40`,borderRadius:11,color:ec,fontWeight:700,cursor:'pointer',fontSize:11 }}>Go to Batch →</button>
             {onReview&&<button onClick={()=>onReview(b)} style={{ padding:'10px 10px',background:'rgba(255,215,0,0.08)',border:'1px solid rgba(255,215,0,0.2)',borderRadius:11,color:'#FFD700',cursor:'pointer',fontSize:11 }}>⭐</button>}
           </div>
         ):b.isFree?(
@@ -621,7 +621,7 @@ function QuickPreviewModal({ batchId, tok, onClose, onBuy, onEnrollUpdate }: { b
         )}
         <div style={{ display:'flex',gap:8 }}>
           {b.isEnrolled?(
-            <button onClick={e=>{e.stopPropagation();alert('📚 Batch Workspace is coming soon!')}} style={{ flex:1,padding:'11px',background:`linear-gradient(135deg,${ec}30,${ec}15)`,border:`1px solid ${ec}50`,borderRadius:12,color:ec,fontWeight:700,cursor:'pointer',fontSize:12 }}>Go to Batch →</button>
+            <button style={{ flex:1,padding:'11px',background:`linear-gradient(135deg,${ec}30,${ec}15)`,border:`1px solid ${ec}50`,borderRadius:12,color:ec,fontWeight:700,cursor:'pointer',fontSize:12 }}>Go to Batch →</button>
           ):b.isFree?(
             <button onClick={enroll} style={{ flex:1,padding:'11px',background:'linear-gradient(135deg,#27AE60,#1E8449)',border:'none',borderRadius:12,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:12 }}>🚀 Enroll Free</button>
           ):(
