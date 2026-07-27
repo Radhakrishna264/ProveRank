@@ -63,7 +63,7 @@ function canSeeExam(exam, studentId, student, enrollment) {
     const targets = [exam.batch, ...(exam.multiBatch || [])].filter(Boolean).map(String);
     return targets.some(t => enrollment.batchIds.includes(t) || enrollment.batchNames.includes(t));
   }
-  return false; // F52 fix — no restriction configured means NOT linked to any enrolled batch/series, so it must NOT show on My Exams (only enrolled-batch/series exams are visible)
+  return true; // no restriction configured -> open to all (mini_test/individual w/o whitelist)
 }
 
 // ══ Helper: compute full exam state (status, join window, waiting-room ══
