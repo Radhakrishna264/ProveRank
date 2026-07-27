@@ -193,8 +193,6 @@ router.get('/my-exams', verifyToken, async (req, res) => {
         category: e.category,
         batch: e.batch,
         multiBatch: e.multiBatch,
-        testSeriesId: e.testSeriesId || null,
-        seriesName: e.seriesName || '',
         schedule: e.schedule,
         passwordProtected: !!e.password,
         status: e.status,

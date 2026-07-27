@@ -26,18 +26,7 @@ function MyExamsContent() {
   const token = shell?.token
   const toast = shell?.toast
   const lang = shell?.lang || 'en'
-  const theme = shell?.theme || {}
   const t = (en: string, hi: string) => (lang === 'hi' ? hi : en)
-
-  // F52 v4 fix #1 — theme-reactive colors (were static C.* before, which never
-  // switches with light/dark and caused invisible text in light mode)
-  const text = theme.text
-  const sub = theme.sub
-  const primary = theme.primary
-  const border = theme.border
-  const card = theme.isDark ? C.card : C.cardL
-  const inputBg = theme.isDark ? 'rgba(255,255,255,0.06)' : '#FFFFFF'
-  const chipBg = theme.chipBg || (theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(37,99,235,0.06)')
 
   const [exams, setExams] = useState<any[]>([])
   const [synced, setSynced] = useState<{ batches: string[]; series: string[] }>({ batches: [], series: [] })
@@ -45,7 +34,7 @@ function MyExamsContent() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [subjectFilter, setSubjectFilter] = useState('all')
-  const [batchFilter, setBatchFilter] = useState('all') // holds a batch name OR a series name
+  const [batchFilter, setBatchFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [previewExam, setPreviewExam] = useState<any>(null)
   const [pwModal, setPwModal] = useState<any>(null)
@@ -54,6 +43,7 @@ function MyExamsContent() {
   const [now, setNow] = useState(Date.now())
   const [joining, setJoining] = useState<string | null>(null)
 
+  // F52 §10.5 — Filter Memory (persist last used filters)
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('pr_myexams_filters') || '{}')
@@ -89,15 +79,10 @@ function MyExamsContent() {
       if (search && !e.title?.toLowerCase().includes(search.toLowerCase())) return false
       if (statusFilter === 'upcoming' && e.derivedStatus !== 'scheduled') return false
       if (statusFilter === 'live' && e.derivedStatus !== 'live') return false
-      if (statusFilter === 'completed' && !(e.derivedStatus === 'ended' || (e.activeAttemptId === null && e.performance))) return false
+      if (statusFilter === 'completed' && !(e.derivedStatus === 'ended' || e.activeAttemptId === null && e.performance)) return false
       if (subjectFilter !== 'all' && e.subject !== subjectFilter) return false
       if (categoryFilter !== 'all' && e.category !== categoryFilter) return false
-      // F52 v4 fix #2 — batchFilter now matches EITHER a batch name/multiBatch OR a series name
-      if (batchFilter !== 'all') {
-        const matchesBatch = e.batch === batchFilter || (e.multiBatch || []).includes(batchFilter)
-        const matchesSeries = e.seriesName === batchFilter
-        if (!matchesBatch && !matchesSeries) return false
-      }
+      if (batchFilter !== 'all' && e.batch !== batchFilter && !(e.multiBatch || []).includes(batchFilter)) return false
       return true
     })
   }, [exams, search, statusFilter, subjectFilter, batchFilter, categoryFilter])
@@ -111,6 +96,7 @@ function MyExamsContent() {
     bestScore: Math.max(0, ...exams.filter(e => e.performance).map(e => e.performance.bestScore || 0))
   }), [exams])
 
+  // F52 §10.1 — Timeline strip (upcoming exams grouped by day)
   const timeline = useMemo(() => {
     return exams
       .filter(e => e.derivedStatus === 'scheduled' && e.schedule?.startTime)
@@ -124,7 +110,7 @@ function MyExamsContent() {
       await fetch(`${API}/api/exams/${e._id}/join-waiting-room`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
       router.push(`/exam/${e._id}/waiting`)
     } catch (err) {
-      toast?.(t('Could not join waiting room, try again', 'Waiting room join nahi ho paya, dobara try karo'), 'e')
+      toast?.(t('Could not join waiting room, try again', 'Waiting room join nahi ho paya, dobara try karo'), 'error')
     } finally { setJoining(null) }
   }
 
@@ -134,15 +120,16 @@ function MyExamsContent() {
 
     if (e.derivedStatus === 'scheduled' && e.waitingRoomWindowOpen) { doJoinWaitingRoom(e); return }
     if (e.derivedStatus === 'scheduled') {
-      toast?.(t('Waiting room will open ' + e.waitMins + ' minutes before start', 'Waiting room shuru se ' + e.waitMins + ' minute pehle khulega'), 'w')
+      toast?.(t('Waiting room will open ' + e.waitMins + ' minutes before start', 'Waiting room shuru se ' + e.waitMins + ' minute pehle khulega'), 'info')
       return
     }
     if (e.derivedStatus === 'live' && e.joinState === 'join_closed') {
-      toast?.(t('Join window has closed. Available again: ' + fmtTime(e.nextAvailableAttemptTime), 'Join window band ho gayi. Dobara available: ' + fmtTime(e.nextAvailableAttemptTime)), 'e')
+      toast?.(t('Join window has closed. Available again: ' + fmtTime(e.nextAvailableAttemptTime), 'Join window band ho gayi. Dobara available: ' + fmtTime(e.nextAvailableAttemptTime)), 'error')
       return
     }
-    if (e.joinState === 'locked') { toast?.(t('No attempts left for this exam', 'Is exam ke liye attempts khatam ho gaye'), 'e'); return }
+    if (e.joinState === 'locked') { toast?.(t('No attempts left for this exam', 'Is exam ke liye attempts khatam ho gaye'), 'error'); return }
 
+    // live join_open OR ended+available_again(skipWaitingRoom) -> straight to instructions
     router.push(`/exam/${e._id}/instructions`)
   }
 
@@ -170,31 +157,24 @@ function MyExamsContent() {
     if (e.passwordProtected && !e.activeAttemptId) return { label: t('Password Required', 'Password Chahiye'), col: C.purple, icon: '🔒', disabled: false }
     if (e.derivedStatus === 'scheduled' && e.waitingRoomWindowOpen) {
       return e.hasJoinedWaitingRoom
-        ? { label: t('Resume Waiting Room', 'Waiting Room Resume Karo'), col: primary, icon: '🔁', disabled: false }
-        : { label: t('Join Waiting Room', 'Waiting Room Join Karo'), col: primary, icon: '🚪', disabled: false }
+        ? { label: t('Resume Waiting Room', 'Waiting Room Resume Karo'), col: C.blue, icon: '🔁', disabled: false }
+        : { label: t('Join Waiting Room', 'Waiting Room Join Karo'), col: C.blue, icon: '🚪', disabled: false }
     }
     if (e.derivedStatus === 'scheduled') return { label: t('Available Later', 'Baad Me Available'), col: '#888', icon: '⏳', disabled: true }
-    if (e.derivedStatus === 'live' && e.joinState === 'join_open') return { label: t('Start Now', 'Abhi Shuru Karo'), col: C.success, icon: '🔴', disabled: false }
+    if (e.derivedStatus === 'live' && e.joinState === 'join_open') return { label: t('Start Now', 'Abhi Shuru Karo'), col: C.green, icon: '🔴', disabled: false }
     if (e.derivedStatus === 'live' && e.joinState === 'join_closed') return { label: t('Join Closed', 'Join Band'), col: '#888', icon: '🚫', disabled: true }
-    if (e.joinState === 'available_again') return { label: t('Start Exam', 'Exam Shuru Karo'), col: C.success, icon: '▶️', disabled: false }
+    if (e.joinState === 'available_again') return { label: t('Start Exam', 'Exam Shuru Karo'), col: C.green, icon: '▶️', disabled: false }
     if (e.joinState === 'locked') return { label: t('Locked', 'Locked'), col: '#888', icon: '🔒', disabled: true }
     return { label: t('View', 'Dekho'), col: C.gold, icon: '👁️', disabled: false }
   }
 
   const subjects = useMemo(() => Array.from(new Set(exams.map(e => e.subject).filter(Boolean))), [exams])
-  // F52 v4 fix #2 — merged Batches + Test Series into one synced list for the dropdown
-  const batchesAndSeries = useMemo(() => Array.from(new Set([
-    ...synced.batches,
-    ...synced.series,
-    ...exams.map(e => e.batch).filter(Boolean),
-    ...exams.map(e => e.seriesName).filter(Boolean)
-  ])), [exams, synced])
+  const batches = useMemo(() => Array.from(new Set([...synced.batches, ...exams.map(e => e.batch).filter(Boolean)])), [exams, synced])
   const categories = useMemo(() => Array.from(new Set(exams.map(e => e.category).filter(Boolean))), [exams])
-
-  const selectStyle: any = { padding: 10, borderRadius: 10, border: `1px solid ${border}`, background: inputBg, color: text }
 
   return (
     <div style={{ padding: 16, maxWidth: 1100, margin: '0 auto' }}>
+      {/* Header & Quick Stats — F52 §2 */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
         {[
           ['📚', stats.total, t('Total', 'Total')],
@@ -204,57 +184,59 @@ function MyExamsContent() {
           ['🎯', stats.attempted, t('Attempted', 'Attempted')],
           ['🏆', stats.bestScore, t('Best Score', 'Best Score')]
         ].map(([icon, val, label]: any, i) => (
-          <div key={i} style={{ flex: '1 1 100px', background: card, border: `1px solid ${border}`, borderRadius: 12, padding: '10px 12px', textAlign: 'center' }}>
+          <div key={i} style={{ flex: '1 1 100px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px 12px', textAlign: 'center' }}>
             <div style={{ fontSize: 18 }}>{icon}</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: text }}>{val}</div>
-            <div style={{ fontSize: 11, color: sub }}>{label}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{val}</div>
+            <div style={{ fontSize: 11, color: C.textDim }}>{label}</div>
           </div>
         ))}
       </div>
 
+      {/* F52 §10.1 — Timeline strip */}
       {timeline.length > 0 && (
         <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, marginBottom: 14 }}>
           {timeline.map(e => (
-            <div key={e._id} onClick={() => setPreviewExam(e)} style={{ cursor: 'pointer', minWidth: 130, background: card, border: `1px solid ${e.derivedStatus === 'live' ? C.success : border}`, borderRadius: 10, padding: 8 }}>
+            <div key={e._id} onClick={() => setPreviewExam(e)} style={{ cursor: 'pointer', minWidth: 130, background: C.card, border: `1px solid ${e.derivedStatus === 'live' ? C.green : C.border}`, borderRadius: 10, padding: 8 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: C.gold }}>{dayLabel(e.schedule?.startTime)}</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.title}</div>
-              <div style={{ fontSize: 10, color: sub }}>{fmtTime(e.schedule?.startTime)}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.title}</div>
+              <div style={{ fontSize: 10, color: C.textDim }}>{fmtTime(e.schedule?.startTime)}</div>
             </div>
           ))}
         </div>
       )}
 
+      {/* Search + Filter Bar — F52 §3 */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('Search exam title...', 'Exam title search karo...')}
-          style={{ flex: '2 1 200px', padding: '10px 12px', borderRadius: 10, border: `1px solid ${border}`, background: inputBg, color: text }} />
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={selectStyle}>
+          style={{ flex: '2 1 200px', padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, background: C.bg, color: C.text }} />
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ padding: 10, borderRadius: 10, border: `1px solid ${C.border}`, background: C.bg, color: C.text }}>
           <option value="all">{t('All', 'All')}</option>
           <option value="upcoming">{t('Upcoming', 'Upcoming')}</option>
           <option value="live">{t('Live', 'Live')}</option>
           <option value="completed">{t('Completed', 'Completed')}</option>
         </select>
-        <select value={subjectFilter} onChange={e => setSubjectFilter(e.target.value)} style={selectStyle}>
+        <select value={subjectFilter} onChange={e => setSubjectFilter(e.target.value)} style={{ padding: 10, borderRadius: 10, border: `1px solid ${C.border}`, background: C.bg, color: C.text }}>
           <option value="all">{t('All Subjects', 'All Subjects')}</option>
           {subjects.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        {/* F52 v4 fix #2 — renamed + merged Batches/Test Series dropdown */}
-        <select value={batchFilter} onChange={e => setBatchFilter(e.target.value)} style={selectStyle}>
-          <option value="all">{t('All Batches/Test Series', 'All Batches/Test Series')}</option>
-          {batchesAndSeries.map(b => <option key={b} value={b}>{b}</option>)}
+        <select value={batchFilter} onChange={e => setBatchFilter(e.target.value)} style={{ padding: 10, borderRadius: 10, border: `1px solid ${C.border}`, background: C.bg, color: C.text }}>
+          <option value="all">{t('All Batches', 'All Batches')}</option>
+          {batches.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
-        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} style={selectStyle}>
+        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} style={{ padding: 10, borderRadius: 10, border: `1px solid ${C.border}`, background: C.bg, color: C.text }}>
           <option value="all">{t('All Categories', 'All Categories')}</option>
           {categories.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
 
+      {/* Exam List */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 40, color: sub }}>{t('Loading exams...', 'Exams load ho rahe hai...')}</div>
+        <div style={{ textAlign: 'center', padding: 40, color: C.textDim }}>{t('Loading exams...', 'Exams load ho rahe hai...')}</div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 40, color: sub }}>
+        <div style={{ textAlign: 'center', padding: 40, color: C.textDim }}>
           <div style={{ fontSize: 40 }}>📭</div>
           <div style={{ marginTop: 8 }}>{exams.length === 0 ? t('No exams scheduled yet', 'Abhi koi exam schedule nahi hai') : t('No exams match your filters', 'Filters se koi exam match nahi hua')}</div>
-          {exams.length > 0 && <button onClick={() => { setSearch(''); setStatusFilter('all'); setSubjectFilter('all'); setBatchFilter('all'); setCategoryFilter('all') }} style={{ marginTop: 10, padding: '8px 16px', borderRadius: 8, border: `1px solid ${border}`, background: 'transparent', color: text, cursor: 'pointer' }}>{t('Reset Filters', 'Filters Reset Karo')}</button>}
+          {exams.length > 0 && <button onClick={() => { setSearch(''); setStatusFilter('all'); setSubjectFilter('all'); setBatchFilter('all'); setCategoryFilter('all') }} style={{ marginTop: 10, padding: '8px 16px', borderRadius: 8, border: `1px solid ${C.border}`, background: 'transparent', color: C.text, cursor: 'pointer' }}>{t('Reset Filters', 'Filters Reset Karo')}</button>}
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
@@ -262,37 +244,39 @@ function MyExamsContent() {
             const btn = startBtn(e)
             const minsToStart = e.schedule?.startTime ? Math.round((new Date(e.schedule.startTime).getTime() - now) / 60000) : null
             return (
-              <div key={e._id} style={{ background: card, border: `1px solid ${e.derivedStatus === 'live' ? C.success : border}`, borderRadius: 14, padding: 14, position: 'relative' }}>
+              <div key={e._id} style={{ background: C.card, border: `1px solid ${e.derivedStatus === 'live' ? C.green : C.border}`, borderRadius: 14, padding: 14, position: 'relative' }}>
                 {e.derivedStatus === 'live' && e.joinState === 'join_open' && (
-                  <span style={{ position: 'absolute', top: 10, right: 10, fontSize: 10, fontWeight: 800, color: '#fff', background: C.success, padding: '3px 8px', borderRadius: 20 }}>🔴 LIVE</span>
+                  <span style={{ position: 'absolute', top: 10, right: 10, fontSize: 10, fontWeight: 800, color: '#fff', background: C.green, padding: '3px 8px', borderRadius: 20, animation: 'pulse 1.5s infinite' }}>🔴 LIVE</span>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ fontWeight: 800, fontSize: 15, color: text, maxWidth: '80%' }}>{e.title}</div>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: C.text, maxWidth: '80%' }}>{e.title}</div>
                   <button onClick={() => setPreviewExam(e)} title={t('Quick preview', 'Quick preview')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14 }}>ℹ️</button>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0' }}>
-                  <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{e.subject}</span>
-                  <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{e.duration} min</span>
-                  <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{e.totalMarks} marks</span>
-                  {e.category && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{e.category}</span>}
-                  {e.batch && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: C.gold }}>{e.batch}</span>}
-                  {e.seriesName && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: C.gold }}>📚 {e.seriesName}</span>}
+                  <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: C.textDim }}>{e.subject}</span>
+                  <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: C.textDim }}>{e.duration} min</span>
+                  <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: C.textDim }}>{e.totalMarks} marks</span>
+                  {e.category && <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: C.textDim }}>{e.category}</span>}
+                  {e.batch && <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: C.gold }}>{e.batch}</span>}
                 </div>
-                <div style={{ fontSize: 11, color: sub, marginBottom: 8 }}>{fmtTime(e.schedule?.startTime)}</div>
+                <div style={{ fontSize: 11, color: C.textDim, marginBottom: 8 }}>{fmtTime(e.schedule?.startTime)}</div>
 
+                {/* Rule 1.15.2 — explicit countdown before waiting-room window opens */}
                 {e.derivedStatus === 'scheduled' && !e.waitingRoomWindowOpen && minsToStart != null && minsToStart > 0 && (
                   <div style={{ fontSize: 12, color: C.gold, marginBottom: 8 }}>⏱ {t('Starts in', 'Shuru hoga')} {minsToStart > 60 ? Math.floor(minsToStart / 60) + 'h ' + (minsToStart % 60) + 'm' : minsToStart + 'm'}</div>
                 )}
+                {/* F52 §10.8 — live join warning w/ next-available time */}
                 {e.joinState === 'join_closed' && (
-                  <div style={{ fontSize: 11, color: C.danger, marginBottom: 8 }}>⚠️ {t('Join closed. Available again:', 'Join band. Dobara available:')} {fmtTime(e.nextAvailableAttemptTime)}</div>
+                  <div style={{ fontSize: 11, color: '#ff6666', marginBottom: 8 }}>⚠️ {t('Join closed. Available again:', 'Join band. Dobara available:')} {fmtTime(e.nextAvailableAttemptTime)}</div>
                 )}
 
+                {/* F52 §10.6 — Performance summary chips */}
                 {e.performance && (
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-                    <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: C.gold }}>{t('Best', 'Best')}: {e.performance.bestScore}</span>
-                    <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{t('Avg', 'Avg')}: {e.performance.avgScore}</span>
-                    <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{t('Attempts', 'Attempts')}: {e.performance.attemptCount}</span>
-                    <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: e.performance.rankTrend === 'up' ? C.success : e.performance.rankTrend === 'down' ? C.danger : sub }}>
+                    <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: C.gold }}>{t('Best', 'Best')}: {e.performance.bestScore}</span>
+                    <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: C.textDim }}>{t('Avg', 'Avg')}: {e.performance.avgScore}</span>
+                    <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: C.textDim }}>{t('Attempts', 'Attempts')}: {e.performance.attemptCount}</span>
+                    <span style={{ fontSize: 11, background: C.bg, padding: '3px 8px', borderRadius: 20, color: e.performance.rankTrend === 'up' ? C.green : e.performance.rankTrend === 'down' ? '#ff6666' : C.textDim }}>
                       {e.performance.rankTrend === 'up' ? '📈' : e.performance.rankTrend === 'down' ? '📉' : '➖'} {t('Rank', 'Rank')} {e.performance.rankTrend}
                     </span>
                   </div>
@@ -303,7 +287,7 @@ function MyExamsContent() {
                     {btn.icon} {joining === e._id ? t('Joining...', 'Join ho raha hai...') : btn.label}
                   </button>
                   {e.derivedStatus === 'scheduled' && (
-                    <button onClick={() => toggleReminder(e)} title={t('Reminder', 'Reminder')} style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${border}`, background: e.reminderEnabled ? C.gold : 'transparent', color: e.reminderEnabled ? '#000' : text, cursor: 'pointer' }}>
+                    <button onClick={() => toggleReminder(e)} title={t('Reminder', 'Reminder')} style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, background: e.reminderEnabled ? C.gold : 'transparent', color: e.reminderEnabled ? '#000' : C.text, cursor: 'pointer' }}>
                       {e.reminderEnabled ? '🔔' : '🔕'}
                     </button>
                   )}
@@ -314,16 +298,16 @@ function MyExamsContent() {
         </div>
       )}
 
+      {/* F52 §10.4 — Exam Preview Mini Panel */}
       {previewExam && (
         <div onClick={() => setPreviewExam(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: card, border: `1px solid ${border}`, borderRadius: 16, padding: 20, maxWidth: 340, width: '90%' }}>
-            <div style={{ fontWeight: 800, fontSize: 16, color: text, marginBottom: 8 }}>{previewExam.title}</div>
-            <div style={{ fontSize: 13, color: sub, lineHeight: 1.8 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20, maxWidth: 340, width: '90%' }}>
+            <div style={{ fontWeight: 800, fontSize: 16, color: C.text, marginBottom: 8 }}>{previewExam.title}</div>
+            <div style={{ fontSize: 13, color: C.textDim, lineHeight: 1.8 }}>
               <div>⏱ {t('Duration', 'Duration')}: {previewExam.duration} min</div>
               <div>🎯 {t('Marks', 'Marks')}: {previewExam.totalMarks}</div>
               <div>📚 {t('Subject', 'Subject')}: {previewExam.subject}</div>
               <div>🏷 {t('Category', 'Category')}: {previewExam.category || '-'}</div>
-              {previewExam.seriesName && <div>📖 {t('Test Series', 'Test Series')}: {previewExam.seriesName}</div>}
               <div>📅 {fmtTime(previewExam.schedule?.startTime)}</div>
               <div>📍 {t('Status', 'Status')}: {previewExam.derivedStatus} / {previewExam.joinState}</div>
             </div>
@@ -332,13 +316,14 @@ function MyExamsContent() {
         </div>
       )}
 
+      {/* Password Modal — F52 §6.3 */}
       {pwModal && (
         <div onClick={() => setPwModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: card, border: `1px solid ${border}`, borderRadius: 16, padding: 20, maxWidth: 320, width: '90%' }}>
-            <div style={{ fontWeight: 800, color: text, marginBottom: 10 }}>🔒 {t('Enter Exam Password', 'Exam Password Daalo')}</div>
+          <div onClick={e => e.stopPropagation()} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20, maxWidth: 320, width: '90%' }}>
+            <div style={{ fontWeight: 800, color: C.text, marginBottom: 10 }}>🔒 {t('Enter Exam Password', 'Exam Password Daalo')}</div>
             <input type="password" value={pwInput} onChange={e => setPwInput(e.target.value)} placeholder={t('Password', 'Password')}
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, marginBottom: 8 }} />
-            {pwErr && <div style={{ color: C.danger, fontSize: 12, marginBottom: 8 }}>{pwErr}</div>}
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, marginBottom: 8 }} />
+            {pwErr && <div style={{ color: '#ff6666', fontSize: 12, marginBottom: 8 }}>{pwErr}</div>}
             <button onClick={submitPassword} style={{ width: '100%', padding: 10, borderRadius: 8, border: 'none', background: C.gold, color: '#000', fontWeight: 700, cursor: 'pointer' }}>{t('Submit', 'Submit')}</button>
           </div>
         </div>

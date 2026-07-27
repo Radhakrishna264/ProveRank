@@ -36,11 +36,7 @@ function InstructionsContent() {
   const shell = useShell() as any
   const token = shell?.token
   const [lang, setLang] = useState(shell?.lang || 'en')
-  const theme = shell?.theme || {}
   const t = (en: string, hi: string) => (lang === 'hi' ? hi : en)
-
-  const text = theme.text, sub = theme.sub, border = theme.border
-  const card = theme.isDark ? C.card : C.cardL
 
   const [exam, setExam] = useState<any>(null)
   const [checked, setChecked] = useState(false)
@@ -51,6 +47,7 @@ function InstructionsContent() {
 
   useEffect(() => {
     if (!token) return
+    // Rule 1.15.10 — if attempt already active, skip straight there
     fetch(`${API}/api/exams/my-exams`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => {
@@ -61,6 +58,7 @@ function InstructionsContent() {
     fetch(`${API}/api/exams/${examId}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => setExam(d?.exam || null)).catch(() => {})
 
+    // F55 §3.1 — version-based re-acceptance check
     fetch(`${API}/api/exams/${examId}/consent-status`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => { if (d?.success) setConsentAlready(!!d.accepted) }).catch(() => {})
   }, [examId, token])
@@ -88,13 +86,14 @@ function InstructionsContent() {
 
   return (
     <div style={{ padding: 16, maxWidth: 640, margin: '0 auto' }}>
-      <div style={{ background: card, border: `1px solid ${border}`, borderRadius: 18, padding: 22 }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, padding: 22 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: text }}>{exam?.title || t('Exam Instructions', 'Exam Instructions')}</div>
-            <div style={{ fontSize: 12, color: sub }}>{t('Please read carefully before proceeding', 'Aage badhne se pehle dhyan se padho')}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: C.text }}>{exam?.title || t('Exam Instructions', 'Exam Instructions')}</div>
+            <div style={{ fontSize: 12, color: C.textDim }}>{t('Please read carefully before proceeding', 'Aage badhne se pehle dhyan se padho')}</div>
           </div>
-          <button onClick={() => setLang(l => l === 'hi' ? 'en' : 'hi')} style={{ padding: '6px 12px', borderRadius: 20, border: `1px solid ${border}`, background: 'transparent', color: text, cursor: 'pointer', fontSize: 12 }}>
+          {/* F54 §1.1.5 — explicit language toggle */}
+          <button onClick={() => setLang(l => l === 'hi' ? 'en' : 'hi')} style={{ padding: '6px 12px', borderRadius: 20, border: `1px solid ${C.border}`, background: 'transparent', color: C.text, cursor: 'pointer', fontSize: 12 }}>
             {lang === 'hi' ? 'EN' : 'हिं'}
           </button>
         </div>
@@ -105,7 +104,7 @@ function InstructionsContent() {
           </div>
         )}
 
-        <ol style={{ padding: '16px 0 0 20px', color: text, fontSize: 13, lineHeight: 1.9 }}>
+        <ol style={{ padding: '16px 0 0 20px', color: C.text, fontSize: 13, lineHeight: 1.9 }}>
           {points.map((p, i) => <li key={i}>{p}</li>)}
         </ol>
 
@@ -115,26 +114,27 @@ function InstructionsContent() {
           </div>
         )}
 
+        {/* T&C */}
         <div style={{ background: '#0e2418', border: '1px solid #1e5c3a', borderRadius: 10, padding: 12, marginTop: 16 }}>
           <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
             <input type="checkbox" checked={checked} onChange={e => { if (!e.target.checked) { setChecked(false); return } setTcModal(true) }} style={{ marginTop: 3 }} />
-            <span style={{ fontSize: 13, color: '#dff5e6' }}>
+            <span style={{ fontSize: 13, color: C.text }}>
               {t('I have read and agree to all instructions', 'Maine saari instructions padh li hai aur maanta/maanti hoon')}
               {' '}<a onClick={(e) => { e.preventDefault(); setTcModal(true) }} style={{ color: C.gold, cursor: 'pointer', textDecoration: 'underline' }}>({t('read full terms', 'poore terms padho')})</a>
             </span>
           </label>
         </div>
 
-        <button disabled={!checked} onClick={proceed} style={{ width: '100%', marginTop: 18, padding: 14, borderRadius: 12, border: 'none', background: checked ? `linear-gradient(90deg, ${theme.primary}, ${C.gold})` : '#444', color: '#fff', fontWeight: 800, cursor: checked ? 'pointer' : 'not-allowed', transition: 'all .3s' }}>
+        <button disabled={!checked} onClick={proceed} style={{ width: '100%', marginTop: 18, padding: 14, borderRadius: 12, border: 'none', background: checked ? `linear-gradient(90deg, ${C.blue}, ${C.gold})` : '#444', color: '#fff', fontWeight: 800, cursor: checked ? 'pointer' : 'not-allowed', transition: 'all .3s' }}>
           {t('Proceed to AI Webcam Check', 'AI Webcam Check Par Jao')} →
         </button>
       </div>
 
       {tcModal && (
         <div onClick={() => setTcModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 16 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: card, borderRadius: 16, padding: 20, maxWidth: 480, width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ fontWeight: 800, color: text, marginBottom: 10 }}>{t('Terms & Conditions', 'Terms & Conditions')}</div>
-            <div ref={tcBodyRef} onScroll={onTcScroll} style={{ overflowY: 'auto', fontSize: 13, color: sub, lineHeight: 1.7, flex: 1, paddingRight: 4 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: C.card, borderRadius: 16, padding: 20, maxWidth: 480, width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ fontWeight: 800, color: C.text, marginBottom: 10 }}>{t('Terms & Conditions', 'Terms & Conditions')}</div>
+            <div ref={tcBodyRef} onScroll={onTcScroll} style={{ overflowY: 'auto', fontSize: 13, color: C.textDim, lineHeight: 1.7, flex: 1, paddingRight: 4 }}>
               {lang === 'hi' ? TC_TEXT_HI : TC_TEXT_EN}
             </div>
             {!scrolledToBottom && <div style={{ fontSize: 11, color: C.gold, marginTop: 8 }}>{t('Scroll to the bottom to continue', 'Continue karne ke liye niche scroll karo')}</div>}
