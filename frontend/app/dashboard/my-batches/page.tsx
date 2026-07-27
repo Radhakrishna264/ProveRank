@@ -376,7 +376,7 @@ export default function MyBatchesPage() {
                   }
                 </div>
               </div>
-              <button onClick={()=>{accessBatch(lastAccessed._id);setWsMsg(`📚 ${lastAccessed._kind==='series'?'Test Series':'Batch'} Workspace is coming soon!`);setTimeout(()=>setWsMsg(null),3000)}}
+              <button onClick={()=>{accessBatch(lastAccessed._id);router.push(`/dashboard/my-batches/${lastAccessed._id}`)}}
                 style={{background:`linear-gradient(135deg,${ECOLS[lastAccessed.examType]||'#4D9FFF'},${ECOLS[lastAccessed.examType]||'#4D9FFF'}BB)`,border:'none',borderRadius:12,padding:'10px 16px',color:'#fff',fontWeight:700,cursor:'pointer',fontSize:12,flexShrink:0,boxShadow:`0 4px 14px ${ECOLS[lastAccessed.examType]||'#4D9FFF'}30`}}>Resume →</button>
             </div>
           </div>
@@ -499,7 +499,7 @@ export default function MyBatchesPage() {
                           {renewingId===b._id?'Renewing…':'🔄 Renew Now'}
                         </button>
                       ):(
-                        <button onClick={()=>{accessBatch(b._id);setWsMsg(`📚 ${b._kind==='series'?'Test Series':'Batch'} Workspace is coming soon!`);setTimeout(()=>setWsMsg(null),3000)}}
+                        <button onClick={()=>{accessBatch(b._id);router.push(`/dashboard/my-batches/${b._id}`)}}
                           style={{flex:1,padding:'9px',background:`linear-gradient(135deg,${ec},${ec}BB)`,border:'none',borderRadius:11,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:11,boxShadow:`0 4px 12px ${ec}25`}}>▶️ Continue</button>
                       )}
                       {tab!=='wishlist'&&!b.isExpired&&!b.isCompleted&&b.daysLeft<=7&&(

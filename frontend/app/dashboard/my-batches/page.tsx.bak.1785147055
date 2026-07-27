@@ -83,15 +83,15 @@ function ProgressBar({pct,ec}:{pct:number;ec:string}) {
   return (
     <div style={{width:'100%'}}>
       <div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}>
-        <span style={{fontSize:10,color:'rgba(var(--pr-sub-rgb),0.55)'}}>Progress</span>
+        <span style={{fontSize:10,color:'rgba(var(--pr-sub-rgb),0.76)'}}>Progress</span>
         <span style={{fontSize:10,fontWeight:700,color:ec}}>{pct}%</span>
       </div>
       <div style={{height:6,background:'rgba(255,255,255,0.08)',borderRadius:3,overflow:'hidden'}}>
         <div style={{height:'100%',width:`${pct}%`,background:`linear-gradient(90deg,${ec},${ec}BB)`,borderRadius:3,transition:'width 0.8s ease',boxShadow:`0 0 8px ${ec}60`}}/>
       </div>
       <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}>
-        <span style={{fontSize:9,color:'rgba(var(--pr-sub-rgb),0.35)'}}>0 tests</span>
-        <span style={{fontSize:9,color:'rgba(var(--pr-sub-rgb),0.35)'}}>Goal: 100%</span>
+        <span style={{fontSize:9,color:'rgba(var(--pr-sub-rgb),0.68)'}}>0 tests</span>
+        <span style={{fontSize:9,color:'rgba(var(--pr-sub-rgb),0.68)'}}>Goal: 100%</span>
       </div>
     </div>
   )
@@ -114,25 +114,25 @@ function BatchLeaderboardModal({batchId,batchName,tok,onClose}:{batchId:string;b
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
           <div>
             <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:'var(--pr-text)'}}>🏆 Batch Leaderboard</div>
-            <div style={{fontSize:11,color:'rgba(var(--pr-sub-rgb),0.5)',marginTop:2,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',maxWidth:260}}>{batchName}</div>
+            <div style={{fontSize:11,color:'rgba(var(--pr-sub-rgb),0.74)',marginTop:2,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',maxWidth:260}}>{batchName}</div>
           </div>
-          <button onClick={onClose} style={{background:'transparent',border:'none',color:'rgba(var(--pr-sub-rgb),0.5)',cursor:'pointer',fontSize:22}}>×</button>
+          <button onClick={onClose} style={{background:'transparent',border:'none',color:'rgba(var(--pr-sub-rgb),0.74)',cursor:'pointer',fontSize:22}}>×</button>
         </div>
         {myRank>0&&<div style={{background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:12,padding:'10px 14px',marginBottom:14,display:'flex',alignItems:'center',gap:10}}>
           <span style={{fontSize:20}}>🎯</span>
-          <div><div style={{fontSize:13,fontWeight:700,color:'#4D9FFF'}}>Your Rank: #{myRank} of {total}</div><div style={{fontSize:10,color:'rgba(var(--pr-sub-rgb),0.5)'}}>Keep attempting tests to improve!</div></div>
+          <div><div style={{fontSize:13,fontWeight:700,color:'#4D9FFF'}}>Your Rank: #{myRank} of {total}</div><div style={{fontSize:10,color:'rgba(var(--pr-sub-rgb),0.74)'}}>Keep attempting tests to improve!</div></div>
         </div>}
         <div style={{overflowY:'auto',flex:1}}>
-          {loading?<div style={{textAlign:'center',padding:30,color:'rgba(var(--pr-sub-rgb),0.4)'}}>Loading...</div>:
-          lb.length===0?<div style={{textAlign:'center',padding:30,color:'rgba(var(--pr-sub-rgb),0.4)',fontSize:12}}>No students enrolled yet</div>:
+          {loading?<div style={{textAlign:'center',padding:30,color:'rgba(var(--pr-sub-rgb),0.82)'}}>Loading...</div>:
+          lb.length===0?<div style={{textAlign:'center',padding:30,color:'rgba(var(--pr-sub-rgb),0.82)',fontSize:12}}>No students enrolled yet</div>:
           lb.map((entry,i)=>(
             <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0',borderBottom:'1px solid rgba(77,159,255,0.06)'}}>
-              <div style={{width:28,height:28,borderRadius:'50%',background:i===0?'linear-gradient(135deg,#FFD700,#FFA000)':i===1?'linear-gradient(135deg,#C0C0C0,#9E9E9E)':i===2?'linear-gradient(135deg,#CD7F32,#A0522D)':'rgba(77,159,255,0.1)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:i<3?14:10,fontWeight:900,flexShrink:0,color:i<3?'#000':'rgba(var(--pr-sub-rgb),0.5)'}}>
+              <div style={{width:28,height:28,borderRadius:'50%',background:i===0?'linear-gradient(135deg,#FFD700,#FFA000)':i===1?'linear-gradient(135deg,#C0C0C0,#9E9E9E)':i===2?'linear-gradient(135deg,#CD7F32,#A0522D)':'rgba(77,159,255,0.1)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:i<3?14:10,fontWeight:900,flexShrink:0,color:i<3?'#000':'rgba(var(--pr-sub-rgb),0.74)'}}>
                 {i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}
               </div>
               <div style={{flex:1}}>
                 <div style={{fontSize:12,fontWeight:700,color:'var(--pr-text)'}}>{entry.name}</div>
-                <div style={{fontSize:10,color:'rgba(var(--pr-sub-rgb),0.45)'}}>📝 {entry.testsCompleted} tests · ⭐ {entry.avgScore.toFixed(1)}% avg · 🔥 {entry.streak} streak</div>
+                <div style={{fontSize:10,color:'rgba(var(--pr-sub-rgb),0.84)'}}>📝 {entry.testsCompleted} tests · ⭐ {entry.avgScore.toFixed(1)}% avg · 🔥 {entry.streak} streak</div>
               </div>
             </div>
           ))}
@@ -153,7 +153,7 @@ function MilestoneChips({batchId,tok}:{batchId:string;tok:string}) {
   return (
     <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:10}}>
       {milestones.map((m,i)=>(
-        <span key={i} style={{fontSize:9,padding:'2px 8px',borderRadius:20,fontWeight:700,background:m.achieved?'rgba(39,174,96,0.14)':'rgba(var(--pr-sub-rgb),0.08)',color:m.achieved?'#27AE60':'rgba(var(--pr-sub-rgb),0.4)'}}>{m.achieved?'✓':'○'} {m.label}</span>
+        <span key={i} style={{fontSize:9,padding:'2px 8px',borderRadius:20,fontWeight:700,background:m.achieved?'rgba(39,174,96,0.14)':'rgba(var(--pr-sub-rgb),0.08)',color:m.achieved?'#27AE60':'rgba(var(--pr-sub-rgb),0.82)'}}>{m.achieved?'✓':'○'} {m.label}</span>
       ))}
     </div>
   )
@@ -169,14 +169,14 @@ function ActivityFeed({batchId,tok}:{batchId:string;tok:string}) {
   if(activities.length===0)return null
   return (
     <div style={{marginTop:14}}>
-      <div style={{fontSize:10,fontWeight:700,color:'rgba(var(--pr-sub-rgb),0.45)',textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>📢 What's New</div>
+      <div style={{fontSize:10,fontWeight:700,color:'rgba(var(--pr-sub-rgb),0.84)',textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>📢 What's New</div>
       {activities.map(a=>(
         <div key={a._id} style={{display:'flex',gap:8,alignItems:'flex-start',padding:'7px 0',borderBottom:'1px solid rgba(77,159,255,0.06)'}}>
           <span style={{fontSize:16,flexShrink:0}}>{a.icon}</span>
           <div>
             <div style={{fontSize:11,fontWeight:700,color:'var(--pr-text)'}}>{a.title}</div>
-            {a.message&&<div style={{fontSize:10,color:'rgba(var(--pr-sub-rgb),0.55)',marginTop:2}}>{a.message}</div>}
-            <div style={{fontSize:9,color:'rgba(var(--pr-sub-rgb),0.3)',marginTop:3}}>{new Date(a.createdAt).toLocaleDateString()}</div>
+            {a.message&&<div style={{fontSize:10,color:'rgba(var(--pr-sub-rgb),0.76)',marginTop:2}}>{a.message}</div>}
+            <div style={{fontSize:9,color:'rgba(var(--pr-sub-rgb),0.68)',marginTop:3}}>{new Date(a.createdAt).toLocaleDateString()}</div>
           </div>
         </div>
       ))}
@@ -210,7 +210,7 @@ export default function MyBatchesPage() {
   const CARD='rgba(var(--pr-card-rgb),0.95)'
   const BORDER='rgba(var(--pr-sub-rgb),0.14)'
   const TEXT='var(--pr-text)'
-  const SUB='rgba(var(--pr-sub-rgb),0.55)'
+  const SUB='rgba(var(--pr-sub-rgb),0.76)'
 
   useEffect(()=>{
     setIsClient(true)
@@ -361,7 +361,7 @@ export default function MyBatchesPage() {
         {/* CONTINUE WHERE YOU LEFT OFF */}
         {lastAccessed&&(
           <div style={{background:CARD,border:`1px solid ${ECOLS[lastAccessed.examType]||'#4D9FFF'}28`,borderRadius:18,padding:'16px',marginBottom:14,backdropFilter:'blur(16px)',animation:'slideUp 0.35s ease'}}>
-            <div style={{fontSize:10,fontWeight:700,color:'rgba(var(--pr-sub-rgb),0.45)',textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>▶️ Continue Where You Left Off</div>
+            <div style={{fontSize:10,fontWeight:700,color:'rgba(var(--pr-sub-rgb),0.84)',textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>▶️ Continue Where You Left Off</div>
             <div style={{display:'flex',alignItems:'center',gap:12}}>
               <div style={{width:48,height:48,borderRadius:13,background:`${ECOLS[lastAccessed.examType]||'#4D9FFF'}18`,border:`1px solid ${ECOLS[lastAccessed.examType]||'#4D9FFF'}28`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>
                 {CICONS[lastAccessed.examType]||'📚'}
