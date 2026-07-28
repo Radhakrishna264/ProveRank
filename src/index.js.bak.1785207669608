@@ -125,6 +125,7 @@ if (questionExtraRoutes)    app.use('/api/questions', questionExtraRoutes);
 
 // ── Exam Routes ───────────────────────────────────────────────
 app.use('/api/exams', examFeaturesRoutes);
+const examFlowRoutes = require('./routes/examFlow');
 app.use('/api/exams', examFlowRoutes);
 app.use('/api/exams', examRoutes);
 app.use('/api/exams-manage', require('./routes/examListing')); // Feature 33 — All Exams List/Filter/Search
@@ -183,6 +184,7 @@ app.use('/api/anticheat', antiCheatRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/admin', require('./routes/adminDashboardRoutes'));
 const studentBatchRoutes=require('./routes/studentBatches');
+const studentBatchWorkspaceRoutes = require('./routes/studentBatchWorkspace');
 const myBatchesRoutes=require('./routes/myBatches');
 const adminStoreRoutes   = require('./routes/adminStore');
 const studentStoreRoutes = require('./routes/studentStore');
@@ -191,6 +193,7 @@ const brandingRoutes = require('./routes/brandingRoutes')
 app.use('/api/admin', brandingRoutes)
 app.use('/api/my-batches',myBatchesRoutes);
 app.use('/api/student/batches',studentBatchRoutes);
+app.use('/api/student/batch-workspace', studentBatchWorkspaceRoutes);
 app.use('/api/admin/email', require('./routes/emailSend'))
 app.use('/api/admin/store',  adminStoreRoutes);
 const testSeriesManagerUltraRoutes = require('./routes/testSeriesManagerUltra');

@@ -17,7 +17,6 @@ import AdminProfilePage from './AdminProfilePage';
 import TimeExtensionPanel from './TimeExtensionPanel'; // Feature 32
 import Student360Preview from './Student360Preview'; // F38B
 import AdminAnnouncements from './AdminAnnouncements'; // F42A
-import EntryProctoringControlCenter from './EntryProctoringControlCenter'; // F53-57-B
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import katex from 'katex'
 
@@ -2301,7 +2300,6 @@ const confirmAndAdd=useCallback(async()=>{
     {id:'cheating',ico:'🚨',lbl:'Anti-Cheat Logs',grp:'Proctoring'},
     {id:'snapshots',ico:'📷',lbl:'Snapshots',grp:'Proctoring'},
     {id:'integrity',ico:'🤖',lbl:'AI Integrity',grp:'Proctoring'},
-    {id:'entry_proctoring',ico:'🛡️',lbl:'Entry & Proctoring',grp:'Proctoring'},
     {id:'tickets',ico:'🎫',lbl:'Grievances',grp:'Support'},
     {id:'ans_challenge',ico:'⚔️',lbl:'Answer Challenges',grp:'Support'},
     {id:'re_eval',ico:'🔄',lbl:'Re-Evaluation',grp:'Support'},
@@ -2347,7 +2345,7 @@ const confirmAndAdd=useCallback(async()=>{
     manage_grievances:['tickets'],
     answer_key_challenge:['ans_challenge'],
     view_audit_logs:['audit'],
-    view_snapshots:['snapshots','cheating','integrity','entry_proctoring'],
+    view_snapshots:['snapshots','cheating','integrity'],
     manage_features:['features'],
     manage_branding:['branding'],
     manage_backup:['backup'],
@@ -2559,7 +2557,6 @@ const confirmAndAdd=useCallback(async()=>{
 
           {/* ══ DASHBOARD ══ */}
           {tab==='store'&&(<div style={{minHeight:'100vh'}}><StoreAdminTab /></div>)}
-          {tab==='entry_proctoring'&&(<div style={{minHeight:'100vh'}}><EntryProctoringControlCenter /></div>)}
           {tab==='dashboard'&&(
             <div>
               <div style={{marginBottom:20}}>

@@ -185,6 +185,7 @@ app.use('/api/results', resultRoutes);
 app.use('/api/admin', require('./routes/adminDashboardRoutes'));
 const studentBatchRoutes=require('./routes/studentBatches');
 const studentBatchWorkspaceRoutes = require('./routes/studentBatchWorkspace');
+const { adminEntryProctoringRoutes, studentEntryProctoringRoutes } = require('./routes/entryProctoringControl');
 const myBatchesRoutes=require('./routes/myBatches');
 const adminStoreRoutes   = require('./routes/adminStore');
 const studentStoreRoutes = require('./routes/studentStore');
@@ -194,6 +195,8 @@ app.use('/api/admin', brandingRoutes)
 app.use('/api/my-batches',myBatchesRoutes);
 app.use('/api/student/batches',studentBatchRoutes);
 app.use('/api/student/batch-workspace', studentBatchWorkspaceRoutes);
+app.use('/api/admin/entry-proctoring', adminEntryProctoringRoutes);
+app.use('/api/entry-proctoring', studentEntryProctoringRoutes);
 app.use('/api/admin/email', require('./routes/emailSend'))
 app.use('/api/admin/store',  adminStoreRoutes);
 const testSeriesManagerUltraRoutes = require('./routes/testSeriesManagerUltra');

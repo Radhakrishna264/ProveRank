@@ -5,14 +5,6 @@ const mongoose = require('mongoose')
 // Backs F42A (Admin Panel — Announcements) and F42B (Student Panel —
 // Announcements). One collection, targeted per-audience, with full
 // read/ack tracking, scheduling, drafts, and email delivery stats.
-//
-// F53–57-B additive change: optional examId + entryContext so this
-// same model can also carry Entry & Proctoring "Broadcasts &
-// Notifications" (waiting room announcements, instruction updates,
-// consent reminders, camera/fullscreen reminders, join-window
-// warnings, emergency notices) without creating a parallel model.
-// examFlow.js's GET /:id/broadcasts route already queries by examId —
-// this field was simply missing from the schema until now.
 // ══════════════════════════════════════════════════════════════
 const AnnouncementSchema = new mongoose.Schema({
   title:      { type: String, required: true },
@@ -59,24 +51,10 @@ const AnnouncementSchema = new mongoose.Schema({
     delivered: { type: Number, default: 0 },
     failed:    { type: Number, default: 0 },
   },
-
-  // ── F53–57-B (additive, optional) — entry-stage broadcast support ──
-  examId: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam', default: null },
-  entryContext: {
-    isEntryBroadcast: { type: Boolean, default: false },
-    broadcastType: {
-      type: String, default: '',
-      enum: ['', 'waiting_room_announcement', 'instruction_update', 'consent_reminder',
-        'camera_reminder', 'fullscreen_reminder', 'join_window_warning', 'emergency_notice']
-    },
-    channel: { type: String, default: 'in-app', enum: ['in-app', 'waiting_room_popup', 'notification_center', 'email'] }
-  }
 }, { timestamps: true })
 
 AnnouncementSchema.index({ status: 1, createdAt: -1 })
 AnnouncementSchema.index({ 'audience.batchIds': 1 })
 AnnouncementSchema.index({ 'audience.studentIds': 1 })
-AnnouncementSchema.index({ examId: 1, createdAt: -1 })
 
 module.exports = mongoose.model('Announcement', AnnouncementSchema)
-
