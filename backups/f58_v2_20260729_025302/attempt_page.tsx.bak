@@ -76,11 +76,6 @@ export default function ExamAttempt() {
   // ── Mobile responsive nav drawer (§20) ──────────────────────
   const [showMobileNav, setShowMobileNav] = useState(false)
 
-  // ── §2.5 Mini webcam preview (fixed at bottom of side panel) ────
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const camStreamRef = useRef<MediaStream | null>(null)
-  const [camReady, setCamReady] = useState(false)
-
   // ── Socket (Feature 32 — time extension push; fixed & guarded) ──
   const socketRef = useRef<any>(null)
 
@@ -216,27 +211,6 @@ export default function ExamAttempt() {
   }, [user, examId])
 
   useEffect(() => { if (user && examId) initAttempt() }, [user, examId])
-
-  // ── §2.5 Mini webcam preview — reuses the permission already granted ──
-  // ── on the Webcam Check page (Phase 5.2). If denied/unavailable, this ──
-  // ── silently hides itself and never blocks the exam screen. ──────────
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 240, height: 180 }, audio: false })
-        if (cancelled) { stream.getTracks().forEach(tr => tr.stop()); return }
-        camStreamRef.current = stream
-        if (videoRef.current) videoRef.current.srcObject = stream
-        setCamReady(true)
-      } catch (e) { setCamReady(false) }
-    })()
-    return () => {
-      cancelled = true
-      camStreamRef.current?.getTracks().forEach(tr => tr.stop())
-      camStreamRef.current = null
-    }
-  }, [])
 
   // ── Anti-cheat: tab switch + window blur + fullscreen enforcement ──
   useEffect(() => {
@@ -653,57 +627,35 @@ export default function ExamAttempt() {
       {/* ── BODY ────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* LEFT: Section tabs + legend + Nav Grid (5-column, §10) */}
-        <aside className={`examAside ${showMobileNav ? 'open' : ''}`} style={{ width: 240, background: asideBg, borderRight: `1px solid ${bord}`, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-          {/* Scrollable section: tabs, legend, counter, nav grid — §1.9 §1.11 §1.12 */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 12px', minHeight: 0 }}>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
-              <button className={`tbtn ${selectedSubject === 'All' ? 'active' : ''}`} style={{ fontSize: 11, padding: '4px 8px' }} onClick={() => setSelectedSubject('All')}>{t.all}</button>
-              {subjects.map(sub => (
-                <button key={sub} className={`tbtn ${selectedSubject === sub ? 'active' : ''}`} style={{ fontSize: 11, padding: '4px 8px', borderColor: subjectColor(sub) }} onClick={() => setSelectedSubject(sub)}>{sub}</button>
-              ))}
-            </div>
-
-            {/* §1.9 — explicit question counter in side panel */}
-            <div style={{ fontFamily: 'Playfair Display,serif', fontWeight: 700, fontSize: 14, color: tm, marginBottom: 12, textAlign: 'center', padding: '6px 0', border: `1px solid ${bord}`, borderRadius: 8 }}>
-              {t.question} {current + 1} / {questions.length || 0}
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 16 }}>
-              {[['answered', '#00C48C', t.answered], ['unanswered', '#FF4757', t.unanswered], ['flagged', '#A855F7', t.flagged], ['unvisited', 'rgba(77,159,255,0.1)', t.notVisited]].map(([cls, clr, lbl]) => (
-                <div key={String(cls)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: ts }}>
-                  <div style={{ width: 12, height: 12, borderRadius: 3, background: String(clr) }} />
-                  {lbl}
-                </div>
-              ))}
-            </div>
-
-            <div style={{ fontSize: 11, color: ts, marginBottom: 8 }}>{t.avgTime}: {avgTimeSec}s</div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 4 }}>
-              {questions.map((q2: any, i: number) => {
-                const st2 = getStatus(q2._id)
-                return (
-                  <div key={q2._id || i} className={`qnum ${st2} ${i === current ? 'current' : ''}`}
-                    onClick={() => { goTo(i); setShowMobileNav(false) }} title={q2.subject || ''}>
-                    {i + 1}
-                  </div>
-                )
-              })}
-            </div>
+        <aside className={`examAside ${showMobileNav ? 'open' : ''}`} style={{ width: 240, background: asideBg, borderRight: `1px solid ${bord}`, padding: '16px 12px', overflowY: 'auto', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+            <button className={`tbtn ${selectedSubject === 'All' ? 'active' : ''}`} style={{ fontSize: 11, padding: '4px 8px' }} onClick={() => setSelectedSubject('All')}>{t.all}</button>
+            {subjects.map(sub => (
+              <button key={sub} className={`tbtn ${selectedSubject === sub ? 'active' : ''}`} style={{ fontSize: 11, padding: '4px 8px', borderColor: subjectColor(sub) }} onClick={() => setSelectedSubject(sub)}>{sub}</button>
+            ))}
           </div>
 
-          {/* §2.5 §18.5 — Mini webcam, fixed at bottom of side panel, non-scrolling */}
-          <div style={{ padding: 10, borderTop: `1px solid ${bord}`, flexShrink: 0 }}>
-            <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: `1px solid ${bord}`, background: '#000', height: 90 }}>
-              <video ref={videoRef} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: camReady ? 'block' : 'none' }} />
-              {!camReady && (
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#556', fontSize: 20 }}>📷</div>
-              )}
-              <span style={{ position: 'absolute', top: 6, left: 6, display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.55)', padding: '2px 7px', borderRadius: 20 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: camReady ? '#FF4757' : '#666', animation: camReady ? 'pulse 1.4s infinite' : 'none' }} />
-                {camReady ? 'REC' : 'OFF'}
-              </span>
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 16 }}>
+            {[['answered', '#00C48C', t.answered], ['unanswered', '#FF4757', t.unanswered], ['flagged', '#A855F7', t.flagged], ['unvisited', 'rgba(77,159,255,0.1)', t.notVisited]].map(([cls, clr, lbl]) => (
+              <div key={String(cls)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: ts }}>
+                <div style={{ width: 12, height: 12, borderRadius: 3, background: String(clr) }} />
+                {lbl}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ fontSize: 11, color: ts, marginBottom: 8 }}>{t.avgTime}: {avgTimeSec}s</div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 4 }}>
+            {questions.map((q2: any, i: number) => {
+              const st2 = getStatus(q2._id)
+              return (
+                <div key={q2._id || i} className={`qnum ${st2} ${i === current ? 'current' : ''}`}
+                  onClick={() => { goTo(i); setShowMobileNav(false) }} title={q2.subject || ''}>
+                  {i + 1}
+                </div>
+              )
+            })}
           </div>
         </aside>
 

@@ -1,3 +1,25 @@
+#!/bin/bash
+set -e
+
+# ═══════════════════════════════════════════════════════════════════════
+# F58 v2 — PATCH: adds missing §2.5 Mini Webcam preview (side panel,
+# bottom, live feed) + §1.9 explicit question counter in side panel.
+# Only the frontend attempt screen changes — backend (examFlow.js) from
+# v1 is untouched and does NOT need to be re-run.
+# Run from: ~/workspace  (after v1 script has already been run once)
+# ═══════════════════════════════════════════════════════════════════════
+
+echo "=================================================="
+echo "F58 v2 PATCH — Mini Webcam + Side Counter"
+echo "=================================================="
+
+TS=$(date +%Y%m%d_%H%M%S)
+mkdir -p backups/f58_v2_$TS
+cp "frontend/app/exam/[examId]/attempt/page.tsx" backups/f58_v2_$TS/attempt_page.tsx.bak 2>/dev/null || echo "  (attempt page.tsx not found — verify path before continuing)"
+echo "Backup saved to backups/f58_v2_$TS/"
+
+mkdir -p "frontend/app/exam/[examId]/attempt"
+cat > "frontend/app/exam/[examId]/attempt/page.tsx" << 'FRONTENDEOF'
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -870,3 +892,10 @@ export default function ExamAttempt() {
     </div>
   )
 }
+FRONTENDEOF
+
+echo "Frontend patched: mini webcam + side counter added."
+echo "=================================================="
+echo "F58 v2 DONE. Restart frontend and test:"
+echo "cd ~/workspace/frontend && npm run dev"
+echo "=================================================="
