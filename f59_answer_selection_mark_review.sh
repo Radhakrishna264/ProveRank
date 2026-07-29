@@ -1,3 +1,442 @@
+#!/bin/bash
+set -e
+
+# ═══════════════════════════════════════════════════════════════════════
+# F59 — Answer Selection (A/B/C/D) + Mark for Review Core
+# ProveRank | Full implementation on top of F58 v1+v2+v3
+#
+# Files touched:
+#  1. src/models/Attempt.js        — adds optional `confidence` field
+#  2. src/routes/attemptRoutes.js  — save-answer/auto-save/bookmark now
+#                                    accept confidence + return a clean
+#                                    ATTEMPT_LOCKED code on 403
+#  3. frontend/.../attempt/page.tsx — full F59 answer-selection system
+#
+# What's NEW in this pass (on top of everything F58 already built):
+#  §4.3/§7.4/§8.7 — distinct "Answered+Flagged" combined state (was
+#                   silently collapsing to just "flagged" before)
+#  §6.2/§8.7      — colorblind-safe status icons (✓ ⚑ ✓⚑ !) on the palette
+#  §8.5           — Confidence Tag (High/Medium/Low) per question
+#  §8.1/§8.12     — real offline queue + auto-retry-save (previously a
+#                   silent catch{} that could lose an answer forever)
+#  §5/§13.2       — submit-lock detection: if the server says the attempt
+#                   is no longer active, the whole answer UI disables
+#                   itself with a banner instead of silently failing
+#  §6.4           — Integer input validation (numeric-only, inline error)
+#  §8.6           — live "X Options Selected" counter for MSQ
+#  §6.1           — double-click to deselect (SCQ)
+#  §2.2           — hover state on option rows
+#  §6.5           — "✓ Saved" / "⏳ Queued" / "📡 Offline" indicators
+#
+# NOTE on payload field name: the spec text (§1.3) says `{qId,
+# selectedOption}`, but the REAL, verified backend route
+# (attemptRoutes.js) expects `questionId` — this was already fixed in
+# F58 v1 (previously answers were silently never saving because of this
+# exact mismatch) and is intentionally kept as `questionId` here, not
+# reverted to `qId`.
+#
+# Run from: ~/workspace  (after F58 v1+v2+v3 have already been applied)
+# ═══════════════════════════════════════════════════════════════════════
+
+echo "=================================================="
+echo "F59 — Answer Selection + Mark for Review — Starting"
+echo "=================================================="
+
+TS=$(date +%Y%m%d_%H%M%S)
+mkdir -p backups/f59_$TS
+cp src/models/Attempt.js backups/f59_$TS/Attempt.js.bak 2>/dev/null || echo "  (Attempt.js not found at src/models — verify path before continuing)"
+cp src/routes/attemptRoutes.js backups/f59_$TS/attemptRoutes.js.bak 2>/dev/null || echo "  (attemptRoutes.js not found at src/routes — verify path before continuing)"
+cp "frontend/app/exam/[examId]/attempt/page.tsx" backups/f59_$TS/attempt_page.tsx.bak 2>/dev/null || echo "  (attempt page.tsx not found — verify path before continuing)"
+echo "Backups saved to backups/f59_$TS/"
+
+# ── 1) BACKEND MODEL — add optional confidence field (purely additive) ──
+cat > src/models/Attempt.js << 'MODELEOF'
+const mongoose = require('mongoose');
+
+const attemptSchema = new mongoose.Schema({
+  examId: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam', required: true },
+  studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  examInstanceId: { type: mongoose.Schema.Types.ObjectId, ref: 'ExamInstance' },
+  status: { type: String, enum: ['waiting','instructions','active','submitted','timeout'], default: 'waiting' },
+  ipAddress: { type: String },
+  startedAt: { type: Date },
+    warningCount: { type: Number, default: 0 },
+  integrityScore: { type: Number, default: 100 },
+  autoSubmitReason: { type: String, default: null },
+  antiCheatFlags: { type: [String], default: [] },
+  submittedAt: { type: Date },
+  termsAccepted: { type: Boolean, default: false },
+  termsAcceptedAt: { type: Date },
+  admitCardVerified: { type: Boolean, default: false },
+  admitCardVerifiedAt: { type: Date },
+  fullscreenWarnings: { type: Number, default: 0 },
+  fullscreenDenied: { type: Boolean, default: false },
+  answers: [{
+    questionId: mongoose.Schema.Types.ObjectId,
+    selectedOption: mongoose.Schema.Types.Mixed,
+    isMarkedForReview: { type: Boolean, default: false },
+    timeTaken: { type: Number, default: 0 },
+    savedAt: { type: Date },
+    confidence: { type: String, enum: ['high', 'medium', 'low', null], default: null } // F59 §8.5 — optional confidence tag
+  }],
+  attemptNumber: { type: Number, default: 1 },
+  score: { type: Number },
+  rank: { type: Number },
+  percentile: { type: Number },
+  predictedRank: { type: Number },
+  predictedScore: { type: Number },
+  predictionConfidence: { type: String, enum: ['low','medium','high'] },
+  deviceSessionId: { type: String, default: null },
+  isPaused: { type: Boolean, default: false },
+  pausedAt: { type: Boolean },
+  totalCorrect: { type: Number, default: 0 },
+  totalIncorrect: { type: Number, default: 0 },
+  totalUnattempted: { type: Number, default: 0 },
+  subjectStats: { type: mongoose.Schema.Types.Mixed, default: {} },
+  sectionStats: { type: mongoose.Schema.Types.Mixed, default: {} },
+  resultCalculated: { type: Boolean, default: false },
+  resultCalculatedAt: { type: Date },
+  difficultyFlag: { type: Boolean, default: false },
+  ormSheetData: { type: mongoose.Schema.Types.Mixed },
+  shareCardData: { type: mongoose.Schema.Types.Mixed }
+}, { timestamps: true });
+
+module.exports = mongoose.model('Attempt', attemptSchema);
+MODELEOF
+
+echo "Backend model: src/models/Attempt.js updated (confidence field added)."
+node -c src/models/Attempt.js && echo "Attempt.js syntax OK" || (echo "MODEL SYNTAX ERROR — restoring backup"; cp backups/f59_$TS/Attempt.js.bak src/models/Attempt.js; exit 1)
+
+# ── 2) BACKEND ROUTES — confidence passthrough + ATTEMPT_LOCKED code ──
+cat > src/routes/attemptRoutes.js << 'ROUTESEOF'
+const express = require('express');
+const router = express.Router();
+const mongoose = require('mongoose');
+const Attempt = require('../models/Attempt');
+const Exam = require('../models/Exam');
+const { verifyToken } = require('../middleware/auth');
+
+// ─────────────────────────────────────────────
+// STEP 1 & 2: Save Answer + Auto-Save
+// PATCH /api/attempts/:attemptId/save-answer
+// ─────────────────────────────────────────────
+router.patch('/:attemptId/save-answer', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const { questionId, selectedOption, timeTaken, confidence } = req.body;
+    if (!questionId) return res.status(400).json({ message: 'questionId required' });
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active', code: 'ATTEMPT_LOCKED' });
+    const qObjId = new mongoose.Types.ObjectId(questionId);
+    const existingIndex = attempt.answers.findIndex(a => a.questionId.toString() === qObjId.toString());
+    const validConfidence = ['high', 'medium', 'low'].includes(confidence) ? confidence : null;
+    if (existingIndex >= 0) {
+      attempt.answers[existingIndex].selectedOption = selectedOption;
+      attempt.answers[existingIndex].timeTaken = timeTaken || attempt.answers[existingIndex].timeTaken;
+      attempt.answers[existingIndex].savedAt = new Date();
+      if (confidence !== undefined) attempt.answers[existingIndex].confidence = validConfidence;
+    } else {
+      attempt.answers.push({ questionId: qObjId, selectedOption, timeTaken: timeTaken || 0, isMarkedForReview: false, savedAt: new Date(), confidence: validConfidence });
+    }
+    await attempt.save();
+    return res.status(200).json({ message: 'Answer saved', totalAnswered: attempt.answers.filter(a => a.selectedOption !== null && a.selectedOption !== undefined).length });
+  } catch (err) {
+    console.error('save-answer error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PATCH /api/attempts/:attemptId/auto-save
+router.patch('/:attemptId/auto-save', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const { answers } = req.body;
+    if (!answers || !Array.isArray(answers)) return res.status(400).json({ message: 'answers array required' });
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active', code: 'ATTEMPT_LOCKED' });
+    for (const ans of answers) {
+      const qObjId = new mongoose.Types.ObjectId(ans.questionId);
+      const existingIndex = attempt.answers.findIndex(a => a.questionId.toString() === qObjId.toString());
+      const validConfidence = ['high', 'medium', 'low'].includes(ans.confidence) ? ans.confidence : null;
+      if (existingIndex >= 0) {
+        attempt.answers[existingIndex].selectedOption = ans.selectedOption;
+        attempt.answers[existingIndex].timeTaken = ans.timeTaken || 0;
+        attempt.answers[existingIndex].savedAt = new Date();
+        if (ans.confidence !== undefined) attempt.answers[existingIndex].confidence = validConfidence;
+      } else {
+        attempt.answers.push({ questionId: qObjId, selectedOption: ans.selectedOption, timeTaken: ans.timeTaken || 0, isMarkedForReview: false, savedAt: new Date(), confidence: validConfidence });
+      }
+    }
+    await attempt.save();
+    return res.status(200).json({ message: 'Auto-save complete', savedAt: new Date(), totalAnswered: attempt.answers.filter(a => a.selectedOption !== null && a.selectedOption !== undefined).length });
+  } catch (err) {
+    console.error('auto-save error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// STEP 3: Timer Logic
+// GET /api/attempts/:attemptId/timer
+// ─────────────────────────────────────────────
+router.get('/:attemptId/timer', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    const exam = await Exam.findById(attempt.examId);
+    if (!exam) return res.status(404).json({ message: 'Exam not found' });
+    // Feature 32: include granted extra time in timer
+    let timeExtMin = 0;
+    try {
+      const TE = require('../models/TimeExtension');
+      const exts = await TE.find({ attemptId: attempt._id, isUndone: false });
+      timeExtMin = exts.reduce((s, e) => s + e.extraMinutes, 0);
+    } catch(_e) {}
+    const totalDurationSec = ((exam.duration || 200) + timeExtMin) * 60;
+    const elapsedSec = Math.floor((Date.now() - new Date(attempt.startedAt).getTime()) / 1000);
+    const remainingSec = Math.max(0, totalDurationSec - elapsedSec);
+    return res.status(200).json({ startedAt: attempt.startedAt, startTime: attempt.startedAt, ipAddress: attempt.ipAddress,
+      startTime: attempt.startedAt,
+      ipAddress: attempt.ipAddress, 
+    totalDurationSec, elapsedSec, remainingSec, timeExtMin,
+    timeRemaining: remainingSec,
+    elapsed: elapsedSec,
+    timeLeft: remainingSec,
+    remainingTime: remainingSec,
+    isExpired: remainingSec <= 0 
+  });
+  } catch (err) {
+    console.error('timer error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// STEP 4: Submit + Auto-Submit on Timeout
+// POST /api/attempts/:attemptId/submit
+// ─────────────────────────────────────────────
+router.post('/:attemptId/submit', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const { isAutoSubmit } = req.body;
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status === 'submitted') return res.status(400).json({ message: 'Already submitted' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active' });
+    const exam = await Exam.findById(attempt.examId);
+    const totalDurationSec = (exam ? exam.duration || 200 : 200) * 60;
+    const elapsedSec = Math.floor((Date.now() - new Date(attempt.startedAt).getTime()) / 1000);
+    attempt.status = elapsedSec > totalDurationSec + 30 ? 'timeout' : 'submitted';
+    attempt.submittedAt = new Date();
+    attempt.deviceSessionId = null;
+    await attempt.save();
+    return res.status(200).json({ message: isAutoSubmit ? 'Auto-submitted on timeout' : 'Exam submitted successfully', status: attempt.status, submittedAt: attempt.submittedAt, totalAnswered: attempt.answers.filter(a => a.selectedOption !== null && a.selectedOption !== undefined).length });
+  } catch (err) {
+    console.error('submit error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// STEP 5: Bookmark / Flag Toggle (S1)
+// PATCH /api/attempts/:attemptId/bookmark
+// ─────────────────────────────────────────────
+router.patch('/:attemptId/bookmark', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const { questionId } = req.body;
+    if (!questionId) return res.status(400).json({ message: 'questionId required' });
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active', code: 'ATTEMPT_LOCKED' });
+    const qObjId = new mongoose.Types.ObjectId(questionId);
+    const existingIndex = attempt.answers.findIndex(a => a.questionId.toString() === qObjId.toString());
+    let isMarkedForReview = false;
+    if (existingIndex >= 0) {
+      attempt.answers[existingIndex].isMarkedForReview = !attempt.answers[existingIndex].isMarkedForReview;
+      isMarkedForReview = attempt.answers[existingIndex].isMarkedForReview;
+    } else {
+      attempt.answers.push({ questionId: qObjId, selectedOption: null, timeTaken: 0, isMarkedForReview: true, savedAt: new Date() });
+      isMarkedForReview = true;
+    }
+    await attempt.save();
+    return res.status(200).json({ message: isMarkedForReview ? 'Question bookmarked' : 'Bookmark removed', isMarkedForReview });
+  } catch (err) {
+    console.error('bookmark error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// STEP 6: Navigation Panel - Color Coded (S2)
+// GET /api/attempts/:attemptId/navigation
+// ─────────────────────────────────────────────
+router.get('/:attemptId/navigation', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    const exam = await Exam.findById(attempt.examId).populate({path: "questions", strictPopulate: false});
+    if (!exam) return res.status(404).json({ message: 'Exam not found' });
+
+    const answerMap = {};
+    for (const ans of attempt.answers) {
+      answerMap[ans.questionId.toString()] = ans;
+    }
+
+    const navigation = (exam.questions || []).map((q, index) => {
+      const qId = q._id.toString();
+      const ans = answerMap[qId];
+      let status = 'not-visited'; // grey
+      if (ans) {
+        if (ans.isMarkedForReview && ans.selectedOption !== null && ans.selectedOption !== undefined) {
+          status = 'answered-flagged'; // purple+green
+        } else if (ans.isMarkedForReview) {
+          status = 'flagged'; // purple
+        } else if (ans.selectedOption !== null && ans.selectedOption !== undefined) {
+          status = 'answered'; // green
+        } else {
+          status = 'visited'; // red (visited but not answered)
+        }
+      }
+      return { index: index + 1, questionId: qId, status };
+    });
+
+    const summary = {
+      answered: navigation.filter(n => n.status === 'answered').length,
+      unanswered: navigation.filter(n => n.status === 'visited').length,
+      flagged: navigation.filter(n => n.status === 'flagged' || n.status === 'answered-flagged').length,
+      notVisited: navigation.filter(n => n.status === 'not-visited').length,
+      total: navigation.length
+    };
+
+    return res.status(200).json({ navigation, summary });
+  } catch (err) {
+    console.error('navigation error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// STEP 7: Connection Lost Protection (S51)
+// PATCH /api/attempts/:attemptId/pause
+// PATCH /api/attempts/:attemptId/resume
+// ─────────────────────────────────────────────
+router.patch('/:attemptId/pause', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active' });
+    attempt.isPaused = true;
+    attempt.pausedAt = new Date();
+    await attempt.save();
+    return res.status(200).json({ message: 'Exam paused - answers saved', pausedAt: attempt.pausedAt });
+  } catch (err) {
+    console.error('pause error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+router.patch('/:attemptId/resume', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active' });
+    attempt.isPaused = false;
+    attempt.pausedAt = null;
+    await attempt.save();
+    return res.status(200).json({ message: 'Exam resumed', resumedAt: new Date(), totalAnswered: attempt.answers.filter(a => a.selectedOption !== null && a.selectedOption !== undefined).length });
+  } catch (err) {
+    console.error('resume error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// STEP 8: Multi-Device Session Control (S112)
+// POST /api/attempts/:attemptId/register-device
+// ─────────────────────────────────────────────
+router.post('/:attemptId/register-device', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const { deviceSessionId } = req.body;
+    if (!deviceSessionId) return res.status(400).json({ message: 'deviceSessionId required' });
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active' });
+
+    // If another device already registered
+    if (attempt.deviceSessionId && attempt.deviceSessionId !== deviceSessionId) {
+      return res.status(403).json({
+        message: 'Exam already open on another device. Close it first.',
+        blocked: true
+      });
+    }
+
+    attempt.deviceSessionId = deviceSessionId;
+    await attempt.save();
+    return res.status(200).json({ message: 'Device registered successfully', deviceSessionId });
+  } catch (err) {
+    console.error('register-device error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// STEP 9: Exam Paper Encryption Key (N23)
+// GET /api/attempts/:attemptId/paper-key
+// ─────────────────────────────────────────────
+router.get('/:attemptId/paper-key', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active' });
+
+    // Generate a session-bound encryption key
+    // Key = hash of attemptId + studentId + secret
+    const crypto = require('crypto');
+    const secret = process.env.JWT_SECRET || 'proverank_secret';
+    const raw = `${attempt._id}:${attempt.studentId}:${secret}`;
+    const encryptionKey = crypto.createHash('sha256').update(raw).digest('hex').substring(0, 32);
+
+    return res.status(200).json({
+      message: 'Paper key issued',
+      key: encryptionKey,
+      expiresIn: '200m'
+    });
+  } catch (err) {
+    console.error('paper-key error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/attempts/:attemptId — existing route (Phase 4.1)
+router.get('/:attemptId', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    const a = attempt.toObject(); a.ipAddress = attempt.ipAddress; a.startTime = attempt.startedAt; return res.status(200).json({ attempt: a });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+module.exports = router;
+ROUTESEOF
+
+echo "Backend routes: src/routes/attemptRoutes.js updated."
+node -c src/routes/attemptRoutes.js && echo "attemptRoutes.js syntax OK" || (echo "ROUTES SYNTAX ERROR — restoring backup"; cp backups/f59_$TS/attemptRoutes.js.bak src/routes/attemptRoutes.js; exit 1)
+
+# ── 3) FRONTEND — full F59 answer-selection + mark-for-review system ──
+mkdir -p "frontend/app/exam/[examId]/attempt"
+cat > "frontend/app/exam/[examId]/attempt/page.tsx" << 'FRONTENDEOF'
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -1142,3 +1581,11 @@ export default function ExamAttempt() {
     </div>
   )
 }
+FRONTENDEOF
+
+echo "Frontend: exam attempt page.tsx updated with F59 features."
+echo "=================================================="
+echo "F59 DONE. Restart backend + frontend and test:"
+echo "Server: cd ~/workspace && node src/index.js"
+echo "Frontend: cd ~/workspace/frontend && npm run dev"
+echo "=================================================="

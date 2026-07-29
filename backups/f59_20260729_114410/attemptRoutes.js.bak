@@ -12,21 +12,19 @@ const { verifyToken } = require('../middleware/auth');
 router.patch('/:attemptId/save-answer', verifyToken, async (req, res) => {
   try {
     const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
-    const { questionId, selectedOption, timeTaken, confidence } = req.body;
+    const { questionId, selectedOption, timeTaken } = req.body;
     if (!questionId) return res.status(400).json({ message: 'questionId required' });
     const attempt = await Attempt.findById(attemptId);
     if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
-    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active', code: 'ATTEMPT_LOCKED' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active' });
     const qObjId = new mongoose.Types.ObjectId(questionId);
     const existingIndex = attempt.answers.findIndex(a => a.questionId.toString() === qObjId.toString());
-    const validConfidence = ['high', 'medium', 'low'].includes(confidence) ? confidence : null;
     if (existingIndex >= 0) {
       attempt.answers[existingIndex].selectedOption = selectedOption;
       attempt.answers[existingIndex].timeTaken = timeTaken || attempt.answers[existingIndex].timeTaken;
       attempt.answers[existingIndex].savedAt = new Date();
-      if (confidence !== undefined) attempt.answers[existingIndex].confidence = validConfidence;
     } else {
-      attempt.answers.push({ questionId: qObjId, selectedOption, timeTaken: timeTaken || 0, isMarkedForReview: false, savedAt: new Date(), confidence: validConfidence });
+      attempt.answers.push({ questionId: qObjId, selectedOption, timeTaken: timeTaken || 0, isMarkedForReview: false, savedAt: new Date() });
     }
     await attempt.save();
     return res.status(200).json({ message: 'Answer saved', totalAnswered: attempt.answers.filter(a => a.selectedOption !== null && a.selectedOption !== undefined).length });
@@ -44,18 +42,16 @@ router.patch('/:attemptId/auto-save', verifyToken, async (req, res) => {
     if (!answers || !Array.isArray(answers)) return res.status(400).json({ message: 'answers array required' });
     const attempt = await Attempt.findById(attemptId);
     if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
-    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active', code: 'ATTEMPT_LOCKED' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active' });
     for (const ans of answers) {
       const qObjId = new mongoose.Types.ObjectId(ans.questionId);
       const existingIndex = attempt.answers.findIndex(a => a.questionId.toString() === qObjId.toString());
-      const validConfidence = ['high', 'medium', 'low'].includes(ans.confidence) ? ans.confidence : null;
       if (existingIndex >= 0) {
         attempt.answers[existingIndex].selectedOption = ans.selectedOption;
         attempt.answers[existingIndex].timeTaken = ans.timeTaken || 0;
         attempt.answers[existingIndex].savedAt = new Date();
-        if (ans.confidence !== undefined) attempt.answers[existingIndex].confidence = validConfidence;
       } else {
-        attempt.answers.push({ questionId: qObjId, selectedOption: ans.selectedOption, timeTaken: ans.timeTaken || 0, isMarkedForReview: false, savedAt: new Date(), confidence: validConfidence });
+        attempt.answers.push({ questionId: qObjId, selectedOption: ans.selectedOption, timeTaken: ans.timeTaken || 0, isMarkedForReview: false, savedAt: new Date() });
       }
     }
     await attempt.save();
@@ -140,7 +136,7 @@ router.patch('/:attemptId/bookmark', verifyToken, async (req, res) => {
     if (!questionId) return res.status(400).json({ message: 'questionId required' });
     const attempt = await Attempt.findById(attemptId);
     if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
-    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active', code: 'ATTEMPT_LOCKED' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active' });
     const qObjId = new mongoose.Types.ObjectId(questionId);
     const existingIndex = attempt.answers.findIndex(a => a.questionId.toString() === qObjId.toString());
     let isMarkedForReview = false;

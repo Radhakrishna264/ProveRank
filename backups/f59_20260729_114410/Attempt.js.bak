@@ -23,8 +23,7 @@ const attemptSchema = new mongoose.Schema({
     selectedOption: mongoose.Schema.Types.Mixed,
     isMarkedForReview: { type: Boolean, default: false },
     timeTaken: { type: Number, default: 0 },
-    savedAt: { type: Date },
-    confidence: { type: String, enum: ['high', 'medium', 'low', null], default: null } // F59 §8.5 — optional confidence tag
+    savedAt: { type: Date }
   }],
   attemptNumber: { type: Number, default: 1 },
   score: { type: Number },
