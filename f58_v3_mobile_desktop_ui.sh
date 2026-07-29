@@ -1,3 +1,40 @@
+#!/bin/bash
+set -e
+
+# ═══════════════════════════════════════════════════════════════════════
+# F58 v3 — PATCH: genuinely distinct Mobile vs Desktop UI (§2.7), not a
+# CSS squeeze. Only the frontend attempt screen changes. Backend and v1/v2
+# work stay untouched — do NOT re-run v1/v2, only this v3.
+#
+# What changes on MOBILE (<=820px) vs DESKTOP:
+#  - Header: Desktop = full inline bar (logo+timer+lang+theme+badges+submit).
+#            Mobile  = compact bar (logo+timer+⚙+submit) + an expandable
+#                      "⚙" tools panel (lang/theme/font-size/badges) so the
+#                      header never overflows on small screens.
+#  - Section tabs: Desktop = sidebar tabs. Mobile = ALSO a horizontal
+#                  scroll-strip at the top of the question area (sidebar
+#                  is a drawer on mobile, so this avoids extra taps).
+#  - Options: bigger touch targets on mobile (18px padding, 34px bubble).
+#  - Action buttons: Desktop = inline row under the options. Mobile = a
+#                    fixed, always-reachable bottom bar (Flag / Clear /
+#                    Prev / Next) so the thumb never has to scroll.
+#  - Mobile floating question-grid button repositioned above the new
+#    bottom bar so nothing overlaps.
+#
+# Run from: ~/workspace
+# ═══════════════════════════════════════════════════════════════════════
+
+echo "=================================================="
+echo "F58 v3 PATCH — Distinct Mobile + Desktop UI"
+echo "=================================================="
+
+TS=$(date +%Y%m%d_%H%M%S)
+mkdir -p backups/f58_v3_$TS
+cp "frontend/app/exam/[examId]/attempt/page.tsx" backups/f58_v3_$TS/attempt_page.tsx.bak 2>/dev/null || echo "  (attempt page.tsx not found — verify path before continuing)"
+echo "Backup saved to backups/f58_v3_$TS/"
+
+mkdir -p "frontend/app/exam/[examId]/attempt"
+cat > "frontend/app/exam/[examId]/attempt/page.tsx" << 'FRONTENDEOF'
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -953,3 +990,10 @@ export default function ExamAttempt() {
     </div>
   )
 }
+FRONTENDEOF
+
+echo "Frontend patched: distinct mobile + desktop UI added."
+echo "=================================================="
+echo "F58 v3 DONE. Restart frontend and test on both phone + desktop widths:"
+echo "cd ~/workspace/frontend && npm run dev"
+echo "=================================================="
