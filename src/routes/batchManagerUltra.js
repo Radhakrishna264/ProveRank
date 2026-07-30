@@ -631,6 +631,29 @@ router.post('/:id/exams/assign', auth, isAdmin, async (req, res) => {
     if (!batch.exams.some(e => String(e) === String(examId))) batch.exams.push(examId);
     batch.lastActivityAt = new Date();
     await batch.save();
+
+    // F53 FIX — dual-write Exam.batch/multiBatch so My Exams (examFlow.js)
+    // and Batch Workspace (studentBatchWorkspace.js) can see this exam.
+    // updateOne($set, runValidators:false) — avoids full-doc validation
+    // crash on legacy exam docs with pre-existing invalid data.
+    try {
+      const Exam = mongoose.model('Exam');
+      const examDoc = await Exam.findById(examId).select('batch multiBatch').lean();
+      if (examDoc) {
+        const bid = String(batch._id);
+        const upd = {};
+        if (!examDoc.batch) {
+          upd.batch = bid;
+        } else if (String(examDoc.batch) !== bid) {
+          const mb = examDoc.multiBatch || [];
+          if (!mb.some(b => String(b) === bid)) upd.multiBatch = [...mb, bid];
+        }
+        if (Object.keys(upd).length) {
+          await Exam.updateOne({ _id: examId }, { $set: upd }, { runValidators: false });
+        }
+      }
+    } catch (syncErr) { console.error('F53 exam-batch sync failed:', syncErr.message); }
+
     await logAudit({ batchId: batch._id, field: 'exams', action: 'exam_assigned', newValue: { examId }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -642,6 +665,25 @@ router.delete('/:id/exams/:examId', auth, isAdmin, async (req, res) => {
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
     batch.exams = (batch.exams || []).filter(e => String(e) !== String(req.params.examId));
     await batch.save();
+
+    // F53 FIX — unlink Exam.batch/multiBatch on unassign
+    // updateOne($set, runValidators:false) — avoids full-doc validation crash.
+    try {
+      const Exam = mongoose.model('Exam');
+      const examDoc = await Exam.findById(req.params.examId).select('batch multiBatch').lean();
+      if (examDoc) {
+        const bid = String(req.params.id);
+        const upd = {};
+        let mb = examDoc.multiBatch || [];
+        if (String(examDoc.batch) === bid) {
+          upd.batch = mb.length ? String(mb[0]) : '';
+          mb = mb.slice(1);
+        }
+        upd.multiBatch = mb.filter(b => String(b) !== bid);
+        await Exam.updateOne({ _id: req.params.examId }, { $set: upd }, { runValidators: false });
+      }
+    } catch (syncErr) { console.error('F53 exam-batch unsync failed:', syncErr.message); }
+
     await logAudit({ batchId: batch._id, field: 'exams', action: 'exam_removed', newValue: { examId: req.params.examId }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }

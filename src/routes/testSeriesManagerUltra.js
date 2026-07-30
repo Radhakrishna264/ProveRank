@@ -583,6 +583,19 @@ router.post('/:id/tests/assign', auth, isAdmin, async (req, res) => {
     if (!series.tests.some(e => String(e) === String(testId))) series.tests.push(testId);
     series.lastActivityAt = new Date();
     await series.save();
+
+    // F53 FIX — dual-write Exam.testSeriesId so My Exams (examFlow.js)
+    // and Batch/Series Workspace (studentBatchWorkspace.js) can see this exam.
+    // updateOne($set, runValidators:false) — avoids full-doc validation crash.
+    try {
+      const Exam = mongoose.model('Exam');
+      await Exam.updateOne(
+        { _id: testId },
+        { $set: { testSeriesId: series._id, assignmentType: 'series' } },
+        { runValidators: false }
+      );
+    } catch (syncErr) { console.error('F53 exam-series sync failed:', syncErr.message); }
+
     await logAudit({ seriesId: series._id, field: 'tests', action: 'test_assigned', newValue: { testId }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -594,6 +607,19 @@ router.delete('/:id/tests/:testId', auth, isAdmin, async (req, res) => {
     if (!series) return res.status(404).json({ error: 'Test series not found' });
     series.tests = (series.tests || []).filter(e => String(e) !== String(req.params.testId));
     await series.save();
+
+    // F53 FIX — unlink Exam.testSeriesId on unassign
+    // updateOne($set, runValidators:false) — avoids full-doc validation crash.
+    try {
+      const Exam = mongoose.model('Exam');
+      const examDoc = await Exam.findById(req.params.testId).select('testSeriesId assignmentType').lean();
+      if (examDoc && String(examDoc.testSeriesId) === String(series._id)) {
+        const upd = { testSeriesId: null };
+        if (examDoc.assignmentType === 'series') upd.assignmentType = 'individual';
+        await Exam.updateOne({ _id: req.params.testId }, { $set: upd }, { runValidators: false });
+      }
+    } catch (syncErr) { console.error('F53 exam-series unsync failed:', syncErr.message); }
+
     await logAudit({ seriesId: series._id, field: 'tests', action: 'test_removed', newValue: { testId: req.params.testId }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
