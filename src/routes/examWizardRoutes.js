@@ -371,7 +371,11 @@ router.get('/exam-wizard/:id/review', verifyToken, isAdmin, async (req, res) => 
 router.patch('/exam-wizard/:id/publish', verifyToken, isAdmin, async (req, res) => {
   try {
     const Exam = getExam();
-    const exam = await Exam.findByIdAndUpdate(req.params.id, { status: 'published', publishedAt: new Date() }, { new: true });
+    // F53-b FIX: 'published' is NOT a valid Exam.status enum value
+    // (valid: draft/scheduled/live/ended) and was invisible to every
+    // student-facing route. 'live' is schema-valid and is what
+    // examFlow.js / studentBatchWorkspace.js already filter for.
+    const exam = await Exam.findByIdAndUpdate(req.params.id, { status: 'live', publishedAt: new Date() }, { new: true, runValidators: true });
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
     res.json({ success: true, message: 'Exam published!', exam });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
