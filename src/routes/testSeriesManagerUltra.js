@@ -1463,12 +1463,12 @@ async function gatherSnapshotExtras(series) {
   try { couponIds = (await Coupon.find({ scopeType: 'series', scopeId: series._id, isDeleted: false }).select('_id code status').lean()).map(c => ({ id: c._id, code: c.code, status: c.status })); } catch (e) {}
   try { if (BatchNote) materialsCount = await BatchNote.countDocuments({ batch: series._id }); } catch (e) {}
   try { let A; try { A = mongoose.model('Announcement'); } catch (e) { A = null; } if (A) announcementsCount = await A.countDocuments({ seriesId: series._id }); } catch (e) {}
-  return { banner: bannerSnap, coupons: couponIds, examsCount: (series.exams && series.exams.length) || 0, exams: (series.exams || []).map(String), materialsCount, announcementsCount };
+  return { banner: bannerSnap, coupons: couponIds, examsCount: (series.tests && series.tests.length) || 0, exams: (series.tests || []).map(String), materialsCount, announcementsCount };
 }
 
 async function buildPublishChecklist(series) {
   const studentCount = (series.students && series.students.length) || 0;
-  const examCount = (series.exams && series.exams.length) || 0;
+  const examCount = (series.tests && series.tests.length) || 0;
   const bannerGate = await checkBannerGate(series._id);
   let materialsCount = 0;
   try { if (BatchNote) materialsCount = await BatchNote.countDocuments({ batch: series._id }); } catch (e) {}
@@ -1577,7 +1577,7 @@ router.get('/:id/publish-center', auth, isAdmin, async (req, res) => {
     let scheduledExamsCount = 0;
     try {
       let ExamModel; try { ExamModel = mongoose.model('Exam'); } catch (e) { ExamModel = null; }
-      if (ExamModel && examCount > 0) scheduledExamsCount = await ExamModel.countDocuments({ _id: { $in: series.exams }, 'schedule.startTime': { $gt: new Date() } });
+      if (ExamModel && examCount > 0) scheduledExamsCount = await ExamModel.countDocuments({ _id: { $in: series.tests }, 'schedule.startTime': { $gt: new Date() } });
     } catch (e) {}
     const visibleInMarketplace = series.status === 'active' && series.visibility !== 'private';
     const postPublishChecks = !series.isPublished ? null : {
@@ -1901,7 +1901,7 @@ router.get('/:id/publish-center/preview', auth, isAdmin, async (req, res) => {
       const Banner = mongoose.model('Banner');
       banner = await Banner.findOne({ linkedType: 'series', linkedBatchId: series._id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).lean();
     } catch (e) {}
-    const examCount = (series.exams && series.exams.length) || 0;
+    const examCount = (series.tests && series.tests.length) || 0;
     res.json({
       mode: req.query.mode || 'marketplace',
       preview: {
