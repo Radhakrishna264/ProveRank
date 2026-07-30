@@ -652,6 +652,19 @@ function ExamsTab({ base, authHeaders, id, showToast }: any) {
       if (d.success) { showToast('✅ Exam unpublished'); load() } else showToast('⚠️ ' + (d.message || 'Unpublish failed'))
     } catch { showToast('⚠️ Unpublish failed') }
   }
+  const [scheduleDrafts, setScheduleDrafts] = useState<{ [k: string]: string }>({})
+  const scheduleExam = async (examId: string) => {
+    const val = scheduleDrafts[examId]
+    if (!val) { showToast('⚠️ Pick a date & time first'); return }
+    const publishAt = new Date(val)
+    if (isNaN(publishAt.getTime()) || publishAt.getTime() <= Date.now()) { showToast('⚠️ Pick a future date & time'); return }
+    if (!window.confirm('Schedule this exam to go live at ' + publishAt.toLocaleString() + '?')) return
+    try {
+      const r = await fetch(examWizardBase + '/api/exam-wizard/' + examId + '/schedule-publish', { method: 'PATCH', headers: authHeaders, body: JSON.stringify({ publishAt: publishAt.toISOString() }) })
+      const d = await r.json().catch(() => ({}))
+      if (d.success) { showToast('✅ Exam scheduled'); load() } else showToast('⚠️ ' + (d.message || 'Schedule failed'))
+    } catch { showToast('⚠️ Schedule failed') }
+  }
 
   return (
     <div>
@@ -666,9 +679,18 @@ function ExamsTab({ base, authHeaders, id, showToast }: any) {
                   {(e.status || 'draft').toUpperCase()}
                 </span>
               </span>
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                {e.status === 'draft' && (
+                  <>
+                    <input type="datetime-local" value={scheduleDrafts[e._id] || ''} onChange={ev => setScheduleDrafts(s => ({ ...s, [e._id]: ev.target.value }))} style={{ fontSize: 11, padding: '3px 6px', borderRadius: 6, border: `1px solid ${BOR}`, background: 'transparent', color: TS }} />
+                    <button style={{ ...bs, padding: '3px 8px' }} onClick={() => scheduleExam(e._id)}>📅 Schedule</button>
+                  </>
+                )}
+                {e.status === 'scheduled' && e.schedule?.startTime && (
+                  <span style={{ fontSize: 10, color: ACC }}>⏰ {new Date(e.schedule.startTime).toLocaleString()}</span>
+                )}
                 {e.status === 'draft'
-                  ? <button style={{ ...bs, color: GOOD, borderColor: 'rgba(52,211,153,0.35)', padding: '3px 8px' }} onClick={() => publishExam(e._id)}>🚀 Publish</button>
+                  ? <button style={{ ...bs, color: GOOD, borderColor: 'rgba(52,211,153,0.35)', padding: '3px 8px' }} onClick={() => publishExam(e._id)}>🚀 Publish Now</button>
                   : <button style={{ ...bs, color: WARN, borderColor: 'rgba(251,191,36,0.35)', padding: '3px 8px' }} onClick={() => unpublishExam(e._id)}>⏸ Unpublish</button>}
                 <button style={{ ...bd, padding: '3px 8px' }} onClick={() => unassign(e._id)}>Remove</button>
               </div>

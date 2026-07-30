@@ -401,7 +401,14 @@ router.patch('/exam-wizard/:id/schedule-publish', verifyToken, isAdmin, async (r
     const Exam = getExam();
     const { publishAt } = req.body;
     if (!publishAt) return res.status(400).json({ success: false, message: 'publishAt date required' });
-    const exam = await Exam.findByIdAndUpdate(req.params.id, { status: 'scheduled', scheduledPublishAt: new Date(publishAt) }, { new: true });
+    // F53-e FIX: schema has no 'scheduledPublishAt' field — computeExamState()
+    // (examFlow.js / studentBatchWorkspace.js) reads exam.schedule.startTime.
+    // Writing to the wrong field meant Schedule Publish never actually worked.
+    const exam = await Exam.findByIdAndUpdate(
+      req.params.id,
+      { status: 'scheduled', 'schedule.startTime': new Date(publishAt) },
+      { new: true, runValidators: true }
+    );
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
     res.json({ success: true, message: `Exam scheduled to publish at ${new Date(publishAt).toLocaleString()}`, exam });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }

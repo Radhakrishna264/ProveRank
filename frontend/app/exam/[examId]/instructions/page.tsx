@@ -71,6 +71,16 @@ function InstructionsContent() {
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 20) setScrolledToBottom(true)
   }
 
+  // F53-d FIX: if T&C text already fits without overflow, no 'scroll'
+  // event ever fires, so scrolledToBottom stayed stuck at false forever
+  // and "I Agree" was permanently disabled. Check once when modal opens.
+  useEffect(() => {
+    if (!tcModal) return
+    setScrolledToBottom(false)
+    const tId = setTimeout(() => onTcScroll(), 50)
+    return () => clearTimeout(tId)
+  }, [tcModal])
+
   const proceed = async () => {
     if (!checked) return
     try {
