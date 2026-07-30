@@ -55,15 +55,21 @@ function canSeeExam(exam, studentId, student, enrollment) {
   if (Array.isArray(exam.whitelist) && exam.whitelist.length > 0) {
     return exam.whitelist.some(id => String(id) === String(studentId));
   }
-  if (exam.assignmentType === 'series' && exam.testSeriesId) {
-    return enrollment.seriesIds.includes(String(exam.testSeriesId));
+  // F54 FIX — an exam can be linked to BOTH a series and a batch at once.
+  // Previously assignmentType==='series' short-circuited and skipped the
+  // batch check entirely, hiding the exam from batch-only-enrolled students.
+  // Now check series AND batch independently — visible if EITHER matches.
+  if (exam.testSeriesId && enrollment.seriesIds.includes(String(exam.testSeriesId))) {
+    return true;
   }
   const hasBatchTarget = !!exam.batch || (exam.multiBatch && exam.multiBatch.length > 0);
   if (hasBatchTarget) {
     const targets = [exam.batch, ...(exam.multiBatch || [])].filter(Boolean).map(String);
-    return targets.some(t => enrollment.batchIds.includes(t) || enrollment.batchNames.includes(t));
+    if (targets.some(t => enrollment.batchIds.includes(t) || enrollment.batchNames.includes(t))) {
+      return true;
+    }
   }
-  return false; // F52 fix — no restriction configured means NOT linked to any enrolled batch/series, so it must NOT show on My Exams (only enrolled-batch/series exams are visible)
+  return false; // F52/F54 — not linked to any enrolled batch or series, so must NOT show on My Exams
 }
 
 // ══ Helper: compute full exam state (status, join window, waiting-room ══
