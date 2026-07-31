@@ -118,7 +118,10 @@ try {
     const exam = await Exam.findById(req.body.examId || req.params.examId).lean();
     if (exam && exam.batch) {
       const Batch = mongoose.model('Batch');
-      const batchDoc = await Batch.findOne({ name: { $regex: exam.batch, $options: 'i' } }).lean();
+      // F58 FIX — exam.batch is normally an ObjectId string (per Assign System fix),
+      // not a batch name. Try ID lookup first, fall back to legacy name-regex lookup.
+      let batchDoc = mongoose.Types.ObjectId.isValid(exam.batch) ? await Batch.findById(exam.batch).lean() : null;
+      if (!batchDoc) batchDoc = await Batch.findOne({ name: { $regex: exam.batch, $options: 'i' } }).lean();
       if (batchDoc) {
         const userDoc = await User.collection.findOne({ _id: new mongoose.Types.ObjectId(req.user.id) });
         const meta = userDoc?.enrolledBatchesMeta || [];

@@ -147,7 +147,7 @@ async function createExamFromQuestions({ parsedQuestions, examDetails, assignmen
     password: examDetails.password || '',
     schedule: examDetails.schedule || {},
     category,
-    batch: (assignmentType === 'batch' || assignmentType === 'series') ? (assignment.batch || '') : '',
+    batch: assignmentType === 'batch' ? (assignment.batch || '') : '',
     multiBatch: assignment.multiBatch || [],
     assignmentType,
     testSeriesId: assignmentType === 'series' ? (assignment.testSeriesId || null) : null,
@@ -173,7 +173,14 @@ async function createExamFromQuestions({ parsedQuestions, examDetails, assignmen
     sourceMeta: sourceMeta || {},
     createdBy,
     // F19B.7.3 — Do NOT send `status`; schema default 'draft' applies UNLESS explicit publish-now requested
-    ...(postCreate?.status ? { status: postCreate.status } : {})
+    ...(postCreate?.status
+        ? { status: postCreate.status }
+        : (postCreate?.scheduledPublish?.enabled && postCreate?.scheduledPublish?.publishAt)
+          // F56 FIX — scheduledPublish.publishAt was written but never actually used
+          // to set status/schedule.startTime, so computeExamState() never picked it up
+          // and the exam stayed an invisible draft forever.
+          ? { status: 'scheduled', schedule: { ...(examDetails.schedule || {}), startTime: (examDetails.schedule && examDetails.schedule.startTime) || new Date(postCreate.scheduledPublish.publishAt) } }
+          : {})
   });
 
   await Question.updateMany({ _id: { $in: inserted.map(d => d._id) } }, { $inc: { usageCount: 1 } }).catch(() => {});

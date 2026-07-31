@@ -320,6 +320,10 @@ export default function CreateExamWizard({ token, API, T, fetchAll, batches, tes
 
   useEffect(() => { if (step === 3 && createdExamId) loadReview() }, [step, createdExamId])
 
+  // F55 FIX — auto-carry Step 1's Start Date into Step 3's Schedule field
+  // instead of leaving publishAt empty and forcing admin to re-type the same date.
+  useEffect(() => { if (step === 3 && startDate && !publishAt) setPublishAt(startDate) }, [step, startDate])
+
   // ── Step 3: Publish ───────────────────────────────────────────────────────────
   const doPublish = async (asDraft = false) => {
     setPublishing(true)

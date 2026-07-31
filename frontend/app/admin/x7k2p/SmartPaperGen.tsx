@@ -101,6 +101,8 @@ export default function SmartPaperGen({ API, token, batches, testSeries }: { API
   const [uaeBatchId,    setUaeBatchId]    = useState('');
   const [uaeTestSeriesId, setUaeTestSeriesId] = useState('');
   const [uaeType,     setUaeType]       = useState('Full Mock');
+  const [uaeStartDate, setUaeStartDate] = useState(''); // F57 FIX — Smart AI Generator start date
+  const [uaeEndDate,   setUaeEndDate]   = useState('');
   const [uaeSet,      setUaeSet]        = useState('A');
   const [uaeSaving,   setUaeSaving]     = useState(false);
   const [uaeSuccess,  setUaeSuccess]    = useState('');
@@ -270,7 +272,9 @@ export default function SmartPaperGen({ API, token, batches, testSeries }: { API
           testSeriesId:     uaeTestSeriesId,
           type:             uaeType,
           selectedSetLabel: uaeSet,
-          medium:           examMedium
+          medium:           examMedium,
+          startDate:        uaeStartDate || null,
+          endDate:          uaeEndDate || null
         })
       });
       const data = await res.json();
@@ -1024,6 +1028,9 @@ export default function SmartPaperGen({ API, token, batches, testSeries }: { API
                 {uaeTestSeries.map((s:any) => <option key={s._id} value={s._id}>{s.name||s.title}{s.lifecycleStatus?` · ${s.lifecycleStatus}`:''}</option>)}
               </select>
             )}
+
+            <label style={S.label}>Start Date (optional — F57 FIX)</label>
+            <input type="datetime-local" value={uaeStartDate} onChange={e => setUaeStartDate(e.target.value)} style={{ ...S.inp, marginBottom:12 }} />
 
             <label style={S.label}>Default Language Medium (17.30)</label>
             <div style={{ display:'flex', gap:8, marginBottom:20 }}>

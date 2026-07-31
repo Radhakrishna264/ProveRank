@@ -138,8 +138,11 @@ router.post('/exam-wizard/create', verifyToken, isAdmin, async (req, res) => {
       subjectQs: subjectQs || {},
       duration: parseInt(duration),
       totalMarks: parseInt(totalMarks) || 720,
-      correctMarks: parseFloat(correctMarks) || 4,
-      negativeMarks: parseFloat(negativeMarks) || 1,
+      markingScheme: {
+        correct: parseFloat(correctMarks) || 4,
+        incorrect: -(Math.abs(parseFloat(negativeMarks) || 1)),
+        unattempted: 0
+      },
       schedule: {
         startTime: startDate ? new Date(startDate) : null,
         endTime: endDate ? new Date(endDate) : null
@@ -375,9 +378,15 @@ router.patch('/exam-wizard/:id/publish', verifyToken, isAdmin, async (req, res) 
     // (valid: draft/scheduled/live/ended) and was invisible to every
     // student-facing route. 'live' is schema-valid and is what
     // examFlow.js / studentBatchWorkspace.js already filter for.
-    const exam = await Exam.findByIdAndUpdate(req.params.id, { status: 'live', publishedAt: new Date() }, { new: true, runValidators: true });
+    // F55 FIX — if a future startTime was already set in Step 1, "Publish Now"
+    // must NOT force it live immediately; it should schedule instead.
+    const existing = await Exam.findById(req.params.id).select('schedule').lean();
+    const startsInFuture = existing && existing.schedule && existing.schedule.startTime && new Date(existing.schedule.startTime) > new Date();
+    const nextStatus = startsInFuture ? 'scheduled' : 'live';
+    const updateFields = nextStatus === 'live' ? { status: 'live', publishedAt: new Date() } : { status: 'scheduled' };
+    const exam = await Exam.findByIdAndUpdate(req.params.id, updateFields, { new: true, runValidators: true });
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
-    res.json({ success: true, message: 'Exam published!', exam });
+    res.json({ success: true, message: nextStatus === 'scheduled' ? 'Exam scheduled for its start date!' : 'Exam published!', exam });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 

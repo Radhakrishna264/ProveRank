@@ -318,7 +318,7 @@ exports.generatePaper = async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 exports.useAsExam = async (req, res) => {
   try {
-    const { sets, meta, answerKey, examTitle, assignType, batchId, testSeriesId, type, targetType, selectedSetLabel } = req.body;
+    const { sets, meta, answerKey, examTitle, assignType, batchId, testSeriesId, type, targetType, selectedSetLabel, startDate, endDate } = req.body;
 
     if (!sets || sets.length === 0)
       return res.status(400).json({ success: false, message: 'No sets provided' });
@@ -388,7 +388,10 @@ exports.useAsExam = async (req, res) => {
       assignmentType: assignType === 'batch' ? 'batch' : assignType === 'series' ? 'series' : 'individual',
       category:   type     || 'Full Mock',
       type:       (meta.mode || 'Custom').toUpperCase(),
-      status:     'draft',
+      // F57 FIX — Smart AI Generator had no schedule field at all; exam always
+      // created with empty schedule + draft status with no way to set a start date here.
+      schedule:   { startTime: startDate ? new Date(startDate) : null, endTime: endDate ? new Date(endDate) : null },
+      status:     startDate ? 'scheduled' : 'draft',
       medium:     req.body.medium || 'bilingual', // 17.30
       createdBy:  req.user.id
     });
