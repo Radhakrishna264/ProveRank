@@ -61,6 +61,42 @@ function Modal({ children, onClose, width = 560 }: { children: any; onClose: () 
   )
 }
 
+// ══════════════════════════════════════════════════════════════════
+// F59 FIX — Global Confirm Modal (replaces window.confirm everywhere)
+// Usage: if (!(await confirmAction('Are you sure?'))) return
+// ══════════════════════════════════════════════════════════════════
+let _confirmResolver: ((v: boolean) => void) | null = null
+let _confirmListener: ((state: any) => void) | null = null
+function confirmAction(message: string, opts: { title?: string; danger?: boolean; confirmText?: string } = {}): Promise<boolean> {
+  return new Promise(resolve => {
+    _confirmResolver = resolve
+    if (_confirmListener) _confirmListener({ open: true, message, ...opts })
+    else resolve(true) // safety fallback if modal isn't mounted anywhere yet — GlobalConfirmModal is always mounted in this file's render tree
+  })
+}
+function GlobalConfirmModal() {
+  const [state, setState] = useState<any>({ open: false, message: '' })
+  useEffect(() => {
+    _confirmListener = setState
+    return () => { if (_confirmListener === setState) _confirmListener = null }
+  }, [])
+  const close = (result: boolean) => {
+    setState((s: any) => ({ ...s, open: false }))
+    if (_confirmResolver) { _confirmResolver(result); _confirmResolver = null }
+  }
+  if (!state.open) return null
+  return (
+    <Modal onClose={() => close(false)} width={400}>
+      <div style={{ fontWeight: 800, fontSize: 15, color: TS, marginBottom: 10 }}>{state.title || (state.danger ? '⚠️ Confirm Action' : '✅ Confirm')}</div>
+      <div style={{ fontSize: 13, color: DIM, marginBottom: 20, lineHeight: 1.5 }}>{state.message}</div>
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+        <button style={bs} onClick={() => close(false)}>Cancel</button>
+        <button style={state.danger ? bd : bp} onClick={() => close(true)}>{state.confirmText || 'Confirm'}</button>
+      </div>
+    </Modal>
+  )
+}
+
 function EmptyMsg({ text }: { text: string }) {
   return <div style={{ textAlign: 'center', padding: '30px 10px', color: DIM, fontSize: 12.5 }}>{text}</div>
 }
@@ -131,7 +167,7 @@ export default function TestSeriesManagerUltra({ token, API }: { token: string; 
 
   const bulkAction = async (action: 'archive' | 'delete') => {
     if (selectedIds.length === 0) return
-    if (action === 'delete' && !window.confirm(`Delete ${selectedIds.length} selected series(es)? This cannot be undone.`)) return
+    if (action === 'delete' && !await confirmAction(`Delete ${selectedIds.length} selected series(es)? This cannot be undone.`)) return
     for (const id of selectedIds) {
       await fetch(base + '/' + id + (action === 'archive' ? '/archive' : ''), { method: action === 'archive' ? 'PUT' : 'DELETE', headers: authHeaders })
     }
@@ -151,7 +187,7 @@ export default function TestSeriesManagerUltra({ token, API }: { token: string; 
     if (d.success) { showToast('✅ Status: ' + d.lifecycleStatus); loadSeries() }
   }
   const deleteSeries = async (id: string, name: string) => {
-    if (!window.confirm(`Delete series "${name}"? Students will be unassigned.`)) return
+    if (!await confirmAction(`Delete series "${name}"? Students will be unassigned.`)) return
     const r = await fetch(base + '/' + id, { method: 'DELETE', headers: authHeaders })
     const d = await r.json()
     if (d.success) { showToast('✅ Series deleted'); loadSeries() }
@@ -167,6 +203,7 @@ export default function TestSeriesManagerUltra({ token, API }: { token: string; 
       <div style={pageSub}>Complete lifecycle control — create, price, control, enroll, assign tests, analyze & archive series.</div>
 
       {toast && <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 10000, background: CRD2, border: `1px solid ${BOR2}`, borderRadius: 10, padding: '10px 16px', color: TS, fontSize: 12.5, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>{toast}</div>}
+      <GlobalConfirmModal />
 
       {/* ── Status Summary Strip ── */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3,1fr)' : 'repeat(6,1fr)', gap: 8, marginBottom: 14 }}>
@@ -482,6 +519,7 @@ function TestSeriesDetail({ id, base, authHeaders, onBack, isMobile, showToast, 
 
   return (
     <div>
+      <GlobalConfirmModal />
       <button style={{ ...bs, marginBottom: 10 }} onClick={onBack}>← Back to Test Series Management</button>
 
       <div style={{ ...cs, background: `linear-gradient(135deg,${CRD2},${CRD})` }}>
@@ -568,7 +606,7 @@ function StudentsTab({ base, authHeaders, id, setModal, showToast }: any) {
   }, [q, status, sort])
   useEffect(() => { load() }, [load])
 
-  const remove = async (sid: string) => { if (!window.confirm('Remove student from series?')) return; await fetch(base + '/' + id + '/students/' + sid, { method: 'DELETE', headers: authHeaders }); showToast('✅ Removed'); load() }
+  const remove = async (sid: string) => { if (!await confirmAction('Remove student from series?')) return; await fetch(base + '/' + id + '/students/' + sid, { method: 'DELETE', headers: authHeaders }); showToast('✅ Removed'); load() }
   const setInactive = async (sid: string, s: string) => { await fetch(base + '/' + id + '/students/' + sid + '/status', { method: 'PUT', headers: authHeaders, body: JSON.stringify({ status: s }) }); load() }
   const exportCsv = () => window.open(base + '/' + id + '/students/export')
 
@@ -605,16 +643,27 @@ function StudentsTab({ base, authHeaders, id, setModal, showToast }: any) {
   )
 }
 
-// ── 8) TESTS TAB ──
+// ── 8) TESTS TAB (F59-F61 FIX — premium redesign + confirm modal + Edit + Copy) ──
 function TestsTab({ base, authHeaders, id, showToast }: any) {
   const [data, setData] = useState<any>({ assigned: [], available: [] })
   const load = useCallback(() => fetch(base + '/' + id + '/tests', { headers: authHeaders }).then(r => r.json()).then(setData).catch(() => {}), [])
   useEffect(() => { load() }, [load])
-  const assign = async (testId: string) => { await fetch(base + '/' + id + '/tests/assign', { method: 'POST', headers: authHeaders, body: JSON.stringify({ testId }) }); showToast('✅ Test assigned'); load() }
-  const unassign = async (testId: string) => { await fetch(base + '/' + id + '/tests/' + testId, { method: 'DELETE', headers: authHeaders }); showToast('✅ Test removed'); load() }
   const examWizardBase = base.replace('/api/admin/test-series-manager', '')
+
+  const assign = async (testId: string, title: string) => {
+    if (!(await confirmAction(`Assign "${title}" to this test series? Enrolled students will see & be able to attempt it once it's live.`, { confirmText: 'Assign' }))) return
+    await fetch(base + '/' + id + '/tests/assign', { method: 'POST', headers: authHeaders, body: JSON.stringify({ testId }) })
+    showToast('✅ Test assigned')
+    load()
+  }
+  const unassign = async (testId: string, title: string) => {
+    if (!(await confirmAction(`Remove "${title}" from this test series? Students will immediately lose access to it.`, { danger: true, confirmText: 'Remove' }))) return
+    await fetch(base + '/' + id + '/tests/' + testId, { method: 'DELETE', headers: authHeaders })
+    showToast('✅ Test removed')
+    load()
+  }
   const publishExam = async (testId: string) => {
-    if (!window.confirm('Publish this test? It will become visible & attemptable to enrolled students immediately.')) return
+    if (!(await confirmAction('Publish this test? It will become visible & attemptable to enrolled students immediately.', { confirmText: 'Publish' }))) return
     try {
       const r = await fetch(examWizardBase + '/api/exam-wizard/' + testId + '/publish', { method: 'PATCH', headers: authHeaders })
       const d = await r.json().catch(() => ({}))
@@ -622,7 +671,7 @@ function TestsTab({ base, authHeaders, id, showToast }: any) {
     } catch { showToast('⚠️ Publish failed') }
   }
   const unpublishExam = async (testId: string) => {
-    if (!window.confirm('Unpublish this test? Students will immediately lose access to it.')) return
+    if (!(await confirmAction('Unpublish this test? Students will immediately lose access to it.', { danger: true, confirmText: 'Unpublish' }))) return
     try {
       const r = await fetch(examWizardBase + '/api/exam-wizard/' + testId + '/draft', { method: 'PATCH', headers: authHeaders })
       const d = await r.json().catch(() => ({}))
@@ -635,7 +684,7 @@ function TestsTab({ base, authHeaders, id, showToast }: any) {
     if (!val) { showToast('⚠️ Pick a date & time first'); return }
     const publishAt = new Date(val)
     if (isNaN(publishAt.getTime()) || publishAt.getTime() <= Date.now()) { showToast('⚠️ Pick a future date & time'); return }
-    if (!window.confirm('Schedule this test to go live at ' + publishAt.toLocaleString() + '?')) return
+    if (!(await confirmAction('Schedule this test to go live at ' + publishAt.toLocaleString() + '?', { confirmText: 'Schedule' }))) return
     try {
       const r = await fetch(examWizardBase + '/api/exam-wizard/' + testId + '/schedule-publish', { method: 'PATCH', headers: authHeaders, body: JSON.stringify({ publishAt: publishAt.toISOString() }) })
       const d = await r.json().catch(() => ({}))
@@ -643,47 +692,141 @@ function TestsTab({ base, authHeaders, id, showToast }: any) {
     } catch { showToast('⚠️ Schedule failed') }
   }
 
+  // F60 FIX — Edit modal: start/end date + attempt limit, saved via quick-edit (updates the exam everywhere it's used)
+  const [editExam, setEditExam] = useState<any>(null)
+  const [editForm, setEditForm] = useState<any>({})
+  const openEdit = (e: any) => {
+    setEditExam(e)
+    setEditForm({
+      startTime: e.schedule?.startTime ? new Date(e.schedule.startTime).toISOString().slice(0, 16) : '',
+      endTime: e.schedule?.endTime ? new Date(e.schedule.endTime).toISOString().slice(0, 16) : '',
+      maxAttempts: e.maxAttempts ?? 1
+    })
+  }
+  const saveEdit = async () => {
+    const r = await fetch(examWizardBase + '/api/exams/' + editExam._id + '/quick-edit', {
+      method: 'PUT', headers: authHeaders,
+      body: JSON.stringify({ startTime: editForm.startTime || null, endTime: editForm.endTime || null, maxAttempts: editForm.maxAttempts })
+    })
+    const d = await r.json().catch(() => ({}))
+    if (d.success) { showToast('✅ Test updated — changes apply everywhere it is used'); setEditExam(null); load() } else showToast('⚠️ ' + (d.message || 'Update failed'))
+  }
+
+  // F61 FIX — Copy modal: new title/dates/attempt limit via clone-advanced, auto-assigned to this series
+  const [copyExam, setCopyExam] = useState<any>(null)
+  const [copyForm, setCopyForm] = useState<any>({})
+  const openCopy = (e: any) => {
+    setCopyExam(e)
+    setCopyForm({ newTitle: `Copy of ${e.title || e.name}`, startTime: '', endTime: '', maxAttempts: e.maxAttempts ?? 1 })
+  }
+  const saveCopy = async () => {
+    if (!(await confirmAction(`Create an independent copy of "${copyExam.title || copyExam.name}" and assign it to this test series?`, { confirmText: 'Create Copy' }))) return
+    const r = await fetch(examWizardBase + '/api/exams/' + copyExam._id + '/clone-advanced', {
+      method: 'POST', headers: authHeaders,
+      body: JSON.stringify({ newTitle: copyForm.newTitle, startTime: copyForm.startTime || null, endTime: copyForm.endTime || null, maxAttempts: copyForm.maxAttempts, targetSeries: id })
+    })
+    const d = await r.json().catch(() => ({}))
+    if (d.success) { showToast('✅ Test copied & assigned to this series'); setCopyExam(null); load() } else showToast('⚠️ ' + (d.message || 'Copy failed'))
+  }
+
   return (
     <div>
       <div style={cs}>
-        <div style={{ fontWeight: 700, marginBottom: 8, color: TS }}>Assigned Tests ({data.assigned?.length || 0})</div>
-        {(!data.assigned || data.assigned.length === 0) ? <EmptyMsg text="No tests assigned yet." /> : data.assigned.map((e: any) => (
-          <div key={e._id} style={{ padding: '8px 0', borderBottom: `1px solid ${BOR}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-              <span style={{ color: TS, fontWeight: 600, fontSize: 12.5 }}>
-                {e.title || e.name}
-                <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 5, color: e.status === 'draft' ? WARN : GOOD, background: e.status === 'draft' ? 'rgba(251,191,36,0.12)' : 'rgba(52,211,153,0.12)' }}>
-                  {(e.status || 'draft').toUpperCase()}
-                </span>
-              </span>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                {e.status === 'draft' && (
-                  <>
-                    <input type="datetime-local" value={scheduleDrafts[e._id] || ''} onChange={ev => setScheduleDrafts(s => ({ ...s, [e._id]: ev.target.value }))} style={{ fontSize: 11, padding: '3px 6px', borderRadius: 6, border: `1px solid ${BOR}`, background: 'transparent', color: TS }} />
-                    <button style={{ ...bs, padding: '3px 8px' }} onClick={() => scheduleExam(e._id)}>📅 Schedule</button>
-                  </>
-                )}
-                {e.status === 'scheduled' && e.schedule?.startTime && (
-                  <span style={{ fontSize: 10, color: ACC }}>⏰ {new Date(e.schedule.startTime).toLocaleString()}</span>
-                )}
-                {e.status === 'draft'
-                  ? <button style={{ ...bs, color: GOOD, borderColor: 'rgba(52,211,153,0.35)', padding: '3px 8px' }} onClick={() => publishExam(e._id)}>🚀 Publish Now</button>
-                  : <button style={{ ...bs, color: WARN, borderColor: 'rgba(251,191,36,0.35)', padding: '3px 8px' }} onClick={() => unpublishExam(e._id)}>⏸ Unpublish</button>}
-                <button style={{ ...bd, padding: '3px 8px' }} onClick={() => unassign(e._id)}>Remove</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <div style={{ width: 4, height: 18, borderRadius: 4, background: `linear-gradient(180deg,${ACC},#0055CC)` }} />
+          <div style={{ fontWeight: 800, fontSize: 14, color: TS }}>📌 Assigned Tests ({data.assigned?.length || 0})</div>
+        </div>
+        {(!data.assigned || data.assigned.length === 0) ? <EmptyMsg text="No tests assigned yet." /> : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {data.assigned.map((e: any) => (
+              <div key={e._id} style={{ background: 'rgba(77,159,255,0.06)', border: `1px solid ${BOR}`, borderRadius: 12, padding: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                  <span style={{ color: TS, fontWeight: 700, fontSize: 13 }}>
+                    {e.title || e.name}
+                    <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6, color: e.status === 'draft' ? WARN : GOOD, background: e.status === 'draft' ? 'rgba(251,191,36,0.12)' : 'rgba(52,211,153,0.12)' }}>
+                      {(e.status || 'draft').toUpperCase()}
+                    </span>
+                  </span>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {e.status === 'draft' && (
+                      <>
+                        <input type="datetime-local" value={scheduleDrafts[e._id] || ''} onChange={ev => setScheduleDrafts(s => ({ ...s, [e._id]: ev.target.value }))} style={{ fontSize: 11, padding: '3px 6px', borderRadius: 6, border: `1px solid ${BOR}`, background: 'transparent', color: TS }} />
+                        <button style={{ ...bs, padding: '3px 8px' }} onClick={() => scheduleExam(e._id)}>📅 Schedule</button>
+                      </>
+                    )}
+                    {e.status === 'scheduled' && e.schedule?.startTime && (
+                      <span style={{ fontSize: 10, color: ACC }}>⏰ {new Date(e.schedule.startTime).toLocaleString()}</span>
+                    )}
+                    {e.status === 'draft'
+                      ? <button style={{ ...bs, color: GOOD, borderColor: 'rgba(52,211,153,0.35)', padding: '3px 8px' }} onClick={() => publishExam(e._id)}>🚀 Publish Now</button>
+                      : <button style={{ ...bs, color: WARN, borderColor: 'rgba(251,191,36,0.35)', padding: '3px 8px' }} onClick={() => unpublishExam(e._id)}>⏸ Unpublish</button>}
+                    <button style={{ ...bs, padding: '3px 8px' }} onClick={() => openEdit(e)}>✏️ Edit</button>
+                    <button style={{ ...bs, padding: '3px 8px' }} onClick={() => openCopy(e)}>📄 Copy</button>
+                    <button style={{ ...bd, padding: '3px 8px' }} onClick={() => unassign(e._id, e.title || e.name)}>Remove</button>
+                  </div>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
+
       <div style={cs}>
-        <div style={{ fontWeight: 700, marginBottom: 8, color: TS }}>Available Tests</div>
-        {(!data.available || data.available.length === 0) ? <EmptyMsg text="No more tests available." /> : data.available.map((e: any) => (
-          <div key={e._id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${BOR}` }}>
-            <span style={{ color: DIM, fontSize: 12 }}>{e.title || e.name}</span>
-            <button style={{ ...bs, padding: '3px 10px' }} onClick={() => assign(e._id)}>+ Assign</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <div style={{ width: 4, height: 18, borderRadius: 4, background: `linear-gradient(180deg,${DIM},#334155)` }} />
+          <div style={{ fontWeight: 800, fontSize: 14, color: TS }}>🗂️ Available Tests</div>
+        </div>
+        {(!data.available || data.available.length === 0) ? <EmptyMsg text="No more tests available." /> : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {data.available.map((e: any) => (
+              <div key={e._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', border: `1px solid ${BOR}`, borderRadius: 10, padding: '8px 12px', flexWrap: 'wrap', gap: 8 }}>
+                <span style={{ color: DIM, fontSize: 12.5, fontWeight: 600 }}>{e.title || e.name}</span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button style={{ ...bs, padding: '3px 10px' }} onClick={() => openEdit(e)}>✏️ Edit</button>
+                  <button style={{ ...bs, padding: '3px 10px' }} onClick={() => openCopy(e)}>📄 Copy</button>
+                  <button style={{ ...bp, padding: '3px 10px', fontSize: 11 }} onClick={() => assign(e._id, e.title || e.name)}>+ Assign</button>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
+
+      {editExam && (
+        <Modal onClose={() => setEditExam(null)} width={440}>
+          <div style={{ fontWeight: 800, fontSize: 15, color: TS, marginBottom: 4 }}>✏️ Edit Test</div>
+          <div style={{ fontSize: 11, color: DIM, marginBottom: 16 }}>{editExam.title || editExam.name} — changes apply everywhere this test is used.</div>
+          <label style={lbl}>Start Date & Time</label>
+          <input type="datetime-local" style={{ ...inp, marginBottom: 12 }} value={editForm.startTime} onChange={e => setEditForm((f: any) => ({ ...f, startTime: e.target.value }))} />
+          <label style={lbl}>End Date & Time</label>
+          <input type="datetime-local" style={{ ...inp, marginBottom: 12 }} value={editForm.endTime} onChange={e => setEditForm((f: any) => ({ ...f, endTime: e.target.value }))} />
+          <label style={lbl}>Attempt Limit</label>
+          <input type="number" min={1} style={{ ...inp, marginBottom: 18 }} value={editForm.maxAttempts} onChange={e => setEditForm((f: any) => ({ ...f, maxAttempts: e.target.value }))} />
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button style={bs} onClick={() => setEditExam(null)}>Cancel</button>
+            <button style={bp} onClick={saveEdit}>💾 Save Changes</button>
+          </div>
+        </Modal>
+      )}
+
+      {copyExam && (
+        <Modal onClose={() => setCopyExam(null)} width={440}>
+          <div style={{ fontWeight: 800, fontSize: 15, color: TS, marginBottom: 4 }}>📄 Copy Test</div>
+          <div style={{ fontSize: 11, color: DIM, marginBottom: 16 }}>Creates a new independent copy of "{copyExam.title || copyExam.name}", auto-assigned to this test series.</div>
+          <label style={lbl}>New Title</label>
+          <input style={{ ...inp, marginBottom: 12 }} value={copyForm.newTitle} onChange={e => setCopyForm((f: any) => ({ ...f, newTitle: e.target.value }))} />
+          <label style={lbl}>Start Date & Time</label>
+          <input type="datetime-local" style={{ ...inp, marginBottom: 12 }} value={copyForm.startTime} onChange={e => setCopyForm((f: any) => ({ ...f, startTime: e.target.value }))} />
+          <label style={lbl}>End Date & Time</label>
+          <input type="datetime-local" style={{ ...inp, marginBottom: 12 }} value={copyForm.endTime} onChange={e => setCopyForm((f: any) => ({ ...f, endTime: e.target.value }))} />
+          <label style={lbl}>Attempt Limit</label>
+          <input type="number" min={1} style={{ ...inp, marginBottom: 18 }} value={copyForm.maxAttempts} onChange={e => setCopyForm((f: any) => ({ ...f, maxAttempts: e.target.value }))} />
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button style={bs} onClick={() => setCopyExam(null)}>Cancel</button>
+            <button style={bp} onClick={saveCopy}>📄 Create Copy</button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
@@ -783,7 +926,7 @@ function CouponManagementTab({ base, authHeaders, id, showToast }: any) {
   }
   const duplicate = async (couponId: string) => { const r = await fetch(base + '/' + id + '/coupons/' + couponId + '/duplicate', { method: 'POST', headers: authHeaders }); const d = await r.json(); if (d.success) { showToast('✅ Coupon duplicated'); load() } else showToast('⚠️ ' + d.error) }
   const toggleStatus = async (c: any, status: string) => { const r = await fetch(base + '/' + id + '/coupons/' + c._id + '/status', { method: 'PUT', headers: authHeaders, body: JSON.stringify({ status }) }); const d = await r.json(); if (d.success) { showToast('✅ Status updated'); load() } else showToast('⚠️ ' + d.error) }
-  const del = async (couponId: string) => { if (!window.confirm('Delete this coupon? This cannot be undone.')) return; const r = await fetch(base + '/' + id + '/coupons/' + couponId, { method: 'DELETE', headers: authHeaders }); const d = await r.json(); if (d.success) { showToast('✅ Coupon deleted'); load() } else showToast('⚠️ ' + d.error) }
+  const del = async (couponId: string) => { if (!await confirmAction('Delete this coupon? This cannot be undone.')) return; const r = await fetch(base + '/' + id + '/coupons/' + couponId, { method: 'DELETE', headers: authHeaders }); const d = await r.json(); if (d.success) { showToast('✅ Coupon deleted'); load() } else showToast('⚠️ ' + d.error) }
   const viewUsage = async (couponId: string) => {
     if (expandedUsage === couponId) { setExpandedUsage(''); return }
     setExpandedUsage(couponId)
@@ -1237,7 +1380,7 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
     setBrandKit(d.brandKit); loadBrandKits(); showToast('✅ Default preset changed')
   }
   const deleteBrandKitPreset = async (kitId: string) => {
-    if (!window.confirm('Delete this Brand Kit preset?')) return
+    if (!await confirmAction('Delete this Brand Kit preset?')) return
     const r = await fetch(assetsBase + '/brand-kits/' + kitId, { method: 'DELETE', headers: authHeaders })
     const d = await r.json()
     if (d.success) { showToast('✅ Preset deleted'); loadBrandKits() } else showToast('⚠️ ' + d.error)
@@ -1314,7 +1457,7 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
   }
   const toggleOrgTemplateFav = async (t: any) => { await fetch(assetsBase + '/templates/' + t._id, { method: 'PUT', headers: authHeaders, body: JSON.stringify({ isFavorite: !t.isFavorite }) }); loadOrgTemplates() }
   const cloneOrgTemplate = async (t: any) => { await fetch(assetsBase + '/templates/' + t._id + '/clone', { method: 'POST', headers: authHeaders }); showToast('✅ Cloned'); loadOrgTemplates() }
-  const deleteOrgTemplate = async (t: any) => { if (!window.confirm('Delete template "' + t.name + '"?')) return; await fetch(assetsBase + '/templates/' + t._id, { method: 'DELETE', headers: authHeaders }); showToast('✅ Deleted'); loadOrgTemplates() }
+  const deleteOrgTemplate = async (t: any) => { if (!await confirmAction('Delete template "' + t.name + '"?')) return; await fetch(assetsBase + '/templates/' + t._id, { method: 'DELETE', headers: authHeaders }); showToast('✅ Deleted'); loadOrgTemplates() }
   const exportOrgTemplate = async (t: any) => {
     const r = await fetch(assetsBase + '/templates/' + t._id + '/export', { headers: authHeaders })
     const d = await r.json()
@@ -1596,9 +1739,9 @@ function BannerManagementTab({ base, authHeaders, id, showToast }: any) {
   }
   const syncNow = async () => { const r = await fetch(base + '/' + id + '/banner/sync', { method: 'POST', headers: authHeaders }); const d = await r.json(); if (d.success) { showToast('✅ Synced from product details'); load() } else showToast('⚠️ ' + d.error) }
   const duplicate = async () => { const r = await fetch(base + '/' + id + '/banner/duplicate', { method: 'POST', headers: authHeaders }); const d = await r.json(); if (d.success) { showToast('✅ Duplicated (unlinked draft)'); load() } else showToast('⚠️ ' + d.error) }
-  const removeBanner = async () => { if (!window.confirm('Remove this banner? It can be restored later.')) return; const r = await fetch(base + '/' + id + '/banner/remove', { method: 'POST', headers: authHeaders }); const d = await r.json(); if (d.success) { showToast('✅ Banner removed'); load() } else showToast('⚠️ ' + d.error) }
+  const removeBanner = async () => { if (!await confirmAction('Remove this banner? It can be restored later.')) return; const r = await fetch(base + '/' + id + '/banner/remove', { method: 'POST', headers: authHeaders }); const d = await r.json(); if (d.success) { showToast('✅ Banner removed'); load() } else showToast('⚠️ ' + d.error) }
   const restoreRemoved = async () => { const r = await fetch(base + '/' + id + '/banner/restore-removed', { method: 'POST', headers: authHeaders }); const d = await r.json(); if (d.success) { showToast('✅ Banner restored'); load() } else showToast('⚠️ ' + d.error) }
-  const replaceBanner = async () => { if (!window.confirm('Create a replacement draft? The current banner will be marked as replaced.')) return; const r = await fetch(base + '/' + id + '/banner/replace', { method: 'POST', headers: authHeaders, body: JSON.stringify({}) }); const d = await r.json(); if (d.success) { showToast('✅ Replacement draft created'); load() } else showToast('⚠️ ' + d.error) }
+  const replaceBanner = async () => { if (!await confirmAction('Create a replacement draft? The current banner will be marked as replaced.')) return; const r = await fetch(base + '/' + id + '/banner/replace', { method: 'POST', headers: authHeaders, body: JSON.stringify({}) }); const d = await r.json(); if (d.success) { showToast('✅ Replacement draft created'); load() } else showToast('⚠️ ' + d.error) }
   const restoreVersion = async (idx: number) => { const r = await fetch(base + '/' + id + '/banner/restore-version/' + idx, { method: 'POST', headers: authHeaders }); const d = await r.json(); if (d.success) { showToast('✅ Version restored'); load() } else showToast('⚠️ ' + d.error) }
   const discard = () => { if (data?.banner) setForm(data.banner); showToast('↩️ Changes discarded') }
 
@@ -2251,7 +2394,7 @@ function MaterialsTab({ base, authHeaders, id, showToast }: any) {
   useEffect(() => { load() }, [load])
   const add = async () => { if (!form.title) return showToast('⚠️ Title required'); await fetch(base + '/' + id + '/materials', { method: 'POST', headers: authHeaders, body: JSON.stringify(form) }); showToast('✅ Material added'); setForm({ title: '', type: 'pdf', url: '', category: 'General' }); load() }
   const pin = async (mid: string, pinned: boolean) => { await fetch(base + '/' + id + '/materials/' + mid, { method: 'PUT', headers: authHeaders, body: JSON.stringify({ pinned: !pinned }) }); load() }
-  const del = async (mid: string) => { if (!window.confirm('Delete material?')) return; await fetch(base + '/' + id + '/materials/' + mid, { method: 'DELETE', headers: authHeaders }); showToast('✅ Deleted'); load() }
+  const del = async (mid: string) => { if (!await confirmAction('Delete material?')) return; await fetch(base + '/' + id + '/materials/' + mid, { method: 'DELETE', headers: authHeaders }); showToast('✅ Deleted'); load() }
 
   return (
     <div>
@@ -2459,8 +2602,8 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent, 
     if (!unpublishReason.trim()) return showToast('⚠️ Reason is required')
     await act('unpublish', 'PUT', { reason: unpublishReason }, '⛔ Unpublished'); setShowUnpublishBox(false); setUnpublishReason('')
   }
-  const doArchive = () => { if (!window.confirm('Archive this batch? It will be hidden from marketplace and moved to Archived.')) return; act('archive', 'PUT', { reason: 'Archived from Publish Center' }, '📦 Archived') }
-  const doRestoreDraft = () => { if (!window.confirm('Restore to Draft? This will keep it unpublished for further editing.')) return; act('restore-draft', 'PUT', {}, '📝 Restored to Draft') }
+  const doArchive = async () => { if (!(await confirmAction('Archive this series? It will be hidden from marketplace and moved to Archived.', { danger: true, confirmText: 'Archive' }))) return; act('archive', 'PUT', { reason: 'Archived from Publish Center' }, '📦 Archived') }
+  const doRestoreDraft = async () => { if (!(await confirmAction('Restore to Draft? This will keep it unpublished for further editing.', { confirmText: 'Restore' }))) return; act('restore-draft', 'PUT', {}, '📝 Restored to Draft') }
   const doSchedule = async () => {
     if (!sched.publishAt) return showToast('⚠️ Select publish date & time')
     const iso = new Date(sched.publishAt).toISOString()
@@ -2473,7 +2616,7 @@ function PublishCenterTab({ base, authHeaders, id, showToast, load: loadParent, 
 
   const doRollback = async (force?: boolean) => {
     if (!rollbackReason.trim()) return showToast('⚠️ Reason is mandatory for rollback')
-    if (!force && !window.confirm(`Rollback to version ${rollbackFor.version}? This will overwrite current draft/live data.`)) return
+    if (!force && !await confirmAction(`Rollback to version ${rollbackFor.version}? This will overwrite current draft/live data.`)) return
     const body: any = { toVersion: rollbackFor.version, reason: rollbackReason, scope: rollbackScope, sections: rollbackSections }
     if (force) body.confirmLiveImpact = true
     const r = await act('rollback', 'POST', body, '↩️ Rolled back to v' + rollbackFor.version)

@@ -313,6 +313,8 @@ router.put('/:id/quick-edit', verifyToken, isAdmin, async (req, res) => {
     if (b.watermark !== undefined) exam.watermark = !!b.watermark
     if (b.customInstructions !== undefined) exam.customInstructions = b.customInstructions
     if (b.status !== undefined) exam.status = b.status
+    // F60 FIX — Attempt Limit editable from Batch/Series Manager's Exams tab Edit modal
+    if (b.maxAttempts !== undefined) exam.maxAttempts = parseInt(b.maxAttempts) || 1
 
     if (b.correctMarks !== undefined || b.incorrectMarks !== undefined) {
       exam.markingScheme = exam.markingScheme || {}
@@ -470,14 +472,41 @@ router.post('/:id/clone-advanced', verifyToken, isAdmin, async (req, res) => {
       startTime: b.startTime ? new Date(b.startTime) : null,
       endTime: b.endTime ? new Date(b.endTime) : null
     }
+    // F60/F61 FIX — Attempt Limit copyable from the Batch/Series Manager Copy modal
+    if (b.maxAttempts !== undefined) obj.maxAttempts = parseInt(b.maxAttempts) || 1
+
     // 31.8 — clone to a different batch if provided, else keep original's batch
-    if (b.targetBatch !== undefined) obj.batch = b.targetBatch
+    if (b.targetBatch !== undefined) {
+      obj.batch = b.targetBatch
+      obj.multiBatch = []
+      if (b.targetBatch) obj.assignmentType = 'batch'
+    }
+    // F61 FIX — clone to a different test series (previously only wrote a stray
+    // 'seriesName' string, not the real testSeriesId, so the copy never actually
+    // linked to the series the same way normal assign does).
+    if (b.targetSeries !== undefined) {
+      obj.testSeriesId = b.targetSeries || null
+      if (b.targetSeries) obj.assignmentType = 'series'
+    }
     if (b.seriesName !== undefined) obj.seriesName = b.seriesName
 
     obj.createdBy = req.user.id
     obj.updatedBy = req.user.id
 
     const cloned = await Exam.create(obj)
+
+    // F61 FIX — reverse-link the clone into Batch.exams / TestSeries.tests so it
+    // immediately shows up in the Assigned list, mirroring the normal assign flow.
+    try {
+      if (b.targetBatch) {
+        const Batch = require('../models/Batch')
+        await Batch.updateOne({ _id: b.targetBatch }, { $addToSet: { exams: cloned._id } })
+      }
+      if (b.targetSeries) {
+        const TestSeries = require('../models/TestSeries')
+        await TestSeries.updateOne({ _id: b.targetSeries }, { $addToSet: { tests: cloned._id } })
+      }
+    } catch (linkErr) { console.error('clone-advanced reverse-link warning:', linkErr.message) }
 
     try {
       const AuditLog = require('../models/AuditLog')
@@ -487,6 +516,7 @@ router.post('/:id/clone-advanced', verifyToken, isAdmin, async (req, res) => {
     res.status(201).json({ success: true, message: 'Exam cloned ✅', exam: cloned })
   } catch (err) { res.status(500).json({ success: false, message: err.message }) }
 })
+
 
 // ── 31.9 / 31.10 / 31.15 — clone history: this exam's parent + its children ──
 router.get('/:id/clone-info', verifyToken, isAdmin, async (req, res) => {
