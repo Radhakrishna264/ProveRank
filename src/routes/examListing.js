@@ -313,7 +313,12 @@ router.put('/:id/quick-edit', verifyToken, isAdmin, async (req, res) => {
     if (b.customInstructions !== undefined) exam.customInstructions = b.customInstructions
     if (b.status !== undefined) exam.status = b.status
     // F60 FIX — Attempt Limit editable from Batch/Series Manager's Exams tab Edit modal. -1 = unlimited.
-    if (b.maxAttempts !== undefined) exam.maxAttempts = parseInt(b.maxAttempts) === -1 ? -1 : (parseInt(b.maxAttempts) || 1)
+    if (b.maxAttempts !== undefined) exam.maxAttempts = parseInt(b.maxAttempts) || 1
+    // F63 FIX — 'unlimited' is a separate boolean field (exam.unlimitedAttempts),
+    // NOT a -1 sentinel in maxAttempts. examFlow.js's attempt-start check reads
+    // exam.unlimitedAttempts directly; writing -1 into maxAttempts made attemptsLeft
+    // compute as 0 (Math.max(0, -1 - 0)) and blocked the very first attempt.
+    if (b.unlimitedAttempts !== undefined) exam.unlimitedAttempts = !!b.unlimitedAttempts
 
     if (b.correctMarks !== undefined || b.incorrectMarks !== undefined) {
       exam.markingScheme = exam.markingScheme || {}
@@ -487,7 +492,9 @@ router.post('/:id/clone-advanced', verifyToken, isAdmin, async (req, res) => {
       endTime: cloneStart ? new Date(cloneStart.getTime() + (parseInt(b.duration) || obj.duration || 0) * 60000) : (b.endTime ? new Date(b.endTime) : null)
     }
     // F60/F61 FIX — Attempt Limit copyable from the Batch/Series Manager Copy modal. -1 = unlimited.
-    if (b.maxAttempts !== undefined) obj.maxAttempts = parseInt(b.maxAttempts) === -1 ? -1 : (parseInt(b.maxAttempts) || 1)
+    if (b.maxAttempts !== undefined) obj.maxAttempts = parseInt(b.maxAttempts) || 1
+    // F63 FIX — 'unlimited' is a separate boolean field, not a -1 sentinel (see quick-edit route)
+    if (b.unlimitedAttempts !== undefined) obj.unlimitedAttempts = !!b.unlimitedAttempts
 
     // 31.8 — clone to a different batch if provided, else keep original's batch
     if (b.targetBatch !== undefined) {

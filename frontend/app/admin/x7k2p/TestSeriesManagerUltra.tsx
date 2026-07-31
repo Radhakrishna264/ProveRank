@@ -700,7 +700,7 @@ function TestsTab({ base, authHeaders, id, showToast }: any) {
     setEditForm({
       startTime: e.schedule?.startTime ? new Date(e.schedule.startTime).toISOString().slice(0, 16) : '',
       duration: e.duration || 180,
-      unlimitedAttempts: (e.maxAttempts === -1),
+      unlimitedAttempts: !!e.unlimitedAttempts,
       maxAttempts: e.maxAttempts && e.maxAttempts > 0 ? e.maxAttempts : 1
     })
   }
@@ -711,7 +711,8 @@ function TestsTab({ base, authHeaders, id, showToast }: any) {
         body: JSON.stringify({
           startTime: editForm.startTime || null,
           duration: editForm.duration,
-          maxAttempts: editForm.unlimitedAttempts ? -1 : editForm.maxAttempts
+          maxAttempts: editForm.maxAttempts,
+          unlimitedAttempts: editForm.unlimitedAttempts
         })
       })
       const d = await r.json().catch(() => ({}))
@@ -724,7 +725,7 @@ function TestsTab({ base, authHeaders, id, showToast }: any) {
   const [copyForm, setCopyForm] = useState<any>({})
   const openCopy = (e: any) => {
     setCopyExam(e)
-    setCopyForm({ newTitle: `Copy of ${e.title || e.name}`, startTime: '', duration: e.duration || 180, unlimitedAttempts: (e.maxAttempts === -1), maxAttempts: e.maxAttempts && e.maxAttempts > 0 ? e.maxAttempts : 1 })
+    setCopyForm({ newTitle: `Copy of ${e.title || e.name}`, startTime: '', duration: e.duration || 180, unlimitedAttempts: !!e.unlimitedAttempts, maxAttempts: e.maxAttempts && e.maxAttempts > 0 ? e.maxAttempts : 1 })
   }
   const saveCopy = async () => {
     if (!(await confirmAction(`Create an independent copy of "${copyExam.title || copyExam.name}" and assign it to this test series?`, { confirmText: 'Create Copy' }))) return
@@ -735,7 +736,8 @@ function TestsTab({ base, authHeaders, id, showToast }: any) {
           newTitle: copyForm.newTitle,
           startTime: copyForm.startTime || null,
           duration: copyForm.duration,
-          maxAttempts: copyForm.unlimitedAttempts ? -1 : copyForm.maxAttempts,
+          maxAttempts: copyForm.maxAttempts,
+          unlimitedAttempts: copyForm.unlimitedAttempts,
           targetSeries: id
         })
       })
