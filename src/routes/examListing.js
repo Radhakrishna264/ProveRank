@@ -306,15 +306,14 @@ router.put('/:id/quick-edit', verifyToken, isAdmin, async (req, res) => {
     if (b.category !== undefined) exam.category = b.category
     if (b.subject !== undefined) exam.subject = b.subject
     if (b.type !== undefined) exam.type = b.type
-    if (b.duration !== undefined) exam.duration = parseInt(b.duration) || exam.duration
     if (b.totalMarks !== undefined) exam.totalMarks = parseInt(b.totalMarks) || exam.totalMarks
     if (b.batch !== undefined) exam.batch = b.batch
     if (b.seriesName !== undefined) exam.seriesName = b.seriesName
     if (b.watermark !== undefined) exam.watermark = !!b.watermark
     if (b.customInstructions !== undefined) exam.customInstructions = b.customInstructions
     if (b.status !== undefined) exam.status = b.status
-    // F60 FIX — Attempt Limit editable from Batch/Series Manager's Exams tab Edit modal
-    if (b.maxAttempts !== undefined) exam.maxAttempts = parseInt(b.maxAttempts) || 1
+    // F60 FIX — Attempt Limit editable from Batch/Series Manager's Exams tab Edit modal. -1 = unlimited.
+    if (b.maxAttempts !== undefined) exam.maxAttempts = parseInt(b.maxAttempts) === -1 ? -1 : (parseInt(b.maxAttempts) || 1)
 
     if (b.correctMarks !== undefined || b.incorrectMarks !== undefined) {
       exam.markingScheme = exam.markingScheme || {}
@@ -322,10 +321,21 @@ router.put('/:id/quick-edit', verifyToken, isAdmin, async (req, res) => {
       if (b.incorrectMarks !== undefined) exam.markingScheme.incorrect = parseFloat(b.incorrectMarks)
       exam.markModified('markingScheme')
     }
-    if (b.startTime !== undefined || b.endTime !== undefined) {
+    // F62 FIX — Duration replaces manual End Date/Time entry; end time is now
+    // always auto-derived from startTime + duration instead of being editable
+    // separately (previously admins had to enter a matching end time by hand).
+    if (b.duration !== undefined) exam.duration = parseInt(b.duration) || exam.duration
+    if (b.startTime !== undefined || b.duration !== undefined || b.endTime !== undefined) {
       exam.schedule = exam.schedule || {}
       if (b.startTime !== undefined) exam.schedule.startTime = b.startTime ? new Date(b.startTime) : null
-      if (b.endTime !== undefined) exam.schedule.endTime = b.endTime ? new Date(b.endTime) : null
+      if (b.duration !== undefined) {
+        const st = exam.schedule.startTime
+        const durMin = parseInt(b.duration) || exam.duration || 0
+        exam.schedule.endTime = st ? new Date(st.getTime() + durMin * 60000) : null
+      } else if (b.endTime !== undefined) {
+        // legacy path — still supported for any other caller that sends endTime directly
+        exam.schedule.endTime = b.endTime ? new Date(b.endTime) : null
+      }
       exam.markModified('schedule')
     }
 
@@ -467,13 +477,17 @@ router.post('/:id/clone-advanced', verifyToken, isAdmin, async (req, res) => {
     obj.archivedBy = null
     obj.clonedFrom = original._id // 31.9
 
-    // 31.5 — schedule reset; only set if admin explicitly provided a new date
+    // F62 FIX — Duration replaces manual End Date/Time entry; end time is now
+    // always auto-derived from startTime + duration instead of a separately
+    // entered end date/time.
+    const cloneStart = b.startTime ? new Date(b.startTime) : null
+    if (b.duration !== undefined) obj.duration = parseInt(b.duration) || obj.duration
     obj.schedule = {
-      startTime: b.startTime ? new Date(b.startTime) : null,
-      endTime: b.endTime ? new Date(b.endTime) : null
+      startTime: cloneStart,
+      endTime: cloneStart ? new Date(cloneStart.getTime() + (parseInt(b.duration) || obj.duration || 0) * 60000) : (b.endTime ? new Date(b.endTime) : null)
     }
-    // F60/F61 FIX — Attempt Limit copyable from the Batch/Series Manager Copy modal
-    if (b.maxAttempts !== undefined) obj.maxAttempts = parseInt(b.maxAttempts) || 1
+    // F60/F61 FIX — Attempt Limit copyable from the Batch/Series Manager Copy modal. -1 = unlimited.
+    if (b.maxAttempts !== undefined) obj.maxAttempts = parseInt(b.maxAttempts) === -1 ? -1 : (parseInt(b.maxAttempts) || 1)
 
     // 31.8 — clone to a different batch if provided, else keep original's batch
     if (b.targetBatch !== undefined) {

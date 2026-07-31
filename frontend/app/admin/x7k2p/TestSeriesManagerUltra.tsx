@@ -692,41 +692,56 @@ function TestsTab({ base, authHeaders, id, showToast }: any) {
     } catch { showToast('⚠️ Schedule failed') }
   }
 
-  // F60 FIX — Edit modal: start/end date + attempt limit, saved via quick-edit (updates the exam everywhere it's used)
+  // F60 FIX — Edit modal: start date + duration (end time auto-calculated) + attempt limit / unlimited
   const [editExam, setEditExam] = useState<any>(null)
   const [editForm, setEditForm] = useState<any>({})
   const openEdit = (e: any) => {
     setEditExam(e)
     setEditForm({
       startTime: e.schedule?.startTime ? new Date(e.schedule.startTime).toISOString().slice(0, 16) : '',
-      endTime: e.schedule?.endTime ? new Date(e.schedule.endTime).toISOString().slice(0, 16) : '',
-      maxAttempts: e.maxAttempts ?? 1
+      duration: e.duration || 180,
+      unlimitedAttempts: (e.maxAttempts === -1),
+      maxAttempts: e.maxAttempts && e.maxAttempts > 0 ? e.maxAttempts : 1
     })
   }
   const saveEdit = async () => {
-    const r = await fetch(examWizardBase + '/api/exams/' + editExam._id + '/quick-edit', {
-      method: 'PUT', headers: authHeaders,
-      body: JSON.stringify({ startTime: editForm.startTime || null, endTime: editForm.endTime || null, maxAttempts: editForm.maxAttempts })
-    })
-    const d = await r.json().catch(() => ({}))
-    if (d.success) { showToast('✅ Test updated — changes apply everywhere it is used'); setEditExam(null); load() } else showToast('⚠️ ' + (d.message || 'Update failed'))
+    try {
+      const r = await fetch(examWizardBase + '/api/exams-manage/' + editExam._id + '/quick-edit', {
+        method: 'PUT', headers: authHeaders,
+        body: JSON.stringify({
+          startTime: editForm.startTime || null,
+          duration: editForm.duration,
+          maxAttempts: editForm.unlimitedAttempts ? -1 : editForm.maxAttempts
+        })
+      })
+      const d = await r.json().catch(() => ({}))
+      if (d.success) { showToast('✅ Test updated — changes apply everywhere it is used'); setEditExam(null); load() } else showToast('⚠️ ' + (d.message || 'Update failed'))
+    } catch { showToast('⚠️ Update failed — could not reach server') }
   }
 
-  // F61 FIX — Copy modal: new title/dates/attempt limit via clone-advanced, auto-assigned to this series
+  // F61 FIX — Copy modal: new title + start date + duration + attempt limit / unlimited, auto-assigned to this series
   const [copyExam, setCopyExam] = useState<any>(null)
   const [copyForm, setCopyForm] = useState<any>({})
   const openCopy = (e: any) => {
     setCopyExam(e)
-    setCopyForm({ newTitle: `Copy of ${e.title || e.name}`, startTime: '', endTime: '', maxAttempts: e.maxAttempts ?? 1 })
+    setCopyForm({ newTitle: `Copy of ${e.title || e.name}`, startTime: '', duration: e.duration || 180, unlimitedAttempts: (e.maxAttempts === -1), maxAttempts: e.maxAttempts && e.maxAttempts > 0 ? e.maxAttempts : 1 })
   }
   const saveCopy = async () => {
     if (!(await confirmAction(`Create an independent copy of "${copyExam.title || copyExam.name}" and assign it to this test series?`, { confirmText: 'Create Copy' }))) return
-    const r = await fetch(examWizardBase + '/api/exams/' + copyExam._id + '/clone-advanced', {
-      method: 'POST', headers: authHeaders,
-      body: JSON.stringify({ newTitle: copyForm.newTitle, startTime: copyForm.startTime || null, endTime: copyForm.endTime || null, maxAttempts: copyForm.maxAttempts, targetSeries: id })
-    })
-    const d = await r.json().catch(() => ({}))
-    if (d.success) { showToast('✅ Test copied & assigned to this series'); setCopyExam(null); load() } else showToast('⚠️ ' + (d.message || 'Copy failed'))
+    try {
+      const r = await fetch(examWizardBase + '/api/exams-manage/' + copyExam._id + '/clone-advanced', {
+        method: 'POST', headers: authHeaders,
+        body: JSON.stringify({
+          newTitle: copyForm.newTitle,
+          startTime: copyForm.startTime || null,
+          duration: copyForm.duration,
+          maxAttempts: copyForm.unlimitedAttempts ? -1 : copyForm.maxAttempts,
+          targetSeries: id
+        })
+      })
+      const d = await r.json().catch(() => ({}))
+      if (d.success) { showToast('✅ Test copied & assigned to this series'); setCopyExam(null); load() } else showToast('⚠️ ' + (d.message || 'Copy failed'))
+    } catch { showToast('⚠️ Copy failed — could not reach server') }
   }
 
   return (
@@ -798,10 +813,13 @@ function TestsTab({ base, authHeaders, id, showToast }: any) {
           <div style={{ fontSize: 11, color: DIM, marginBottom: 16 }}>{editExam.title || editExam.name} — changes apply everywhere this test is used.</div>
           <label style={lbl}>Start Date & Time</label>
           <input type="datetime-local" style={{ ...inp, marginBottom: 12 }} value={editForm.startTime} onChange={e => setEditForm((f: any) => ({ ...f, startTime: e.target.value }))} />
-          <label style={lbl}>End Date & Time</label>
-          <input type="datetime-local" style={{ ...inp, marginBottom: 12 }} value={editForm.endTime} onChange={e => setEditForm((f: any) => ({ ...f, endTime: e.target.value }))} />
+          <label style={lbl}>Duration (minutes) — end time auto-calculated</label>
+          <input type="number" min={1} style={{ ...inp, marginBottom: 12 }} value={editForm.duration} onChange={e => setEditForm((f: any) => ({ ...f, duration: e.target.value }))} />
           <label style={lbl}>Attempt Limit</label>
-          <input type="number" min={1} style={{ ...inp, marginBottom: 18 }} value={editForm.maxAttempts} onChange={e => setEditForm((f: any) => ({ ...f, maxAttempts: e.target.value }))} />
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18 }}>
+            <input type="number" min={1} disabled={editForm.unlimitedAttempts} style={{ ...inp, opacity: editForm.unlimitedAttempts ? 0.4 : 1, flex: 1 }} value={editForm.maxAttempts} onChange={e => setEditForm((f: any) => ({ ...f, maxAttempts: e.target.value }))} />
+            <Toggle on={!!editForm.unlimitedAttempts} onChange={v => setEditForm((f: any) => ({ ...f, unlimitedAttempts: v }))} label="Unlimited" />
+          </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
             <button style={bs} onClick={() => setEditExam(null)}>Cancel</button>
             <button style={bp} onClick={saveEdit}>💾 Save Changes</button>
@@ -817,10 +835,13 @@ function TestsTab({ base, authHeaders, id, showToast }: any) {
           <input style={{ ...inp, marginBottom: 12 }} value={copyForm.newTitle} onChange={e => setCopyForm((f: any) => ({ ...f, newTitle: e.target.value }))} />
           <label style={lbl}>Start Date & Time</label>
           <input type="datetime-local" style={{ ...inp, marginBottom: 12 }} value={copyForm.startTime} onChange={e => setCopyForm((f: any) => ({ ...f, startTime: e.target.value }))} />
-          <label style={lbl}>End Date & Time</label>
-          <input type="datetime-local" style={{ ...inp, marginBottom: 12 }} value={copyForm.endTime} onChange={e => setCopyForm((f: any) => ({ ...f, endTime: e.target.value }))} />
+          <label style={lbl}>Duration (minutes) — end time auto-calculated</label>
+          <input type="number" min={1} style={{ ...inp, marginBottom: 12 }} value={copyForm.duration} onChange={e => setCopyForm((f: any) => ({ ...f, duration: e.target.value }))} />
           <label style={lbl}>Attempt Limit</label>
-          <input type="number" min={1} style={{ ...inp, marginBottom: 18 }} value={copyForm.maxAttempts} onChange={e => setCopyForm((f: any) => ({ ...f, maxAttempts: e.target.value }))} />
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18 }}>
+            <input type="number" min={1} disabled={copyForm.unlimitedAttempts} style={{ ...inp, opacity: copyForm.unlimitedAttempts ? 0.4 : 1, flex: 1 }} value={copyForm.maxAttempts} onChange={e => setCopyForm((f: any) => ({ ...f, maxAttempts: e.target.value }))} />
+            <Toggle on={!!copyForm.unlimitedAttempts} onChange={v => setCopyForm((f: any) => ({ ...f, unlimitedAttempts: v }))} label="Unlimited" />
+          </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
             <button style={bs} onClick={() => setCopyExam(null)}>Cancel</button>
             <button style={bp} onClick={saveCopy}>📄 Create Copy</button>
