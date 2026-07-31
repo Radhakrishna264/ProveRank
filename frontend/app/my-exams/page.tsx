@@ -148,10 +148,15 @@ function MyExamsContent() {
 
   const submitPassword = () => {
     if (!pwInput.trim()) { setPwErr(t('Enter password', 'Password daalo')); return }
-    fetch(`${API}/api/exams/${pwModal._id}`, { headers: { Authorization: `Bearer ${token}` } })
+    // F52 security fix — verified server-side now; plaintext password never sent to client
+    fetch(`${API}/api/exams/${pwModal._id}/verify-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ password: pwInput })
+    })
       .then(r => r.json())
       .then(d => {
-        if (d?.exam?.password && d.exam.password !== pwInput) { setPwErr(t('Incorrect password', 'Galat password')); return }
+        if (!d?.valid) { setPwErr(t('Incorrect password', 'Galat password')); return }
         const e = pwModal; setPwModal(null)
         if (e.derivedStatus === 'scheduled' && e.waitingRoomWindowOpen) { doJoinWaitingRoom(e); return }
         router.push(`/exam/${e._id}/instructions`)
@@ -224,28 +229,31 @@ function MyExamsContent() {
         </div>
       )}
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+      <div style={{ marginBottom: 14 }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('Search exam title...', 'Exam title search karo...')}
-          style={{ flex: '2 1 200px', padding: '10px 12px', borderRadius: 10, border: `1px solid ${border}`, background: inputBg, color: text }} />
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={selectStyle}>
-          <option value="all">{t('All', 'All')}</option>
-          <option value="upcoming">{t('Upcoming', 'Upcoming')}</option>
-          <option value="live">{t('Live', 'Live')}</option>
-          <option value="completed">{t('Completed', 'Completed')}</option>
-        </select>
-        <select value={subjectFilter} onChange={e => setSubjectFilter(e.target.value)} style={selectStyle}>
-          <option value="all">{t('All Subjects', 'All Subjects')}</option>
-          {subjects.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        {/* F52 v4 fix #2 — renamed + merged Batches/Test Series dropdown */}
-        <select value={batchFilter} onChange={e => setBatchFilter(e.target.value)} style={selectStyle}>
-          <option value="all">{t('All Batches/Test Series', 'All Batches/Test Series')}</option>
-          {batchesAndSeries.map(b => <option key={b} value={b}>{b}</option>)}
-        </select>
-        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} style={selectStyle}>
-          <option value="all">{t('All Categories', 'All Categories')}</option>
-          {categories.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
+          style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${border}`, background: inputBg, color: text, marginBottom: 8, boxSizing: 'border-box' }} />
+        {/* F52 §12.1.3 — horizontal scroll strip on mobile; wraps naturally on wide desktop screens */}
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, WebkitOverflowScrolling: 'touch' }}>
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...selectStyle, flexShrink: 0 }}>
+            <option value="all">{t('All', 'All')}</option>
+            <option value="upcoming">{t('Upcoming', 'Upcoming')}</option>
+            <option value="live">{t('Live', 'Live')}</option>
+            <option value="completed">{t('Completed', 'Completed')}</option>
+          </select>
+          <select value={subjectFilter} onChange={e => setSubjectFilter(e.target.value)} style={{ ...selectStyle, flexShrink: 0 }}>
+            <option value="all">{t('All Subjects', 'All Subjects')}</option>
+            {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          {/* F52 v4 fix #2 — renamed + merged Batches/Test Series dropdown */}
+          <select value={batchFilter} onChange={e => setBatchFilter(e.target.value)} style={{ ...selectStyle, flexShrink: 0 }}>
+            <option value="all">{t('All Batches/Test Series', 'All Batches/Test Series')}</option>
+            {batchesAndSeries.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+          <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} style={{ ...selectStyle, flexShrink: 0 }}>
+            <option value="all">{t('All Categories', 'All Categories')}</option>
+            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
       </div>
 
       {loading ? (
@@ -275,6 +283,7 @@ function MyExamsContent() {
                   <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{e.duration} min</span>
                   <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{e.totalMarks} marks</span>
                   {e.category && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{e.category}</span>}
+                  {e.assignmentType && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{e.assignmentType === 'mini_test' ? t('Mini Test', 'Mini Test') : e.assignmentType === 'series' ? t('Series', 'Series') : e.assignmentType === 'batch' ? t('Batch', 'Batch') : t('Individual', 'Individual')}</span>}
                   {e.batch && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: C.gold }}>{e.batch}</span>}
                   {e.seriesName && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: C.gold }}>📚 {e.seriesName}</span>}
                 </div>
@@ -292,6 +301,7 @@ function MyExamsContent() {
                     <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: C.gold }}>{t('Best', 'Best')}: {e.performance.bestScore}</span>
                     <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{t('Avg', 'Avg')}: {e.performance.avgScore}</span>
                     <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{t('Attempts', 'Attempts')}: {e.performance.attemptCount}</span>
+                    {e.performance.lastAttemptAt && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{t('Last', 'Last')}: {fmtTime(e.performance.lastAttemptAt)}</span>}
                     <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: e.performance.rankTrend === 'up' ? C.success : e.performance.rankTrend === 'down' ? C.danger : sub }}>
                       {e.performance.rankTrend === 'up' ? '📈' : e.performance.rankTrend === 'down' ? '📉' : '➖'} {t('Rank', 'Rank')} {e.performance.rankTrend}
                     </span>

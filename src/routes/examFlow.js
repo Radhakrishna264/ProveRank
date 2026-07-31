@@ -197,6 +197,7 @@ router.get('/my-exams', verifyToken, async (req, res) => {
         duration: e.duration,
         totalMarks: e.totalMarks,
         category: e.category,
+        assignmentType: e.assignmentType || 'individual',
         batch: e.batch,
         multiBatch: e.multiBatch,
         testSeriesId: e.testSeriesId || null,

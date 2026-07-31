@@ -1,3 +1,25 @@
+#!/bin/bash
+set -e
+echo "=== ProveRank Cleanup: Removing unused legacy pages + fixing attempt page link ==="
+
+# ---- 1) Delete legacy Compare Performance page (not needed) ----
+rm -rf ~/workspace/frontend/app/dashboard/compare
+echo "dashboard/compare deleted ✅"
+
+# ---- 2) Delete legacy Batch Compare page (not needed) ----
+rm -rf ~/workspace/frontend/app/dashboard/batch-compare
+echo "dashboard/batch-compare deleted ✅"
+
+# ---- 3) Delete unused legacy DashLayout component ----
+rm -f ~/workspace/frontend/components/DashLayout.tsx
+echo "DashLayout.tsx deleted ✅"
+
+# ---- 4) Delete legacy mock-data My Exams page (dead/orphaned) ----
+rm -rf ~/workspace/frontend/app/dashboard/exams
+echo "dashboard/exams deleted ✅"
+
+# ---- 5) Fix: Exam Attempt page "Back to Exams" button now points to real /my-exams ----
+cat > ~/workspace/frontend/app/exam/\[examId\]/attempt/page.tsx << 'FILEEOF4'
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -1142,3 +1164,8 @@ export default function ExamAttempt() {
     </div>
   )
 }
+FILEEOF4
+echo "exam/[examId]/attempt/page.tsx updated ✅"
+
+echo ""
+echo "=== DONE — Now: cd ~/workspace/frontend && rm -rf .next && npm run build (or npm run dev to test) ==="

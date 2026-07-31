@@ -40,9 +40,31 @@ router.get('/:id', verifyToken, async (req, res) => {
   try {
     const exam = await Exam.findById(req.params.id);
     if (!exam) return res.status(404).json({ message: 'Exam not found' });
-    res.json({ exam });
+    // SECURITY FIX (F52) — plaintext exam.password must NEVER reach a student
+    // client. Only admin/superadmin get the real value (needed for edit forms).
+    const isPrivileged = req.user && (req.user.role === 'admin' || req.user.role === 'superadmin');
+    const examOut = exam.toObject();
+    if (!isPrivileged) {
+      examOut.passwordProtected = !!examOut.password;
+      delete examOut.password;
+    }
+    res.json({ exam: examOut });
   } catch (err) {
     res.status(500).json({ message: 'Error', error: err.message });
+  }
+});
+
+// VERIFY EXAM PASSWORD — server-side check, never exposes the real password (F52 security fix)
+router.post('/:id/verify-password', verifyToken, async (req, res) => {
+  try {
+    const { password } = req.body || {};
+    const exam = await Exam.findById(req.params.id).select('password');
+    if (!exam) return res.status(404).json({ error: 'Exam not found' });
+    if (!exam.password) return res.json({ valid: true }); // not password protected
+    const valid = typeof password === 'string' && password === exam.password;
+    res.json({ valid });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
