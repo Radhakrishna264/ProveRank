@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+echo "=== Fix: Remove broken Get Certificate button in My Batches (target page was deleted) ==="
+cat > ~/workspace/frontend/app/dashboard/my-batches/page.tsx << 'FILEEOF1'
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -535,3 +539,10 @@ export default function MyBatchesPage() {
     </StudentShell>
   )
 }
+FILEEOF1
+echo "my-batches/page.tsx updated ✅"
+
+cd ~/workspace
+git add -A
+git commit -m "fix: remove dangling Get Certificate button in My Batches after certificate page deletion"
+git push
