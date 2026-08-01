@@ -48,6 +48,15 @@ router.get('/:id', verifyToken, async (req, res) => {
       examOut.passwordProtected = !!examOut.password;
       delete examOut.password;
     }
+    // F54 §2.1.5 — real subject-wise question count breakdown for Instructions screen
+    try {
+      const Question = require('../models/Question');
+      const qDocs = await Question.find({ _id: { $in: exam.questions || [] } }).select('subject').lean();
+      const bySubject = {};
+      qDocs.forEach(q => { const s = q.subject || 'Other'; bySubject[s] = (bySubject[s] || 0) + 1; });
+      examOut.subjectBreakdown = bySubject;
+      examOut.totalQuestionsCount = qDocs.length;
+    } catch (e) { examOut.subjectBreakdown = {}; examOut.totalQuestionsCount = (exam.questions || []).length; }
     res.json({ exam: examOut });
   } catch (err) {
     res.status(500).json({ message: 'Error', error: err.message });

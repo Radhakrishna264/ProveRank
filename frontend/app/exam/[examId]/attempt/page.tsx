@@ -33,7 +33,7 @@ export default function ExamAttempt() {
   // ── Attempt / question state ───────────────────────────────
   const [attempt, setAttempt]     = useState<any>(null)
   const [questions, setQuestions] = useState<any[]>([])
-  const [examMeta, setExamMeta]   = useState<any>({ sections: [], markingScheme: { correct: 4, incorrect: -1, unattempted: 0 }, duration: 200, title: '', status: '' })
+  const [examMeta, setExamMeta]   = useState<any>({ sections: [], markingScheme: { correct: 4, incorrect: -1, unattempted: 0 }, duration: 200, title: '', status: '', fullscreenForce: true })
   const [current, setCurrent]     = useState(0)
   const [answers, setAnswers]     = useState<Record<string, any>>({})
   const [flagged, setFlagged]     = useState<Set<string>>(new Set())
@@ -215,12 +215,20 @@ export default function ExamAttempt() {
         return
       }
       setQuestions(qd.questions || [])
+      // F57 §1.7 — fetch per-exam fullscreenForce setting so admin can actually disable it (was ignored before, always forced)
+      let fullscreenForce = true
+      try {
+        const fr = await fetch(`${API}/api/exams/${examId}`, { headers: h })
+        const fd = await fr.json()
+        if (typeof fd?.exam?.fullscreenForce === 'boolean') fullscreenForce = fd.exam.fullscreenForce
+      } catch (e) { /* fail-safe: keep enforcement ON if this fetch fails */ }
       setExamMeta({
         sections: qd.sections || [],
         markingScheme: qd.markingScheme || { correct: 4, incorrect: -1, unattempted: 0 },
         duration: qd.duration || 200,
         title: qd.title || '',
-        status: qd.status || ''
+        status: qd.status || '',
+        fullscreenForce
       })
 
       // Accurate authoritative timer — §16 / avoids hardcoded 200-min default
@@ -307,6 +315,7 @@ export default function ExamAttempt() {
 
     const requestFS = () => { try { document.documentElement.requestFullscreen?.() } catch (e) {} }
     const onFsChange = () => {
+      if (examMeta.fullscreenForce === false) return // F57 §1.7 — admin disabled fullscreen enforcement for this exam
       const isFs = !!document.fullscreenElement
       setFsCompliant(isFs)
       setFocusLocked(isFs)
@@ -330,7 +339,7 @@ export default function ExamAttempt() {
       }
     }
 
-    requestFS()
+    if (examMeta.fullscreenForce !== false) requestFS()
     document.addEventListener('fullscreenchange', onFsChange)
     window.addEventListener('blur', onBlur)
     document.addEventListener('visibilitychange', onVis)
@@ -340,7 +349,7 @@ export default function ExamAttempt() {
       window.removeEventListener('blur', onBlur)
       if (fsExitTimerRef.current) clearTimeout(fsExitTimerRef.current)
     }
-  }, [attempt, user, examId])
+  }, [attempt, user, examId, examMeta.fullscreenForce])
 
   // ── Timer countdown (now driven by authoritative totalDurationSec) ──
   useEffect(() => {

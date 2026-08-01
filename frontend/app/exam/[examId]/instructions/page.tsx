@@ -47,6 +47,8 @@ function InstructionsContent() {
   const [tcModal, setTcModal] = useState(false)
   const [scrolledToBottom, setScrolledToBottom] = useState(false)
   const [consentAlready, setConsentAlready] = useState(false)
+  const [consentAcceptedAt, setConsentAcceptedAt] = useState<string | null>(null)
+  const [needsReaccept, setNeedsReaccept] = useState(false)
   const tcBodyRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -62,7 +64,12 @@ function InstructionsContent() {
       .then(r => r.json()).then(d => setExam(d?.exam || null)).catch(() => {})
 
     fetch(`${API}/api/exams/${examId}/consent-status`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json()).then(d => { if (d?.success) setConsentAlready(!!d.accepted) }).catch(() => {})
+      .then(r => r.json()).then(d => {
+        if (!d?.success) return
+        setConsentAlready(!!d.accepted)
+        setConsentAcceptedAt(d.acceptedAt || null)
+        setNeedsReaccept(!!d.acceptedVersion && d.acceptedVersion !== d.currentVersion)
+      }).catch(() => {})
   }, [examId, token])
 
   const onTcScroll = () => {
@@ -94,7 +101,35 @@ function InstructionsContent() {
     }
   }
 
-  const points = lang === 'hi' ? DEFAULT_POINTS_HI : DEFAULT_POINTS_EN
+  const marking = exam?.marking || { correct: 4, incorrect: -1, unattempted: 0 }
+  const subjectBreakdown = exam?.subjectBreakdown || {}
+  const subjectLine = Object.keys(subjectBreakdown).length
+    ? Object.entries(subjectBreakdown).map(([s, c]) => `${s}: ${c}`).join(', ')
+    : t('will be shown on exam start', 'exam shuru hone par dikhega')
+
+  // F54 §2.1 — dynamic instruction points built from real exam data (was static generic text before)
+  const dynamicPoints = lang === 'hi' ? [
+    `Exam "${exam?.title || ''}" ki duration ${exam?.duration || '--'} minute hai.`,
+    `Total marks ${exam?.totalMarks || '--'} hai marking scheme ke hisaab se.`,
+    `Marking scheme: +${marking.correct} sahi, ${marking.incorrect} galat, ${marking.unattempted} attempt na karne par.`,
+    `Total questions: ${exam?.totalQuestionsCount ?? '--'} — exam ke beech me change nahi honge.`,
+    `Subject-wise questions: ${subjectLine}.`,
+    'Webcam poore exam me compulsory hai.',
+    'Right-click aur copy-paste exam ke dauraan disabled rahega.',
+    '3 baar tab switch karne par exam auto-submit ho jayega.',
+    'Fullscreen mode enforce hoga — bahar nikalne par warning aayegi.'
+  ] : [
+    `Exam "${exam?.title || ''}" duration is ${exam?.duration || '--'} minutes.`,
+    `Total marks are ${exam?.totalMarks || '--'} as per the marking scheme.`,
+    `Marking scheme: +${marking.correct} correct, ${marking.incorrect} wrong, ${marking.unattempted} unattempted.`,
+    `Total questions: ${exam?.totalQuestionsCount ?? '--'} — cannot be changed mid-exam.`,
+    `Subject-wise questions: ${subjectLine}.`,
+    'Webcam is compulsory throughout the exam.',
+    'Right-click and copy-paste are disabled during the exam.',
+    '3 tab switches will auto-submit your exam.',
+    'Fullscreen mode is enforced — exiting will trigger a warning.'
+  ]
+  const points = dynamicPoints
 
   return (
     <div style={{ padding: 16, maxWidth: 640, margin: '0 auto' }}>
@@ -109,9 +144,35 @@ function InstructionsContent() {
           </button>
         </div>
 
-        {consentAlready && (
+        {/* F54 §5.1 — instruction progress indicator / readiness steps */}
+        <div style={{ display: 'flex', gap: 8, margin: '14px 0' }}>
+          <div style={{ flex: 1, textAlign: 'center', padding: '8px 4px', borderRadius: 8, background: theme.chipBg || 'rgba(255,255,255,0.06)', border: `1px solid ${border}` }}>
+            <div style={{ fontSize: 11, color: text, fontWeight: 700 }}>1. {t('Read Instructions', 'Instructions Padho')}</div>
+          </div>
+          <div style={{ flex: 1, textAlign: 'center', padding: '8px 4px', borderRadius: 8, background: checked ? '#123b1e' : (theme.chipBg || 'rgba(255,255,255,0.06)'), border: `1px solid ${checked ? '#1e5c3a' : border}` }}>
+            <div style={{ fontSize: 11, color: checked ? '#7CFC9C' : text, fontWeight: 700 }}>2. {checked ? '✓ ' : ''}{t('Accept T&C', 'T&C Accept Karo')}</div>
+          </div>
+          <div style={{ flex: 1, textAlign: 'center', padding: '8px 4px', borderRadius: 8, background: theme.chipBg || 'rgba(255,255,255,0.06)', border: `1px solid ${border}` }}>
+            <div style={{ fontSize: 11, color: sub, fontWeight: 700 }}>3. {t('Webcam Check', 'Webcam Check')}</div>
+          </div>
+        </div>
+
+        {needsReaccept && (
+          <div style={{ background: '#3a2a00', color: '#f2d38a', borderRadius: 10, padding: 8, fontSize: 12, margin: '12px 0' }}>
+            🔄 {t('Terms have been updated since your last acceptance. Please read and accept again.', 'Terms update ho gaye hai aapki pichli acceptance ke baad. Dobara padhke accept karo.')}
+          </div>
+        )}
+        {consentAlready && !needsReaccept && (
           <div style={{ background: '#123b1e', color: '#7CFC9C', borderRadius: 10, padding: 8, fontSize: 12, margin: '12px 0' }}>
             ✅ {t('You already accepted these terms for this exam.', 'Aapne is exam ke liye ye terms pehle hi accept kar liye hai.')}
+            {consentAcceptedAt && <span style={{ opacity: 0.8 }}> ({new Date(consentAcceptedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })})</span>}
+          </div>
+        )}
+
+        {/* F54 §5.4 — custom admin instructions pinned at top of the content, above default points */}
+        {exam?.customInstructions && (
+          <div style={{ background: '#3a2a00', borderLeft: '4px solid #f2b134', borderRadius: 8, padding: 12, margin: '14px 0', color: '#f2d38a', fontSize: 12 }}>
+            ⚠️ <b>{t('Additional Instructions', 'Additional Instructions')}:</b> {exam.customInstructions}
           </div>
         )}
 
@@ -119,11 +180,13 @@ function InstructionsContent() {
           {points.map((p, i) => <li key={i}>{p}</li>)}
         </ol>
 
-        {exam?.customInstructions && (
-          <div style={{ background: '#3a2a00', borderLeft: '4px solid #f2b134', borderRadius: 8, padding: 12, margin: '14px 0', color: '#f2d38a', fontSize: 12 }}>
-            ⚠️ <b>{t('Additional Instructions', 'Additional Instructions')}:</b> {exam.customInstructions}
-          </div>
-        )}
+        {/* F54 §5.5 — permission checklist preview before navigating to webcam/fullscreen */}
+        <div style={{ background: theme.chipBg || 'rgba(255,255,255,0.06)', borderRadius: 10, padding: 12, margin: '14px 0', fontSize: 12, color: sub }}>
+          <div style={{ fontWeight: 700, color: text, marginBottom: 6 }}>{t('You will be asked for', 'Aapse ye maanga jayega')}:</div>
+          <div>📷 {t('Camera permission (compulsory)', 'Camera permission (compulsory)')}</div>
+          <div>🖥️ {t('Fullscreen mode (auto-enforced)', 'Fullscreen mode (auto-enforced)')}</div>
+          <div>🚫 {t('Right-click / copy-paste disabled', 'Right-click / copy-paste disabled')}</div>
+        </div>
 
         <div style={{ background: '#0e2418', border: '1px solid #1e5c3a', borderRadius: 10, padding: 12, marginTop: 16 }}>
           <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>

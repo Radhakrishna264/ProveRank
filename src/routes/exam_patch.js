@@ -22,45 +22,21 @@ router.get('/:examId/rank-prediction', verifyToken, async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-// M6 - Step 2: Waiting Room
-router.get('/:examId/waiting-room', verifyToken, async (req, res) => {
-  try {
-    const exam = await Exam.findById(new mongoose.Types.ObjectId(req.params.examId)).select('title startTime duration status');
-    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
-    const now = new Date();
-    const start = new Date(exam.startTime);
-    const opens = new Date(start.getTime() - 10 * 60 * 1000);
-    if (now < opens) res.status(403).json({ success: false, message: 'Waiting room 10 min pehle khulta hai', opensAt: opens });
-    const countdown = Math.max(0, Math.floor((start - now) / 1000));
-    res.json({ success: true, exam, countdown, serverTime: now });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
+// [REMOVED — DEAD CODE] Legacy /:examId/waiting-room (hardcoded 10-min window,
+// wrong field names for current Exam schema, missing `return` after 403 causing
+// a double-response crash). No frontend page calls this anymore — the real,
+// active implementation is GET /:id/waiting-info in routes/examFlow.js (F53).
 
-// Step 3: Instructions Page
-router.get('/:examId/instructions', verifyToken, async (req, res) => {
-  try {
-    const exam = await Exam.findById(new mongoose.Types.ObjectId(req.params.examId)).select('title duration totalQuestions totalMarks negativeMarking instructions');
-    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
-    res.json({ success: true, instructions: {
-      title: exam.title, duration: exam.duration,
-      totalQuestions: exam.totalQuestions, totalMarks: exam.totalMarks,
-      negativeMarking: exam.negativeMarking,
-      custom: exam.instructions || 'Sabhi questions dhyan se padho.',
-      rules: ['Exam pause nahi hoga', 'Fullscreen compulsory hai', '3 warnings = auto submit']
-    }});
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
+// [REMOVED — DEAD CODE] Legacy /:examId/instructions (referenced exam.totalQuestions,
+// exam.negativeMarking, exam.instructions — none of which exist on the current
+// Exam schema; would have returned undefined values). No frontend page calls
+// this — the real Instructions screen (F54) builds its data from GET /:id
+// + GET /my-exams directly in app/exam/[examId]/instructions/page.tsx.
 
-// S91 - Step 4: T&C Accept/Reject
-router.post('/:examId/accept-terms', verifyToken, async (req, res) => {
-  try {
-    const exam = await Exam.findById(new mongoose.Types.ObjectId(req.params.examId));
-    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
-    if (!req.body.accepted) return res.status(403).json({ success: false, message: 'Terms reject. Entry blocked.' });
-    await User.findByIdAndUpdate(req.user.id, { termsAccepted: true });
-    res.json({ success: true, message: 'Terms accepted. Aage badho.' });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
+// [REMOVED — DEAD CODE] Legacy /:examId/accept-terms (set a global termsAccepted
+// flag with no version tracking or per-exam consent log). This path is also
+// shadowed by the modern, version-tracked F55 implementation already mounted
+// earlier in index.js at routes/examFlow.js, so it was unreachable anyway.
 
 // S31 - Step 5: Attempt Limit Check
 router.get('/:examId/attempt-limit', verifyToken, async (req, res) => {
@@ -99,13 +75,8 @@ router.post('/:examId/verify-admit-card', verifyToken, async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-// S32 - Step 11: Fullscreen Force
-router.get('/:examId/fullscreen-setting', verifyToken, async (req, res) => {
-  try {
-    const exam = await Exam.findById(new mongoose.Types.ObjectId(req.params.examId)).select('fullscreenForce fullscreenWarnings');
-    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
-    res.json({ success: true, fullscreenForce: exam.fullscreenForce || false, maxWarnings: exam.fullscreenWarnings || 3 });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
+// [REMOVED — DEAD CODE] Legacy /:examId/fullscreen-setting. F57's fullscreenForce
+// check is now read directly from GET /api/exams/:id (routes/exam.js) inside
+// app/exam/[examId]/attempt/page.tsx, so this separate endpoint is unused.
 
 module.exports = router;
