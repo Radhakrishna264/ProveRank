@@ -20,33 +20,42 @@ function adminMiddleware(req, res, next) {
   next();
 }
 
+// Shared warning-count computation (dedup-aware, with 4s startup grace) —
+// used ONLY for display/proctoring-record purposes (N14, AI-6, M15). It never
+// auto-submits the attempt. Auto-submit happens ONLY on time expiry
+// (handled entirely by the /timer route + frontend countdown).
+async function computeWarningCount(attemptId, attempt) {
+  const warningEvents = ['tab_switch', 'window_blur', 'fullscreen_exit'];
+  const graceMs = 4000;
+  const graceCutoff = attempt ? new Date(new Date(attempt.startedAt).getTime() + graceMs) : new Date(0);
+  const logs = await AntiCheatLog.find({
+    attemptId: new mongoose.Types.ObjectId(attemptId),
+    eventType: { $in: warningEvents },
+    timestamp: { $gt: graceCutoff }
+  }).sort({ timestamp: 1 });
+
+  let incidents = 0;
+  let lastTs = null;
+  for (const log of logs) {
+    const ts = new Date(log.timestamp).getTime();
+    if (lastTs === null || ts - lastTs > 2000) incidents++;
+    lastTs = ts;
+  }
+  return incidents;
+}
+
+// FIX (per project owner instruction) — warnings/violations must NEVER
+// auto-submit the exam. This function only logs and reports the count for
+// admin visibility (N14 Suspicious Pattern, AI-6 Integrity Score, M15
+// Proctoring Report). autoSubmitted is always false here; the ONLY thing
+// that can auto-submit an attempt is time running out (see attemptRoutes.js
+// /timer route and the frontend countdown).
 async function checkAndAutoSubmit(attemptId, studentId) {
   try {
     const Attempt = mongoose.model('Attempt');
-    const warningEvents = ['tab_switch', 'window_blur', 'fullscreen_exit'];
-    const warningCount = await AntiCheatLog.countDocuments({
-      attemptId: new mongoose.Types.ObjectId(attemptId),
-      eventType: { $in: warningEvents }
-    });
-    if (warningCount >= 3) {
-      const attempt = await Attempt.findById(attemptId);
-      if (attempt && attempt.status === 'active') {
-        attempt.status = 'submitted';
-        attempt.submittedAt = new Date();
-        attempt.autoSubmitReason = 'anti_cheat_3_warnings';
-        await attempt.save();
-        await AntiCheatLog.create({
-          attemptId: new mongoose.Types.ObjectId(attemptId),
-          examId: attempt.examId,
-          studentId: new mongoose.Types.ObjectId(studentId),
-          eventType: 'tab_switch',
-          metadata: { autoSubmit: true, reason: '3_warnings_reached', totalWarnings: warningCount },
-          autoSubmitTriggered: true,
-          warningNumber: warningCount
-        });
-        return { autoSubmitted: true, warningCount };
-      }
-    }
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return { autoSubmitted: false, warningCount: 0 };
+    const warningCount = await computeWarningCount(attemptId, attempt);
     return { autoSubmitted: false, warningCount };
   } catch (err) {
     return { autoSubmitted: false, warningCount: 0 };
@@ -99,10 +108,9 @@ router.post('/window-blur', authMiddleware, async (req, res) => {
 router.get('/warning-count/:attemptId', authMiddleware, async (req, res) => {
   try {
     const { attemptId } = req.params;
-    const warningCount = await AntiCheatLog.countDocuments({
-      attemptId: new mongoose.Types.ObjectId(attemptId),
-      eventType: { $in: ['tab_switch', 'window_blur', 'fullscreen_exit'] }
-    });
+    const Attempt = mongoose.model('Attempt');
+    const attempt = await Attempt.findById(attemptId);
+    const warningCount = await computeWarningCount(attemptId, attempt);
     const autoSub = await AntiCheatLog.findOne({ attemptId: new mongoose.Types.ObjectId(attemptId), autoSubmitTriggered: true });
     return res.status(200).json({ attemptId, warningCount, maxWarnings: 3, autoSubmitTriggered: !!autoSub, remainingWarnings: Math.max(0, 3 - warningCount) });
   } catch (err) { return res.status(500).json({ message: 'Server error', error: err.message }); }
@@ -125,7 +133,7 @@ router.post('/fullscreen-exit', authMiddleware, async (req, res) => {
     log.warningNumber = r.warningCount;
     if (r.autoSubmitted) log.autoSubmitTriggered = true;
     await log.save();
-    return res.status(200).json({ message: 'Fullscreen exit logged (S32)', warningCount: r.warningCount, autoSubmitted: r.autoSubmitted, action: r.warningCount >= 3 ? 'AUTO_SUBMITTED' : 'WARNING_ISSUED' });
+    return res.status(200).json({ message: 'Fullscreen exit logged (S32)', warningCount: r.warningCount, autoSubmitted: r.autoSubmitted, action: r.warningCount >= 3 ? 'HIGH_VIOLATION_COUNT_RECORDED' : 'WARNING_ISSUED' });
   } catch (err) { return res.status(500).json({ message: 'Server error', error: err.message }); }
 });
 
