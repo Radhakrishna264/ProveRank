@@ -183,7 +183,8 @@ router.get('/my-exams', verifyToken, async (req, res) => {
     activeAttempts.forEach(a => { activeByExam[String(a.examId)] = a; });
     const joinedSet = new Set(((enrollment.userDoc && enrollment.userDoc.waitingRoomJoins) || []).map(j => String(j.examId)));
     const reminderMap = {};
-    ((enrollment.userDoc && enrollment.userDoc.examReminders) || []).forEach(r => { reminderMap[String(r.examId)] = r.enabled; });
+    const reminderOffsetMap = {};
+    ((enrollment.userDoc && enrollment.userDoc.examReminders) || []).forEach(r => { reminderMap[String(r.examId)] = r.enabled; reminderOffsetMap[String(r.examId)] = r.offsetMinutes; });
 
     const result = await Promise.all(visible.map(async e => {
       const eid = String(e._id);
@@ -197,6 +198,7 @@ router.get('/my-exams', verifyToken, async (req, res) => {
         duration: e.duration,
         totalMarks: e.totalMarks,
         category: e.category,
+        type: e.type || 'NEET',
         assignmentType: e.assignmentType || 'individual',
         batch: e.batch,
         multiBatch: e.multiBatch,
@@ -208,6 +210,7 @@ router.get('/my-exams', verifyToken, async (req, res) => {
         activeAttemptId: activeByExam[eid] ? activeByExam[eid]._id : null,
         hasJoinedWaitingRoom: joinedSet.has(eid),
         reminderEnabled: reminderMap[eid] !== undefined ? reminderMap[eid] : true,
+        reminderOffsetMinutes: reminderOffsetMap[eid] !== undefined ? reminderOffsetMap[eid] : 60,
         performance: perf,
         ...state
       };
@@ -364,12 +367,13 @@ router.get('/:id/consent-status', verifyToken, async (req, res) => {
 // ── F52 §7 — Per-exam reminder toggle (server persisted) ──
 router.post('/:id/reminder', verifyToken, async (req, res) => {
   try {
-    const { enabled } = req.body;
+    const { enabled, offsetMinutes } = req.body;
     const studentObjId = new mongoose.Types.ObjectId(req.user.id);
     const examObjId = new mongoose.Types.ObjectId(req.params.id);
+    const safeOffset = [15, 30, 60, 180, 1440].includes(Number(offsetMinutes)) ? Number(offsetMinutes) : 60;
     await User.collection.updateOne({ _id: studentObjId }, { $pull: { examReminders: { examId: examObjId } } });
-    await User.collection.updateOne({ _id: studentObjId }, { $push: { examReminders: { examId: examObjId, enabled: !!enabled, updatedAt: new Date() } } });
-    res.json({ success: true, examId: req.params.id, enabled: !!enabled });
+    await User.collection.updateOne({ _id: studentObjId }, { $push: { examReminders: { examId: examObjId, enabled: !!enabled, offsetMinutes: safeOffset, updatedAt: new Date() } } });
+    res.json({ success: true, examId: req.params.id, enabled: !!enabled, offsetMinutes: safeOffset });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
