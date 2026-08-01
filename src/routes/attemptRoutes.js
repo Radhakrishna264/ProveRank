@@ -87,6 +87,14 @@ router.get('/:attemptId/timer', verifyToken, async (req, res) => {
     const totalDurationSec = ((exam.duration || 200) + timeExtMin) * 60;
     const elapsedSec = Math.floor((Date.now() - new Date(attempt.startedAt).getTime()) / 1000);
     const remainingSec = Math.max(0, totalDurationSec - elapsedSec);
+    // FIX — if time has genuinely run out, close the attempt right here so it
+    // stops being reported as 'active' (and re-served to the student as a
+    // resumable attempt) on the next my-exams/start-attempt check.
+    if (remainingSec <= 0 && attempt.status === 'active') {
+      attempt.status = 'timeout';
+      attempt.submittedAt = new Date();
+      await attempt.save();
+    }
     return res.status(200).json({ startedAt: attempt.startedAt, startTime: attempt.startedAt, ipAddress: attempt.ipAddress,
       startTime: attempt.startedAt,
       ipAddress: attempt.ipAddress, 
@@ -116,7 +124,13 @@ router.post('/:attemptId/submit', verifyToken, async (req, res) => {
     if (attempt.status === 'submitted') return res.status(400).json({ message: 'Already submitted' });
     if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active' });
     const exam = await Exam.findById(attempt.examId);
-    const totalDurationSec = (exam ? exam.duration || 200 : 200) * 60;
+    let timeExtMin = 0;
+    try {
+      const TE = require('../models/TimeExtension');
+      const exts = await TE.find({ attemptId: attempt._id, isUndone: false });
+      timeExtMin = exts.reduce((s, e) => s + e.extraMinutes, 0);
+    } catch (_e) {}
+    const totalDurationSec = ((exam ? exam.duration || 200 : 200) + timeExtMin) * 60;
     const elapsedSec = Math.floor((Date.now() - new Date(attempt.startedAt).getTime()) / 1000);
     attempt.status = elapsedSec > totalDurationSec + 30 ? 'timeout' : 'submitted';
     attempt.submittedAt = new Date();
