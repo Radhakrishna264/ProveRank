@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+echo "=== Fix: Fullscreen leak on submit/unmount + safety guard against instant-zero-answer auto-submit ==="
+cat > ~/workspace/frontend/app/exam/\[examId\]/attempt/page.tsx << 'FILEEOF1'
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -1171,3 +1175,10 @@ export default function ExamAttempt() {
     </div>
   )
 }
+FILEEOF1
+echo "attempt/page.tsx updated ✅"
+
+cd ~/workspace
+git add -A
+git commit -m "fix: exit fullscreen on submit/unmount + guard against instant auto-submit from bad timer response"
+git push
