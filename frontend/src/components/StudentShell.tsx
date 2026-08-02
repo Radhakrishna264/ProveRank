@@ -55,19 +55,11 @@ const NAV_GROUPS=[
   ]},
   {label:'Practice',labelHi:'अभ्यास',items:[
     {id:'my-exams',icon:'📝',en:'My Exams',hi:'मेरी परीक्षाएं',href:'/my-exams'},
-    {id:'mini-tests',icon:'⚡',en:'Mini Tests',hi:'मिनी टेस्ट',href:'/mini-tests'},
     {id:'pyq-bank',icon:'📚',en:'PYQ Bank',hi:'पिछले वर्ष के प्रश्न',href:'/pyq-bank'},
-    {id:'revision',icon:'🧠',en:'Smart Revision',hi:'स्मार्ट रिवीजन',href:'/revision'},
   ]},
   {label:'Results & Progress',labelHi:'परिणाम और प्रगति',items:[
-    {id:'results',icon:'📈',en:'Results',hi:'परिणाम',href:'/results'},
-    {id:'analytics',icon:'📉',en:'Analytics',hi:'विश्लेषण',href:'/analytics'},
     {id:'attempt-history',icon:'🕐',en:'Attempt History',hi:'परीक्षा इतिहास',href:'/attempt-history'},
     {id:'goals',icon:'🎯',en:'My Goals',hi:'मेरे लक्ष्य',href:'/goals'},
-    {id:'compare',icon:'⚖️',en:'Compare',hi:'तुलना करें',href:'/dashboard/compare'},
-    {id:'batch-compare',icon:'📊',en:'Batch Compare',hi:'बैच तुलना',href:'/dashboard/batch-compare'},
-    {id:'leaderboard',icon:'🏆',en:'Leaderboard',hi:'लीडरबोर्ड',href:'/leaderboard'},
-    {id:'certificate',icon:'🎖️',en:'Certificates',hi:'प्रमाणपत्र',href:'/certificate'},
   ]},
   {label:'Batches & Store',labelHi:'बैच और स्टोर',items:[
     {id:'my-batches',icon:'📚',en:'My Batches & Test Series',hi:'मेरे बैच और टेस्ट सीरीज',href:'/dashboard/my-batches'},
@@ -77,12 +69,9 @@ const NAV_GROUPS=[
   {label:'Communication',labelHi:'संचार',items:[
     {id:'announcements',icon:'📢',en:'Announcements',hi:'घोषणाएं',href:'/announcements'},
     {id:'doubt',icon:'💬',en:'Doubt & Query',hi:'संदेह और प्रश्न',href:'/doubt'},
-    {id:'parent-portal',icon:'👨‍👩‍👧',en:'Parent Portal',hi:'अभिभावक पोर्टल',href:'/parent-portal'},
     {id:'support',icon:'🛟',en:'Support',hi:'सहायता',href:'/support'},
   ]},
   {label:'Account',labelHi:'खाता',items:[
-    {id:'admit-card',icon:'🪪',en:'Admit Card',hi:'प्रवेश पत्र',href:'/admit-card'},
-    
     {id:'profile',icon:'👤',en:'Profile',hi:'प्रोफ़ाइल',href:'/profile'},
   ]},
 ]
