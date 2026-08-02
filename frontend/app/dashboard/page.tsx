@@ -377,7 +377,7 @@ useEffect(()=>{
 
             {/* Quick links */}
             <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-              {[[t('📝 My Exams','📝 परीक्षाएं'),'/my-exams',C.primary],[t('📈 Results','📈 परिणाम'),'/results',C.success],[t('🧠 Revision','🧠 रिवीजन'),'/revision',C.purple],[t('🎯 Goals','🎯 लक्ष्य'),'/goals',C.gold]].map(([l,h,c]:any)=>(
+              {[[t('📝 My Exams','📝 परीक्षाएं'),'/my-exams',C.primary],[t('📚 PYQ Bank','📚 PYQ बैंक'),'/pyq-bank',C.gold],[t('📢 Announcements','📢 घोषणाएं'),'/announcements',C.success]].map(([l,h,c]:any)=>(
                 <a key={h} href={h} style={{padding:'7px 14px',background:`${c}18`,border:`1px solid ${c}44`,color:c,borderRadius:20,textDecoration:'none',fontSize:12,fontWeight:600,transition:'all .2s'}}>{l}</a>
               ))}
             </div>
@@ -522,7 +522,7 @@ useEffect(()=>{
       <div style={{background:dm?C.card:C.cardL,border:`1px solid ${C.border}`,borderRadius:16,padding:18,backdropFilter:'blur(14px)',marginBottom:20}}>
         <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:dm?C.text:C.textL,marginBottom:14}}>⚡ {t('Quick Access','त्वरित एक्सेस')}</div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))',gap:10}}>
-          {[['📝',t('My Exams','परीक्षाएं'),'/my-exams',C.primary],['📚',t('PYQ Bank','PYQ बैंक'),'/pyq-bank',C.gold],['🧠',t('Revision','रिवीजन'),'/revision',C.purple],['🎯',t('Goals','लक्ष्य'),'/goals',C.gold],['⚖️',t('Compare','तुलना'),'/compare',C.success],['📋',t('OMR View','OMR व्यू'),'/omr-view',C.pink]].map(([ic,label,href,col])=>(
+          {[['📝',t('My Exams','परीक्षाएं'),'/my-exams',C.primary],['📚',t('PYQ Bank','PYQ बैंक'),'/pyq-bank',C.gold],['📋',t('OMR View','OMR व्यू'),'/omr-view',C.pink],['🕐',t('Attempt History','परीक्षा इतिहास'),'/attempt-history',C.purple]].map(([ic,label,href,col])=>(
             <a key={href as string} href={href as string} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,padding:'14px 10px',background:`${col}0f`,border:`1px solid ${col}22`,borderRadius:12,textDecoration:'none',color:dm?C.text:C.textL,fontSize:11,fontWeight:600,transition:'all .2s',textAlign:'center'}}>
               <span style={{fontSize:22}}>{ic}</span>
               <span style={{color:col as string,fontSize:10}}>{label}</span>

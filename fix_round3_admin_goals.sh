@@ -1,3 +1,9 @@
+#!/bin/bash
+set -e
+echo "=== Fix Round 3: Admin Results/Leaderboard/Analytics tabs + Student My Goals + Dashboard dead links ==="
+
+# ---- 1) Admin panel: remove Results, Leaderboard, Analytics tabs + permissions ----
+cat > ~/workspace/frontend/app/admin/x7k2p/page.tsx << 'FILEEOF1'
 'use client'
 import BatchManagerUltra from './BatchManagerUltra'
 import TestSeriesManagerUltra from './TestSeriesManagerUltra'
@@ -4976,3 +4982,880 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 </div>
   )
 }// deploy Sun May 31 01:52:47 AM UTC 2026
+FILEEOF1
+echo "admin/x7k2p/page.tsx updated ✅"
+
+# ---- 2) Student sidebar: remove My Goals ----
+cat > ~/workspace/frontend/src/components/StudentShell.tsx << 'FILEEOF2'
+'use client'
+import React,{createContext,useContext,useState,useEffect,useCallback,useRef,ReactNode}from 'react'
+import{useRouter}from 'next/navigation'
+
+const API=process.env.NEXT_PUBLIC_API_URL||'https://proverank.onrender.com'
+const _gt=():string=>{try{return localStorage.getItem('pr_token')||''}catch{return''}}
+const _gr=():string=>{try{return localStorage.getItem('pr_role')||'student'}catch{return'student'}}
+const _ca=():void=>{try{localStorage.removeItem('pr_token');localStorage.removeItem('pr_role')}catch{}}
+
+export const C={primary:'#4D9FFF',card:'rgba(0,22,40,0.82)',cardL:'rgba(255,255,255,0.92)',border:'rgba(77,159,255,0.22)',borderL:'rgba(77,159,255,0.4)',text:'#E8F4FF',textL:'#0F172A',sub:'#8DA2C0',subL:'#51607A',success:'#00C48C',danger:'#FF4D4D',gold:'#FFD700',warn:'#FFB84D',purple:'#A78BFA',pink:'#FF6B9D'}
+
+export type ColorTheme='light'|'dark'
+export interface ShellCtx{lang:'en'|'hi';darkMode:boolean;colorTheme:ColorTheme;theme:any;setColorTheme:(t:ColorTheme)=>void;user:any;toast:(m:string,t?:'s'|'e'|'w')=>void;token:string;role:string}
+const ShellCtx=createContext<ShellCtx>({lang:'en',darkMode:true,colorTheme:'dark',theme:{primary:'#4D9FFF'},setColorTheme:()=>{},user:null,toast:()=>{},token:'',role:'student'})
+export const useShell=()=>useContext(ShellCtx)
+
+export function PRLogo({size=40}:{size?:number}){
+  const b=size*0.94,p=Math.round(b*0.63),r=Math.round(b*0.63),f=Math.round(p*0.52),rd=Math.round(p*0.28)
+  return(<div style={{position:'relative',width:b,height:b,flexShrink:0,display:'inline-flex'}}><div style={{position:'absolute',top:0,left:0,width:p,height:p,borderRadius:rd,background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:f,fontWeight:900,fontFamily:'Inter,sans-serif',color:'#030810',boxShadow:'0 4px 16px rgba(77,159,255,0.4)'}}>P</div><div style={{position:'absolute',bottom:0,right:0,width:r,height:r,borderRadius:rd,background:'rgba(0,212,255,0.1)',border:'1.5px solid rgba(0,212,255,0.45)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:f,fontWeight:900,fontFamily:'Inter,sans-serif',color:'#00D4FF',backdropFilter:'blur(8px)'}}>R</div></div>)
+}
+
+function GalaxyBg(){
+  const ref=useRef<HTMLCanvasElement>(null)
+  useEffect(()=>{
+    const canvas=ref.current;if(!canvas)return
+    const ctx=canvas.getContext('2d');if(!ctx)return
+    const resize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight};resize()
+    const stars=Array.from({length:220},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.6+0.2,op:Math.random()*0.7+0.1,tw:Math.random()*0.018+0.004,ph:Math.random()*Math.PI*2,col:Math.random()>0.85?'rgba(255,215,100,':'rgba(200,218,255,'}))
+    const parts=Array.from({length:65},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*1.8+0.4,op:Math.random()*.25+.04}))
+    const spiral:any[]=[];for(let a=0;a<2;a++)for(let i=0;i<80;i++){const t=i/80,angle=a*Math.PI+t*Math.PI*3,rad=t*Math.min(canvas.width,canvas.height)*0.22;spiral.push({x:canvas.width/2+rad*Math.cos(angle)+(Math.random()-.5)*30,y:canvas.height/2+rad*Math.sin(angle)+(Math.random()-.5)*30,r:Math.random()*1.2+0.3,op:Math.random()*0.3+0.05})}
+    let sx=-100,sy=-100,sA=false,sT=0,sVx=0,sVy=0
+    const shoot=()=>{sx=Math.random()*canvas.width*.6;sy=Math.random()*canvas.height*.25;sVx=3+Math.random()*4;sVy=1+Math.random()*2;sA=true;sT=0;setTimeout(shoot,3000+Math.random()*7000)}
+    setTimeout(shoot,2500)
+    let animId:number
+    const draw=()=>{
+      ctx.clearRect(0,0,canvas.width,canvas.height)
+      ;[{x:canvas.width*.08,y:canvas.height*.18,r:220,c:'rgba(77,159,255,0.05)'},{x:canvas.width*.88,y:canvas.height*.72,r:280,c:'rgba(167,139,250,0.04)'},{x:canvas.width*.5,y:canvas.height*.5,r:180,c:'rgba(255,100,157,0.02)'},{x:canvas.width*.4,y:canvas.height*.85,r:200,c:'rgba(0,196,140,0.03)'}].forEach(n=>{const g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r);g.addColorStop(0,n.c);g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,Math.PI*2);ctx.fill()})
+      spiral.forEach(s=>{ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle='rgba(180,210,255,'+s.op+')';ctx.fill()})
+      stars.forEach(s=>{s.ph+=s.tw;const op=s.op*(0.55+0.45*Math.sin(s.ph));ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle=s.col+op+')';ctx.fill()})
+      if(sA){sT+=0.05;sx+=sVx;sy+=sVy;if(sT<1){const tail=80,grd=ctx.createLinearGradient(sx-tail*sVx/5,sy-tail*sVy/5,sx,sy);grd.addColorStop(0,'rgba(255,255,255,0)');grd.addColorStop(1,'rgba(255,255,255,0.85)');ctx.strokeStyle=grd;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(sx-tail*sVx/5,sy-tail*sVy/5);ctx.lineTo(sx,sy);ctx.stroke();const gl=ctx.createRadialGradient(sx,sy,0,sx,sy,4);gl.addColorStop(0,'rgba(255,255,255,0.6)');gl.addColorStop(1,'transparent');ctx.fillStyle=gl;ctx.beginPath();ctx.arc(sx,sy,4,0,Math.PI*2);ctx.fill()}else sA=false;if(sx>canvas.width+100||sy>canvas.height+100)sA=false}
+      parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0;if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle='rgba(77,159,255,'+p.op+')';ctx.fill()})
+      for(let i=0;i<parts.length;i++)for(let j=i+1;j<parts.length;j++){const dx=parts[i].x-parts[j].x,dy=parts[i].y-parts[j].y,d=Math.sqrt(dx*dx+dy*dy);if(d<110){ctx.beginPath();ctx.moveTo(parts[i].x,parts[i].y);ctx.lineTo(parts[j].x,parts[j].y);ctx.strokeStyle='rgba(77,159,255,'+(0.07*(1-d/110))+')';ctx.lineWidth=.5;ctx.stroke()}}
+      animId=requestAnimationFrame(draw)
+    }
+    draw();window.addEventListener('resize',resize)
+    return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',resize)}
+  },[])
+  return <canvas ref={ref} style={{position:'fixed',inset:0,pointerEvents:'none',zIndex:0}}/>
+}
+
+// ── Navigation — grouped for a cleaner sidebar (all existing features kept, none removed) ──
+const NAV_GROUPS=[
+  {label:'Overview',labelHi:'अवलोकन',items:[
+    {id:'dashboard',icon:'📊',en:'Dashboard',hi:'डैशबोर्ड',href:'/dashboard'},
+  ]},
+  {label:'Practice',labelHi:'अभ्यास',items:[
+    {id:'my-exams',icon:'📝',en:'My Exams',hi:'मेरी परीक्षाएं',href:'/my-exams'},
+    {id:'pyq-bank',icon:'📚',en:'PYQ Bank',hi:'पिछले वर्ष के प्रश्न',href:'/pyq-bank'},
+  ]},
+  {label:'Results & Progress',labelHi:'परिणाम और प्रगति',items:[
+    {id:'attempt-history',icon:'🕐',en:'Attempt History',hi:'परीक्षा इतिहास',href:'/attempt-history'},
+  ]},
+  {label:'Batches & Store',labelHi:'बैच और स्टोर',items:[
+    {id:'my-batches',icon:'📚',en:'My Batches & Test Series',hi:'मेरे बैच और टेस्ट सीरीज',href:'/dashboard/my-batches'},
+    {id:'test-series',icon:'📚',en:'Batches & Test Series',hi:'बैच और टेस्ट सीरीज',href:'/dashboard/test-series'},
+    {id:'store',icon:'🛒',en:'Store',hi:'स्टोर',href:'/dashboard/store'},
+  ]},
+  {label:'Communication',labelHi:'संचार',items:[
+    {id:'announcements',icon:'📢',en:'Announcements',hi:'घोषणाएं',href:'/announcements'},
+    {id:'doubt',icon:'💬',en:'Doubt & Query',hi:'संदेह और प्रश्न',href:'/doubt'},
+    {id:'support',icon:'🛟',en:'Support',hi:'सहायता',href:'/support'},
+  ]},
+  {label:'Account',labelHi:'खाता',items:[
+    {id:'profile',icon:'👤',en:'Profile',hi:'प्रोफ़ाइल',href:'/profile'},
+  ]},
+]
+
+// Pages that must keep their own existing immersive dark/galaxy look — untouched regardless of the user's Light/Dark choice
+const IMMERSIVE_PAGES=['store']
+
+export default function StudentShell({pageKey,children}:{pageKey:string;children:ReactNode}){
+  const router=useRouter()
+  const [mounted,setMounted]=useState(false)
+  const [lang,setLang]=useState<'en'|'hi'>('en')
+  const [colorTheme,setColorThemeState]=useState<ColorTheme>('dark')
+  const [side,setSide]=useState(false)
+  const [user,setUser]=useState<any>(null)
+  const [token,setToken]=useState('')
+  const [role,setRole]=useState('student')
+  const [toastSt,setToastSt]=useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
+  const [maint,setMaint]=useState<{enabled:boolean;message?:string}|null>(null)
+  const [unreadAnn,setUnreadAnn]=useState(0) // F42B §6.2 — bell badge sync
+  const toast=useCallback((msg:string,tp:'s'|'e'|'w'='s')=>{setToastSt({msg,tp});setTimeout(()=>setToastSt(null),4000)},[])
+
+  useEffect(()=>{fetch(`${API}/api/admin/maintenance`).then(r=>r.ok?r.json():null).then(d=>{if(d&&d.maintenance)setMaint(d.maintenance)}).catch(()=>{})},[])
+
+  // v2 §6.2 FIX — Bell icon badge sync: StudentShell itself polls the live
+  // unread-count API every 60s, from ANY page (not just Announcements).
+  // Replaces the old localStorage+event approach which only updated after
+  // visiting the Announcements page and could show a stale count elsewhere.
+  useEffect(()=>{
+    if(!token) return
+    let cancelled=false
+    const poll=()=>{
+      fetch(`${API}/api/announcements/unread-count`,{headers:{Authorization:`Bearer ${token}`}})
+        .then(r=>r.ok?r.json():null)
+        .then(d=>{if(!cancelled&&d)setUnreadAnn(d.count||0)})
+        .catch(()=>{})
+    }
+    poll()
+    const iv=setInterval(poll,60000)
+    return()=>{cancelled=true;clearInterval(iv)}
+  },[token])
+
+  // Applies the theme class to <html> AND <body> so all legacy + new CSS overrides actually take effect
+  const _applyDom=(t:ColorTheme)=>{
+    try{
+      const h=document.documentElement,b=document.body
+      h.classList.remove('white-theme','dark-theme','teal-theme','light-theme')
+      b.classList.remove('white-theme','dark-theme','teal-theme','light-theme')
+      h.classList.add(t+'-theme');b.classList.add(t+'-theme')
+      h.setAttribute('data-color-theme',t)
+    }catch{}
+  }
+  const _migrate=(v:string|null):ColorTheme=>{
+    if(v==='white')return'light'
+    if(v==='teal')return'dark'
+    return(v==='light'||v==='dark')?v:'dark'
+  }
+
+  useEffect(()=>{
+    const tk=_gt();if(!tk){router.replace('/login');return}
+    setToken(tk);setRole(_gr())
+    try{
+      const sl=localStorage.getItem('pr_lang') as 'en'|'hi'|null;if(sl)setLang(sl)
+      const ct=_migrate(localStorage.getItem('pr_color_theme'))
+      setColorThemeState(ct);_applyDom(ct)
+    }catch{}
+    const _onTh=(e:StorageEvent)=>{if(e.key==='pr_color_theme'&&e.newValue){const v=_migrate(e.newValue);setColorThemeState(v);_applyDom(v)}}
+    window.addEventListener('storage',_onTh)
+    fetch(`${API}/api/auth/me`,{headers:{Authorization:`Bearer ${tk}`}}).then(r=>r.ok?r.json():null).then(d=>{if(d?._id)setUser(d)}).catch(()=>{})
+    setMounted(true)
+    return()=>window.removeEventListener('storage',_onTh)
+  },[router])
+
+  if(!mounted)return null
+  const userEmail=user?.email||(typeof window!=='undefined'?localStorage.getItem('pr_email')||'':'')
+  const isWhitelisted=!!(userEmail&&maint?.allowedEmails?.some((e:string)=>e.trim().toLowerCase()===userEmail.trim().toLowerCase()))
+  if(maint?.enabled===true&&!isWhitelisted){
+    return(
+      <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'linear-gradient(135deg,#0a0a1a,#0d1b2a)',color:'#fff',fontFamily:'Inter,sans-serif',textAlign:'center',padding:'24px'}}>
+        <div style={{fontSize:64,marginBottom:20}}>🔧</div>
+        <div style={{fontSize:24,fontWeight:700,color:'#4D9FFF',marginBottom:10}}>ProveRank</div>
+        <div style={{fontSize:18,fontWeight:600,marginBottom:14}}>Platform Under Maintenance</div>
+        <div style={{color:'#aaa',maxWidth:360,lineHeight:1.7,fontSize:14,marginBottom:32}}>{maint.message||'We are upgrading the platform. Please check back shortly.'}</div>
+        <button onClick={()=>{_ca();router.replace('/login')}} style={{background:'linear-gradient(135deg,#4D9FFF,#0066cc)',color:'#fff',border:'none',borderRadius:10,padding:'13px 32px',fontSize:15,fontWeight:700,cursor:'pointer'}}>← Back to Login</button>
+      </div>
+    )
+  }
+
+  // ── 2-Theme System: Light & Dark (only) ──
+  const _TH:Record<ColorTheme,any>={
+    light:{
+      shellBg:'radial-gradient(ellipse at 15% 0%,#FFFFFF 0%,#F3F7FF 55%,#E9F1FF 100%)',
+      headerBg:'rgba(255,255,255,0.88)',sidebarBg:'rgba(255,255,255,0.97)',
+      primary:'#2563EB',text:'#0F172A',sub:'#51607A',
+      border:'rgba(37,99,235,0.14)',navActive:'rgba(37,99,235,0.10)',
+      isDark:false,showGalaxy:false,hexC:'rgba(37,99,235,0.035)',
+      brandGrad:'#2563EB',logoTag:'#374151',
+      chipBg:'rgba(37,99,235,0.06)',
+    },
+    dark:{
+      shellBg:'radial-gradient(ellipse at 20% 0%,#0C1220 0%,#070A12 55%,#040609 100%)',
+      headerBg:'rgba(10,14,22,0.85)',sidebarBg:'rgba(8,11,18,0.97)',
+      primary:'#4D9FFF',text:'#F1F6FC',sub:'#8DA2C0',
+      border:'rgba(77,159,255,0.14)',navActive:'rgba(77,159,255,0.14)',
+      isDark:true,showGalaxy:true,hexC:'rgba(77,159,255,0.03)',
+      brandGrad:'linear-gradient(90deg,#4D9FFF 0%,#FFFFFF 60%,#4D9FFF 100%)',logoTag:'#8DA2C0',
+      chipBg:'rgba(77,159,255,0.07)',
+    },
+  }
+  const _immersiveDef={
+    shellBg:'#020816',headerBg:'rgba(0,5,18,.95)',sidebarBg:'rgba(0,5,18,.97)',
+    primary:'#4D9FFF',text:'#E8F4FF',sub:'#6B8FAF',
+    border:C.border,navActive:'rgba(77,159,255,.16)',
+    isDark:true,showGalaxy:true,hexC:'rgba(77,159,255,.022)',
+    brandGrad:'linear-gradient(90deg,#4D9FFF 0%,#FFFFFF 60%,#4D9FFF 100%)',logoTag:'#6B8FAF',
+    chipBg:'rgba(77,159,255,0.07)',
+  }
+  const _isImmersive=IMMERSIVE_PAGES.includes(pageKey)
+  const th=_isImmersive?_immersiveDef:(_TH[colorTheme]||_TH.dark)
+  const dm=th.isDark
+  const setColorTheme=(t:ColorTheme)=>{setColorThemeState(t);_applyDom(t);try{localStorage.setItem('pr_color_theme',t);window.dispatchEvent(new StorageEvent('storage',{key:'pr_color_theme',newValue:t}))}catch{}}
+  const bdr=th.border,txt=th.text,sub=th.sub
+  const toggleLang=()=>{const n=lang==='en'?'hi':'en';setLang(n);try{localStorage.setItem('pr_lang',n)}catch{}}
+  const toggleTheme=()=>setColorTheme(colorTheme==='dark'?'light':'dark')
+  const logout=()=>{_ca();router.replace('/login')}
+
+  return(
+    <ShellCtx.Provider value={{lang,darkMode:dm,colorTheme:_isImmersive?'dark':colorTheme,theme:th,setColorTheme,user,toast,token,role}}>
+      <div data-color-theme={_isImmersive?'dark':colorTheme} style={{minHeight:'100vh',background:th.shellBg,color:txt,fontFamily:'Inter,sans-serif',position:'relative',width:'100%',maxWidth:'100vw',overflowX:'hidden'}}>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap');
+          @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+          @keyframes gradMove{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+          *{box-sizing:border-box}
+          ::-webkit-scrollbar{width:4px}
+          ::-webkit-scrollbar-thumb{background:rgba(77,159,255,.4);border-radius:4px}
+          .nav-lnk:hover{background:${dm?'rgba(77,159,255,.14)':'rgba(37,99,235,.08)'}!important;color:${th.primary}!important}
+          .btn-p{background:linear-gradient(135deg,${th.primary},${dm?'#0055CC':'#1D4ED8'});color:#fff;border:none;border-radius:10px;padding:11px 22px;cursor:pointer;font-weight:700;font-size:13px;font-family:Inter,sans-serif}
+          .tbtn{padding:6px 13px;border-radius:20px;border:1.5px solid ${bdr};background:${th.chipBg};color:${txt};font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;backdrop-filter:blur(8px);transition:all .2s;white-space:nowrap}
+          .tbtn:hover{border-color:${th.primary};background:${dm?'rgba(77,159,255,.18)':'rgba(37,99,235,.14)'}}
+          .icon-tbtn{width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;font-size:15px;border-radius:9px}
+          input,select,textarea{color-scheme:${dm?'dark':'light'}}
+          .pr-shell-main{padding:16px 14px 64px;width:100%;max-width:100%}
+          .pr-shell-main.immersive{padding:0 0 56px}
+          .pr-shell-main *{max-width:100%}
+          .pr-shell-main img,.pr-shell-main svg,.pr-shell-main video,.pr-shell-main table{max-width:100%}
+          @media(min-width:769px){.pr-shell-main:not(.immersive){padding:24px 32px 72px}}
+          @media(max-width:360px){.hide-xs{display:none!important}}
+          @keyframes silverShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+          @keyframes greenBadge{0%,100%{box-shadow:0 0 4px rgba(0,196,140,0.35),inset 0 0 4px rgba(0,196,140,0.1)}50%{box-shadow:0 0 12px rgba(0,196,140,0.75),inset 0 0 8px rgba(0,255,136,0.2)}}
+          @media(min-width:480px){.pr-brand-center{position:absolute!important;left:50%!important;transform:translateX(-50%)!important;z-index:1}}
+          @media(max-width:768px){div[style*="display:flex"][style*="flexWrap"]{row-gap:8px}}
+        `}</style>
+        {th.showGalaxy&&<GalaxyBg/>}
+        <div aria-hidden style={{position:'fixed',top:-70,left:-70,fontSize:320,color:th.hexC,pointerEvents:'none',zIndex:0,lineHeight:1,userSelect:'none'}}>⬡</div>
+        <div aria-hidden style={{position:'fixed',bottom:-70,right:-70,fontSize:320,color:th.hexC,pointerEvents:'none',zIndex:0,lineHeight:1,userSelect:'none'}}>⬡</div>
+        {toastSt&&<div style={{position:'fixed',top:0,left:0,right:0,zIndex:9999,padding:'14px 24px',fontWeight:700,fontSize:13,textAlign:'center',animation:'fadeIn .3s ease',background:toastSt.tp==='s'?'linear-gradient(90deg,#00C48C,#00a87a)':toastSt.tp==='w'?'linear-gradient(90deg,#FFB84D,#e6a200)':'linear-gradient(90deg,#FF4D4D,#cc0000)',color:toastSt.tp==='w'?'#000':'#fff'}}>{toastSt.tp==='e'?'❌':toastSt.tp==='w'?'⚠️':'✅'} {toastSt.msg}</div>}
+        {side&&<div onClick={()=>setSide(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',zIndex:49,backdropFilter:'blur(3px)'}}/>}
+
+        {/* ── SIDEBAR ─────────────────────────────────────────── */}
+        <div style={{position:'fixed',top:0,left:0,width:280,maxWidth:'86vw',height:'100dvh',background:th.sidebarBg,borderRight:`1px solid ${bdr}`,zIndex:50,overflowY:'auto',display:'flex',flexDirection:'column',transform:side?'translateX(0)':'translateX(-100%)',transition:'transform .28s cubic-bezier(.4,0,.2,1)',backdropFilter:'blur(24px)',boxShadow:side?'12px 0 40px rgba(0,0,0,.35)':'none'}}>
+          <div style={{padding:'18px 16px 14px',borderBottom:`1px solid ${bdr}`,position:'sticky',top:0,background:th.sidebarBg,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0}}>
+              <PRLogo size={36}/>
+              <div style={{minWidth:0}}>
+                <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'gradMove 5s ease infinite'}:{color:'#2563EB'})}}>ProveRank</div>
+                <div style={{fontSize:10,color:th.logoTag,fontWeight:600,marginTop:1,whiteSpace:'nowrap'}}>{role==='parent'?(lang==='en'?'Parent Panel':'अभिभावक पैनल'):(lang==='en'?'Student Panel':'छात्र पैनल')}</div>
+              </div>
+            </div>
+            <button onClick={()=>setSide(false)} aria-label="Close menu" style={{background:'transparent',border:`1px solid ${bdr}`,borderRadius:8,width:30,height:30,color:sub,cursor:'pointer',fontSize:15,lineHeight:1,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+          </div>
+          <div style={{padding:'10px 10px 4px',flex:1,overflowY:'auto'}}>
+            {NAV_GROUPS.map(g=>(
+              <div key={g.label} style={{marginBottom:14}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:sub,padding:'4px 10px',opacity:.8}}>{lang==='en'?g.label:g.labelHi}</div>
+                {g.items.map(n=>{
+                  const active=pageKey===n.id
+                  return(<a key={n.id} href={n.href} className="nav-lnk" onClick={()=>setSide(false)} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 10px',borderRadius:10,textDecoration:'none',color:active?th.primary:txt,background:active?th.navActive:'transparent',fontWeight:active?700:500,fontSize:13.5,marginBottom:2,transition:'all .18s'}}>
+                    <span style={{fontSize:16,width:22,textAlign:'center',flexShrink:0,opacity:active?1:.85}}>{n.icon}</span>
+                    <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{lang==='en'?n.en:n.hi}</span>
+                    {active&&<span style={{marginLeft:'auto',width:6,height:6,borderRadius:'50%',background:th.primary,flexShrink:0}}/>}
+                  </a>)
+                })}
+              </div>
+            ))}
+          </div>
+          <div style={{padding:'12px 14px 16px',borderTop:`1px solid ${bdr}`,flexShrink:0}}>
+            <div style={{display:'flex',gap:6,marginBottom:10}}>
+              <button className="tbtn" onClick={toggleTheme} style={{flex:1,justifyContent:'center',display:'flex',alignItems:'center',gap:5}}>{dm?'☀️':'🌙'} {dm?(lang==='en'?'Light':'लाइट'):(lang==='en'?'Dark':'डार्क')}</button>
+              <button className="tbtn" onClick={toggleLang} style={{flex:1}}>{lang==='en'?'हि':'EN'}</button>
+            </div>
+            <div style={{padding:'10px 12px',background:th.chipBg,borderRadius:12,border:`1px solid ${bdr}`,textAlign:'center'}}>
+              <div style={{fontSize:10,color:C.success,fontWeight:700}}>🟢 {lang==='en'?'All Systems Live':'सभी सिस्टम लाइव'}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── HEADER ──────────────────────────────────────────── */}
+        <div style={{position:'sticky',top:0,zIndex:40,background:th.headerBg,backdropFilter:'blur(20px)',borderBottom:`1px solid ${bdr}`,minHeight:58,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 10px 0 8px',gap:8,boxShadow:dm?'0 2px 20px rgba(0,0,0,.35)':'0 2px 14px rgba(37,99,235,.06)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
+            <button onClick={()=>setSide(true)} aria-label="Open menu" style={{background:dm?'rgba(255,255,255,0.05)':'rgba(37,99,235,0.06)',border:`1px solid ${bdr}`,color:txt,fontSize:19,cursor:'pointer',width:36,height:36,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}} title="Menu">☰</button>
+            <div style={{display:'flex',alignItems:'center',gap:7,minWidth:0}}>
+              <PRLogo size={28}/>
+              <div style={{minWidth:0}}>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+                  <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:14.5,lineHeight:1,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:{color:'#2563EB'})}}>ProveRank</div>
+                  <div style={{fontSize:7,fontWeight:800,letterSpacing:1.4,whiteSpace:'nowrap',padding:'1px 7px',borderRadius:20,border:'1.5px solid rgba(0,196,140,0.7)',background:'linear-gradient(90deg,#00A86B,#00FF88,#00C48C,#00FF88,#00A86B)',backgroundSize:'300% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'silverShimmer 2.5s linear infinite, greenBadge 2s ease-in-out infinite'}}>{lang==='en'?'STUDENT':'छात्र'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+            <button className="tbtn icon-tbtn" onClick={toggleTheme} title={dm?(lang==='en'?'Switch to Light':'लाइट थीम'):(lang==='en'?'Switch to Dark':'डार्क थीम')}>{dm?'☀️':'🌙'}</button>
+            <button className="tbtn hide-xs" onClick={toggleLang}>{lang==='en'?'हि':'EN'}</button>
+            <a href="/announcements" title={lang==='en'?'Announcements':'घोषणाएं'} style={{background:'transparent',border:`1px solid ${bdr}`,borderRadius:9,width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none',fontSize:15,color:txt,flexShrink:0,position:'relative'}}>
+              🔔
+              {unreadAnn>0&&<span style={{position:'absolute',top:-3,right:-3,minWidth:15,height:15,padding:'0 3px',borderRadius:99,background:'#FF4D4D',color:'#fff',fontSize:9,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',border:'1.5px solid rgba(0,0,0,0.3)'}}>{unreadAnn>9?'9+':unreadAnn}</span>}
+            </a>
+            <button onClick={logout} title={lang==='en'?'Sign Out':'साइन आउट'} style={{background:'transparent',border:'1px solid rgba(255,77,77,0.35)',borderRadius:9,width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#FF6B6B',flexShrink:0,transition:'all .2s'}}>
+              <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </button>
+          </div>
+        </div>
+
+        {/* ── PAGE CONTENT ────────────────────────────────────── */}
+        <div className={`pr-shell-main${_isImmersive?' immersive':''}`} style={{position:'relative',zIndex:2,animation:'fadeIn .4s ease',background:'transparent',boxSizing:'border-box'}}>{children}</div>
+      </div>
+    </ShellCtx.Provider>
+  )
+}
+FILEEOF2
+echo "StudentShell.tsx updated ✅"
+
+# ---- 3) Student Dashboard: fix 4 dead links (Results/Revision/Goals/Compare already deleted) ----
+cat > ~/workspace/frontend/app/dashboard/page.tsx << 'FILEEOF3'
+'use client'
+import WelcomeBanner from '../../components/WelcomeBanner'
+import React, { useState, useEffect } from 'react'
+import StudentShell, { useShell, C } from '@/src/components/StudentShell'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
+
+// Animated Rocket SVG
+function RocketSVG() {
+  return (
+    <svg width="90" height="120" viewBox="0 0 90 120" fill="none" style={{animation:'float 4s ease-in-out infinite'}}>
+      <defs><linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#4D9FFF"/><stop offset="100%" stopColor="#0055CC"/></linearGradient></defs>
+      {/* Rocket body */}
+      <path d="M45 10 C45 10 25 35 20 65 L70 65 C65 35 45 10 45 10Z" fill="url(#rg)"/>
+      {/* Window */}
+      <circle cx="45" cy="45" r="10" fill="rgba(255,255,255,0.25)" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
+      <circle cx="45" cy="45" r="6" fill="rgba(255,255,255,0.4)"/>
+      {/* Fins */}
+      <path d="M20 65 L8 80 L25 72Z" fill="#0055CC"/>
+      <path d="M70 65 L82 80 L65 72Z" fill="#0055CC"/>
+      {/* Flame */}
+      <path d="M35 65 Q45 95 45 95 Q45 95 55 65Z" fill="#FFB84D" style={{animation:'pulse 0.5s ease-in-out infinite'}}/>
+      <path d="M38 65 Q45 85 45 85 Q45 85 52 65Z" fill="#FFD700" style={{animation:'pulse 0.5s ease-in-out infinite 0.1s'}}/>
+      {/* Stars around */}
+      <circle cx="10" cy="30" r="2" fill="#FFD700" style={{animation:'pulse 2s infinite'}}/>
+      <circle cx="80" cy="20" r="1.5" fill="#fff" style={{animation:'pulse 1.5s infinite'}}/>
+      <circle cx="15" cy="55" r="1" fill="#4D9FFF" style={{animation:'pulse 2.5s infinite'}}/>
+      <circle cx="78" cy="55" r="2" fill="#FFD700" style={{animation:'pulse 1.8s infinite'}}/>
+    </svg>
+  )
+}
+
+// Animated DNA SVG
+function DNASVG() {
+  return (
+    <svg width="60" height="120" viewBox="0 0 60 120" fill="none" style={{animation:'floatR 5s ease-in-out infinite'}}>
+      {Array.from({length:8},(_,i)=>{
+        const y=i*16+8; const progress=i/8; const offset=Math.sin(progress*Math.PI*2)*20
+        return (
+          <g key={i}>
+            <line x1={30-offset} y1={y} x2={30+offset} y2={y} stroke={i%2===0?'#4D9FFF':'#00C48C'} strokeWidth="2" strokeLinecap="round"/>
+            <circle cx={30-offset} cy={y} r="3" fill={i%2===0?'#4D9FFF':'#00C48C'}/>
+            <circle cx={30+offset} cy={y} r="3" fill={i%2===0?'#0055CC':'#00a87a'}/>
+          </g>
+        )
+      })}
+      <path d="M10 8 Q10 60 10 112" stroke="rgba(77,159,255,0.3)" strokeWidth="1.5" fill="none"/>
+      <path d="M50 8 Q50 60 50 112" stroke="rgba(77,159,255,0.3)" strokeWidth="1.5" fill="none"/>
+    </svg>
+  )
+}
+
+function StatCard({icon,label,value,col,dm,sub}:{icon:string;label:string;value:any;col:string;dm:boolean;sub?:string}) {
+  return (
+    <div className="card-h" style={{background:dm?C.card:C.cardL,border:`1px solid ${C.border}`,borderRadius:16,padding:'18px 12px',flex:1,minWidth:130,backdropFilter:'blur(14px)',position:'relative',overflow:'hidden',transition:'all .25s',textAlign:'center',boxShadow:'0 4px 16px rgba(0,0,0,.2)'}}>
+      <div style={{position:'absolute',right:-8,bottom:-8,fontSize:48,opacity:.07,filter:'blur(2px)'}}>{icon}</div>
+      <div style={{fontSize:26,marginBottom:8,display:'block'}}>{icon}</div>
+      <div style={{fontSize:26,fontWeight:800,color:col,fontFamily:'Inter,sans-serif',lineHeight:1,textShadow:`0 0 20px ${col}44`}}>{value??'—'}</div>
+      <div style={{fontSize:10,color:C.sub,marginTop:4,fontWeight:600,letterSpacing:.3}}>{label}</div>
+      {sub&&<div style={{fontSize:9,color:col,marginTop:2,opacity:.85}}>{sub}</div>}
+    </div>
+  )
+}
+
+
+// ── F37: Confetti burst ───────────────────────────────────────
+function ChecklistConfetti() {
+  const colors = ['#4D9FFF','#00C48C','#FFD700','#FF6B9D','#7B4DFF','#00D4FF']
+  return (
+    <div style={{position:'fixed',inset:0,pointerEvents:'none',zIndex:999,overflow:'hidden'}}>
+      {Array.from({length:50}).map((_,i)=>(
+        <div key={i} style={{
+          position:'absolute',top:'-10px',
+          left:Math.random()*100+'%',
+          width:i%3===0?8:5,height:i%3===0?8:5,
+          borderRadius:i%2===0?'50%':2,
+          background:colors[i%colors.length],
+          animation:'confettiFall '+(1.2+Math.random()*1.5)+'s ease-in forwards',
+          animationDelay:Math.random()*0.6+'s'
+        }}/>
+      ))}
+      <style>{'@keyframes confettiFall{from{transform:translateY(-10px) rotate(0deg);opacity:1}to{transform:translateY(100vh) rotate(720deg);opacity:0}}'}</style>
+    </div>
+  )
+}
+
+// ── F37: Badge Unlocked Modal ─────────────────────────────────
+function BadgeModal({onClose}:{onClose:()=>void}) {
+  const C2 = C
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{background:'rgba(0,18,40,0.98)',border:'1px solid rgba(77,159,255,0.4)',borderRadius:22,padding:'36px 28px',maxWidth:340,width:'100%',textAlign:'center',boxShadow:'0 0 60px rgba(77,159,255,0.2)',animation:'fadeIn .4s ease'}}>
+        <div style={{fontSize:64,marginBottom:12,animation:'bounce 1s ease-in-out 3'}}>🏅</div>
+        <div style={{fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:700,color:'#E8F4FF',marginBottom:8}}>Badge Unlocked!</div>
+        <div style={{fontSize:14,color:'#4D9FFF',fontWeight:700,marginBottom:8}}>"Pathfinder" 🗺️</div>
+        <div style={{fontSize:12,color:'#6B8FAF',marginBottom:20,lineHeight:1.6}}>You completed all 5 Getting Started tasks! +220 XP earned.</div>
+        <button onClick={onClose} style={{background:'linear-gradient(135deg,#4D9FFF,#0055CC)',border:'none',borderRadius:10,padding:'10px 28px',color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer'}}>
+          Awesome! 🚀
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── F37: Welcome Banner trigger ───────────────────────────────
+function ChecklistWidget({token,toast,lang}:{token:string;toast:(m:string,t?:'s'|'e'|'w')=>void;lang:'en'|'hi'}) {
+  const API2 = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
+  const t2 = (en:string,hi:string) => lang==='en'?en:hi
+  const [items,    setItems]    = React.useState<any[]>([])
+  const [count,    setCount]    = React.useState(0)
+  const [allDone,  setAllDone]  = React.useState(false)
+  const [confetti, setConfetti] = React.useState(false)
+  const [badgeModal,setBadgeModal] = React.useState(false)
+  const [hasBadge, setHasBadge]= React.useState(false)
+  const [loading,  setLoading]  = React.useState(true)
+  const [showBanner,setShowBanner] = React.useState(false)
+
+  React.useEffect(()=>{
+    if(!token) return
+    fetch(API2+'/api/auth/checklist',{headers:{Authorization:'Bearer '+token}})
+      .then(r=>r.json())
+      .then(d=>{
+        if(d.success){
+          setItems(d.items||[])
+          setCount(d.completedCount||0)
+          setAllDone(d.allDone||false)
+          setHasBadge(d.hasBadge||false)
+        }
+        setLoading(false)
+      })
+      .catch(()=>setLoading(false))
+  },[token])
+
+  // Award badge when all done
+  React.useEffect(()=>{
+    if(allDone && !hasBadge && !loading){
+      setConfetti(true)
+      setBadgeModal(true)
+      setTimeout(()=>setConfetti(false),4000)
+      fetch(API2+'/api/auth/checklist/complete',{method:'POST',headers:{Authorization:'Bearer '+token}})
+        .then(r=>r.json())
+        .then(d=>{ if(d.success&&!d.alreadyAwarded) toast('🏅 Pathfinder badge unlocked! +220 XP','s') })
+        .catch(()=>{})
+    }
+  },[allDone,hasBadge,loading])
+
+  // 37.3 — on item click: show welcome banner first time
+  const handleItemClick = (href:string, itemId:string) => {
+    const key = 'pr_checklist_clicked_'+itemId
+    const firstTime = !localStorage.getItem(key)
+    if(firstTime){
+      localStorage.setItem(key,'1')
+      setShowBanner(true)
+      setTimeout(()=>{ setShowBanner(false); window.location.href=href },2000)
+    } else {
+      window.location.href = href
+    }
+    // Mark pyq/analytics as visited
+    if(itemId==='pyq'){
+      fetch(API2+'/api/auth/checklist/mark',{
+        method:'POST',
+        headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({item:itemId})
+      }).catch(()=>{})
+    }
+  }
+
+  if(loading) return null
+  // Hide widget if all done AND badge already given (seen before)
+  if(allDone && hasBadge) return null
+
+  const pct = Math.round((count/4)*100)
+
+  return (
+    <>
+      {confetti && <ChecklistConfetti/>}
+      {badgeModal && <BadgeModal onClose={()=>setBadgeModal(false)}/>}
+
+      {/* 37.3 — Welcome banner overlay */}
+      {showBanner && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',zIndex:990,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div style={{background:'rgba(0,18,36,0.98)',border:'1px solid rgba(77,159,255,0.4)',borderRadius:20,padding:'32px 24px',textAlign:'center',maxWidth:340,animation:'fadeIn .4s ease'}}>
+            <div style={{fontSize:48,marginBottom:10}}>🎉</div>
+            <div style={{fontFamily:'Playfair Display,serif',fontSize:18,fontWeight:700,color:'#E8F4FF',marginBottom:6}}>
+              {t2("Let's Go!","चलते हैं!")}
+            </div>
+            <div style={{fontSize:12,color:'#6B8FAF'}}>
+              {t2("Taking you there now...","अभी ले जा रहे हैं...")}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 37.8 — Checklist Card */}
+      <div style={{
+        background:'linear-gradient(135deg,rgba(0,35,80,0.85),rgba(0,22,50,0.9))',
+        border:'1px solid rgba(77,159,255,0.25)',
+        borderRadius:18, padding:20, marginBottom:20,
+        backdropFilter:'blur(16px)',
+        boxShadow:'0 4px 28px rgba(0,0,0,0.2)'
+      }}>
+        {/* Header */}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+          <div>
+            <div style={{fontFamily:'Playfair Display,serif',fontSize:15,fontWeight:700,color:'#E8F4FF',marginBottom:2}}>
+              🚀 {t2('Getting Started','शुरुआत करें')}
+            </div>
+            <div style={{fontSize:11,color:'#6B8FAF'}}>
+              {t2('Complete tasks to unlock your Pathfinder badge','Pathfinder बैज अनलॉक करें')}
+            </div>
+          </div>
+          <div style={{textAlign:'right'}}>
+            <div style={{fontSize:18,fontWeight:800,color:'#4D9FFF'}}>{count}/4</div>
+            <div style={{fontSize:9,color:'#6B8FAF'}}>{t2('Complete','पूर्ण')}</div>
+          </div>
+        </div>
+
+        {/* 37.2 Progress bar */}
+        <div style={{background:'rgba(255,255,255,0.06)',borderRadius:6,height:6,overflow:'hidden',marginBottom:16}}>
+          <div style={{
+            height:'100%',
+            width:pct+'%',
+            background:'linear-gradient(90deg,#4D9FFF,#00C48C)',
+            borderRadius:6,
+            transition:'width 0.8s ease'
+          }}/>
+        </div>
+
+        {/* 37.1 — 5 items */}
+        {allDone ? (
+          /* 37.7 — All done state */
+          <div style={{textAlign:'center',padding:'20px 0'}}>
+            <div style={{fontSize:40,marginBottom:8}}>🎉</div>
+            <div style={{fontFamily:'Playfair Display,serif',fontSize:16,fontWeight:700,color:'#00C48C',marginBottom:4}}>
+              {t2('All done!','सब पूरा!')}
+            </div>
+            <div style={{fontSize:12,color:'#6B8FAF'}}>
+              {t2("You're a Pathfinder! 🏅 +220 XP earned","आप Pathfinder हैं! 🏅 +220 XP मिला")}
+            </div>
+          </div>
+        ) : (
+          <div>
+            {items.map((item,i)=>(
+              <div key={item.id}
+                onClick={()=>!item.done&&handleItemClick(item.href,item.id)}
+                style={{
+                  display:'flex', alignItems:'center', gap:12,
+                  padding:'11px 0',
+                  borderBottom: i<4 ? '1px solid rgba(77,159,255,0.08)' : 'none',
+                  cursor: item.done ? 'default' : 'pointer',
+                  transition:'all .2s',
+                }}>
+                {/* Icon */}
+                <div style={{fontSize:20,flexShrink:0,width:32,textAlign:'center'}}>{item.icon}</div>
+
+                {/* Text */}
+                <div style={{flex:1}}>
+                  {/* 37.9 — strikethrough on done */}
+                  <div style={{
+                    fontSize:13, fontWeight:600,
+                    color: item.done ? '#4B6A8A' : '#E8F4FF',
+                    textDecoration: item.done ? 'line-through' : 'none',
+                    transition:'all .4s',
+                    lineHeight:1.3,
+                  }}>
+                    {lang==='en' ? item.label_en : item.label_hi}
+                  </div>
+                  <div style={{fontSize:10,color:'#4B6A8A',marginTop:2}}>
+                    +{item.xp} XP
+                  </div>
+                </div>
+
+                {/* Status */}
+                {item.done ? (
+                  /* 37.9 — green tick */
+                  <div style={{
+                    width:24,height:24,borderRadius:'50%',
+                    background:'rgba(0,196,140,0.15)',
+                    border:'2px solid #00C48C',
+                    display:'flex',alignItems:'center',justifyContent:'center',
+                    flexShrink:0,
+                    animation:'fadeIn .3s ease',
+                  }}>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <polyline points="2,6 5,9 10,3" stroke="#00C48C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                ) : (
+                  /* Arrow */
+                  <div style={{color:'rgba(77,159,255,0.4)',fontSize:16,flexShrink:0}}>→</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+function DashboardContent() {
+  const {lang,darkMode:dm,user,toast,token}=useShell()
+  const [exams,   setExams]   = useState<any[]>([])
+  const [results, setResults] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showWelcome, setShowWelcome] = useState(false)
+  const [welcomeData, setWelcomeData] = useState<{name:string,studentId:string,email:string}|null>(null)
+  const t=(en:string,hi:string)=>lang==='en'?en:hi
+
+  useEffect(()=>{
+  const _cw=async()=>{
+    try{
+      const isNew=localStorage.getItem('pr_new_student')
+      if(isNew!=='true')return
+      const tok=localStorage.getItem('pr_token')
+      if(!tok)return
+      const API=process.env.NEXT_PUBLIC_API_URL||'https://proverank.onrender.com'
+      const rr=await fetch(API+'/api/auth/me',{headers:{Authorization:'Bearer '+tok}})
+      const dd=await rr.json()
+      if(dd&&(dd.name||dd.email)){
+        setWelcomeData({name:dd.name||'Student',studentId:dd.studentId||'',email:dd.email||''})
+        setShowWelcome(true)
+        localStorage.removeItem('pr_new_student')
+      }
+    }catch(e){}
+  }
+  _cw()
+},[])
+useEffect(()=>{
+    if(!token) return
+    const h={Authorization:`Bearer ${token}`}
+    Promise.all([
+      fetch(`${API}/api/exams`,{headers:h}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`${API}/api/results`,{headers:h}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+    ]).then(([e,r])=>{
+      setExams(Array.isArray(e)?e:[])
+      setResults(Array.isArray(r)?r:[])
+      setLoading(false)
+    })
+  },[token])
+
+  const name=user?.name||t('Student','छात्र')
+  const bestScore=results.length?Math.max(...results.map((r:any)=>r.score||0)):null
+  const bestRank=results.length?Math.min(...results.map((r:any)=>r.rank||99999)):null
+  const daysLeft=Math.max(0,Math.ceil((new Date('2026-05-03').getTime()-Date.now())/86400000))
+  const upcoming=exams.filter((e:any)=>new Date(e.scheduledAt)>new Date())
+  const avgScore=results.length?Math.round(results.reduce((a,r:any)=>a+(r.score||0),0)/results.length):null
+
+  return (
+    <div>
+      {showWelcome&&welcomeData&&<WelcomeBanner student={welcomeData} onClose={()=>setShowWelcome(false)}/> }
+      {/* F37 — Getting Started Checklist */}
+      <ChecklistWidget token={token} toast={toast} lang={lang}/>
+
+      {/* Hero Banner */}
+      <div style={{background:'linear-gradient(135deg,rgba(0,85,204,.2),rgba(77,159,255,.08),rgba(0,0,0,0))',border:'1px solid rgba(77,159,255,.25)',borderRadius:22,padding:'24px 20px',marginBottom:24,position:'relative',overflow:'hidden',boxShadow:'0 4px 32px rgba(0,0,0,.25)'}}>
+        {/* Animated BG hexagons */}
+        <div style={{position:'absolute',right:-30,top:-20,fontSize:180,color:'rgba(77,159,255,.05)',lineHeight:1,animation:'spinSlow 30s linear infinite',userSelect:'none'}}>⬡</div>
+        <div style={{position:'absolute',right:80,bottom:-20,fontSize:100,color:'rgba(77,159,255,.04)',lineHeight:1,animation:'spinSlow 20s linear infinite reverse',userSelect:'none'}}>⬡</div>
+
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:16}}>
+          <div style={{flex:1,minWidth:260}}>
+            <div style={{fontSize:12,color:C.primary,fontWeight:600,marginBottom:6,display:'flex',alignItems:'center',gap:6}}>
+              <span style={{animation:'pulse 2s infinite'}}>☀️</span> {t('Good Morning','शुभ प्रभात')}
+            </div>
+            <h1 style={{fontFamily:'Playfair Display,serif',fontSize:24,fontWeight:700,color:dm?C.text:C.textL,margin:'0 0 8px'}}>
+              {t('Welcome back,','वापसी पर स्वागत,')} <span style={{color:C.primary,textShadow:`0 0 20px ${C.primary}66`}}>{name}</span> 👋
+            </h1>
+            <p style={{fontSize:12,color:C.sub,marginBottom:16,lineHeight:1.6}}>{t('Your NEET preparation dashboard — Stay focused, stay ranked.','आपका NEET डैशबोर्ड — केंद्रित रहें, रैंक पाएं।')}</p>
+
+            {/* Motivational Quote SVG */}
+            <div style={{background:'rgba(77,159,255,.07)',border:'1px solid rgba(77,159,255,.15)',borderRadius:12,padding:'12px 16px',marginBottom:16,position:'relative',overflow:'hidden'}}>
+              <div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:`linear-gradient(180deg,${C.primary},#0055CC)`}}/>
+              <div style={{fontSize:13,color:C.primary,fontStyle:'italic',fontWeight:600,paddingLeft:8}}>
+                {t('"Success is not given, it is earned — one test at a time."','"सफलता दी नहीं जाती, कमाई जाती है — एक परीक्षा एक कदम।"')}
+              </div>
+            </div>
+
+            {/* Quick links */}
+            <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+              {[[t('📝 My Exams','📝 परीक्षाएं'),'/my-exams',C.primary],[t('📚 PYQ Bank','📚 PYQ बैंक'),'/pyq-bank',C.gold],[t('📢 Announcements','📢 घोषणाएं'),'/announcements',C.success]].map(([l,h,c]:any)=>(
+                <a key={h} href={h} style={{padding:'7px 14px',background:`${c}18`,border:`1px solid ${c}44`,color:c,borderRadius:20,textDecoration:'none',fontSize:12,fontWeight:600,transition:'all .2s'}}>{l}</a>
+              ))}
+            </div>
+          </div>
+
+          {/* Animated Rocket */}
+          <div style={{flexShrink:0,opacity:.85}}><RocketSVG/></div>
+        </div>
+      </div>
+
+      {/* Stats Row 1 */}
+      <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:14}}>
+        <StatCard dm={dm} icon="🏆" label={t('Best Rank','सर्वश्रेष्ठ रैंक')} value={bestRank&&bestRank<99999?`#${bestRank}`:'—'} col={C.gold}/>
+        <StatCard dm={dm} icon="📊" label={t('Best Score','सर्वश्रेष्ठ स्कोर')} value={bestScore?`${bestScore}/720`:'—'} col={C.primary}/>
+        <StatCard dm={dm} icon="📈" label={t('Avg Score','औसत स्कोर')} value={avgScore?`${avgScore}/720`:'—'} col={C.success}/>
+        <StatCard dm={dm} icon="⏳" label={t('Days to NEET','NEET तक दिन')} value={daysLeft} col={C.warn} sub="NEET"/>
+      </div>
+      <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:24}}>
+        <StatCard dm={dm} icon="📝" label={t('Tests Given','दिए टेस्ट')} value={results.length} col={C.primary}/>
+        <StatCard dm={dm} icon="📅" label={t('Upcoming','आगामी')} value={upcoming.length} col={C.pink}/>
+        <StatCard dm={dm} icon="🔥" label={t('Streak','स्ट्रीक')} value={String(Math.floor(Number(user?.streak)||0))+"d"} col={C.danger} sub={t('Keep going!','जारी रखें!')}/>
+        <StatCard dm={dm} icon="🎖️" label={t('Badges','बैज')} value={user?.badges?.length||0} col={C.purple}/>
+      </div>
+
+      {/* Subject Performance */}
+      <div style={{background:dm?C.card:C.cardL,border:`1px solid ${C.border}`,borderRadius:18,padding:20,marginBottom:20,backdropFilter:'blur(14px)',boxShadow:'0 4px 20px rgba(0,0,0,.15)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
+          <DNASVG/>
+          <div>
+            <div style={{fontFamily:'Playfair Display,serif',fontSize:16,fontWeight:700,color:dm?C.text:C.textL}}>{t('Subject Performance','विषय प्रदर्शन')}</div>
+            <div style={{fontSize:11,color:C.sub,marginTop:2}}>{t('Based on your latest test','नवीनतम टेस्ट के आधार पर')}</div>
+          </div>
+        </div>
+        {[
+          {n:t('Physics','भौतिकी'),icon:'⚛️',sc:results[0]?.subjectScores?.physics,tot:180,col:'#00B4FF'},
+          {n:t('Chemistry','रसायन'),icon:'🧪',sc:results[0]?.subjectScores?.chemistry,tot:180,col:'#FF6B9D'},
+          {n:t('Biology','जीव विज्ञान'),icon:'🧬',sc:results[0]?.subjectScores?.biology,tot:360,col:'#00E5A0'},
+        ].map(s=>{
+          const p=s.sc!=null?Math.round((s.sc/s.tot)*100):0
+          return (
+            <div key={s.n} style={{marginBottom:14}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:6,fontSize:12}}>
+                <span style={{fontWeight:700,color:s.col,display:'flex',alignItems:'center',gap:5}}>{s.icon} {s.n}</span>
+                <span style={{color:C.sub}}>{s.sc!=null?(s.sc+'/'+s.tot):'—'} <span style={{color:s.col,fontWeight:700}}>({p}%)</span></span>
+              </div>
+              <div style={{background:'rgba(255,255,255,.06)',borderRadius:8,height:11,overflow:'hidden',position:'relative'}}>
+                <div style={{height:'100%',width:`${p}%`,background:`linear-gradient(90deg,${s.col}88,${s.col})`,borderRadius:8,transition:'width .9s ease',boxShadow:`0 0 8px ${s.col}44`}}/>
+                {p===0&&<div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',paddingLeft:8,fontSize:9,color:C.sub}}>{t('No data yet','अभी कोई डेटा नहीं')}</div>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* 2-col grid */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+        {/* Upcoming Exams */}
+        <div style={{background:dm?C.card:C.cardL,border:`1px solid ${C.border}`,borderRadius:16,padding:18,backdropFilter:'blur(14px)',boxShadow:'0 4px 20px rgba(0,0,0,.15)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <div style={{fontFamily:'Playfair Display,serif',fontSize:14,fontWeight:700,color:dm?C.text:C.textL}}>📅 {t('Upcoming','आगामी')}</div>
+            <a href="/my-exams" style={{fontSize:10,color:C.primary,textDecoration:'none',fontWeight:600}}>{t('All →','सब →')}</a>
+          </div>
+          {loading?<div style={{textAlign:'center',color:C.sub,padding:'14px 0',fontSize:12,animation:'pulse 1.5s infinite'}}>⟳</div>:
+            upcoming.length===0?(
+              <div style={{textAlign:'center',padding:'20px 0',color:C.sub}}>
+                {/* Calendar SVG */}
+                <svg width="50" height="50" viewBox="0 0 50 50" style={{display:'block',margin:'0 auto 8px'}} fill="none">
+                  <rect x="5" y="10" width="40" height="34" rx="4" stroke="#4D9FFF" strokeWidth="1.5" fill="none"/>
+                  <path d="M5 20h40" stroke="#4D9FFF" strokeWidth="1"/>
+                  <circle cx="17" cy="14" r="3" fill="#4D9FFF"/>
+                  <circle cx="33" cy="14" r="3" fill="#4D9FFF"/>
+                  <circle cx="17" cy="30" r="2" fill="rgba(77,159,255,0.4)"/>
+                  <circle cx="25" cy="30" r="2" fill="rgba(77,159,255,0.4)"/>
+                  <circle cx="33" cy="30" r="2" fill="rgba(77,159,255,0.4)"/>
+                </svg>
+                <div style={{fontSize:11}}>{t('No upcoming exams','कोई परीक्षा नहीं')}</div>
+              </div>
+            ):upcoming.slice(0,3).map((e:any)=>(
+              <div key={e._id} style={{padding:'8px 0',borderBottom:`1px solid ${C.border}`}}>
+                <div style={{fontWeight:600,fontSize:12,color:dm?C.text:C.textL,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.title}</div>
+                <div style={{color:C.sub,fontSize:10,marginTop:1}}>{new Date(e.scheduledAt).toLocaleDateString('en-IN',{day:'numeric',month:'short'})} · {e.duration}m</div>
+                <a href={`/exam/${e._id}`} style={{display:'inline-block',marginTop:4,padding:'2px 9px',background:`${C.primary}22`,color:C.primary,border:`1px solid ${C.primary}44`,borderRadius:5,fontSize:9,textDecoration:'none',fontWeight:600}}>{t('Start →','शुरू →')}</a>
+              </div>
+            ))
+          }
+        </div>
+
+        {/* Recent Results */}
+        <div style={{background:dm?C.card:C.cardL,border:`1px solid ${C.border}`,borderRadius:16,padding:18,backdropFilter:'blur(14px)',boxShadow:'0 4px 20px rgba(0,0,0,.15)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <div style={{fontFamily:'Playfair Display,serif',fontSize:14,fontWeight:700,color:dm?C.text:C.textL}}>🏅 {t('Results','परिणाम')}</div>
+            <a href="/results" style={{fontSize:10,color:C.primary,textDecoration:'none',fontWeight:600}}>{t('All →','सब →')}</a>
+          </div>
+          {loading?<div style={{textAlign:'center',color:C.sub,padding:'14px 0',fontSize:12,animation:'pulse 1.5s infinite'}}>⟳</div>:
+            results.length===0?(
+              <div style={{textAlign:'center',padding:'20px 0',color:C.sub}}>
+                {/* Star SVG */}
+                <svg width="50" height="50" viewBox="0 0 50 50" style={{display:'block',margin:'0 auto 8px'}} fill="none">
+                  <path d="M25 5L29 18H43L32 26L36 39L25 31L14 39L18 26L7 18H21Z" stroke="#FFD700" strokeWidth="1.5" fill="none"/>
+                  <path d="M25 12L28 20H36L30 25L32 33L25 28L18 33L20 25L14 20H22Z" fill="rgba(255,215,0,0.2)"/>
+                </svg>
+                <div style={{fontSize:11}}>{t('No results yet','अभी कोई परिणाम नहीं')}</div>
+              </div>
+            ):results.slice(0,3).map((r:any)=>(
+              <div key={r._id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:`1px solid ${C.border}`}}>
+                <div style={{fontSize:11,flex:1,overflow:'hidden'}}>
+                  <div style={{fontWeight:600,color:dm?C.text:C.textL,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.examTitle||'—'}</div>
+                  <div style={{color:C.sub,fontSize:9,marginTop:1}}>#{r.rank||'—'} · {r.percentile||'—'}%ile</div>
+                </div>
+                <div style={{textAlign:'right',flexShrink:0,marginLeft:8}}>
+                  <div style={{fontWeight:800,fontSize:16,color:C.primary}}>{r.score}</div>
+                  <div style={{fontSize:9,color:C.sub}}>/{r.totalMarks||720}</div>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+
+      {/* NEET Countdown Banner */}
+      <div style={{background:'linear-gradient(135deg,rgba(255,215,0,.1),rgba(0,85,204,.15))',border:'1px solid rgba(255,215,0,.22)',borderRadius:20,padding:'22px 20px',marginBottom:20,position:'relative',overflow:'hidden',boxShadow:'0 4px 24px rgba(0,0,0,.2)'}}>
+        {/* Animated orbit circles */}
+        <div style={{position:'absolute',right:20,top:'50%',transform:'translateY(-50%)',width:80,height:80,borderRadius:'50%',border:'1px dashed rgba(255,215,0,.2)',animation:'spinSlow 20s linear infinite',pointerEvents:'none'}}/>
+        <div style={{position:'absolute',right:30,top:'50%',transform:'translateY(-50%)',width:55,height:55,borderRadius:'50%',border:'1px dashed rgba(255,215,0,.3)',animation:'spinSlow 12s linear infinite reverse',pointerEvents:'none'}}/>
+        <div style={{fontSize:13,color:C.gold,fontWeight:700,marginBottom:4}}>🏆 NEET</div>
+        <div style={{fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:700,color:dm?C.text:C.textL,marginBottom:4}}>
+          <span style={{color:C.gold,textShadow:`0 0 20px ${C.gold}44`}}>{daysLeft}</span> {t('Days Remaining','दिन शेष')}
+        </div>
+        <div style={{fontSize:12,color:C.sub,marginBottom:14}}>{t('NEET · 180 Questions · 720 Marks','NEET · 180 प्रश्न · 720 अंक')}</div>
+        {/* Progress bar */}
+        <div style={{background:'rgba(255,255,255,.06)',borderRadius:6,height:8,overflow:'hidden',marginBottom:12}}>
+          <div style={{height:'100%',width:`${Math.max(5,100-Math.round(daysLeft/365*100))}%`,background:`linear-gradient(90deg,${C.gold},#FF8C00)`,borderRadius:6,transition:'width .8s'}}/>
+        </div>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          <a href="/my-exams" style={{padding:'8px 16px',background:`${C.gold}20`,border:`1px solid ${C.gold}44`,color:C.gold,borderRadius:10,textDecoration:'none',fontWeight:600,fontSize:12}}>{t('📝 Practice Tests','📝 अभ्यास टेस्ट')}</a>
+          <a href="/pyq-bank" style={{padding:'8px 16px',background:`${C.primary}20`,border:`1px solid ${C.primary}44`,color:C.primary,borderRadius:10,textDecoration:'none',fontWeight:600,fontSize:12}}>{t('📚 PYQ Bank','📚 PYQ बैंक')}</a>
+          <a href="/revision" style={{padding:'8px 16px',background:`${C.purple}20`,border:`1px solid ${C.purple}44`,color:C.purple,borderRadius:10,textDecoration:'none',fontWeight:600,fontSize:12}}>{t('🧠 Revise','🧠 रिवाइज')}</a>
+        </div>
+      </div>
+
+      {/* Quick Access Grid */}
+      <div style={{background:dm?C.card:C.cardL,border:`1px solid ${C.border}`,borderRadius:16,padding:18,backdropFilter:'blur(14px)',marginBottom:20}}>
+        <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:dm?C.text:C.textL,marginBottom:14}}>⚡ {t('Quick Access','त्वरित एक्सेस')}</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))',gap:10}}>
+          {[['📝',t('My Exams','परीक्षाएं'),'/my-exams',C.primary],['📚',t('PYQ Bank','PYQ बैंक'),'/pyq-bank',C.gold],['📋',t('OMR View','OMR व्यू'),'/omr-view',C.pink],['🕐',t('Attempt History','परीक्षा इतिहास'),'/attempt-history',C.purple]].map(([ic,label,href,col])=>(
+            <a key={href as string} href={href as string} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,padding:'14px 10px',background:`${col}0f`,border:`1px solid ${col}22`,borderRadius:12,textDecoration:'none',color:dm?C.text:C.textL,fontSize:11,fontWeight:600,transition:'all .2s',textAlign:'center'}}>
+              <span style={{fontSize:22}}>{ic}</span>
+              <span style={{color:col as string,fontSize:10}}>{label}</span>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {/* Motivational Footer */}
+      <div style={{background:'linear-gradient(135deg,rgba(0,85,204,.14),rgba(77,159,255,.05))',border:'1px solid rgba(77,159,255,.15)',borderRadius:20,padding:'26px 20px',textAlign:'center',position:'relative',overflow:'hidden'}}>
+        <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',opacity:.04,overflow:'hidden'}}>
+          <svg width="600" height="80" viewBox="0 0 600 80"><text x="50%" y="65" textAnchor="middle" fontFamily="Playfair Display,serif" fontSize="52" fontWeight="700" fill="#4D9FFF">PROVE YOUR RANK</text></svg>
+        </div>
+        <div style={{fontSize:20,color:C.primary,fontFamily:'Playfair Display,serif',fontWeight:700,marginBottom:6,textShadow:`0 0 30px ${C.primary}44`}}>
+          {t("You're on the right path! 🚀","आप सही रास्ते पर हैं! 🚀")}
+        </div>
+        <div style={{fontSize:13,color:C.sub}}>{t(daysLeft+' days remaining — Make every day count!',''+daysLeft+' दिन शेष — हर दिन सार्थक बनाएं!')}</div>
+      </div>
+    </div>
+  )
+}
+
+export default function DashboardPage() {
+  return <StudentShell pageKey="dashboard"><DashboardContent/></StudentShell>
+}
+FILEEOF3
+echo "dashboard/page.tsx updated ✅"
+
+# ---- 4) Delete My Goals folder ----
+rm -rf ~/workspace/frontend/app/goals
+echo "goals folder deleted ✅"
+
+# ---- Safety check: any other refs to goals/admin-results-tabs we might still be missing? ----
+echo "--- Checking for remaining dead references ---"
+grep -rn "\x27/goals\x27" ~/workspace/frontend/app ~/workspace/frontend/src/components --include="*.tsx" 2>/dev/null | grep -v node_modules || echo "(none found)"
+
+cd ~/workspace
+git add -A
+git commit -m "delete: admin Results/Leaderboard/Analytics tabs + permissions, student My Goals page, fix 4 dead links on Dashboard"
+git push

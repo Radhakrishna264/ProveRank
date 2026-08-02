@@ -59,7 +59,6 @@ const NAV_GROUPS=[
   ]},
   {label:'Results & Progress',labelHi:'परिणाम और प्रगति',items:[
     {id:'attempt-history',icon:'🕐',en:'Attempt History',hi:'परीक्षा इतिहास',href:'/attempt-history'},
-    {id:'goals',icon:'🎯',en:'My Goals',hi:'मेरे लक्ष्य',href:'/goals'},
   ]},
   {label:'Batches & Store',labelHi:'बैच और स्टोर',items:[
     {id:'my-batches',icon:'📚',en:'My Batches & Test Series',hi:'मेरे बैच और टेस्ट सीरीज',href:'/dashboard/my-batches'},
