@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-echo "=== HOTFIX: Restore My Profile + Audit Logs (accidentally deleted during earlier cleanup) ==="
+echo "=== Fix: Dead Analytics quick-action button on Admin Dashboard Overview ==="
 cat > ~/workspace/frontend/app/admin/x7k2p/page.tsx << 'FILEEOF1'
 'use client'
 import BatchManagerUltra from './BatchManagerUltra'
@@ -2574,7 +2574,7 @@ const confirmAndAdd=useCallback(async()=>{
                   Manage your complete NEET test platform from here. Create exams, monitor students, review analytics, and keep your platform running smoothly.
                 </div>
                 <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:14}}>
-                  {[['➕ Create Exam','create_exam',ACC],['👥 All Students','students',SUC],['🔴 Live Monitor','live',DNG],['📊 Analytics','analytics',GOLD]].map(([l,t,c])=>(
+                  {[['➕ Create Exam','create_exam',ACC],['👥 All Students','students',SUC],['🔴 Live Monitor','live',DNG],['📊 Reports','reports',GOLD]].map(([l,t,c])=>(
                     <button key={String(t)} onClick={()=>_setTab(String(t))} style={{padding:'8px 16px',background:`${c}22`,border:`1px solid ${c}44`,color:String(c),borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600}}>{String(l)}</button>
                   ))}
                 </div>
@@ -5011,9 +5011,9 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
   )
 }// deploy Sun May 31 01:52:47 AM UTC 2026
 FILEEOF1
-echo "admin/x7k2p/page.tsx restored ✅"
+echo "admin/x7k2p/page.tsx updated ✅"
 
 cd ~/workspace
 git add -A
-git commit -m "hotfix: restore My Profile + Audit Logs render blocks — accidentally deleted during earlier tab-cleanup (they were sandwiched under a mislabeled comment)"
+git commit -m "fix: replace dead Analytics quick-action button (Dashboard Admin Center) with Reports & Export"
 git push
