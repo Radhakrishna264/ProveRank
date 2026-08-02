@@ -107,6 +107,7 @@ function ChecklistWidget({token,toast,lang}:{token:string;toast:(m:string,t?:'s'
   const t2 = (en:string,hi:string) => lang==='en'?en:hi
   const [items,    setItems]    = React.useState<any[]>([])
   const [count,    setCount]    = React.useState(0)
+  const [totalCount, setTotalCount] = React.useState(3)
   const [allDone,  setAllDone]  = React.useState(false)
   const [confetti, setConfetti] = React.useState(false)
   const [badgeModal,setBadgeModal] = React.useState(false)
@@ -122,6 +123,7 @@ function ChecklistWidget({token,toast,lang}:{token:string;toast:(m:string,t?:'s'
         if(d.success){
           setItems(d.items||[])
           setCount(d.completedCount||0)
+          setTotalCount(d.totalCount||3)
           setAllDone(d.allDone||false)
           setHasBadge(d.hasBadge||false)
         }
@@ -168,7 +170,7 @@ function ChecklistWidget({token,toast,lang}:{token:string;toast:(m:string,t?:'s'
   // Hide widget if all done AND badge already given (seen before)
   if(allDone && hasBadge) return null
 
-  const pct = Math.round((count/4)*100)
+  const pct = Math.round((count/totalCount)*100)
 
   return (
     <>
@@ -209,7 +211,7 @@ function ChecklistWidget({token,toast,lang}:{token:string;toast:(m:string,t?:'s'
             </div>
           </div>
           <div style={{textAlign:'right'}}>
-            <div style={{fontSize:18,fontWeight:800,color:'#4D9FFF'}}>{count}/4</div>
+            <div style={{fontSize:18,fontWeight:800,color:'#4D9FFF'}}>{count}/{totalCount}</div>
             <div style={{fontSize:9,color:'#6B8FAF'}}>{t2('Complete','पूर्ण')}</div>
           </div>
         </div>
@@ -514,7 +516,6 @@ useEffect(()=>{
         <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
           <a href="/my-exams" style={{padding:'8px 16px',background:`${C.gold}20`,border:`1px solid ${C.gold}44`,color:C.gold,borderRadius:10,textDecoration:'none',fontWeight:600,fontSize:12}}>{t('📝 Practice Tests','📝 अभ्यास टेस्ट')}</a>
           <a href="/pyq-bank" style={{padding:'8px 16px',background:`${C.primary}20`,border:`1px solid ${C.primary}44`,color:C.primary,borderRadius:10,textDecoration:'none',fontWeight:600,fontSize:12}}>{t('📚 PYQ Bank','📚 PYQ बैंक')}</a>
-          <a href="/revision" style={{padding:'8px 16px',background:`${C.purple}20`,border:`1px solid ${C.purple}44`,color:C.purple,borderRadius:10,textDecoration:'none',fontWeight:600,fontSize:12}}>{t('🧠 Revise','🧠 रिवाइज')}</a>
         </div>
       </div>
 
@@ -522,7 +523,7 @@ useEffect(()=>{
       <div style={{background:dm?C.card:C.cardL,border:`1px solid ${C.border}`,borderRadius:16,padding:18,backdropFilter:'blur(14px)',marginBottom:20}}>
         <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,color:dm?C.text:C.textL,marginBottom:14}}>⚡ {t('Quick Access','त्वरित एक्सेस')}</div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))',gap:10}}>
-          {[['📝',t('My Exams','परीक्षाएं'),'/my-exams',C.primary],['📚',t('PYQ Bank','PYQ बैंक'),'/pyq-bank',C.gold],['📋',t('OMR View','OMR व्यू'),'/omr-view',C.pink],['🕐',t('Attempt History','परीक्षा इतिहास'),'/attempt-history',C.purple]].map(([ic,label,href,col])=>(
+          {[['📝',t('My Exams','परीक्षाएं'),'/my-exams',C.primary],['📚',t('PYQ Bank','PYQ बैंक'),'/pyq-bank',C.gold],['🕐',t('Attempt History','परीक्षा इतिहास'),'/attempt-history',C.purple]].map(([ic,label,href,col])=>(
             <a key={href as string} href={href as string} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,padding:'14px 10px',background:`${col}0f`,border:`1px solid ${col}22`,borderRadius:12,textDecoration:'none',color:dm?C.text:C.textL,fontSize:11,fontWeight:600,transition:'all .2s',textAlign:'center'}}>
               <span style={{fontSize:22}}>{ic}</span>
               <span style={{color:col as string,fontSize:10}}>{label}</span>
