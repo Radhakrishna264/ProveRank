@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+echo "=== Fix: Remove Badge Unlocked popup/confetti (was showing on every login) ==="
+cat > ~/workspace/frontend/app/dashboard/page.tsx << 'FILEEOF1'
 'use client'
 import WelcomeBanner from '../../components/WelcomeBanner'
 import React, { useState, useEffect } from 'react'
@@ -501,3 +505,10 @@ useEffect(()=>{
 export default function DashboardPage() {
   return <StudentShell pageKey="dashboard"><DashboardContent/></StudentShell>
 }
+FILEEOF1
+echo "dashboard/page.tsx updated ✅"
+
+cd ~/workspace
+git add -A
+git commit -m "fix: remove Badge Unlocked popup/confetti from dashboard — badge still awarded silently in background"
+git push
