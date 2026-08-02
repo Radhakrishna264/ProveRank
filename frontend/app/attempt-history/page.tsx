@@ -65,7 +65,7 @@ function AttemptHistoryContent() {
                       <div style={{textAlign:'center'}}><div style={{fontWeight:800,fontSize:17,color:C.primary}}>{r.score}</div><div style={{fontSize:9,color:C.sub}}>/{r.totalMarks||720}</div></div>
                       <div style={{textAlign:'center'}}><div style={{fontWeight:700,fontSize:14,color:C.gold}}>#{r.rank||'—'}</div><div style={{fontSize:9,color:C.sub}}>AIR</div></div>
                       <div style={{textAlign:'center'}}><div style={{fontWeight:700,fontSize:13,color:C.success}}>{r.percentile||'—'}%</div><div style={{fontSize:9,color:C.sub}}>ile</div></div>
-                      <a href="/results" style={{padding:'5px 11px',background:'rgba(77,159,255,.12)',color:C.primary,border:`1px solid rgba(77,159,255,.3)`,borderRadius:7,textDecoration:'none',fontSize:10,fontWeight:600}}>{t('View','देखें')}</a>
+                      <a href={`/exam-review/${r._id}`} style={{padding:'5px 11px',background:'rgba(77,159,255,.12)',color:C.primary,border:`1px solid rgba(77,159,255,.3)`,borderRadius:7,textDecoration:'none',fontSize:10,fontWeight:600}}>{t('View','देखें')}</a>
                     </div>
                   </div>
                 </div>
