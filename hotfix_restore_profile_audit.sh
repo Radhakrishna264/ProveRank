@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+echo "=== HOTFIX: Restore My Profile + Audit Logs (accidentally deleted during earlier cleanup) ==="
+cat > ~/workspace/frontend/app/admin/x7k2p/page.tsx << 'FILEEOF1'
 'use client'
 import BatchManagerUltra from './BatchManagerUltra'
 import TestSeriesManagerUltra from './TestSeriesManagerUltra'
@@ -5006,3 +5010,10 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 </div>
   )
 }// deploy Sun May 31 01:52:47 AM UTC 2026
+FILEEOF1
+echo "admin/x7k2p/page.tsx restored ✅"
+
+cd ~/workspace
+git add -A
+git commit -m "hotfix: restore My Profile + Audit Logs render blocks — accidentally deleted during earlier tab-cleanup (they were sandwiched under a mislabeled comment)"
+git push
