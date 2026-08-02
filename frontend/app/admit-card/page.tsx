@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import StudentShell, { useShell, C } from '@/src/components/StudentShell'
+import PRLogo from '@/components/PRLogo'
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 function AdmitCardContent() {
   const {lang,darkMode:dm,user,toast,token}=useShell()
@@ -55,7 +56,7 @@ function AdmitCardContent() {
               <div style={{background:dm?C.card:C.cardL,border:'1px solid rgba(77,159,255,.35)',borderRadius:20,overflow:'hidden',backdropFilter:'blur(14px)'}}>
                 <div style={{background:'linear-gradient(135deg,#001F3F,#003366)',padding:'14px 22px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid rgba(77,159,255,.25)'}}>
                   <div style={{display:'flex',alignItems:'center',gap:10}}>
-                    <svg width="26" height="26" viewBox="0 0 64 64"><polygon points="56.3,32 49.5,25.5 51.5,16.5 42.8,14 39.2,5.8 32,10 24.8,5.8 21.2,14 12.5,16.5 14.5,25.5 7.7,32 14.5,38.5 12.5,47.5 21.2,50 24.8,58.2 32,54 39.2,58.2 42.8,50 51.5,47.5 49.5,38.5" fill="none" stroke="#4D9FFF" strokeWidth="1.5"/><text x="32" y="37" textAnchor="middle" fontFamily="Playfair Display,serif" fontSize="14" fontWeight="700" fill="#4D9FFF">PR</text></svg>
+                    <PRLogo size={26} />
                     <div><div style={{fontFamily:'Playfair Display,serif',fontSize:14,fontWeight:700,color:'#fff'}}>ProveRank</div><div style={{fontSize:8,color:'rgba(77,159,255,.7)',letterSpacing:2}}>ADMIT CARD</div></div>
                   </div>
                   <span style={{fontSize:10,padding:'2px 9px',borderRadius:20,background:'rgba(0,196,140,.2)',color:C.success,fontWeight:700}}>✓ VALID</span>

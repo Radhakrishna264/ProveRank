@@ -1,3 +1,8 @@
+#!/bin/bash
+set -e
+echo "=== Fix: Replace all remaining old hexagon+PR logo leftovers with current PRLogo ==="
+
+cat > ~/workspace/frontend/app/page.tsx << 'FILEEOF1'
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -413,3 +418,162 @@ export default function LandingPage() {
     </div>
   )
 }
+FILEEOF1
+echo "app/page.tsx (Landing) updated ✅"
+
+cat > ~/workspace/frontend/app/maintenance/page.tsx << 'FILEEOF2'
+'use client'
+import { useState, useEffect } from 'react'
+import PRLogo from '@/components/PRLogo'
+
+export default function Maintenance() {
+  const [lang, setLang] = useState<'en'|'hi'>('en')
+  const [time, setTime] = useState(3600)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(()=>{
+    setMounted(true)
+    const sl=localStorage.getItem('pr_lang') as 'en'|'hi'; if(sl) setLang(sl)
+    const iv = setInterval(()=>setTime(t=>t>0?t-1:0),1000)
+    return ()=>clearInterval(iv)
+  },[])
+
+  if (!mounted) return null
+  const h=Math.floor(time/3600), m=Math.floor((time%3600)/60), s=time%60
+  const fmt=(n:number)=>String(n).padStart(2,'0')
+
+  return (
+    <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#000A18 0%,#001628 50%,#000A18 100%)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',fontFamily:'Inter,sans-serif',color:'#E8F4FF',textAlign:'center',padding:'5%',position:'relative',overflow:'hidden'}}>
+      <style>{`@keyframes pulse{0%,100%{opacity:.3}50%{opacity:.7}}@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}.tbtn{padding:6px 14px;border-radius:20px;border:1.5px solid rgba(77,159,255,0.4);background:rgba(0,22,40,0.5);color:#E8F4FF;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;backdrop-filter:blur(8px);}.tbtn:hover{border-color:#4D9FFF;}`}</style>
+      <div style={{position:'absolute',top:'10%',left:'5%',fontSize:200,color:'rgba(77,159,255,0.03)',animation:'pulse 4s infinite',fontFamily:'monospace'}}>⬡</div>
+      <div style={{position:'absolute',bottom:'10%',right:'5%',fontSize:150,color:'rgba(77,159,255,0.03)',animation:'pulse 3s infinite 1s',fontFamily:'monospace'}}>⬡</div>
+      {/* Logo */}
+      <div style={{marginBottom:40,animation:'fadeUp 0.6s ease forwards'}}>
+        <PRLogo size={64} />
+        <div style={{fontFamily:'Playfair Display,serif',fontSize:24,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF,#fff,#4D9FFF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',marginTop:8}}>ProveRank</div>
+      </div>
+      <div style={{fontSize:48,marginBottom:16}}>🔧</div>
+      <h1 style={{fontFamily:'Playfair Display,serif',fontSize:'clamp(1.8rem,5vw,3rem)',fontWeight:800,marginBottom:12,animation:'fadeUp 0.6s 0.1s ease both',opacity:0}}>
+        {lang==='en'?'Under Maintenance':'रखरखाव के तहत'}
+      </h1>
+      <p style={{color:'#6B8BAF',fontSize:16,maxWidth:450,lineHeight:1.7,marginBottom:48,animation:'fadeUp 0.6s 0.2s ease both',opacity:0}}>
+        {lang==='en'
+          ? "We're upgrading ProveRank to serve you better. We'll be back shortly."
+          : 'हम ProveRank को बेहतर बनाने के लिए अपग्रेड कर रहे हैं। हम जल्द वापस आएंगे।'}
+      </p>
+      {/* Countdown */}
+      <div style={{display:'flex',gap:16,marginBottom:48,animation:'fadeUp 0.6s 0.3s ease both',opacity:0}}>
+        {[[fmt(h),lang==='en'?'Hours':'घंटे'],[fmt(m),lang==='en'?'Minutes':'मिनट'],[fmt(s),lang==='en'?'Seconds':'सेकंड']].map(([v,l],i)=>(
+          <div key={i} style={{background:'rgba(0,22,40,0.8)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:16,padding:'24px 28px',textAlign:'center',backdropFilter:'blur(20px)'}}>
+            <div style={{fontFamily:'Playfair Display,serif',fontSize:42,fontWeight:800,color:'#4D9FFF',lineHeight:1}}>{v}</div>
+            <div style={{color:'#6B8BAF',fontSize:12,marginTop:6,letterSpacing:'0.1em',textTransform:'uppercase',fontWeight:600}}>{l}</div>
+          </div>
+        ))}
+      </div>
+      <button className="tbtn" onClick={()=>{const n=lang==='en'?'hi':'en';setLang(n);localStorage.setItem('pr_lang',n)}}>{lang==='en'?'🇮🇳 हिंदी':'🌐 English'}</button>
+    </div>
+  )
+}
+FILEEOF2
+echo "maintenance/page.tsx updated ✅"
+
+cat > ~/workspace/frontend/app/admit-card/page.tsx << 'FILEEOF3'
+'use client'
+import { useState, useEffect } from 'react'
+import StudentShell, { useShell, C } from '@/src/components/StudentShell'
+import PRLogo from '@/components/PRLogo'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
+function AdmitCardContent() {
+  const {lang,darkMode:dm,user,toast,token}=useShell()
+  const [exams,setExams]=useState<any[]>([]); const [selIdx,setSelIdx]=useState(0); const [loading,setLoading]=useState(true)
+  const t=(en:string,hi:string)=>lang==='en'?en:hi
+  const rollNo=`PR2026-${String(Math.abs((user?.email||'x').split('').reduce((a:number,c:string)=>a+c.charCodeAt(0),0)%99999)).padStart(5,'0')}`
+  useEffect(()=>{
+    if(!token) return
+    fetch(`${API}/api/exams`,{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.ok?r.json():[]).then(d=>{const list=Array.isArray(d)?d.filter((e:any)=>new Date(e.scheduledAt)>new Date()):[];setExams(list);setLoading(false)}).catch(()=>setLoading(false))
+  },[token])
+  const sel=exams[selIdx]
+  const download=async()=>{
+    if(!sel) return
+    try{const r=await fetch(`${API}/api/exams/${sel._id}/admit-card`,{headers:{Authorization:`Bearer ${token}`}});if(r.ok){const b=await r.blob();const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='admit_card.pdf';a.click();toast(t('Downloaded!','डाउनलोड हुआ!'),'s')}else toast(t('Not available yet','अभी उपलब्ध नहीं'),'w')}catch{toast('Network error','e')}
+  }
+  const instr=lang==='en'?['📷 Webcam required throughout (anti-cheat)','🌐 Stable internet — min 10 Mbps','🔇 Quiet environment — no disturbance','🪪 Valid ID proof ready for verification','📺 Fullscreen mode enforced (S32)','⚠️ 3 tab switches = auto submit (S1/S2)']:['📷 वेबकैम पूरे समय अनिवार्य','🌐 स्थिर इंटरनेट — न्यूनतम 10 Mbps','🔇 शांत वातावरण','🪪 सत्यापन के लिए वैध आईडी','📺 फुलस्क्रीन मोड अनिवार्य','⚠️ 3 टैब स्विच = स्वतः सबमिट']
+  return (
+    <div style={{animation:'fadeIn .4s ease'}}>
+      <h1 style={{fontFamily:'Playfair Display,serif',fontSize:26,fontWeight:700,background:`linear-gradient(90deg,${C.primary},#fff)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',margin:'0 0 4px'}}>🪪 {t('Admit Card','प्रवेश पत्र')} (S106)</h1>
+      <div style={{fontSize:13,color:C.sub,marginBottom:20}}>{t('Digital admit card for upcoming exams','आगामी परीक्षाओं के लिए डिजिटल प्रवेश पत्र')}</div>
+      <div style={{background:'linear-gradient(135deg,rgba(77,159,255,.1),rgba(0,22,40,.88))',border:'1px solid rgba(77,159,255,.2)',borderRadius:18,padding:18,marginBottom:22,display:'flex',alignItems:'center',gap:14}}>
+        <svg width="60" height="70" viewBox="0 0 60 70" fill="none" style={{animation:'float 4s ease-in-out infinite',flexShrink:0}}>
+          <rect x="5" y="5" width="50" height="60" rx="5" stroke="#4D9FFF" strokeWidth="1.5" fill="none"/>
+          <rect x="5" y="5" width="50" height="18" rx="5" fill="rgba(77,159,255,0.2)" stroke="#4D9FFF" strokeWidth="1.5"/>
+          <circle cx="14" cy="14" r="5" fill="#4D9FFF" opacity=".7"/>
+          <path d="M23 10h22M23 15h15" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" opacity=".7"/>
+          <path d="M15 33h30M15 41h20M15 49h25" stroke="#4D9FFF" strokeWidth="1.5" strokeLinecap="round"/>
+          <rect x="38" y="33" width="15" height="22" rx="2" stroke="#FFD700" strokeWidth="1" fill="rgba(255,215,0,0.1)"/>
+        </svg>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,color:C.primary,fontStyle:'italic',fontWeight:700,marginBottom:3}}>{t('"Your admit card is your passport to success."','"आपका प्रवेश पत्र सफलता का पासपोर्ट है।"')}</div>
+          <div style={{fontSize:11,color:C.sub}}>{t('Roll No:','रोल नं:')} <span style={{color:C.primary,fontWeight:600}}>{rollNo}</span></div>
+        </div>
+      </div>
+      {loading?<div style={{textAlign:'center',padding:'40px',color:C.sub,animation:'pulse 1.5s infinite'}}>⟳</div>:
+        exams.length===0?(
+          <div style={{textAlign:'center',padding:'60px 20px',background:dm?C.card:C.cardL,borderRadius:20,border:`1px solid ${C.border}`,backdropFilter:'blur(14px)'}}>
+            <div style={{fontSize:40,marginBottom:12}}>📭</div>
+            <div style={{fontWeight:700,fontSize:16,color:dm?C.text:C.textL,marginBottom:6}}>{t('No upcoming exams','कोई आगामी परीक्षा नहीं')}</div>
+            <div style={{fontSize:12,color:C.sub}}>{t('Admit cards for scheduled exams will appear here.','निर्धारित परीक्षाओं के प्रवेश पत्र यहां दिखेंगे।')}</div>
+          </div>
+        ):(
+          <>
+            <div style={{display:'flex',gap:8,marginBottom:18,flexWrap:'wrap'}}>
+              {exams.map((e:any,i:number)=>(
+                <button key={e._id} onClick={()=>setSelIdx(i)} style={{padding:'8px 14px',borderRadius:9,border:`1px solid ${i===selIdx?C.primary:C.border}`,background:i===selIdx?`${C.primary}22`:C.card,color:i===selIdx?C.primary:C.sub,cursor:'pointer',fontSize:12,fontFamily:'Inter,sans-serif',fontWeight:i===selIdx?700:400,transition:'all .2s'}}>
+                  {e.title?.split(' ').slice(0,3).join(' ')||'Exam'}
+                </button>
+              ))}
+            </div>
+            {sel&&(
+              <div style={{background:dm?C.card:C.cardL,border:'1px solid rgba(77,159,255,.35)',borderRadius:20,overflow:'hidden',backdropFilter:'blur(14px)'}}>
+                <div style={{background:'linear-gradient(135deg,#001F3F,#003366)',padding:'14px 22px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid rgba(77,159,255,.25)'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <PRLogo size={26} />
+                    <div><div style={{fontFamily:'Playfair Display,serif',fontSize:14,fontWeight:700,color:'#fff'}}>ProveRank</div><div style={{fontSize:8,color:'rgba(77,159,255,.7)',letterSpacing:2}}>ADMIT CARD</div></div>
+                  </div>
+                  <span style={{fontSize:10,padding:'2px 9px',borderRadius:20,background:'rgba(0,196,140,.2)',color:C.success,fontWeight:700}}>✓ VALID</span>
+                </div>
+                <div style={{padding:22}}>
+                  <div style={{display:'grid',gap:10,marginBottom:18}}>
+                    {[[t('EXAM NAME','परीक्षा नाम'),sel.title],[t('DATE','तारीख'),new Date(sel.scheduledAt).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})],[t('TIME','समय'),new Date(sel.scheduledAt).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})],[t('DURATION','अवधि'),`${sel.duration} ${t('minutes','मिनट')}`],[t('TOTAL MARKS','कुल अंक'),`${sel.totalMarks}`],[t('MODE','मोड'),'Online (ProveRank Platform)'],[t('ROLL NUMBER','रोल नंबर'),rollNo]].map(([l,v])=>(
+                      <div key={String(l)} style={{display:'flex',gap:12}}>
+                        <span style={{fontSize:10,color:C.primary,fontWeight:700,textTransform:'uppercase',minWidth:100,letterSpacing:.3}}>{l}</span>
+                        <span style={{fontSize:13,color:dm?C.text:C.textL,fontWeight:600}}>{String(v)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{background:'rgba(255,184,77,.07)',border:'1px solid rgba(255,184,77,.22)',borderRadius:10,padding:'12px 16px'}}>
+                    <div style={{fontSize:11,color:C.warn,fontWeight:700,marginBottom:8}}>⚠️ {t('Instructions','निर्देश')}</div>
+                    {instr.map((ins,i)=><div key={i} style={{fontSize:11,color:C.sub,marginBottom:4}}>{ins}</div>)}
+                  </div>
+                </div>
+                <div style={{padding:'14px 22px',borderTop:`1px solid ${C.border}`,display:'flex',gap:10,flexWrap:'wrap'}}>
+                  <button onClick={download} className="btn-p">📥 {t('Download PDF','PDF डाउनलोड')}</button>
+                  <a href={`/exam/${sel._id}`} className="btn-g" style={{textDecoration:'none'}}>🚀 {t('Start Exam','शुरू')}</a>
+                </div>
+              </div>
+            )}
+          </>
+        )
+      }
+    </div>
+  )
+}
+export default function AdmitCardPage() {
+  return <StudentShell pageKey="admit-card"><AdmitCardContent/></StudentShell>
+}
+FILEEOF3
+echo "admit-card/page.tsx updated ✅"
+
+cd ~/workspace
+git add -A
+git commit -m "fix: replace remaining old hexagon+PR logo leftovers (landing footer, maintenance page, admit card header) with current PRLogo component"
+git push

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import PRLogo from '@/components/PRLogo'
 
 export default function Maintenance() {
   const [lang, setLang] = useState<'en'|'hi'>('en')
@@ -24,7 +25,7 @@ export default function Maintenance() {
       <div style={{position:'absolute',bottom:'10%',right:'5%',fontSize:150,color:'rgba(77,159,255,0.03)',animation:'pulse 3s infinite 1s',fontFamily:'monospace'}}>⬡</div>
       {/* Logo */}
       <div style={{marginBottom:40,animation:'fadeUp 0.6s ease forwards'}}>
-        <svg width={64} height={64} viewBox="0 0 64 64"><polygon points={[...Array(6)].map((_,i)=>{const a=(Math.PI/180)*(60*i-30);return`${32+28*Math.cos(a)},${32+28*Math.sin(a)}`}).join(' ')} fill="none" stroke="#4D9FFF" strokeWidth="2"/><text x="32" y="37" textAnchor="middle" fontFamily="Playfair Display,serif" fontSize="16" fontWeight="700" fill="#4D9FFF">PR</text></svg>
+        <PRLogo size={64} />
         <div style={{fontFamily:'Playfair Display,serif',fontSize:24,fontWeight:700,background:'linear-gradient(90deg,#4D9FFF,#fff,#4D9FFF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',marginTop:8}}>ProveRank</div>
       </div>
       <div style={{fontSize:48,marginBottom:16}}>🔧</div>
