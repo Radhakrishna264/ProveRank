@@ -187,58 +187,6 @@ router.post('/exam-control/:examId/action', verifyToken, isSuperAdmin, async (re
   }
 });
 
-// ─── Step 6: Per-Student Time Extension (M7) ────────────────────────────────
-router.post('/time-extension', verifyToken, isSuperAdmin, async (req, res) => {
-  try {
-    const Attempt = mongoose.model('Attempt');
-    const { examId, studentId, extraMinutes, reason } = req.body;
-
-    if (!examId || !studentId || !extraMinutes) {
-      return res.status(400).json({ success: false, message: 'examId, studentId, extraMinutes required' });
-    }
-
-    const attempt = await Attempt.findOneAndUpdate(
-      {
-        examId: new mongoose.Types.ObjectId(examId),
-        studentId: new mongoose.Types.ObjectId(studentId),
-        status: 'active'
-      },
-      {
-        $inc: { totalDurationSec: parseInt(extraMinutes) * 60 },
-        $push: {
-          timeExtensions: {
-            addedMinutes: parseInt(extraMinutes),
-            reason: reason || 'Admin granted extra time',
-            addedAt: new Date()
-          }
-        }
-      },
-      { new: true }
-    );
-
-    if (!attempt) {
-      return res.status(404).json({ success: false, message: 'Active attempt not found for this student' });
-    }
-
-    const io = req.app.get('io');
-    if (io) {
-      io.to(`student_${studentId}`).emit('time_extended', {
-        extraMinutes: parseInt(extraMinutes),
-        newTotalSec: attempt.totalDurationSec,
-        reason: reason || 'Admin granted extra time'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: `+${extraMinutes} min added for student`,
-      newTotalDurationSec: attempt.totalDurationSec
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
 // ─── Step 7: Admin Notification Center (S86) ─────────────────────────────────
 router.get('/notifications', verifyToken, isSuperAdmin, async (req, res) => {
   try {

@@ -1,3 +1,710 @@
+#!/bin/bash
+set -e
+echo "=== Delete M7 Per-Student Time Extension — completely across the project ==="
+
+echo "--- Safety check: any other references left? ---"
+grep -rln "TimeExtension\|extend-time\|time-extension\|extraMinutes" ~/workspace/src ~/workspace/frontend/app --include="*.js" --include="*.tsx" --include="*.jsx" 2>/dev/null | grep -v node_modules || echo "(none found beyond what we already fixed)"
+
+# ---- 1) Backend: attemptRoutes.js — remove TimeExtension from timer + submit ----
+cat > ~/workspace/src/routes/attemptRoutes.js << 'FILEEOF1'
+const express = require('express');
+const router = express.Router();
+const mongoose = require('mongoose');
+const Attempt = require('../models/Attempt');
+const Exam = require('../models/Exam');
+const { verifyToken } = require('../middleware/auth');
+
+// ─────────────────────────────────────────────
+// STEP 1 & 2: Save Answer + Auto-Save
+// PATCH /api/attempts/:attemptId/save-answer
+// ─────────────────────────────────────────────
+router.patch('/:attemptId/save-answer', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const { questionId, selectedOption, timeTaken, confidence } = req.body;
+    if (!questionId) return res.status(400).json({ message: 'questionId required' });
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active', code: 'ATTEMPT_LOCKED' });
+    const qObjId = new mongoose.Types.ObjectId(questionId);
+    const existingIndex = attempt.answers.findIndex(a => a.questionId.toString() === qObjId.toString());
+    const validConfidence = ['high', 'medium', 'low'].includes(confidence) ? confidence : null;
+    if (existingIndex >= 0) {
+      attempt.answers[existingIndex].selectedOption = selectedOption;
+      attempt.answers[existingIndex].timeTaken = timeTaken || attempt.answers[existingIndex].timeTaken;
+      attempt.answers[existingIndex].savedAt = new Date();
+      if (confidence !== undefined) attempt.answers[existingIndex].confidence = validConfidence;
+    } else {
+      attempt.answers.push({ questionId: qObjId, selectedOption, timeTaken: timeTaken || 0, isMarkedForReview: false, savedAt: new Date(), confidence: validConfidence });
+    }
+    await attempt.save();
+    return res.status(200).json({ message: 'Answer saved', totalAnswered: attempt.answers.filter(a => a.selectedOption !== null && a.selectedOption !== undefined).length });
+  } catch (err) {
+    console.error('save-answer error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PATCH /api/attempts/:attemptId/auto-save
+router.patch('/:attemptId/auto-save', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const { answers } = req.body;
+    if (!answers || !Array.isArray(answers)) return res.status(400).json({ message: 'answers array required' });
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active', code: 'ATTEMPT_LOCKED' });
+    for (const ans of answers) {
+      const qObjId = new mongoose.Types.ObjectId(ans.questionId);
+      const existingIndex = attempt.answers.findIndex(a => a.questionId.toString() === qObjId.toString());
+      const validConfidence = ['high', 'medium', 'low'].includes(ans.confidence) ? ans.confidence : null;
+      if (existingIndex >= 0) {
+        attempt.answers[existingIndex].selectedOption = ans.selectedOption;
+        attempt.answers[existingIndex].timeTaken = ans.timeTaken || 0;
+        attempt.answers[existingIndex].savedAt = new Date();
+        if (ans.confidence !== undefined) attempt.answers[existingIndex].confidence = validConfidence;
+      } else {
+        attempt.answers.push({ questionId: qObjId, selectedOption: ans.selectedOption, timeTaken: ans.timeTaken || 0, isMarkedForReview: false, savedAt: new Date(), confidence: validConfidence });
+      }
+    }
+    await attempt.save();
+    return res.status(200).json({ message: 'Auto-save complete', savedAt: new Date(), totalAnswered: attempt.answers.filter(a => a.selectedOption !== null && a.selectedOption !== undefined).length });
+  } catch (err) {
+    console.error('auto-save error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// STEP 3: Timer Logic
+// GET /api/attempts/:attemptId/timer
+// ─────────────────────────────────────────────
+router.get('/:attemptId/timer', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    const exam = await Exam.findById(attempt.examId);
+    if (!exam) return res.status(404).json({ message: 'Exam not found' });
+    const totalDurationSec = (exam.duration || 200) * 60;
+    const elapsedSec = Math.floor((Date.now() - new Date(attempt.startedAt).getTime()) / 1000);
+    const remainingSec = Math.max(0, totalDurationSec - elapsedSec);
+    // FIX — if time has genuinely run out, close the attempt right here so it
+    // stops being reported as 'active' (and re-served to the student as a
+    // resumable attempt) on the next my-exams/start-attempt check.
+    if (remainingSec <= 0 && attempt.status === 'active') {
+      attempt.status = 'timeout';
+      attempt.submittedAt = new Date();
+      await attempt.save();
+    }
+    return res.status(200).json({ startedAt: attempt.startedAt, startTime: attempt.startedAt, ipAddress: attempt.ipAddress,
+      startTime: attempt.startedAt,
+      ipAddress: attempt.ipAddress, 
+    totalDurationSec, elapsedSec, remainingSec,
+    timeRemaining: remainingSec,
+    elapsed: elapsedSec,
+    timeLeft: remainingSec,
+    remainingTime: remainingSec,
+    isExpired: remainingSec <= 0 
+  });
+  } catch (err) {
+    console.error('timer error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// STEP 4: Submit + Auto-Submit on Timeout
+// POST /api/attempts/:attemptId/submit
+// ─────────────────────────────────────────────
+router.post('/:attemptId/submit', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const { isAutoSubmit } = req.body;
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status === 'submitted') return res.status(400).json({ message: 'Already submitted' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active' });
+    const exam = await Exam.findById(attempt.examId);
+    const totalDurationSec = (exam ? exam.duration || 200 : 200) * 60;
+    const elapsedSec = Math.floor((Date.now() - new Date(attempt.startedAt).getTime()) / 1000);
+    attempt.status = elapsedSec > totalDurationSec + 30 ? 'timeout' : 'submitted';
+    attempt.submittedAt = new Date();
+    attempt.deviceSessionId = null;
+    await attempt.save();
+    return res.status(200).json({ message: isAutoSubmit ? 'Auto-submitted on timeout' : 'Exam submitted successfully', status: attempt.status, submittedAt: attempt.submittedAt, totalAnswered: attempt.answers.filter(a => a.selectedOption !== null && a.selectedOption !== undefined).length });
+  } catch (err) {
+    console.error('submit error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// STEP 5: Bookmark / Flag Toggle (S1)
+// PATCH /api/attempts/:attemptId/bookmark
+// ─────────────────────────────────────────────
+router.patch('/:attemptId/bookmark', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const { questionId } = req.body;
+    if (!questionId) return res.status(400).json({ message: 'questionId required' });
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active', code: 'ATTEMPT_LOCKED' });
+    const qObjId = new mongoose.Types.ObjectId(questionId);
+    const existingIndex = attempt.answers.findIndex(a => a.questionId.toString() === qObjId.toString());
+    let isMarkedForReview = false;
+    if (existingIndex >= 0) {
+      attempt.answers[existingIndex].isMarkedForReview = !attempt.answers[existingIndex].isMarkedForReview;
+      isMarkedForReview = attempt.answers[existingIndex].isMarkedForReview;
+    } else {
+      attempt.answers.push({ questionId: qObjId, selectedOption: null, timeTaken: 0, isMarkedForReview: true, savedAt: new Date() });
+      isMarkedForReview = true;
+    }
+    await attempt.save();
+    return res.status(200).json({ message: isMarkedForReview ? 'Question bookmarked' : 'Bookmark removed', isMarkedForReview });
+  } catch (err) {
+    console.error('bookmark error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// STEP 6: Navigation Panel - Color Coded (S2)
+// GET /api/attempts/:attemptId/navigation
+// ─────────────────────────────────────────────
+router.get('/:attemptId/navigation', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    const exam = await Exam.findById(attempt.examId).populate({path: "questions", strictPopulate: false});
+    if (!exam) return res.status(404).json({ message: 'Exam not found' });
+
+    const answerMap = {};
+    for (const ans of attempt.answers) {
+      answerMap[ans.questionId.toString()] = ans;
+    }
+
+    const navigation = (exam.questions || []).map((q, index) => {
+      const qId = q._id.toString();
+      const ans = answerMap[qId];
+      let status = 'not-visited'; // grey
+      if (ans) {
+        if (ans.isMarkedForReview && ans.selectedOption !== null && ans.selectedOption !== undefined) {
+          status = 'answered-flagged'; // purple+green
+        } else if (ans.isMarkedForReview) {
+          status = 'flagged'; // purple
+        } else if (ans.selectedOption !== null && ans.selectedOption !== undefined) {
+          status = 'answered'; // green
+        } else {
+          status = 'visited'; // red (visited but not answered)
+        }
+      }
+      return { index: index + 1, questionId: qId, status };
+    });
+
+    const summary = {
+      answered: navigation.filter(n => n.status === 'answered').length,
+      unanswered: navigation.filter(n => n.status === 'visited').length,
+      flagged: navigation.filter(n => n.status === 'flagged' || n.status === 'answered-flagged').length,
+      notVisited: navigation.filter(n => n.status === 'not-visited').length,
+      total: navigation.length
+    };
+
+    return res.status(200).json({ navigation, summary });
+  } catch (err) {
+    console.error('navigation error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// STEP 7: Connection Lost Protection (S51)
+// PATCH /api/attempts/:attemptId/pause
+// PATCH /api/attempts/:attemptId/resume
+// ─────────────────────────────────────────────
+router.patch('/:attemptId/pause', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active' });
+    attempt.isPaused = true;
+    attempt.pausedAt = new Date();
+    await attempt.save();
+    return res.status(200).json({ message: 'Exam paused - answers saved', pausedAt: attempt.pausedAt });
+  } catch (err) {
+    console.error('pause error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+router.patch('/:attemptId/resume', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active' });
+    attempt.isPaused = false;
+    attempt.pausedAt = null;
+    await attempt.save();
+    return res.status(200).json({ message: 'Exam resumed', resumedAt: new Date(), totalAnswered: attempt.answers.filter(a => a.selectedOption !== null && a.selectedOption !== undefined).length });
+  } catch (err) {
+    console.error('resume error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// STEP 8: Multi-Device Session Control (S112)
+// POST /api/attempts/:attemptId/register-device
+// ─────────────────────────────────────────────
+router.post('/:attemptId/register-device', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const { deviceSessionId } = req.body;
+    if (!deviceSessionId) return res.status(400).json({ message: 'deviceSessionId required' });
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active' });
+
+    // If another device already registered
+    if (attempt.deviceSessionId && attempt.deviceSessionId !== deviceSessionId) {
+      return res.status(403).json({
+        message: 'Exam already open on another device. Close it first.',
+        blocked: true
+      });
+    }
+
+    attempt.deviceSessionId = deviceSessionId;
+    await attempt.save();
+    return res.status(200).json({ message: 'Device registered successfully', deviceSessionId });
+  } catch (err) {
+    console.error('register-device error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// STEP 9: Exam Paper Encryption Key (N23)
+// GET /api/attempts/:attemptId/paper-key
+// ─────────────────────────────────────────────
+router.get('/:attemptId/paper-key', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active' });
+
+    // Generate a session-bound encryption key
+    // Key = hash of attemptId + studentId + secret
+    const crypto = require('crypto');
+    const secret = process.env.JWT_SECRET || 'proverank_secret';
+    const raw = `${attempt._id}:${attempt.studentId}:${secret}`;
+    const encryptionKey = crypto.createHash('sha256').update(raw).digest('hex').substring(0, 32);
+
+    return res.status(200).json({
+      message: 'Paper key issued',
+      key: encryptionKey,
+      expiresIn: '200m'
+    });
+  } catch (err) {
+    console.error('paper-key error:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/attempts/:attemptId — existing route (Phase 4.1)
+router.get('/:attemptId', verifyToken, async (req, res) => {
+  try {
+    const attemptId = new mongoose.Types.ObjectId(req.params.attemptId);
+    const attempt = await Attempt.findById(attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    const a = attempt.toObject(); a.ipAddress = attempt.ipAddress; a.startTime = attempt.startedAt; return res.status(200).json({ attempt: a });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+module.exports = router;
+FILEEOF1
+echo "attemptRoutes.js updated ✅"
+
+# ---- 2) Backend: adminMonitoringRoutes.js — remove /time-extension route ----
+cat > ~/workspace/src/routes/adminMonitoringRoutes.js << 'FILEEOF2'
+const express = require('express');
+const router = express.Router();
+const mongoose = require('mongoose');
+const { verifyToken, isSuperAdmin } = require('../middleware/auth');
+
+// ─── Step 1: View Student Attempts API (with filters) ───────────────────────
+router.get('/attempts', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const Attempt = mongoose.model('Attempt');
+    const { examId, studentId, status, page = 1, limit = 20 } = req.query;
+
+    const filter = {};
+    if (examId) filter.examId = new mongoose.Types.ObjectId(examId);
+    if (studentId) filter.studentId = new mongoose.Types.ObjectId(studentId);
+    if (status) filter.status = status;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const attempts = await Attempt.find(filter)
+      .populate('studentId', 'name email')
+      .populate('examId', 'title')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Attempt.countDocuments(filter);
+
+    res.json({
+      success: true,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit)),
+      attempts
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Step 2: View Cheating Logs API ─────────────────────────────────────────
+router.get('/cheat-logs', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const CheatingLog = mongoose.model('AntiCheatLog');
+    const { examId, studentId, type, page = 1, limit = 20 } = req.query;
+
+    const filter = {};
+    if (examId) filter.examId = new mongoose.Types.ObjectId(examId);
+    if (studentId) filter.studentId = new mongoose.Types.ObjectId(studentId);
+    if (type) filter.eventType = type;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const logs = await CheatingLog.find(filter)
+      .populate('studentId', 'name email')
+      .populate('examId', 'title')
+      .sort({ timestamp: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await CheatingLog.countDocuments(filter);
+
+    res.json({ success: true, total, page: parseInt(page), logs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Step 3: View Webcam Snapshots API ──────────────────────────────────────
+router.get('/snapshots', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const WebcamLog = mongoose.model('WebcamLog');
+    const { examId, studentId, page = 1, limit = 20 } = req.query;
+    const filter = {};
+    if (examId) filter.examId = new mongoose.Types.ObjectId(examId);
+    if (studentId) filter.studentId = new mongoose.Types.ObjectId(studentId);
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const snapshots = await WebcamLog.find(filter)
+      .populate('studentId', 'name email')
+      .populate('examId', 'title')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await WebcamLog.countDocuments(filter);
+
+    res.json({ success: true, total, snapshots });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Step 4: Audio Flags Review API (S57) ───────────────────────────────────
+router.get('/audio-flags', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const AudioLog = mongoose.model('AudioLog');
+    const { examId, studentId, page = 1, limit = 20 } = req.query;
+    const filter = {};
+    if (examId) filter.examId = new mongoose.Types.ObjectId(examId);
+    if (studentId) filter.studentId = new mongoose.Types.ObjectId(studentId);
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const audioFlags = await AudioLog.find(filter)
+      .populate('studentId', 'name email')
+      .populate('examId', 'title')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await AudioLog.countDocuments(filter);
+
+    res.json({ success: true, total, audioFlags });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Step 5: Live Exam Control Panel (S83) ──────────────────────────────────
+// GET: Live exam status
+router.get('/exam-control/:examId', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const Attempt = mongoose.model('Attempt');
+    const { examId } = req.params;
+
+    const liveStudents = await Attempt.find({
+      examId: new mongoose.Types.ObjectId(examId),
+      status: 'active'
+    }).populate('studentId', 'name email');
+
+    res.json({
+      success: true,
+      examId,
+      liveCount: liveStudents.length,
+      students: liveStudents
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST: Control action (pause/stop/eject/extend)
+router.post('/exam-control/:examId/action', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const Attempt = mongoose.model('Attempt');
+    const Exam = mongoose.model('Exam');
+    const { action, studentId, extraMinutes, reason } = req.body;
+    const { examId } = req.params;
+
+    // Get io from app
+    const io = req.app.get('io');
+
+    if (action === 'pause') {
+      await Exam.findByIdAndUpdate(examId, { isPaused: true, pauseReason: reason || 'Admin paused exam' });
+      if (io) io.to(`exam_${examId}`).emit('exam_paused', { reason: reason || 'Admin paused exam' });
+      return res.json({ success: true, message: 'Exam paused & students notified' });
+    }
+
+    if (action === 'resume') {
+      await Exam.findByIdAndUpdate(examId, { isPaused: false, pauseReason: null });
+      if (io) io.to(`exam_${examId}`).emit('exam_resumed', { message: 'Exam resumed by admin' });
+      return res.json({ success: true, message: 'Exam resumed' });
+    }
+
+    if (action === 'stop') {
+      await Attempt.updateMany(
+        { examId: new mongoose.Types.ObjectId(examId), status: 'active' },
+        { status: 'submitted', submittedAt: new Date(), autoSubmitted: true, autoSubmitReason: 'Admin force stopped' }
+      );
+      if (io) io.to(`exam_${examId}`).emit('exam_force_stopped', { reason: reason || 'Exam stopped by admin' });
+      return res.json({ success: true, message: 'All active attempts stopped' });
+    }
+
+    if (action === 'eject' && studentId) {
+      await Attempt.findOneAndUpdate(
+        { examId: new mongoose.Types.ObjectId(examId), studentId: new mongoose.Types.ObjectId(studentId), status: 'active' },
+        { status: 'submitted', submittedAt: new Date(), autoSubmitted: true, autoSubmitReason: `Ejected by admin: ${reason || ''}` }
+      );
+      if (io) io.to(`student_${studentId}`).emit('student_ejected', { reason: reason || 'Removed by admin' });
+      return res.json({ success: true, message: 'Student ejected from exam' });
+    }
+
+    res.status(400).json({ success: false, message: 'Invalid action' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Step 7: Admin Notification Center (S86) ─────────────────────────────────
+router.get('/notifications', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const AdminNotification = mongoose.model('AdminNotification');
+    const { read, page = 1, limit = 30 } = req.query;
+    const filter = {};
+    if (read !== undefined) filter.isRead = read === 'true';
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const notifications = await AdminNotification.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const unreadCount = await AdminNotification.countDocuments({ isRead: false });
+
+    res.json({ success: true, unreadCount, notifications });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.patch('/notifications/:id/read', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const AdminNotification = mongoose.model('AdminNotification');
+    await AdminNotification.findByIdAndUpdate(req.params.id, { isRead: true, readAt: new Date() });
+    res.json({ success: true, message: 'Notification marked as read' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.patch('/notifications/mark-all-read', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const AdminNotification = mongoose.model('AdminNotification');
+    await AdminNotification.updateMany({ isRead: false }, { isRead: true, readAt: new Date() });
+    res.json({ success: true, message: 'All notifications marked as read' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Step 8: SuperAdmin Permission Control API (S72) ─────────────────────────
+router.get('/permissions', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const admins = await User.find({ role: { $in: ['admin', 'moderator'] } })
+      .select('name email role permissions isActive');
+    res.json({ success: true, admins });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.patch('/permissions/:adminId', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const { permissions, isActive } = req.body;
+    const updateData = {};
+    if (permissions !== undefined) updateData.permissions = permissions;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const admin = await User.findByIdAndUpdate(req.params.adminId, updateData, { new: true })
+      .select('name email role permissions isActive');
+
+    if (!admin) return res.status(404).json({ success: false, message: 'Admin not found' });
+
+    res.json({ success: true, message: 'Permissions updated', admin });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Step 9: Admin Activity Logs API (S38) ────────────────────────────────────
+router.get('/admin-logs', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const AdminLog = mongoose.model('ActivityLog');
+    const { adminId, action, page = 1, limit = 20 } = req.query;
+
+    const filter = {};
+    if (adminId) filter.adminId = new mongoose.Types.ObjectId(adminId);
+    if (action) filter.action = { $regex: action, $options: 'i' };
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const logs = await AdminLog.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await AdminLog.countDocuments(filter);
+
+    res.json({ success: true, total, page: parseInt(page), logs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Step 10: Platform Activity Audit Trail API (S93) ────────────────────────
+router.get('/audit-trail', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const AuditLog = mongoose.model('AuditLog');
+    const { userId, role, action, from, to, page = 1, limit = 20 } = req.query;
+
+    const filter = {};
+    if (userId) filter.userId = new mongoose.Types.ObjectId(userId);
+    if (role) filter.userRole = role;
+    if (action) filter.action = { $regex: action, $options: 'i' };
+    if (from || to) {
+      filter.createdAt = {};
+      if (from) filter.createdAt.$gte = new Date(from);
+      if (to) filter.createdAt.$lte = new Date(to);
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const logs = await AuditLog.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await AuditLog.countDocuments(filter);
+
+    res.json({ success: true, total, page: parseInt(page), logs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Step 11: Login Activity Monitor API (S48) ────────────────────────────────
+router.get('/login-activity', verifyToken, isSuperAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const { studentId, suspicious, page = 1, limit = 20 } = req.query;
+
+    const filter = { role: 'student' };
+    if (studentId) filter._id = new mongoose.Types.ObjectId(studentId);
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    let query = User.find(filter)
+      .select('name email loginHistory isBanned')
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const users = await query;
+
+    // suspicious = multiple cities ya diff IPs in 1 hour
+    const result = users.map(u => {
+      const history = u.loginHistory || [];
+      const recentLogins = history.slice(-10);
+      const cities = [...new Set(recentLogins.map(l => l.city).filter(Boolean))];
+      const isSuspicious = cities.length > 2;
+      return {
+        _id: u._id,
+        name: u.name,
+        email: u.email,
+        isBanned: u.isBanned,
+        loginCount: history.length,
+        recentLogins,
+        isSuspicious
+      };
+    });
+
+    const filteredResult = suspicious === 'true' ? result.filter(r => r.isSuspicious) : result;
+
+    res.json({ success: true, total: filteredResult.length, students: filteredResult });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+module.exports = router;
+FILEEOF2
+echo "adminMonitoringRoutes.js updated ✅"
+
+# ---- 3) Backend: delete TimeExtension model ----
+rm -f ~/workspace/src/models/TimeExtension.js
+echo "TimeExtension.js model deleted ✅"
+
+# ---- 4) Frontend: admin panel — remove import/state/function/render ----
+cat > ~/workspace/frontend/app/admin/x7k2p/page.tsx << 'FILEEOF3'
 'use client'
 import BatchManagerUltra from './BatchManagerUltra'
 import TestSeriesManagerUltra from './TestSeriesManagerUltra'
@@ -4990,3 +5697,14 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 </div>
   )
 }// deploy Sun May 31 01:52:47 AM UTC 2026
+FILEEOF3
+echo "admin/x7k2p/page.tsx updated ✅"
+
+# ---- 5) Frontend: delete TimeExtensionPanel component entirely ----
+rm -f ~/workspace/frontend/app/admin/x7k2p/TimeExtensionPanel.jsx
+echo "TimeExtensionPanel.jsx deleted ✅"
+
+cd ~/workspace
+git add -A
+git commit -m "delete: M7 Per-Student Time Extension feature completely — model, both backend routes, admin UI component, dead legacy extend-time function"
+git push

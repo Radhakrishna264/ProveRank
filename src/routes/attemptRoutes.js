@@ -77,14 +77,7 @@ router.get('/:attemptId/timer', verifyToken, async (req, res) => {
     if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
     const exam = await Exam.findById(attempt.examId);
     if (!exam) return res.status(404).json({ message: 'Exam not found' });
-    // Feature 32: include granted extra time in timer
-    let timeExtMin = 0;
-    try {
-      const TE = require('../models/TimeExtension');
-      const exts = await TE.find({ attemptId: attempt._id, isUndone: false });
-      timeExtMin = exts.reduce((s, e) => s + e.extraMinutes, 0);
-    } catch(_e) {}
-    const totalDurationSec = ((exam.duration || 200) + timeExtMin) * 60;
+    const totalDurationSec = (exam.duration || 200) * 60;
     const elapsedSec = Math.floor((Date.now() - new Date(attempt.startedAt).getTime()) / 1000);
     const remainingSec = Math.max(0, totalDurationSec - elapsedSec);
     // FIX — if time has genuinely run out, close the attempt right here so it
@@ -98,7 +91,7 @@ router.get('/:attemptId/timer', verifyToken, async (req, res) => {
     return res.status(200).json({ startedAt: attempt.startedAt, startTime: attempt.startedAt, ipAddress: attempt.ipAddress,
       startTime: attempt.startedAt,
       ipAddress: attempt.ipAddress, 
-    totalDurationSec, elapsedSec, remainingSec, timeExtMin,
+    totalDurationSec, elapsedSec, remainingSec,
     timeRemaining: remainingSec,
     elapsed: elapsedSec,
     timeLeft: remainingSec,
@@ -124,13 +117,7 @@ router.post('/:attemptId/submit', verifyToken, async (req, res) => {
     if (attempt.status === 'submitted') return res.status(400).json({ message: 'Already submitted' });
     if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt is not active' });
     const exam = await Exam.findById(attempt.examId);
-    let timeExtMin = 0;
-    try {
-      const TE = require('../models/TimeExtension');
-      const exts = await TE.find({ attemptId: attempt._id, isUndone: false });
-      timeExtMin = exts.reduce((s, e) => s + e.extraMinutes, 0);
-    } catch (_e) {}
-    const totalDurationSec = ((exam ? exam.duration || 200 : 200) + timeExtMin) * 60;
+    const totalDurationSec = (exam ? exam.duration || 200 : 200) * 60;
     const elapsedSec = Math.floor((Date.now() - new Date(attempt.startedAt).getTime()) / 1000);
     attempt.status = elapsedSec > totalDurationSec + 30 ? 'timeout' : 'submitted';
     attempt.submittedAt = new Date();
