@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+echo "=== Premium Redesign: My Batches page — Quick Actions removed, refined typography + signature hero + decluttered cards ==="
+cat > ~/workspace/frontend/app/dashboard/my-batches/page.tsx << 'FILEEOF1'
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -518,3 +522,10 @@ export default function MyBatchesPage() {
     </StudentShell>
   )
 }
+FILEEOF1
+echo "my-batches/page.tsx redesigned ✅"
+
+cd ~/workspace
+git add -A
+git commit -m "redesign: My Batches page — premium visual overhaul, remove floating Quick Actions toolbar, elevate Continue-Learning hero, simplify stats strip, declutter batch cards"
+git push
