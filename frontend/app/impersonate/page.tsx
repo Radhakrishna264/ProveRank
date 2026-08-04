@@ -26,7 +26,7 @@ function Inner() {
   }, [params, router])
 
   return (
-    <div style={{minHeight:'100vh',background:'#000A18',display:'flex',alignItems:'center',justifyContent:'center',color:'#4D9FFF',fontFamily:'Inter,sans-serif',fontSize:16,flexDirection:'column',gap:12}}>
+    <div style={{minHeight:'100vh',background:'radial-gradient(ellipse at 20% 50%,#001e38 0%,#000f22 60%,#000810 100%)',display:'flex',alignItems:'center',justifyContent:'center',color:'#4D9FFF',fontFamily:'Inter,sans-serif',fontSize:16,flexDirection:'column',gap:12}}>
       <div style={{fontSize:32}}>👁️</div>
       <div>Opening student view...</div>
     </div>
@@ -36,7 +36,7 @@ function Inner() {
 export default function ImpersonatePage() {
   return (
     <Suspense fallback={
-      <div style={{minHeight:'100vh',background:'#000A18',display:'flex',alignItems:'center',justifyContent:'center',color:'#4D9FFF',fontFamily:'Inter,sans-serif',fontSize:16}}>
+      <div style={{minHeight:'100vh',background:'radial-gradient(ellipse at 20% 50%,#001e38 0%,#000f22 60%,#000810 100%)',display:'flex',alignItems:'center',justifyContent:'center',color:'#4D9FFF',fontFamily:'Inter,sans-serif',fontSize:16}}>
         Loading...
       </div>
     }>

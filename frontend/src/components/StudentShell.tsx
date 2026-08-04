@@ -170,7 +170,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
       chipBg:'rgba(37,99,235,0.06)',
     },
     dark:{
-      shellBg:'radial-gradient(ellipse at 20% 0%,#0C1220 0%,#070A12 55%,#040609 100%)',
+      shellBg:'radial-gradient(ellipse at 20% 50%,#001e38 0%,#000f22 60%,#000810 100%)',
       headerBg:'rgba(10,14,22,0.85)',sidebarBg:'rgba(8,11,18,0.97)',
       primary:'#4D9FFF',text:'#F1F6FC',sub:'#8DA2C0',
       border:'rgba(77,159,255,0.14)',navActive:'rgba(77,159,255,0.14)',
