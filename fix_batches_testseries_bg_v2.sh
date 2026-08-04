@@ -1,318 +1,529 @@
 #!/bin/bash
 set -e
-echo "=== Fix: Student Panel dark-theme background now matches Admin Panel exactly ==="
-
-echo "--- Safety check: confirm exam/[examId]/page.tsx is truly unreferenced before deleting ---"
-grep -rn "router.push(\`/exam/\${examId}\`)\|router.push(\x27/exam/\x27+examId)\|href={\`/exam/\${examId}\`}" ~/workspace/frontend/app ~/workspace/frontend/src --include="*.tsx" 2>/dev/null || echo "(none found — confirmed safe to delete)"
-
-# ---- 1) StudentShell: match dark shellBg to Admin BG_GRAD (fixes Dashboard, My Exams, Waiting Room, Instructions, Webcam, Attempt automatically) ----
-cat > ~/workspace/frontend/src/components/StudentShell.tsx << 'FILEEOF1'
+echo "=== Re-apply My Batches fix + real structural fix for Test Series (was still opaque despite matching colors) ==="
+cat > ~/workspace/frontend/app/dashboard/my-batches/page.tsx << 'FILEEOF1'
 'use client'
-import React,{createContext,useContext,useState,useEffect,useCallback,useRef,ReactNode}from 'react'
-import{useRouter}from 'next/navigation'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import StudentShell from '@/src/components/StudentShell'
 
-const API=process.env.NEXT_PUBLIC_API_URL||'https://proverank.onrender.com'
-const _gt=():string=>{try{return localStorage.getItem('pr_token')||''}catch{return''}}
-const _gr=():string=>{try{return localStorage.getItem('pr_role')||'student'}catch{return'student'}}
-const _ca=():void=>{try{localStorage.removeItem('pr_token');localStorage.removeItem('pr_role')}catch{}}
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 
-export const C={primary:'#4D9FFF',card:'rgba(0,22,40,0.82)',cardL:'rgba(255,255,255,0.92)',border:'rgba(77,159,255,0.22)',borderL:'rgba(77,159,255,0.4)',text:'#E8F4FF',textL:'#0F172A',sub:'#8DA2C0',subL:'#51607A',success:'#00C48C',danger:'#FF4D4D',gold:'#FFD700',warn:'#FFB84D',purple:'#A78BFA',pink:'#FF6B9D'}
-
-export type ColorTheme='light'|'dark'
-export interface ShellCtx{lang:'en'|'hi';darkMode:boolean;colorTheme:ColorTheme;theme:any;setColorTheme:(t:ColorTheme)=>void;user:any;toast:(m:string,t?:'s'|'e'|'w')=>void;token:string;role:string}
-const ShellCtx=createContext<ShellCtx>({lang:'en',darkMode:true,colorTheme:'dark',theme:{primary:'#4D9FFF'},setColorTheme:()=>{},user:null,toast:()=>{},token:'',role:'student'})
-export const useShell=()=>useContext(ShellCtx)
-
-export function PRLogo({size=40}:{size?:number}){
-  const b=size*0.94,p=Math.round(b*0.63),r=Math.round(b*0.63),f=Math.round(p*0.52),rd=Math.round(p*0.28)
-  return(<div style={{position:'relative',width:b,height:b,flexShrink:0,display:'inline-flex'}}><div style={{position:'absolute',top:0,left:0,width:p,height:p,borderRadius:rd,background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:f,fontWeight:900,fontFamily:'Inter,sans-serif',color:'#030810',boxShadow:'0 4px 16px rgba(77,159,255,0.4)'}}>P</div><div style={{position:'absolute',bottom:0,right:0,width:r,height:r,borderRadius:rd,background:'rgba(0,212,255,0.1)',border:'1.5px solid rgba(0,212,255,0.45)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:f,fontWeight:900,fontFamily:'Inter,sans-serif',color:'#00D4FF',backdropFilter:'blur(8px)'}}>R</div></div>)
-}
-
-function GalaxyBg(){
-  const ref=useRef<HTMLCanvasElement>(null)
-  useEffect(()=>{
-    const canvas=ref.current;if(!canvas)return
-    const ctx=canvas.getContext('2d');if(!ctx)return
-    const resize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight};resize()
-    const stars=Array.from({length:220},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.6+0.2,op:Math.random()*0.7+0.1,tw:Math.random()*0.018+0.004,ph:Math.random()*Math.PI*2,col:Math.random()>0.85?'rgba(255,215,100,':'rgba(200,218,255,'}))
-    const parts=Array.from({length:65},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*1.8+0.4,op:Math.random()*.25+.04}))
-    const spiral:any[]=[];for(let a=0;a<2;a++)for(let i=0;i<80;i++){const t=i/80,angle=a*Math.PI+t*Math.PI*3,rad=t*Math.min(canvas.width,canvas.height)*0.22;spiral.push({x:canvas.width/2+rad*Math.cos(angle)+(Math.random()-.5)*30,y:canvas.height/2+rad*Math.sin(angle)+(Math.random()-.5)*30,r:Math.random()*1.2+0.3,op:Math.random()*0.3+0.05})}
-    let sx=-100,sy=-100,sA=false,sT=0,sVx=0,sVy=0
-    const shoot=()=>{sx=Math.random()*canvas.width*.6;sy=Math.random()*canvas.height*.25;sVx=3+Math.random()*4;sVy=1+Math.random()*2;sA=true;sT=0;setTimeout(shoot,3000+Math.random()*7000)}
-    setTimeout(shoot,2500)
-    let animId:number
-    const draw=()=>{
-      ctx.clearRect(0,0,canvas.width,canvas.height)
-      ;[{x:canvas.width*.08,y:canvas.height*.18,r:220,c:'rgba(77,159,255,0.05)'},{x:canvas.width*.88,y:canvas.height*.72,r:280,c:'rgba(167,139,250,0.04)'},{x:canvas.width*.5,y:canvas.height*.5,r:180,c:'rgba(255,100,157,0.02)'},{x:canvas.width*.4,y:canvas.height*.85,r:200,c:'rgba(0,196,140,0.03)'}].forEach(n=>{const g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r);g.addColorStop(0,n.c);g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,Math.PI*2);ctx.fill()})
-      spiral.forEach(s=>{ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle='rgba(180,210,255,'+s.op+')';ctx.fill()})
-      stars.forEach(s=>{s.ph+=s.tw;const op=s.op*(0.55+0.45*Math.sin(s.ph));ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle=s.col+op+')';ctx.fill()})
-      if(sA){sT+=0.05;sx+=sVx;sy+=sVy;if(sT<1){const tail=80,grd=ctx.createLinearGradient(sx-tail*sVx/5,sy-tail*sVy/5,sx,sy);grd.addColorStop(0,'rgba(255,255,255,0)');grd.addColorStop(1,'rgba(255,255,255,0.85)');ctx.strokeStyle=grd;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(sx-tail*sVx/5,sy-tail*sVy/5);ctx.lineTo(sx,sy);ctx.stroke();const gl=ctx.createRadialGradient(sx,sy,0,sx,sy,4);gl.addColorStop(0,'rgba(255,255,255,0.6)');gl.addColorStop(1,'transparent');ctx.fillStyle=gl;ctx.beginPath();ctx.arc(sx,sy,4,0,Math.PI*2);ctx.fill()}else sA=false;if(sx>canvas.width+100||sy>canvas.height+100)sA=false}
-      parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0;if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle='rgba(77,159,255,'+p.op+')';ctx.fill()})
-      for(let i=0;i<parts.length;i++)for(let j=i+1;j<parts.length;j++){const dx=parts[i].x-parts[j].x,dy=parts[i].y-parts[j].y,d=Math.sqrt(dx*dx+dy*dy);if(d<110){ctx.beginPath();ctx.moveTo(parts[i].x,parts[i].y);ctx.lineTo(parts[j].x,parts[j].y);ctx.strokeStyle='rgba(77,159,255,'+(0.07*(1-d/110))+')';ctx.lineWidth=.5;ctx.stroke()}}
-      animId=requestAnimationFrame(draw)
+// ── Theme system (FPR5: replaces old locked-dark immersive background) ──
+type PageTheme = 'light' | 'dark'
+function usePageTheme(): PageTheme {
+  const [theme, setTheme] = useState<PageTheme>('dark')
+  useEffect(() => {
+    const read = () => {
+      try { setTheme((localStorage.getItem('pr_color_theme') as PageTheme) || 'dark') } catch { setTheme('dark') }
     }
-    draw();window.addEventListener('resize',resize)
-    return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',resize)}
-  },[])
-  return <canvas ref={ref} style={{position:'fixed',inset:0,pointerEvents:'none',zIndex:0}}/>
+    read()
+    const onStorage = (e: StorageEvent) => { if (!e.key || e.key === 'pr_color_theme') read() }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+  return theme
+}
+const THEME_VARS: Record<PageTheme, Record<string, string>> = {
+  dark: {
+    '--pr-bg': 'radial-gradient(ellipse at 20% 0%,#0C1220 0%,#070A12 55%,#040609 100%)',
+    '--pr-card-rgb': '4,12,30',
+    '--pr-sub-rgb': '160,200,240',
+    '--pr-text': '#F1F6FC',
+  },
+  light: {
+    '--pr-bg': 'radial-gradient(ellipse at 15% 0%,#FFFFFF 0%,#F3F7FF 55%,#E9F1FF 100%)',
+    '--pr-card-rgb': '255,255,255',
+    '--pr-sub-rgb': '71,85,105',
+    '--pr-text': '#0F172A',
+  },
 }
 
-// ── Navigation — grouped for a cleaner sidebar (all existing features kept, none removed) ──
-const NAV_GROUPS=[
-  {label:'Overview',labelHi:'अवलोकन',items:[
-    {id:'dashboard',icon:'📊',en:'Dashboard',hi:'डैशबोर्ड',href:'/dashboard'},
-  ]},
-  {label:'Practice',labelHi:'अभ्यास',items:[
-    {id:'my-exams',icon:'📝',en:'My Exams',hi:'मेरी परीक्षाएं',href:'/my-exams'},
-    {id:'pyq-bank',icon:'📚',en:'PYQ Bank',hi:'पिछले वर्ष के प्रश्न',href:'/pyq-bank'},
-  ]},
-  {label:'Results & Progress',labelHi:'परिणाम और प्रगति',items:[
-    {id:'attempt-history',icon:'🕐',en:'Attempt History',hi:'परीक्षा इतिहास',href:'/attempt-history'},
-  ]},
-  {label:'Batches & Store',labelHi:'बैच और स्टोर',items:[
-    {id:'my-batches',icon:'📚',en:'My Batches & Test Series',hi:'मेरे बैच और टेस्ट सीरीज',href:'/dashboard/my-batches'},
-    {id:'test-series',icon:'📚',en:'Batches & Test Series',hi:'बैच और टेस्ट सीरीज',href:'/dashboard/test-series'},
-    {id:'store',icon:'🛒',en:'Store',hi:'स्टोर',href:'/dashboard/store'},
-  ]},
-  {label:'Communication',labelHi:'संचार',items:[
-    {id:'announcements',icon:'📢',en:'Announcements',hi:'घोषणाएं',href:'/announcements'},
-    {id:'doubt',icon:'💬',en:'Doubt & Query',hi:'संदेह और प्रश्न',href:'/doubt'},
-    {id:'support',icon:'🛟',en:'Support',hi:'सहायता',href:'/support'},
-  ]},
-  {label:'Account',labelHi:'खाता',items:[
-    {id:'profile',icon:'👤',en:'Profile',hi:'प्रोफ़ाइल',href:'/profile'},
-  ]},
+type BatchMeta = {
+  _id: string; name: string; examType: string; thumbnail: string;
+  enrolledAt: string; expiresAt: string; daysLeft: number;
+  testsCompleted: number; totalTests: number; progress: number;
+  lastAccessedAt: string; daysSinceAccess: number; streak: number;
+  isExpired: boolean; isCompleted: boolean; isWishlisted?: boolean;
+  isFree: boolean; rating: number; language: string; difficulty: string;
+  _kind?: string;
+}
+type Stats = { total: number; testsCompleted: number; activeBatches: number; certificates: number; wishlistCount?: number; avgProgress?: number; currentStreak?: number; renewalDueSoon?: number }
+type Activity = { _id: string; type: string; title: string; message: string; icon: string; createdAt: string }
+type LBEntry = { name: string; testsCompleted: number; avgScore: number; streak: number; bestRank: number | null }
+
+const ECOLS: Record<string,string> = {
+  NEET:'#4D9FFF','NEET UG':'#4D9FFF',JEE:'#9B59B6','JEE MAINS':'#9B59B6','JEE ADVANCE':'#7D3C98',CUET:'#27AE60','CUET UG':'#27AE60','CUET PG':'#1E8449','SSC CGL':'#E67E22','IIT JAM':'#00D4FF',
+  'Class 11':'#E67E22','Class 12':'#E74C3C',
+  Foundation:'#00D4FF','Crash Course':'#FF6B6B',Other:'#7F8C8D'
+}
+const CICONS: Record<string,string> = {
+  NEET:'🩺','NEET UG':'🩺',JEE:'⚙️','JEE MAINS':'⚙️','JEE ADVANCE':'🛠️',CUET:'📖','CUET UG':'📖','CUET PG':'📚','SSC CGL':'🏛️','IIT JAM':'🔬',
+  'Class 11':'📗','Class 12':'📘',Foundation:'🏛️','Crash Course':'🚀'
+}
+const TIPS = [
+  { i:'🎯', t:'Daily Practice', d:'Attempt at least 1 test daily to maintain your streak and improve retention.' },
+  { i:'📊', t:'Review Mistakes', d:'Always revisit wrong answers after each test — that\'s where real learning happens.' },
 ]
 
-// Pages that must keep their own existing immersive dark/galaxy look — untouched regardless of the user's Light/Dark choice
-const IMMERSIVE_PAGES=['store']
+// ── Circular Progress Ring ──
+function ProgressRing({pct,ec,size=56}:{pct:number;ec:string;size?:number}) {
+  const R=size*0.4, C=2*Math.PI*R, dash=(pct/100)*C
+  return (
+    <div style={{position:'relative',width:size,height:size,flexShrink:0}}>
+      <svg width={size} height={size} style={{transform:'rotate(-90deg)'}}>
+        <circle cx={size/2} cy={size/2} r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={size*0.1}/>
+        <circle cx={size/2} cy={size/2} r={R} fill="none" stroke={ec} strokeWidth={size*0.1}
+          strokeDasharray={`${dash} ${C}`} strokeLinecap="round"
+          style={{transition:'stroke-dasharray 0.8s ease'}}/>
+      </svg>
+      <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*0.2,fontWeight:800,color:'var(--pr-text)'}}>{pct}%</div>
+    </div>
+  )
+}
 
-export default function StudentShell({pageKey,children}:{pageKey:string;children:ReactNode}){
-  const router=useRouter()
-  const [mounted,setMounted]=useState(false)
-  const [lang,setLang]=useState<'en'|'hi'>('en')
-  const [colorTheme,setColorThemeState]=useState<ColorTheme>('dark')
-  const [side,setSide]=useState(false)
-  const [user,setUser]=useState<any>(null)
-  const [token,setToken]=useState('')
-  const [role,setRole]=useState('student')
-  const [toastSt,setToastSt]=useState<{msg:string;tp:'s'|'e'|'w'}|null>(null)
-  const [maint,setMaint]=useState<{enabled:boolean;message?:string}|null>(null)
-  const [unreadAnn,setUnreadAnn]=useState(0) // F42B §6.2 — bell badge sync
-  const toast=useCallback((msg:string,tp:'s'|'e'|'w'='s')=>{setToastSt({msg,tp});setTimeout(()=>setToastSt(null),4000)},[])
-
-  useEffect(()=>{fetch(`${API}/api/admin/maintenance`).then(r=>r.ok?r.json():null).then(d=>{if(d&&d.maintenance)setMaint(d.maintenance)}).catch(()=>{})},[])
-
-  // v2 §6.2 FIX — Bell icon badge sync: StudentShell itself polls the live
-  // unread-count API every 60s, from ANY page (not just Announcements).
-  // Replaces the old localStorage+event approach which only updated after
-  // visiting the Announcements page and could show a stale count elsewhere.
+// ── Batch Leaderboard Modal ──
+function BatchLeaderboardModal({batchId,batchName,tok,onClose}:{batchId:string;batchName:string;tok:string;onClose:()=>void}) {
+  const [lb,setLb]=useState<LBEntry[]>([])
+  const [myRank,setMyRank]=useState(0)
+  const [total,setTotal]=useState(0)
+  const [loading,setLoading]=useState(true)
   useEffect(()=>{
-    if(!token) return
-    let cancelled=false
-    const poll=()=>{
-      fetch(`${API}/api/announcements/unread-count`,{headers:{Authorization:`Bearer ${token}`}})
-        .then(r=>r.ok?r.json():null)
-        .then(d=>{if(!cancelled&&d)setUnreadAnn(d.count||0)})
-        .catch(()=>{})
-    }
-    poll()
-    const iv=setInterval(poll,60000)
-    return()=>{cancelled=true;clearInterval(iv)}
-  },[token])
-
-  // Applies the theme class to <html> AND <body> so all legacy + new CSS overrides actually take effect
-  const _applyDom=(t:ColorTheme)=>{
-    try{
-      const h=document.documentElement,b=document.body
-      h.classList.remove('white-theme','dark-theme','teal-theme','light-theme')
-      b.classList.remove('white-theme','dark-theme','teal-theme','light-theme')
-      h.classList.add(t+'-theme');b.classList.add(t+'-theme')
-      h.setAttribute('data-color-theme',t)
-    }catch{}
-  }
-  const _migrate=(v:string|null):ColorTheme=>{
-    if(v==='white')return'light'
-    if(v==='teal')return'dark'
-    return(v==='light'||v==='dark')?v:'dark'
-  }
-
-  useEffect(()=>{
-    const tk=_gt();if(!tk){router.replace('/login');return}
-    setToken(tk);setRole(_gr())
-    try{
-      const sl=localStorage.getItem('pr_lang') as 'en'|'hi'|null;if(sl)setLang(sl)
-      const ct=_migrate(localStorage.getItem('pr_color_theme'))
-      setColorThemeState(ct);_applyDom(ct)
-    }catch{}
-    const _onTh=(e:StorageEvent)=>{if(e.key==='pr_color_theme'&&e.newValue){const v=_migrate(e.newValue);setColorThemeState(v);_applyDom(v)}}
-    window.addEventListener('storage',_onTh)
-    fetch(`${API}/api/auth/me`,{headers:{Authorization:`Bearer ${tk}`}}).then(r=>r.ok?r.json():null).then(d=>{if(d?._id)setUser(d)}).catch(()=>{})
-    setMounted(true)
-    return()=>window.removeEventListener('storage',_onTh)
-  },[router])
-
-  if(!mounted)return null
-  const userEmail=user?.email||(typeof window!=='undefined'?localStorage.getItem('pr_email')||'':'')
-  const isWhitelisted=!!(userEmail&&maint?.allowedEmails?.some((e:string)=>e.trim().toLowerCase()===userEmail.trim().toLowerCase()))
-  if(maint?.enabled===true&&!isWhitelisted){
-    return(
-      <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'linear-gradient(135deg,#0a0a1a,#0d1b2a)',color:'#fff',fontFamily:'Inter,sans-serif',textAlign:'center',padding:'24px'}}>
-        <div style={{fontSize:64,marginBottom:20}}>🔧</div>
-        <div style={{fontSize:24,fontWeight:700,color:'#4D9FFF',marginBottom:10}}>ProveRank</div>
-        <div style={{fontSize:18,fontWeight:600,marginBottom:14}}>Platform Under Maintenance</div>
-        <div style={{color:'#aaa',maxWidth:360,lineHeight:1.7,fontSize:14,marginBottom:32}}>{maint.message||'We are upgrading the platform. Please check back shortly.'}</div>
-        <button onClick={()=>{_ca();router.replace('/login')}} style={{background:'linear-gradient(135deg,#4D9FFF,#0066cc)',color:'#fff',border:'none',borderRadius:10,padding:'13px 32px',fontSize:15,fontWeight:700,cursor:'pointer'}}>← Back to Login</button>
+    fetch(`${API}/api/my-batches/${batchId}/leaderboard`,{headers:{Authorization:`Bearer ${tok}`}})
+      .then(r=>r.json()).then(d=>{setLb(d.leaderboard||[]);setMyRank(d.myRank||0);setTotal(d.total||0)})
+      .catch(()=>{}).finally(()=>setLoading(false))
+  },[batchId,tok])
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.88)',display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+      <div style={{background:'rgba(var(--pr-card-rgb),0.99)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:22,padding:24,maxWidth:400,width:'100%',maxHeight:'80vh',overflow:'hidden',display:'flex',flexDirection:'column',backdropFilter:'blur(30px)',boxShadow:'0 30px 80px rgba(0,0,0,0.6)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <div>
+            <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:'var(--pr-text)'}}>🏆 Batch Leaderboard</div>
+            <div style={{fontSize:11,color:'rgba(var(--pr-sub-rgb),0.74)',marginTop:2,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',maxWidth:260}}>{batchName}</div>
+          </div>
+          <button onClick={onClose} style={{background:'transparent',border:'none',color:'rgba(var(--pr-sub-rgb),0.74)',cursor:'pointer',fontSize:22}}>×</button>
+        </div>
+        {myRank>0&&<div style={{background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:12,padding:'10px 14px',marginBottom:14,display:'flex',alignItems:'center',gap:10}}>
+          <span style={{fontSize:20}}>🎯</span>
+          <div><div style={{fontSize:13,fontWeight:700,color:'#4D9FFF'}}>Your Rank: #{myRank} of {total}</div><div style={{fontSize:10,color:'rgba(var(--pr-sub-rgb),0.74)'}}>Keep attempting tests to improve!</div></div>
+        </div>}
+        <div style={{overflowY:'auto',flex:1}}>
+          {loading?<div style={{textAlign:'center',padding:30,color:'rgba(var(--pr-sub-rgb),0.82)'}}>Loading...</div>:
+          lb.length===0?<div style={{textAlign:'center',padding:30,color:'rgba(var(--pr-sub-rgb),0.82)',fontSize:12}}>No students enrolled yet</div>:
+          lb.map((entry,i)=>(
+            <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0',borderBottom:'1px solid rgba(77,159,255,0.06)'}}>
+              <div style={{width:28,height:28,borderRadius:'50%',background:i===0?'linear-gradient(135deg,#FFD700,#FFA000)':i===1?'linear-gradient(135deg,#C0C0C0,#9E9E9E)':i===2?'linear-gradient(135deg,#CD7F32,#A0522D)':'rgba(77,159,255,0.1)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:i<3?14:10,fontWeight:900,flexShrink:0,color:i<3?'#000':'rgba(var(--pr-sub-rgb),0.74)'}}>
+                {i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,fontWeight:700,color:'var(--pr-text)'}}>{entry.name}</div>
+                <div style={{fontSize:10,color:'rgba(var(--pr-sub-rgb),0.84)'}}>📝 {entry.testsCompleted} tests · ⭐ {entry.avgScore.toFixed(1)}% avg · 🔥 {entry.streak} streak</div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-    )
-  }
+    </div>
+  )
+}
 
-  // ── 2-Theme System: Light & Dark (only) ──
-  const _TH:Record<ColorTheme,any>={
-    light:{
-      shellBg:'radial-gradient(ellipse at 15% 0%,#FFFFFF 0%,#F3F7FF 55%,#E9F1FF 100%)',
-      headerBg:'rgba(255,255,255,0.88)',sidebarBg:'rgba(255,255,255,0.97)',
-      primary:'#2563EB',text:'#0F172A',sub:'#51607A',
-      border:'rgba(37,99,235,0.14)',navActive:'rgba(37,99,235,0.10)',
-      isDark:false,showGalaxy:false,hexC:'rgba(37,99,235,0.035)',
-      brandGrad:'#2563EB',logoTag:'#374151',
-      chipBg:'rgba(37,99,235,0.06)',
-    },
-    dark:{
-      shellBg:'radial-gradient(ellipse at 20% 50%,#001e38 0%,#000f22 60%,#000810 100%)',
-      headerBg:'rgba(10,14,22,0.85)',sidebarBg:'rgba(8,11,18,0.97)',
-      primary:'#4D9FFF',text:'#F1F6FC',sub:'#8DA2C0',
-      border:'rgba(77,159,255,0.14)',navActive:'rgba(77,159,255,0.14)',
-      isDark:true,showGalaxy:true,hexC:'rgba(77,159,255,0.03)',
-      brandGrad:'linear-gradient(90deg,#4D9FFF 0%,#FFFFFF 60%,#4D9FFF 100%)',logoTag:'#8DA2C0',
-      chipBg:'rgba(77,159,255,0.07)',
-    },
-  }
-  const _immersiveDef={
-    shellBg:'#020816',headerBg:'rgba(0,5,18,.95)',sidebarBg:'rgba(0,5,18,.97)',
-    primary:'#4D9FFF',text:'#E8F4FF',sub:'#6B8FAF',
-    border:C.border,navActive:'rgba(77,159,255,.16)',
-    isDark:true,showGalaxy:true,hexC:'rgba(77,159,255,.022)',
-    brandGrad:'linear-gradient(90deg,#4D9FFF 0%,#FFFFFF 60%,#4D9FFF 100%)',logoTag:'#6B8FAF',
-    chipBg:'rgba(77,159,255,0.07)',
-  }
-  const _isImmersive=IMMERSIVE_PAGES.includes(pageKey)
-  const th=_isImmersive?_immersiveDef:(_TH[colorTheme]||_TH.dark)
-  const dm=th.isDark
-  const setColorTheme=(t:ColorTheme)=>{setColorThemeState(t);_applyDom(t);try{localStorage.setItem('pr_color_theme',t);window.dispatchEvent(new StorageEvent('storage',{key:'pr_color_theme',newValue:t}))}catch{}}
-  const bdr=th.border,txt=th.text,sub=th.sub
-  const toggleLang=()=>{const n=lang==='en'?'hi':'en';setLang(n);try{localStorage.setItem('pr_lang',n)}catch{}}
-  const toggleTheme=()=>setColorTheme(colorTheme==='dark'?'light':'dark')
-  const logout=()=>{_ca();router.replace('/login')}
+// ── Achievement Milestones (FPR5) ──
+function MilestoneChips({batchId,tok}:{batchId:string;tok:string}) {
+  const [milestones,setMilestones]=useState<{label:string;achieved:boolean}[]>([])
+  useEffect(()=>{
+    fetch(`${API}/api/my-batches/${batchId}/milestones`,{headers:{Authorization:`Bearer ${tok}`}})
+      .then(r=>r.json()).then(d=>setMilestones(d.milestones||[])).catch(()=>{})
+  },[batchId,tok])
+  if(milestones.length===0)return null
+  return (
+    <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:10}}>
+      {milestones.map((m,i)=>(
+        <span key={i} style={{fontSize:9,padding:'2px 8px',borderRadius:20,fontWeight:700,background:m.achieved?'rgba(39,174,96,0.14)':'rgba(var(--pr-sub-rgb),0.08)',color:m.achieved?'#27AE60':'rgba(var(--pr-sub-rgb),0.82)'}}>{m.achieved?'✓':'○'} {m.label}</span>
+      ))}
+    </div>
+  )
+}
 
-  return(
-    <ShellCtx.Provider value={{lang,darkMode:dm,colorTheme:_isImmersive?'dark':colorTheme,theme:th,setColorTheme,user,toast,token,role}}>
-      <div data-color-theme={_isImmersive?'dark':colorTheme} style={{minHeight:'100vh',background:th.shellBg,color:txt,fontFamily:'Inter,sans-serif',position:'relative',width:'100%',maxWidth:'100vw',overflowX:'hidden'}}>
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap');
-          @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-          @keyframes gradMove{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-          *{box-sizing:border-box}
-          ::-webkit-scrollbar{width:4px}
-          ::-webkit-scrollbar-thumb{background:rgba(77,159,255,.4);border-radius:4px}
-          .nav-lnk:hover{background:${dm?'rgba(77,159,255,.14)':'rgba(37,99,235,.08)'}!important;color:${th.primary}!important}
-          .btn-p{background:linear-gradient(135deg,${th.primary},${dm?'#0055CC':'#1D4ED8'});color:#fff;border:none;border-radius:10px;padding:11px 22px;cursor:pointer;font-weight:700;font-size:13px;font-family:Inter,sans-serif}
-          .tbtn{padding:6px 13px;border-radius:20px;border:1.5px solid ${bdr};background:${th.chipBg};color:${txt};font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;backdrop-filter:blur(8px);transition:all .2s;white-space:nowrap}
-          .tbtn:hover{border-color:${th.primary};background:${dm?'rgba(77,159,255,.18)':'rgba(37,99,235,.14)'}}
-          .icon-tbtn{width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;font-size:15px;border-radius:9px}
-          input,select,textarea{color-scheme:${dm?'dark':'light'}}
-          .pr-shell-main{padding:16px 14px 64px;width:100%;max-width:100%}
-          .pr-shell-main.immersive{padding:0 0 56px}
-          .pr-shell-main *{max-width:100%}
-          .pr-shell-main img,.pr-shell-main svg,.pr-shell-main video,.pr-shell-main table{max-width:100%}
-          @media(min-width:769px){.pr-shell-main:not(.immersive){padding:24px 32px 72px}}
-          @media(max-width:360px){.hide-xs{display:none!important}}
-          @keyframes silverShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-          @keyframes greenBadge{0%,100%{box-shadow:0 0 4px rgba(0,196,140,0.35),inset 0 0 4px rgba(0,196,140,0.1)}50%{box-shadow:0 0 12px rgba(0,196,140,0.75),inset 0 0 8px rgba(0,255,136,0.2)}}
-          @media(min-width:480px){.pr-brand-center{position:absolute!important;left:50%!important;transform:translateX(-50%)!important;z-index:1}}
-          @media(max-width:768px){div[style*="display:flex"][style*="flexWrap"]{row-gap:8px}}
-        `}</style>
-        {th.showGalaxy&&<GalaxyBg/>}
-        <div aria-hidden style={{position:'fixed',top:-70,left:-70,fontSize:320,color:th.hexC,pointerEvents:'none',zIndex:0,lineHeight:1,userSelect:'none'}}>⬡</div>
-        <div aria-hidden style={{position:'fixed',bottom:-70,right:-70,fontSize:320,color:th.hexC,pointerEvents:'none',zIndex:0,lineHeight:1,userSelect:'none'}}>⬡</div>
-        {toastSt&&<div style={{position:'fixed',top:0,left:0,right:0,zIndex:9999,padding:'14px 24px',fontWeight:700,fontSize:13,textAlign:'center',animation:'fadeIn .3s ease',background:toastSt.tp==='s'?'linear-gradient(90deg,#00C48C,#00a87a)':toastSt.tp==='w'?'linear-gradient(90deg,#FFB84D,#e6a200)':'linear-gradient(90deg,#FF4D4D,#cc0000)',color:toastSt.tp==='w'?'#000':'#fff'}}>{toastSt.tp==='e'?'❌':toastSt.tp==='w'?'⚠️':'✅'} {toastSt.msg}</div>}
-        {side&&<div onClick={()=>setSide(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',zIndex:49,backdropFilter:'blur(3px)'}}/>}
-
-        {/* ── SIDEBAR ─────────────────────────────────────────── */}
-        <div style={{position:'fixed',top:0,left:0,width:280,maxWidth:'86vw',height:'100dvh',background:th.sidebarBg,borderRight:`1px solid ${bdr}`,zIndex:50,overflowY:'auto',display:'flex',flexDirection:'column',transform:side?'translateX(0)':'translateX(-100%)',transition:'transform .28s cubic-bezier(.4,0,.2,1)',backdropFilter:'blur(24px)',boxShadow:side?'12px 0 40px rgba(0,0,0,.35)':'none'}}>
-          <div style={{padding:'18px 16px 14px',borderBottom:`1px solid ${bdr}`,position:'sticky',top:0,background:th.sidebarBg,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0}}>
-              <PRLogo size={36}/>
-              <div style={{minWidth:0}}>
-                <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'gradMove 5s ease infinite'}:{color:'#2563EB'})}}>ProveRank</div>
-                <div style={{fontSize:10,color:th.logoTag,fontWeight:600,marginTop:1,whiteSpace:'nowrap'}}>{role==='parent'?(lang==='en'?'Parent Panel':'अभिभावक पैनल'):(lang==='en'?'Student Panel':'छात्र पैनल')}</div>
-              </div>
-            </div>
-            <button onClick={()=>setSide(false)} aria-label="Close menu" style={{background:'transparent',border:`1px solid ${bdr}`,borderRadius:8,width:30,height:30,color:sub,cursor:'pointer',fontSize:15,lineHeight:1,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
-          </div>
-          <div style={{padding:'10px 10px 4px',flex:1,overflowY:'auto'}}>
-            {NAV_GROUPS.map(g=>(
-              <div key={g.label} style={{marginBottom:14}}>
-                <div style={{fontSize:10,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:sub,padding:'4px 10px',opacity:.8}}>{lang==='en'?g.label:g.labelHi}</div>
-                {g.items.map(n=>{
-                  const active=pageKey===n.id
-                  return(<a key={n.id} href={n.href} className="nav-lnk" onClick={()=>setSide(false)} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 10px',borderRadius:10,textDecoration:'none',color:active?th.primary:txt,background:active?th.navActive:'transparent',fontWeight:active?700:500,fontSize:13.5,marginBottom:2,transition:'all .18s'}}>
-                    <span style={{fontSize:16,width:22,textAlign:'center',flexShrink:0,opacity:active?1:.85}}>{n.icon}</span>
-                    <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{lang==='en'?n.en:n.hi}</span>
-                    {active&&<span style={{marginLeft:'auto',width:6,height:6,borderRadius:'50%',background:th.primary,flexShrink:0}}/>}
-                  </a>)
-                })}
-              </div>
-            ))}
-          </div>
-          <div style={{padding:'12px 14px 16px',borderTop:`1px solid ${bdr}`,flexShrink:0}}>
-            <div style={{display:'flex',gap:6,marginBottom:10}}>
-              <button className="tbtn" onClick={toggleTheme} style={{flex:1,justifyContent:'center',display:'flex',alignItems:'center',gap:5}}>{dm?'☀️':'🌙'} {dm?(lang==='en'?'Light':'लाइट'):(lang==='en'?'Dark':'डार्क')}</button>
-              <button className="tbtn" onClick={toggleLang} style={{flex:1}}>{lang==='en'?'हि':'EN'}</button>
-            </div>
-            <div style={{padding:'10px 12px',background:th.chipBg,borderRadius:12,border:`1px solid ${bdr}`,textAlign:'center'}}>
-              <div style={{fontSize:10,color:C.success,fontWeight:700}}>🟢 {lang==='en'?'All Systems Live':'सभी सिस्टम लाइव'}</div>
-            </div>
+// ── Activity Feed Section ──
+function ActivityFeed({batchId,tok}:{batchId:string;tok:string}) {
+  const [activities,setActivities]=useState<Activity[]>([])
+  useEffect(()=>{
+    fetch(`${API}/api/batch-activity/${batchId}`,{headers:{Authorization:`Bearer ${tok}`}})
+      .then(r=>r.json()).then(d=>setActivities(d.activities||[])).catch(()=>{})
+  },[batchId,tok])
+  if(activities.length===0)return null
+  return (
+    <div style={{marginTop:14}}>
+      <div style={{fontSize:10,fontWeight:700,color:'rgba(var(--pr-sub-rgb),0.84)',textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>📢 What's New</div>
+      {activities.map(a=>(
+        <div key={a._id} style={{display:'flex',gap:8,alignItems:'flex-start',padding:'7px 0',borderBottom:'1px solid rgba(77,159,255,0.06)'}}>
+          <span style={{fontSize:16,flexShrink:0}}>{a.icon}</span>
+          <div>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--pr-text)'}}>{a.title}</div>
+            {a.message&&<div style={{fontSize:10,color:'rgba(var(--pr-sub-rgb),0.76)',marginTop:2}}>{a.message}</div>}
+            <div style={{fontSize:9,color:'rgba(var(--pr-sub-rgb),0.68)',marginTop:3}}>{new Date(a.createdAt).toLocaleDateString()}</div>
           </div>
         </div>
+      ))}
+    </div>
+  )
+}
 
-        {/* ── HEADER ──────────────────────────────────────────── */}
-        <div style={{position:'sticky',top:0,zIndex:40,background:th.headerBg,backdropFilter:'blur(20px)',borderBottom:`1px solid ${bdr}`,minHeight:58,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 10px 0 8px',gap:8,boxShadow:dm?'0 2px 20px rgba(0,0,0,.35)':'0 2px 14px rgba(37,99,235,.06)'}}>
-          <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
-            <button onClick={()=>setSide(true)} aria-label="Open menu" style={{background:dm?'rgba(255,255,255,0.05)':'rgba(37,99,235,0.06)',border:`1px solid ${bdr}`,color:txt,fontSize:19,cursor:'pointer',width:36,height:36,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}} title="Menu">☰</button>
-            <div style={{display:'flex',alignItems:'center',gap:7,minWidth:0}}>
-              <PRLogo size={28}/>
-              <div style={{minWidth:0}}>
-                <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-                  <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:14.5,lineHeight:1,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:{color:'#2563EB'})}}>ProveRank</div>
-                  <div style={{fontSize:7,fontWeight:800,letterSpacing:1.4,whiteSpace:'nowrap',padding:'1px 7px',borderRadius:20,border:'1.5px solid rgba(0,196,140,0.7)',background:'linear-gradient(90deg,#00A86B,#00FF88,#00C48C,#00FF88,#00A86B)',backgroundSize:'300% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'silverShimmer 2.5s linear infinite, greenBadge 2s ease-in-out infinite'}}>{lang==='en'?'STUDENT':'छात्र'}</div>
+// ── Main Page ──
+export default function MyBatchesPage() {
+  const router=useRouter()
+  const [batches,setBatches]=useState<BatchMeta[]>([])
+  const [stats,setStats]=useState<Stats>({total:0,testsCompleted:0,activeBatches:0,certificates:0})
+  const [tab,setTab]=useState<'active'|'completed'|'wishlist'>('active')
+  const [tok,setTok]=useState('')
+  const [loading,setLoading]=useState(true)
+  const [wsMsg,setWsMsg]=useState<string|null>(null)
+  const pageTheme = usePageTheme()
+  const vars = THEME_VARS[pageTheme]
+  const [lbBatch,setLbBatch]=useState<{id:string;name:string}|null>(null)
+  const [notifGranted,setNotifGranted]=useState(false)
+  const [notifAsked,setNotifAsked]=useState(false)
+  const [isClient,setIsClient]=useState(false)
+  const [search,setSearch]=useState('')
+  const [smartFilter,setSmartFilter]=useState('')
+  const [sortBy,setSortBy]=useState('')
+  const [showFilters,setShowFilters]=useState(false)
+  const [renewingId,setRenewingId]=useState<string|null>(null)
+
+  const CARD='rgba(var(--pr-card-rgb),0.95)'
+  const BORDER='rgba(var(--pr-sub-rgb),0.14)'
+  const TEXT='var(--pr-text)'
+  const SUB='rgba(var(--pr-sub-rgb),0.76)'
+
+  useEffect(()=>{
+    setIsClient(true)
+    const t=localStorage.getItem('pr_token')||''
+    setTok(t); fetchData(t)
+    // Check notification permission
+    if(typeof window !== 'undefined' && 'Notification' in window){
+      setNotifGranted(Notification.permission==='granted')
+      setNotifAsked(Notification.permission!=='default')
+    }
+  },[])
+
+  const fetchData=async(t:string)=>{
+    setLoading(true)
+    try{
+      const p=new URLSearchParams()
+      if(search)p.set('q',search)
+      if(smartFilter)p.set('filter',smartFilter)
+      if(sortBy)p.set('sort',sortBy)
+      const[bRes,sRes]=await Promise.all([
+        fetch(`${API}/api/my-batches?${p.toString()}`,{headers:{Authorization:`Bearer ${t}`}}),
+        fetch(`${API}/api/my-batches/stats`,{headers:{Authorization:`Bearer ${t}`}})
+      ])
+      const bd=await bRes.json(); const sd=await sRes.json()
+      setBatches(bd.batches||[]); setStats(sd)
+    }catch{}finally{setLoading(false)}
+  }
+
+  const renewBatch=async(id:string)=>{
+    if(!tok)return
+    setRenewingId(id)
+    try{
+      const r=await fetch(`${API}/api/my-batches/${id}/renew`,{method:'POST',headers:{Authorization:`Bearer ${tok}`}})
+      const d=await r.json()
+      if(!r.ok){alert(d.error||'Renewal failed');return}
+      await fetchData(tok)
+    }catch{alert('Renewal failed. Please try again.')}finally{setRenewingId(null)}
+  }
+
+  useEffect(()=>{
+    if(!tok)return
+    const t=setTimeout(()=>fetchData(tok),350)
+    return ()=>clearTimeout(t)
+  },[search,smartFilter,sortBy])
+
+  const accessBatch=async(id:string)=>{
+    if(!tok)return
+    try{
+      const r=await fetch(`${API}/api/my-batches/${id}/access`,{method:'POST',headers:{Authorization:`Bearer ${tok}`}})
+      const d=await r.json()
+      if(d.streak&&d.streak>0){
+        // Browser push notification for streak
+        if(notifGranted&&typeof window!=='undefined'&&'Notification' in window){
+          new Notification('🔥 ProveRank Streak!',{
+            body:`You're on a ${d.streak}-day streak! Keep it up!`,
+            icon:'/favicon.ico'
+          })
+        }
+      }
+    }catch{}
+  }
+
+  const requestNotifPermission=async()=>{
+    if(typeof window==='undefined'||!('Notification' in window))return
+    const perm=await Notification.requestPermission()
+    setNotifGranted(perm==='granted')
+    setNotifAsked(true)
+    if(perm==='granted'){
+      new Notification('✅ ProveRank Notifications Enabled!',{
+        body:'You will now receive streak reminders and batch updates.',
+        icon:'/favicon.ico'
+      })
+    }
+  }
+
+  const [wishlistBatches,setWishlistBatches]=useState<BatchMeta[]>([])
+  useEffect(()=>{
+    if(tab==='wishlist'&&tok){
+      fetch(`${API}/api/my-batches/wishlist`,{headers:{Authorization:`Bearer ${tok}`}})
+        .then(r=>r.json()).then(d=>setWishlistBatches((d.batches||[]).map((b:any)=>({
+          ...b, progress:0, testsCompleted:0, streak:0, daysLeft:b.validity||365,
+          isExpired:false, isCompleted:false, daysSinceAccess:0, isWishlisted:true,
+          enrolledAt:b.createdAt||new Date().toISOString(), lastAccessedAt:b.createdAt||new Date().toISOString()
+        })))).catch(()=>{})
+    }
+  },[tab,tok])
+
+  const filtered=tab==='wishlist'?wishlistBatches:batches.filter(b=>{
+    if(tab==='active')return !b.isExpired&&!b.isCompleted
+    if(tab==='completed')return b.isExpired||b.isCompleted
+    return true
+  })
+
+  const lastAccessed=batches.filter(b=>!b.isExpired).sort((a,b)=>new Date(b.lastAccessedAt).getTime()-new Date(a.lastAccessedAt).getTime())[0]
+
+  const inp={padding:'10px 14px',background:'rgba(var(--pr-sub-rgb),0.06)',border:`1px solid ${BORDER}`,borderRadius:12,color:TEXT,fontSize:12,outline:'none' as const}
+
+  return (
+    <StudentShell pageKey="my-batches">
+    <div style={{minHeight:'100vh',color:TEXT,fontFamily:'Inter,sans-serif',position:'relative',overflowX:'hidden', ...(vars as any)}}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap');
+        *{box-sizing:border-box} ::-webkit-scrollbar{width:3px} ::-webkit-scrollbar-thumb{background:rgba(77,159,255,0.3);border-radius:4px}
+        @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes shimmer{0%,100%{opacity:0.3}50%{opacity:0.7}}
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+      `}</style>
+
+      {/* Batch Leaderboard Modal */}
+      {lbBatch&&tok&&<BatchLeaderboardModal batchId={lbBatch.id} batchName={lbBatch.name} tok={tok} onClose={()=>setLbBatch(null)}/>}
+
+      <div style={{position:'relative',zIndex:2,padding:'20px 16px 80px',maxWidth:880,margin:'0 auto'}}>
+
+        {/* ── PAGE HEADER ── */}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',gap:16,marginBottom:28,animation:'fadeIn 0.5s ease'}}>
+          <div>
+            <div style={{fontSize:10,fontWeight:700,color:'#4D9FFF',textTransform:'uppercase',letterSpacing:2.5,marginBottom:6}}>Your Learning Journey</div>
+            <div style={{fontFamily:'Playfair Display,serif',fontSize:'clamp(24px,6vw,32px)',fontWeight:800,color:TEXT,lineHeight:1.1}}>My Batches</div>
+          </div>
+          <button onClick={()=>router.push('/dashboard/test-series')} style={{background:'transparent',border:`1.5px solid rgba(77,159,255,0.35)`,borderRadius:12,padding:'9px 18px',cursor:'pointer',color:'#4D9FFF',fontSize:12,fontWeight:700,flexShrink:0,transition:'all 0.2s'}}>
+            Explore →
+          </button>
+        </div>
+
+        {/* NOTIFICATION BANNER */}
+        {isClient&&!notifAsked&&typeof window!=='undefined'&&'Notification' in window&&(
+          <div style={{background:'rgba(77,159,255,0.07)',border:'1px solid rgba(77,159,255,0.18)',borderRadius:16,padding:'14px 16px',marginBottom:18,display:'flex',alignItems:'center',gap:12,animation:'slideUp 0.4s ease'}}>
+            <span style={{fontSize:20,flexShrink:0}}>🔔</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:700,color:TEXT}}>Enable streak notifications</div>
+              <div style={{fontSize:10.5,color:SUB,marginTop:1}}>Get a gentle nudge when your streak needs you.</div>
+            </div>
+            <button onClick={requestNotifPermission}
+              style={{background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',border:'none',borderRadius:10,padding:'7px 16px',color:'#031018',fontWeight:800,cursor:'pointer',fontSize:11,flexShrink:0}}>Enable</button>
+            <button onClick={()=>setNotifAsked(true)} style={{background:'transparent',border:'none',color:SUB,cursor:'pointer',fontSize:18,flexShrink:0}}>×</button>
+          </div>
+        )}
+
+        {/* ── SIGNATURE: CONTINUE LEARNING HERO ── */}
+        {lastAccessed&&(
+          <div style={{
+            background:`linear-gradient(135deg, rgba(var(--pr-card-rgb),0.97) 0%, rgba(var(--pr-card-rgb),0.9) 100%)`,
+            border:`1px solid ${ECOLS[lastAccessed.examType]||'#4D9FFF'}30`,
+            borderRadius:24,padding:'26px 22px',marginBottom:22,backdropFilter:'blur(20px)',
+            animation:'slideUp 0.4s ease',position:'relative',overflow:'hidden',
+            boxShadow:`0 20px 50px -20px ${ECOLS[lastAccessed.examType]||'#4D9FFF'}25`
+          }}>
+            <div style={{position:'absolute',top:-60,right:-60,width:180,height:180,borderRadius:'50%',background:`radial-gradient(circle, ${ECOLS[lastAccessed.examType]||'#4D9FFF'}18 0%, transparent 70%)`,pointerEvents:'none'}}/>
+            <div style={{fontSize:9.5,fontWeight:700,color:SUB,textTransform:'uppercase',letterSpacing:2,marginBottom:16,position:'relative'}}>Continue Where You Left Off</div>
+            <div style={{display:'flex',alignItems:'center',gap:18,position:'relative'}}>
+              <ProgressRing pct={lastAccessed.progress} ec={ECOLS[lastAccessed.examType]||'#4D9FFF'} size={72}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:TEXT,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',marginBottom:5}}>{lastAccessed.name}</div>
+                <div style={{display:'flex',gap:10,flexWrap:'wrap',fontSize:11,color:SUB}}>
+                  <span>{lastAccessed.testsCompleted}/{lastAccessed.totalTests} tests</span>
+                  <span>·</span>
+                  <span>🔥 {lastAccessed.streak}-day streak</span>
+                  <span>·</span>
+                  <span>{lastAccessed.daysSinceAccess===0?'Active today':lastAccessed.daysSinceAccess+'d ago'}</span>
                 </div>
               </div>
             </div>
+            <button onClick={()=>{accessBatch(lastAccessed._id);router.push(`/dashboard/my-batches/${lastAccessed._id}`)}}
+              style={{
+                marginTop:20,width:'100%',
+                background:`linear-gradient(135deg,${ECOLS[lastAccessed.examType]||'#4D9FFF'},${ECOLS[lastAccessed.examType]||'#4D9FFF'}CC)`,
+                border:'none',borderRadius:14,padding:'13px',color:'#fff',fontWeight:700,cursor:'pointer',fontSize:13,
+                boxShadow:`0 8px 24px ${ECOLS[lastAccessed.examType]||'#4D9FFF'}35`,position:'relative'
+              }}>Resume Studying →</button>
           </div>
-          <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
-            <button className="tbtn icon-tbtn" onClick={toggleTheme} title={dm?(lang==='en'?'Switch to Light':'लाइट थीम'):(lang==='en'?'Switch to Dark':'डार्क थीम')}>{dm?'☀️':'🌙'}</button>
-            <button className="tbtn hide-xs" onClick={toggleLang}>{lang==='en'?'हि':'EN'}</button>
-            <a href="/announcements" title={lang==='en'?'Announcements':'घोषणाएं'} style={{background:'transparent',border:`1px solid ${bdr}`,borderRadius:9,width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none',fontSize:15,color:txt,flexShrink:0,position:'relative'}}>
-              🔔
-              {unreadAnn>0&&<span style={{position:'absolute',top:-3,right:-3,minWidth:15,height:15,padding:'0 3px',borderRadius:99,background:'#FF4D4D',color:'#fff',fontSize:9,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',border:'1.5px solid rgba(0,0,0,0.3)'}}>{unreadAnn>9?'9+':unreadAnn}</span>}
-            </a>
-            <button onClick={logout} title={lang==='en'?'Sign Out':'साइन आउट'} style={{background:'transparent',border:'1px solid rgba(255,77,77,0.35)',borderRadius:9,width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#FF6B6B',flexShrink:0,transition:'all .2s'}}>
-              <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            </button>
-          </div>
+        )}
+
+        {/* ── STATS STRIP ── */}
+        <div style={{
+          display:'flex',background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,
+          marginBottom:22,backdropFilter:'blur(16px)',animation:'slideUp 0.3s ease',overflow:'hidden'
+        }}>
+          {[
+            {l:'Enrolled',v:stats.total,c:'#4D9FFF'},
+            {l:'Tests Done',v:stats.testsCompleted,c:'#27AE60'},
+            {l:'Certificates',v:stats.certificates,c:'#FFD700'},
+            {l:'Streak',v:stats.currentStreak||0,c:'#FF6B35'},
+          ].map((s,i)=>(
+            <div key={i} style={{flex:1,textAlign:'center',padding:'16px 6px',borderRight:i<3?`1px solid ${BORDER}`:'none'}}>
+              <div style={{fontSize:22,fontWeight:800,color:s.c,fontFamily:'Playfair Display,serif'}}>{s.v}</div>
+              <div style={{fontSize:9,color:SUB,textTransform:'uppercase',letterSpacing:0.6,marginTop:3}}>{s.l}</div>
+            </div>
+          ))}
         </div>
 
-        {/* ── PAGE CONTENT ────────────────────────────────────── */}
-        <div className={`pr-shell-main${_isImmersive?' immersive':''}`} style={{position:'relative',zIndex:2,animation:'fadeIn .4s ease',background:'transparent',boxSizing:'border-box'}}>{children}</div>
+        {/* ── SEARCH + FILTER ── */}
+        <div style={{marginBottom:18}}>
+          <div style={{display:'flex',gap:8}}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search batch, exam, subject…" style={{...inp,flex:1}} />
+            <button onClick={()=>setShowFilters(s=>!s)} style={{background:showFilters?'rgba(77,159,255,0.14)':'rgba(var(--pr-sub-rgb),0.06)',border:`1px solid ${showFilters?'rgba(77,159,255,0.35)':BORDER}`,borderRadius:12,padding:'0 16px',cursor:'pointer',color:showFilters?'#4D9FFF':SUB,fontSize:11,fontWeight:700,flexShrink:0}}>Filter {showFilters?'▲':'▼'}</button>
+          </div>
+          {showFilters&&(
+            <div style={{marginTop:10,background:CARD,border:`1px solid ${BORDER}`,borderRadius:16,padding:16,animation:'slideUp 0.25s ease'}}>
+              <div style={{fontSize:9,color:SUB,textTransform:'uppercase',fontWeight:700,letterSpacing:1,marginBottom:8}}>Filter</div>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
+                {[{v:'',l:'All'},{v:'free',l:'Free'},{v:'paid',l:'Paid'},{v:'expiring_soon',l:'Expiring Soon'},{v:'certificate_available',l:'Certificate Ready'},{v:'streak_active',l:'Streak Active'},{v:'high_progress',l:'High Progress'},{v:'low_progress',l:'Low Progress'},{v:'top_rated',l:'Top Rated'}].map(f=>(
+                  <button key={f.v} onClick={()=>setSmartFilter(f.v)} style={{padding:'6px 12px',borderRadius:20,fontSize:10.5,cursor:'pointer',background:smartFilter===f.v?'rgba(77,159,255,0.16)':'transparent',border:`1px solid ${smartFilter===f.v?'rgba(77,159,255,0.4)':BORDER}`,color:smartFilter===f.v?'#4D9FFF':SUB}}>{f.l}</button>
+                ))}
+              </div>
+              <div style={{fontSize:9,color:SUB,textTransform:'uppercase',fontWeight:700,letterSpacing:1,marginBottom:8}}>Sort</div>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                {[{v:'',l:'Recently Accessed'},{v:'progress',l:'Highest Progress'},{v:'score',l:'Highest Score'},{v:'streak',l:'Highest Streak'},{v:'expiry',l:'Earliest Expiry'},{v:'rating',l:'Top Rated'},{v:'newest',l:'Newest'}].map(s=>(
+                  <button key={s.v} onClick={()=>setSortBy(s.v)} style={{padding:'6px 12px',borderRadius:20,fontSize:10.5,cursor:'pointer',background:sortBy===s.v?'rgba(77,159,255,0.16)':'transparent',border:`1px solid ${sortBy===s.v?'rgba(77,159,255,0.4)':BORDER}`,color:sortBy===s.v?'#4D9FFF':SUB}}>{s.l}</button>
+                ))}
+              </div>
+              <button onClick={()=>{setSearch('');setSmartFilter('');setSortBy('')}} style={{width:'100%',marginTop:14,padding:'9px',background:'transparent',border:`1px solid rgba(231,76,60,0.25)`,borderRadius:11,color:'#E74C3C',cursor:'pointer',fontSize:10.5,fontWeight:700}}>Reset Filters</button>
+            </div>
+          )}
+        </div>
+
+        {/* ── TABS ── */}
+        <div style={{display:'flex',gap:4,marginBottom:20,background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,padding:4}}>
+          {(['active','completed','wishlist'] as const).map(t=>(
+            <button key={t} onClick={()=>setTab(t)} style={{
+              flex:1,padding:'9px 4px',borderRadius:10,
+              background:tab===t?'linear-gradient(135deg,#4D9FFF,#00D4FF)':'transparent',
+              border:'none',color:tab===t?'#031018':SUB,fontWeight:tab===t?800:600,cursor:'pointer',fontSize:11.5,
+              transition:'all 0.25s'
+            }}>
+              {t==='active'?'Active':t==='completed'?'Completed':'Wishlist'}
+              <span style={{marginLeft:5,fontSize:9.5,opacity:0.75}}>({t==='active'?batches.filter(b=>!b.isExpired&&!b.isCompleted).length:t==='completed'?batches.filter(b=>b.isExpired||b.isCompleted).length:(stats.wishlistCount??wishlistBatches.length)})</span>
+            </button>
+          ))}
+        </div>
+
+        {/* ── BATCH CARDS ── */}
+        {loading?(
+          <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            {[1,2,3].map(i=><div key={i} style={{height:170,background:CARD,borderRadius:20,animation:'shimmer 1.5s ease infinite',animationDelay:`${i*0.15}s`}}/>)}
+          </div>
+        ):filtered.length===0?(
+          <div style={{textAlign:'center',padding:'56px 16px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:20}}>
+            <div style={{fontSize:48,marginBottom:14,opacity:0.7}}>{tab==='wishlist'?'♡':tab==='completed'?'◈':'○'}</div>
+            <div style={{fontFamily:'Playfair Display,serif',fontSize:19,fontWeight:700,color:TEXT,marginBottom:8}}>{tab==='wishlist'?'No saved batches yet':tab==='completed'?'No completed batches yet':'No active batches yet'}</div>
+            <div style={{fontSize:12,color:SUB,marginBottom:24}}>{tab==='wishlist'?'Save batches you like from Test Series':'Enroll in a batch to start your journey'}</div>
+            <button onClick={()=>router.push('/dashboard/test-series')} style={{background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',border:'none',borderRadius:12,padding:'12px 28px',color:'#031018',fontWeight:800,cursor:'pointer',fontSize:13}}>Explore Batches →</button>
+          </div>
+        ):(
+          <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            {filtered.map((b,i)=>{
+              const ec=ECOLS[b.examType]||'#4D9FFF'
+              const statusColor = b.isExpired?'#E74C3C':b.isCompleted?'#FFD700':null
+              return (
+                <div key={b._id} style={{
+                  background:CARD,border:`1px solid ${statusColor?statusColor+'30':ec+'20'}`,borderRadius:22,
+                  padding:'20px',backdropFilter:'blur(18px)',animation:`slideUp ${0.3+i*0.05}s ease`,
+                  position:'relative',overflow:'hidden',transition:'border-color 0.2s'
+                }}>
+
+                  {b.isExpired&&<div style={{position:'absolute',top:0,left:0,right:0,background:'rgba(231,76,60,0.15)',padding:'6px 14px',fontSize:10,fontWeight:700,color:'#E74C3C',textAlign:'center',letterSpacing:0.3}}>Batch expired — renew to continue</div>}
+                  {!b.isExpired&&b.daysLeft<=7&&<div style={{position:'absolute',top:0,left:0,right:0,background:'rgba(230,126,34,0.15)',padding:'6px 14px',fontSize:10,fontWeight:700,color:'#E67E22',textAlign:'center',letterSpacing:0.3}}>Expiring in {b.daysLeft} days</div>}
+                  {b.isCompleted&&<div style={{position:'absolute',top:0,left:0,right:0,background:'rgba(255,215,0,0.12)',padding:'6px 14px',fontSize:10,fontWeight:700,color:'#FFD700',textAlign:'center',letterSpacing:0.3}}>Batch completed</div>}
+
+                  <div style={{marginTop:(b.isExpired||b.daysLeft<=7||b.isCompleted)?20:0}}>
+                    <div style={{display:'flex',gap:16,alignItems:'flex-start'}}>
+                      <div style={{flexShrink:0}}><ProgressRing pct={b.progress} ec={ec}/></div>
+
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6,flexWrap:'wrap'}}>
+                          <span style={{fontSize:9.5,background:`${ec}14`,color:ec,padding:'3px 9px',borderRadius:20,fontWeight:700,letterSpacing:0.3}}>{b.examType}</span>
+                          {b.streak>0&&<span style={{fontSize:9.5,color:'#FF6B35',fontWeight:700}}>🔥 {b.streak}d</span>}
+                        </div>
+                        <div style={{fontFamily:'Playfair Display,serif',fontSize:15,fontWeight:700,color:TEXT,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',marginBottom:6}}>{b.name}</div>
+                        <div style={{fontSize:11,color:SUB}}>{b.testsCompleted}/{b.totalTests} tests · {b.daysLeft}d left · {b.daysSinceAccess===0?'Active today':b.daysSinceAccess+'d ago'}</div>
+
+                        {tab!=='wishlist'&&<>
+                          {tok&&<MilestoneChips batchId={b._id} tok={tok}/>}
+                          {tok&&<ActivityFeed batchId={b._id} tok={tok}/>}
+                        </>}
+                      </div>
+                    </div>
+
+                    <div style={{display:'flex',gap:8,marginTop:16}}>
+                      {tab==='wishlist'?(
+                        <button onClick={()=>router.push('/dashboard/test-series')}
+                          style={{flex:1,padding:'11px',background:`linear-gradient(135deg,${ec},${ec}CC)`,border:'none',borderRadius:12,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:12}}>View & Enroll</button>
+                      ):b.isCompleted?(
+                        <button disabled
+                          style={{flex:1,padding:'11px',background:'linear-gradient(135deg,#FFD700,#FFA000)',border:'none',borderRadius:12,color:'#031018',fontWeight:700,cursor:'default',fontSize:12,opacity:0.9}}>Completed</button>
+                      ):b.isExpired?(
+                        <button onClick={()=>renewBatch(b._id)} disabled={renewingId===b._id}
+                          style={{flex:1,padding:'11px',background:`linear-gradient(135deg,${ec},${ec}CC)`,border:'none',borderRadius:12,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:12}}>
+                          {renewingId===b._id?'Renewing…':'Renew Now'}
+                        </button>
+                      ):(
+                        <button onClick={()=>{accessBatch(b._id);router.push(`/dashboard/my-batches/${b._id}`)}}
+                          style={{flex:1,padding:'11px',background:`linear-gradient(135deg,${ec},${ec}CC)`,border:'none',borderRadius:12,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:12}}>Continue</button>
+                      )}
+                      {tab!=='wishlist'&&!b.isExpired&&!b.isCompleted&&b.daysLeft<=7&&(
+                        <button onClick={()=>renewBatch(b._id)} disabled={renewingId===b._id}
+                          style={{padding:'11px 14px',background:'transparent',border:'1px solid rgba(230,126,34,0.3)',borderRadius:12,color:'#E67E22',cursor:'pointer',fontSize:11,fontWeight:700}}>{renewingId===b._id?'…':'Extend'}</button>
+                      )}
+                      {tab!=='wishlist'&&<button onClick={()=>setLbBatch({id:b._id,name:b.name})} title="View Leaderboard"
+                        style={{padding:'11px 14px',background:'transparent',border:'1px solid rgba(255,215,0,0.25)',borderRadius:12,color:'#FFD700',cursor:'pointer',fontSize:14}}>🏆</button>}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* ── STUDY TIPS ── */}
+        <div style={{marginTop:44,padding:'0 4px'}}>
+          <div style={{fontSize:9.5,fontWeight:700,color:SUB,textTransform:'uppercase',letterSpacing:2,marginBottom:16}}>Study Tips</div>
+          {TIPS.map((tip,i)=>(
+            <div key={i} style={{display:'flex',gap:14,alignItems:'flex-start',marginBottom:18,animation:`slideUp ${1+i*0.1}s ease`}}>
+              <span style={{fontSize:22,flexShrink:0}}>{tip.i}</span>
+              <div>
+                <div style={{fontWeight:700,color:'#4D9FFF',fontSize:12.5,marginBottom:3,fontFamily:'Playfair Display,serif'}}>{tip.t}</div>
+                <div style={{fontSize:11.5,color:SUB,lineHeight:1.7}}>{tip.d}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
       </div>
-    </ShellCtx.Provider>
+    </div>
+    {wsMsg&&<div style={{position:'fixed',bottom:24,left:'50%',transform:'translateX(-50%)',zIndex:2000,background:'rgba(20,20,35,0.96)',border:'1px solid rgba(77,159,255,0.35)',borderRadius:12,padding:'10px 18px',fontSize:12,color:'#fff',fontWeight:600,boxShadow:'0 10px 30px rgba(0,0,0,0.4)',whiteSpace:'nowrap'}}>{wsMsg}</div>}
+    </StudentShell>
   )
 }
 FILEEOF1
-echo "StudentShell.tsx updated ✅"
+echo "my-batches/page.tsx re-applied ✅"
 
-# ---- 2) Test Series page: match --pr-bg to same reference ----
 cat > ~/workspace/frontend/app/dashboard/test-series/page.tsx << 'FILEEOF2'
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -1184,7 +1395,7 @@ export default function TestSeriesPage() {
 
   return (
       <StudentShell pageKey="test-series">
-    <div style={{ minHeight:'100vh',color:'var(--pr-text)',fontFamily:'Inter,sans-serif',position:'relative',overflowX:'hidden',background:'var(--pr-bg)', ...(vars as any) }}>
+    <div style={{ minHeight:'100vh',color:'var(--pr-text)',fontFamily:'Inter,sans-serif',position:'relative',overflowX:'hidden', ...(vars as any) }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap');
         @keyframes floatBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-13px)}}
@@ -1357,64 +1568,13 @@ export default function TestSeriesPage() {
   )
 }
 FILEEOF2
-echo "test-series/page.tsx updated ✅"
-
-# ---- 3) Impersonate page: match loading-screen background ----
-cat > ~/workspace/frontend/app/impersonate/page.tsx << 'FILEEOF3'
-'use client'
-import { Suspense, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-
-function Inner() {
-  const router = useRouter()
-  const params = useSearchParams()
-
-  useEffect(() => {
-    const token = params.get('token')
-    const id    = params.get('id')
-    const name  = params.get('name') || 'Student'
-
-    if (!token || !id) {
-      router.replace('/admin/x7k2p')
-      return
-    }
-
-    try {
-      sessionStorage.setItem('imp_token', token)
-      sessionStorage.setItem('imp_id', id)
-      sessionStorage.setItem('imp_name', decodeURIComponent(name))
-    } catch(e) {}
-
-    router.replace('/dashboard')
-  }, [params, router])
-
-  return (
-    <div style={{minHeight:'100vh',background:'radial-gradient(ellipse at 20% 50%,#001e38 0%,#000f22 60%,#000810 100%)',display:'flex',alignItems:'center',justifyContent:'center',color:'#4D9FFF',fontFamily:'Inter,sans-serif',fontSize:16,flexDirection:'column',gap:12}}>
-      <div style={{fontSize:32}}>👁️</div>
-      <div>Opening student view...</div>
-    </div>
-  )
-}
-
-export default function ImpersonatePage() {
-  return (
-    <Suspense fallback={
-      <div style={{minHeight:'100vh',background:'radial-gradient(ellipse at 20% 50%,#001e38 0%,#000f22 60%,#000810 100%)',display:'flex',alignItems:'center',justifyContent:'center',color:'#4D9FFF',fontFamily:'Inter,sans-serif',fontSize:16}}>
-        Loading...
-      </div>
-    }>
-      <Inner/>
-    </Suspense>
-  )
-}
-FILEEOF3
-echo "impersonate/page.tsx updated ✅"
-
-# ---- 4) Delete confirmed-dead legacy exam/[examId] base page ----
-rm -rf ~/workspace/frontend/app/exam/\[examId\]/page.tsx
-echo "exam/[examId]/page.tsx (dead legacy) deleted ✅"
+echo "test-series/page.tsx fixed ✅ (removed opaque background entirely, not just recolored it)"
 
 cd ~/workspace
 git add -A
-git commit -m "fix: unify Student Panel dark-theme background to exactly match Admin Panel gradient across all pages; delete confirmed-dead legacy exam/[examId] base page"
+git commit -m "fix: test-series still had opaque page-level background blocking galaxy stars despite matching colors — removed entirely; re-apply my-batches fix"
 git push
+
+echo ""
+echo "=== IMPORTANT: also clear Next.js build cache and hard-refresh browser ==="
+echo "cd ~/workspace/frontend && rm -rf .next && npm run build (or npm run dev)"

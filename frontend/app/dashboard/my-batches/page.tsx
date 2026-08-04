@@ -186,7 +186,6 @@ export default function MyBatchesPage() {
   const [showFilters,setShowFilters]=useState(false)
   const [renewingId,setRenewingId]=useState<string|null>(null)
 
-  const BG='var(--pr-bg)'
   const CARD='rgba(var(--pr-card-rgb),0.95)'
   const BORDER='rgba(var(--pr-sub-rgb),0.14)'
   const TEXT='var(--pr-text)'
@@ -290,7 +289,7 @@ export default function MyBatchesPage() {
 
   return (
     <StudentShell pageKey="my-batches">
-    <div style={{minHeight:'100vh',color:TEXT,fontFamily:'Inter,sans-serif',position:'relative',overflowX:'hidden',background:BG, ...(vars as any)}}>
+    <div style={{minHeight:'100vh',color:TEXT,fontFamily:'Inter,sans-serif',position:'relative',overflowX:'hidden', ...(vars as any)}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap');
         *{box-sizing:border-box} ::-webkit-scrollbar{width:3px} ::-webkit-scrollbar-thumb{background:rgba(77,159,255,0.3);border-radius:4px}

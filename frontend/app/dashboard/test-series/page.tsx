@@ -868,7 +868,7 @@ export default function TestSeriesPage() {
 
   return (
       <StudentShell pageKey="test-series">
-    <div style={{ minHeight:'100vh',color:'var(--pr-text)',fontFamily:'Inter,sans-serif',position:'relative',overflowX:'hidden',background:'var(--pr-bg)', ...(vars as any) }}>
+    <div style={{ minHeight:'100vh',color:'var(--pr-text)',fontFamily:'Inter,sans-serif',position:'relative',overflowX:'hidden', ...(vars as any) }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap');
         @keyframes floatBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-13px)}}
