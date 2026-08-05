@@ -1,3 +1,14 @@
+#!/bin/bash
+set -e
+echo "=== Delete My Batches Workspace (Detail) page completely ==="
+
+echo "--- Safety check: any other references left? ---"
+grep -rn "dashboard/my-batches/\${" ~/workspace/frontend/app ~/workspace/frontend/src --include="*.tsx" 2>/dev/null | grep -v "my-batches/\[id\]" || echo "(none found — safe)"
+
+rm -rf ~/workspace/frontend/app/dashboard/my-batches/\[id\]
+echo "my-batches/[id]/ (Batch Workspace) deleted ✅"
+
+cat > ~/workspace/frontend/app/dashboard/my-batches/page.tsx << 'FILEEOF1'
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -413,3 +424,10 @@ export default function MyBatchesPage() {
     </StudentShell>
   )
 }
+FILEEOF1
+echo "my-batches/page.tsx updated ✅ (Continue button now goes to My Exams)"
+
+cd ~/workspace
+git add -A
+git commit -m "delete: My Batches Workspace (detail) page completely — Continue button on My Batches home now redirects to My Exams"
+git push
