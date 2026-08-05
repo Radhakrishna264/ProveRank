@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+echo "=== My Batches: Continue button now shows native Coming Soon alert (Batch vs Test Series) ==="
+cat > ~/workspace/frontend/app/dashboard/my-batches/page.tsx << 'FILEEOF1'
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -413,3 +417,10 @@ export default function MyBatchesPage() {
     </StudentShell>
   )
 }
+FILEEOF1
+echo "my-batches/page.tsx updated ✅"
+
+cd ~/workspace
+git add -A
+git commit -m "feat: Continue button shows native alert - Batch Workspace Coming Soon / Test Series Workspace Coming Soon based on _kind field"
+git push
