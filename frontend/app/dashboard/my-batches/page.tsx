@@ -79,67 +79,6 @@ function ProgressRing({pct,ec,size=56}:{pct:number;ec:string;size?:number}) {
 }
 
 // ── Batch Leaderboard Modal ──
-function BatchLeaderboardModal({batchId,batchName,tok,onClose}:{batchId:string;batchName:string;tok:string;onClose:()=>void}) {
-  const [lb,setLb]=useState<LBEntry[]>([])
-  const [myRank,setMyRank]=useState(0)
-  const [total,setTotal]=useState(0)
-  const [loading,setLoading]=useState(true)
-  useEffect(()=>{
-    fetch(`${API}/api/my-batches/${batchId}/leaderboard`,{headers:{Authorization:`Bearer ${tok}`}})
-      .then(r=>r.json()).then(d=>{setLb(d.leaderboard||[]);setMyRank(d.myRank||0);setTotal(d.total||0)})
-      .catch(()=>{}).finally(()=>setLoading(false))
-  },[batchId,tok])
-  return (
-    <div style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.88)',display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-      <div style={{background:'rgba(var(--pr-card-rgb),0.99)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:22,padding:24,maxWidth:400,width:'100%',maxHeight:'80vh',overflow:'hidden',display:'flex',flexDirection:'column',backdropFilter:'blur(30px)',boxShadow:'0 30px 80px rgba(0,0,0,0.6)'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-          <div>
-            <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:'var(--pr-text)'}}>🏆 Batch Leaderboard</div>
-            <div style={{fontSize:11,color:'rgba(var(--pr-sub-rgb),0.74)',marginTop:2,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',maxWidth:260}}>{batchName}</div>
-          </div>
-          <button onClick={onClose} style={{background:'transparent',border:'none',color:'rgba(var(--pr-sub-rgb),0.74)',cursor:'pointer',fontSize:22}}>×</button>
-        </div>
-        {myRank>0&&<div style={{background:'rgba(77,159,255,0.1)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:12,padding:'10px 14px',marginBottom:14,display:'flex',alignItems:'center',gap:10}}>
-          <span style={{fontSize:20}}>🎯</span>
-          <div><div style={{fontSize:13,fontWeight:700,color:'#4D9FFF'}}>Your Rank: #{myRank} of {total}</div><div style={{fontSize:10,color:'rgba(var(--pr-sub-rgb),0.74)'}}>Keep attempting tests to improve!</div></div>
-        </div>}
-        <div style={{overflowY:'auto',flex:1}}>
-          {loading?<div style={{textAlign:'center',padding:30,color:'rgba(var(--pr-sub-rgb),0.82)'}}>Loading...</div>:
-          lb.length===0?<div style={{textAlign:'center',padding:30,color:'rgba(var(--pr-sub-rgb),0.82)',fontSize:12}}>No students enrolled yet</div>:
-          lb.map((entry,i)=>(
-            <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0',borderBottom:'1px solid rgba(77,159,255,0.06)'}}>
-              <div style={{width:28,height:28,borderRadius:'50%',background:i===0?'linear-gradient(135deg,#FFD700,#FFA000)':i===1?'linear-gradient(135deg,#C0C0C0,#9E9E9E)':i===2?'linear-gradient(135deg,#CD7F32,#A0522D)':'rgba(77,159,255,0.1)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:i<3?14:10,fontWeight:900,flexShrink:0,color:i<3?'#000':'rgba(var(--pr-sub-rgb),0.74)'}}>
-                {i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}
-              </div>
-              <div style={{flex:1}}>
-                <div style={{fontSize:12,fontWeight:700,color:'var(--pr-text)'}}>{entry.name}</div>
-                <div style={{fontSize:10,color:'rgba(var(--pr-sub-rgb),0.84)'}}>📝 {entry.testsCompleted} tests · ⭐ {entry.avgScore.toFixed(1)}% avg · 🔥 {entry.streak} streak</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Achievement Milestones (FPR5) ──
-function MilestoneChips({batchId,tok}:{batchId:string;tok:string}) {
-  const [milestones,setMilestones]=useState<{label:string;achieved:boolean}[]>([])
-  useEffect(()=>{
-    fetch(`${API}/api/my-batches/${batchId}/milestones`,{headers:{Authorization:`Bearer ${tok}`}})
-      .then(r=>r.json()).then(d=>setMilestones(d.milestones||[])).catch(()=>{})
-  },[batchId,tok])
-  if(milestones.length===0)return null
-  return (
-    <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:10}}>
-      {milestones.map((m,i)=>(
-        <span key={i} style={{fontSize:9,padding:'2px 8px',borderRadius:20,fontWeight:700,background:m.achieved?'rgba(39,174,96,0.14)':'rgba(var(--pr-sub-rgb),0.08)',color:m.achieved?'#27AE60':'rgba(var(--pr-sub-rgb),0.82)'}}>{m.achieved?'✓':'○'} {m.label}</span>
-      ))}
-    </div>
-  )
-}
-
 // ── Activity Feed Section ──
 function ActivityFeed({batchId,tok}:{batchId:string;tok:string}) {
   const [activities,setActivities]=useState<Activity[]>([])
@@ -176,7 +115,6 @@ export default function MyBatchesPage() {
   const [wsMsg,setWsMsg]=useState<string|null>(null)
   const pageTheme = usePageTheme()
   const vars = THEME_VARS[pageTheme]
-  const [lbBatch,setLbBatch]=useState<{id:string;name:string}|null>(null)
   const [notifGranted,setNotifGranted]=useState(false)
   const [notifAsked,setNotifAsked]=useState(false)
   const [isClient,setIsClient]=useState(false)
@@ -283,8 +221,6 @@ export default function MyBatchesPage() {
     return true
   })
 
-  const lastAccessed=batches.filter(b=>!b.isExpired).sort((a,b)=>new Date(b.lastAccessedAt).getTime()-new Date(a.lastAccessedAt).getTime())[0]
-
   const inp={padding:'10px 14px',background:'rgba(var(--pr-sub-rgb),0.06)',border:`1px solid ${BORDER}`,borderRadius:12,color:TEXT,fontSize:12,outline:'none' as const}
 
   return (
@@ -297,9 +233,6 @@ export default function MyBatchesPage() {
         @keyframes shimmer{0%,100%{opacity:0.3}50%{opacity:0.7}}
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
       `}</style>
-
-      {/* Batch Leaderboard Modal */}
-      {lbBatch&&tok&&<BatchLeaderboardModal batchId={lbBatch.id} batchName={lbBatch.name} tok={tok} onClose={()=>setLbBatch(null)}/>}
 
       <div style={{position:'relative',zIndex:2,padding:'20px 16px 80px',maxWidth:880,margin:'0 auto'}}>
 
@@ -325,40 +258,6 @@ export default function MyBatchesPage() {
             <button onClick={requestNotifPermission}
               style={{background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',border:'none',borderRadius:10,padding:'7px 16px',color:'#031018',fontWeight:800,cursor:'pointer',fontSize:11,flexShrink:0}}>Enable</button>
             <button onClick={()=>setNotifAsked(true)} style={{background:'transparent',border:'none',color:SUB,cursor:'pointer',fontSize:18,flexShrink:0}}>×</button>
-          </div>
-        )}
-
-        {/* ── SIGNATURE: CONTINUE LEARNING HERO ── */}
-        {lastAccessed&&(
-          <div style={{
-            background:`linear-gradient(135deg, rgba(var(--pr-card-rgb),0.97) 0%, rgba(var(--pr-card-rgb),0.9) 100%)`,
-            border:`1px solid ${ECOLS[lastAccessed.examType]||'#4D9FFF'}30`,
-            borderRadius:24,padding:'26px 22px',marginBottom:22,backdropFilter:'blur(20px)',
-            animation:'slideUp 0.4s ease',position:'relative',overflow:'hidden',
-            boxShadow:`0 20px 50px -20px ${ECOLS[lastAccessed.examType]||'#4D9FFF'}25`
-          }}>
-            <div style={{position:'absolute',top:-60,right:-60,width:180,height:180,borderRadius:'50%',background:`radial-gradient(circle, ${ECOLS[lastAccessed.examType]||'#4D9FFF'}18 0%, transparent 70%)`,pointerEvents:'none'}}/>
-            <div style={{fontSize:9.5,fontWeight:700,color:SUB,textTransform:'uppercase',letterSpacing:2,marginBottom:16,position:'relative'}}>Continue Where You Left Off</div>
-            <div style={{display:'flex',alignItems:'center',gap:18,position:'relative'}}>
-              <ProgressRing pct={lastAccessed.progress} ec={ECOLS[lastAccessed.examType]||'#4D9FFF'} size={72}/>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,color:TEXT,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',marginBottom:5}}>{lastAccessed.name}</div>
-                <div style={{display:'flex',gap:10,flexWrap:'wrap',fontSize:11,color:SUB}}>
-                  <span>{lastAccessed.testsCompleted}/{lastAccessed.totalTests} tests</span>
-                  <span>·</span>
-                  <span>🔥 {lastAccessed.streak}-day streak</span>
-                  <span>·</span>
-                  <span>{lastAccessed.daysSinceAccess===0?'Active today':lastAccessed.daysSinceAccess+'d ago'}</span>
-                </div>
-              </div>
-            </div>
-            <button onClick={()=>{accessBatch(lastAccessed._id);router.push(`/dashboard/my-batches/${lastAccessed._id}`)}}
-              style={{
-                marginTop:20,width:'100%',
-                background:`linear-gradient(135deg,${ECOLS[lastAccessed.examType]||'#4D9FFF'},${ECOLS[lastAccessed.examType]||'#4D9FFF'}CC)`,
-                border:'none',borderRadius:14,padding:'13px',color:'#fff',fontWeight:700,cursor:'pointer',fontSize:13,
-                boxShadow:`0 8px 24px ${ECOLS[lastAccessed.examType]||'#4D9FFF'}35`,position:'relative'
-              }}>Resume Studying →</button>
           </div>
         )}
 
@@ -461,7 +360,6 @@ export default function MyBatchesPage() {
                         <div style={{fontSize:11,color:SUB}}>{b.testsCompleted}/{b.totalTests} tests · {b.daysLeft}d left · {b.daysSinceAccess===0?'Active today':b.daysSinceAccess+'d ago'}</div>
 
                         {tab!=='wishlist'&&<>
-                          {tok&&<MilestoneChips batchId={b._id} tok={tok}/>}
                           {tok&&<ActivityFeed batchId={b._id} tok={tok}/>}
                         </>}
                       </div>
@@ -487,8 +385,6 @@ export default function MyBatchesPage() {
                         <button onClick={()=>renewBatch(b._id)} disabled={renewingId===b._id}
                           style={{padding:'11px 14px',background:'transparent',border:'1px solid rgba(230,126,34,0.3)',borderRadius:12,color:'#E67E22',cursor:'pointer',fontSize:11,fontWeight:700}}>{renewingId===b._id?'…':'Extend'}</button>
                       )}
-                      {tab!=='wishlist'&&<button onClick={()=>setLbBatch({id:b._id,name:b.name})} title="View Leaderboard"
-                        style={{padding:'11px 14px',background:'transparent',border:'1px solid rgba(255,215,0,0.25)',borderRadius:12,color:'#FFD700',cursor:'pointer',fontSize:14}}>🏆</button>}
                     </div>
                   </div>
                 </div>
