@@ -378,7 +378,7 @@ export default function MyBatchesPage() {
                           {renewingId===b._id?'Renewing…':'Renew Now'}
                         </button>
                       ):(
-                        <button onClick={()=>{accessBatch(b._id);router.push('/my-exams')}}
+                        <button onClick={()=>{accessBatch(b._id);alert(b._kind==='series'?'Test Series Workspace Coming Soon':'Batch Workspace Coming Soon')}}
                           style={{flex:1,padding:'11px',background:`linear-gradient(135deg,${ec},${ec}CC)`,border:'none',borderRadius:12,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:12}}>Continue</button>
                       )}
                       {tab!=='wishlist'&&!b.isExpired&&!b.isCompleted&&b.daysLeft<=7&&(
