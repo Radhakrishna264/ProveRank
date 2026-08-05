@@ -76,7 +76,15 @@ export default function BatchWorkspacePage() {
   const params = useParams() as any
   const batchId = params?.id as string
   const shell = useShell() as any
-  const theme = shell?.theme || {}
+  const isDark = shell?.darkMode !== false
+  const theme = {
+    isDark,
+    text: isDark ? '#F1F6FC' : '#0F172A',
+    sub: isDark ? '#8DA2C0' : '#51607A',
+    border: isDark ? 'rgba(77,159,255,0.14)' : 'rgba(37,99,235,0.14)',
+    primary: isDark ? '#4D9FFF' : '#2563EB',
+    chipBg: isDark ? 'rgba(77,159,255,0.07)' : 'rgba(37,99,235,0.06)',
+  }
   const isDesktop = useIsDesktop()
 
   const [tok, setTok] = useState('')
@@ -98,10 +106,10 @@ export default function BatchWorkspacePage() {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>()
 
   const CARD = theme.isDark ? 'rgba(8,16,34,0.72)' : 'rgba(255,255,255,0.85)'
-  const BORDER = theme.border || 'rgba(160,200,240,0.14)'
-  const TEXT = theme.text || '#F1F6FC'
-  const SUB = theme.sub || 'rgba(160,200,240,0.76)'
-  const ec = (overview && ECOLS[overview.examType]) || theme.primary || '#4D9FFF'
+  const BORDER = theme.border
+  const TEXT = theme.text
+  const SUB = theme.sub
+  const ec = (overview && ECOLS[overview.examType]) || theme.primary
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2600) }
 
