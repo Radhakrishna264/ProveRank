@@ -46,14 +46,12 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell steps={steps} current={currentIdx}>
-      <div style={{ textAlign: 'center', marginBottom: 22 }}>
-        <div style={{ display: 'inline-block', padding: '3px 12px', borderRadius: 20, background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.3)', fontSize: 9, fontWeight: 700, letterSpacing: 1, color: T.cyan, textTransform: 'uppercase', marginBottom: 10 }}>Account Recovery</div>
-        <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 23, fontWeight: 700, color: T.txt, letterSpacing: 0.2 }}>Reset Password</div>
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 22, fontWeight: 700, color: T.pri }}>Reset Password</div>
         <div style={{ fontSize: 12, color: T.sub, marginTop: 4 }}>We&apos;ll help you get back in</div>
       </div>
 
-      <div style={{ position: 'relative', overflow: 'hidden', background: T.card, border: `1px solid ${T.cardBorder}`, borderRadius: 22, padding: '30px 24px 26px', backdropFilter: 'blur(24px)', boxShadow: '0 20px 60px rgba(0,6,16,0.6)' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,${T.pri},${T.cyan})` }} />
+      <div style={{ background: T.card, border: `1px solid ${T.cardBorder}`, borderRadius: 20, padding: '28px 24px', backdropFilter: 'blur(24px)', boxShadow: '0 8px 40px rgba(0,0,0,.5)' }}>
 
         {error && <div style={errBox}>{error}</div>}
         {msg && step !== 'done' && <div style={okBox}>{msg}</div>}
@@ -63,9 +61,9 @@ export default function ForgotPasswordPage() {
             <p style={{ fontSize: 13, color: T.sub, marginBottom: 16, textAlign: 'center' }}>Enter your registered email — we&apos;ll send a reset OTP.</p>
             <div style={{ marginBottom: 16 }}>
               <label style={lbl}>Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={inp} className="pr-input" placeholder="your@email.com" />
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={inp} placeholder="your@email.com" />
             </div>
-            <button onClick={sendOtp} disabled={loading || !email} className="pr-btn" style={btnPri(loading || !email)}>{loading ? 'Sending OTP...' : 'Send Reset OTP →'}</button>
+            <button onClick={sendOtp} disabled={loading || !email} style={btnPri(loading || !email)}>{loading ? 'Sending OTP...' : 'Send Reset OTP →'}</button>
           </>
         )}
 
@@ -75,23 +73,23 @@ export default function ForgotPasswordPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 6 }}>
               <div>
                 <label style={lbl}>OTP</label>
-                <input value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} style={{ ...inp, fontSize: 22, fontWeight: 900, textAlign: 'center', letterSpacing: 10, fontFamily: 'monospace' }} className="pr-input" placeholder="000000" maxLength={6} inputMode="numeric" />
+                <input value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} style={{ ...inp, fontSize: 22, fontWeight: 900, textAlign: 'center', letterSpacing: 10, fontFamily: 'monospace' }} placeholder="000000" maxLength={6} inputMode="numeric" />
               </div>
               <div>
                 <label style={lbl}>New Password</label>
                 <div style={{ position: 'relative' }}>
-                  <input type={showPass ? 'text' : 'password'} value={newPass} onChange={e => setNewPass(e.target.value)} style={{ ...inp, paddingRight: 42 }} className="pr-input" placeholder="Min 6 characters" />
+                  <input type={showPass ? 'text' : 'password'} value={newPass} onChange={e => setNewPass(e.target.value)} style={{ ...inp, paddingRight: 42 }} placeholder="Min 6 characters" />
                   <button type="button" onClick={() => setShowPass(p => !p)} style={eyeBtn}>{showPass ? '🙈' : '👁️'}</button>
                 </div>
               </div>
               <div>
                 <label style={lbl}>Confirm Password</label>
-                <input type={showPass ? 'text' : 'password'} value={confirmPass} onChange={e => setConfirmPass(e.target.value)} style={inpErr(!passMatch)} className="pr-input" placeholder="Re-enter password" />
-                {!passMatch && <div style={{ fontSize: 11, color: T.danger, marginTop: 5 }}>Passwords do not match</div>}
-                {confirmPass && passMatch && newPass.length >= 6 && <div style={{ fontSize: 11, color: T.success, marginTop: 5 }}>✅ Passwords match</div>}
+                <input type={showPass ? 'text' : 'password'} value={confirmPass} onChange={e => setConfirmPass(e.target.value)} style={inpErr(!passMatch)} placeholder="Re-enter password" />
+                {!passMatch && <div style={{ fontSize: 11, color: '#FF4D4D', marginTop: 5 }}>Passwords do not match</div>}
+                {confirmPass && passMatch && newPass.length >= 6 && <div style={{ fontSize: 11, color: '#00C48C', marginTop: 5 }}>✅ Passwords match</div>}
               </div>
             </div>
-            <button onClick={resetPassword} disabled={loading || otp.length !== 6 || newPass.length < 6 || !passMatch} className="pr-btn" style={btnSuc(loading || otp.length !== 6 || newPass.length < 6 || !passMatch)}>{loading ? 'Resetting...' : '🔑 Reset Password →'}</button>
+            <button onClick={resetPassword} disabled={loading || otp.length !== 6 || newPass.length < 6 || !passMatch} style={btnSuc(loading || otp.length !== 6 || newPass.length < 6 || !passMatch)}>{loading ? 'Resetting...' : '🔑 Reset Password →'}</button>
             <button onClick={() => { setStep('email'); setError(''); setMsg('') }} style={backBtn}>← Back</button>
           </>
         )}
@@ -115,7 +113,7 @@ export default function ForgotPasswordPage() {
 const lbl: any = { fontSize: 11, color: T.pri, fontWeight: 600, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: .4 }
 const eyeBtn: any = { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 4 }
 const backBtn: any = { width: '100%', marginTop: 10, padding: '8px', background: 'none', border: `1px solid ${T.cardBorder}`, borderRadius: 9, color: T.sub, cursor: 'pointer', fontSize: 12, fontFamily: 'Inter,sans-serif' }
-const errBox: any = { background: 'rgba(255,71,87,.12)', border: `1px solid rgba(255,71,87,.3)`, borderRadius: 9, padding: '10px 14px', fontSize: 13, color: T.danger, marginBottom: 14, textAlign: 'center' }
-const okBox: any = { background: 'rgba(0,196,140,.1)', border: `1px solid rgba(0,196,140,.3)`, borderRadius: 9, padding: '10px 14px', fontSize: 13, color: T.success, marginBottom: 14, textAlign: 'center' }
-function btnPri(disabled: boolean): any { return { width: '100%', padding: '13px', background: `linear-gradient(135deg,${T.pri},${T.cyan})`, color: T.dark, border: 'none', borderRadius: 12, cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'Inter,sans-serif', opacity: disabled ? .6 : 1, boxShadow: '0 4px 16px rgba(77,159,255,0.35)' } }
-function btnSuc(disabled: boolean): any { return { width: '100%', padding: '13px', background: disabled ? 'rgba(107,139,175,.15)' : `linear-gradient(135deg,${T.success},#00a87a)`, color: disabled ? T.sub : T.dark, border: 'none', borderRadius: 12, cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'Inter,sans-serif', opacity: disabled ? .6 : 1 } }
+const errBox: any = { background: 'rgba(255,77,77,.12)', border: '1px solid rgba(255,77,77,.3)', borderRadius: 9, padding: '10px 14px', fontSize: 13, color: '#FF4D4D', marginBottom: 14, textAlign: 'center' }
+const okBox: any = { background: 'rgba(0,196,140,.1)', border: '1px solid rgba(0,196,140,.3)', borderRadius: 9, padding: '10px 14px', fontSize: 13, color: '#00C48C', marginBottom: 14, textAlign: 'center' }
+function btnPri(disabled: boolean): any { return { width: '100%', padding: '13px', background: `linear-gradient(135deg,${T.pri},#0D9488)`, color: '#001A1A', border: 'none', borderRadius: 12, cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'Inter,sans-serif', opacity: disabled ? .6 : 1, boxShadow: '0 4px 16px rgba(45,212,191,0.4)' } }
+function btnSuc(disabled: boolean): any { return { width: '100%', padding: '13px', background: disabled ? 'rgba(94,234,212,.15)' : 'linear-gradient(135deg,#00C48C,#00a87a)', color: disabled ? T.sub : '#001A1A', border: 'none', borderRadius: 12, cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'Inter,sans-serif', opacity: disabled ? .6 : 1 } }

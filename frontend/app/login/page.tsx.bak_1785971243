@@ -78,24 +78,23 @@ export default function LoginPage() {
 
   return (
     <AuthShell>
-      <div style={{ textAlign: 'center', marginBottom: 22 }}>
-        <div style={{ display: 'inline-block', padding: '3px 12px', borderRadius: 20, background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.3)', fontSize: 9, fontWeight: 700, letterSpacing: 1, color: T.cyan, textTransform: 'uppercase', marginBottom: 10 }}>Secure Access</div>
-        <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 25, fontWeight: 700, color: T.txt, marginBottom: 4, letterSpacing: 0.2 }}>Welcome Back</div>
-        <div style={{ fontSize: 12, color: T.sub }}>Login to continue your exam journey</div>
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 24, fontWeight: 700, color: T.pri, marginBottom: 2 }}>Welcome Back</div>
+        <div style={{ fontSize: 12, color: T.sub }}>Login to continue your NEET journey</div>
       </div>
 
-      <div style={{ position: 'relative', overflow: 'hidden', background: T.card, border: `1px solid ${T.cardBorder}`, borderRadius: 22, padding: '30px 24px 26px', backdropFilter: 'blur(24px)', boxShadow: '0 20px 60px rgba(0,6,16,0.6)' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,${T.pri},${T.cyan})` }} />
+      <div style={{ background: T.card, border: `1px solid ${T.cardBorder}`, borderRadius: 20, padding: '28px 24px', backdropFilter: 'blur(24px)', boxShadow: '0 8px 40px rgba(0,0,0,.5)' }}>
 
         {/* F35.2 + F35.4 — 2-Tab pill system */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 22, borderRadius: 14, padding: 4, background: 'rgba(0,10,20,0.6)', border: `1px solid ${T.cardBorder}` }}>
+        <div style={{ display: 'flex', gap: 4, marginBottom: 22, borderRadius: 14, padding: 4, background: 'rgba(0,15,13,0.6)', border: `1px solid ${T.cardBorder}` }}>
           {([['password', '🔑 Password'], ['otp', '📱 OTP']] as const).map(([t, l]) => (
-            <button key={t} onClick={() => { setTab(t); clearAll() }} className="pr-btn" style={{
+            <button key={t} onClick={() => { setTab(t); clearAll() }} style={{
               flex: 1, padding: '10px 4px', borderRadius: 10, border: 'none', cursor: 'pointer',
               fontFamily: 'Inter,sans-serif', fontSize: 13, fontWeight: tab === t ? 700 : 500,
-              background: tab === t ? `linear-gradient(135deg,${T.pri},${T.cyan})` : 'transparent',
-              color: tab === t ? T.dark : T.sub,
-              boxShadow: tab === t ? '0 4px 14px rgba(77,159,255,0.35)' : 'none',
+              background: tab === t ? `linear-gradient(135deg,${T.pri},#0D9488)` : 'transparent',
+              color: tab === t ? '#001A1A' : T.sub,
+              boxShadow: tab === t ? '0 4px 14px rgba(45,212,191,0.4)' : 'none',
+              transition: 'all .25s',
             }}>{l}</button>
           ))}
         </div>
@@ -108,13 +107,13 @@ export default function LoginPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 13, marginBottom: 16 }}>
               <div>
                 <label style={lbl}>Email</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && loginPassword()} style={inpErr(!emailValid)} className="pr-input" placeholder="your@email.com" />
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && loginPassword()} style={inpErr(!emailValid)} placeholder="your@email.com" />
               </div>
               <div>
                 <label style={lbl}>Password</label>
                 {/* F35.10 — Show/Hide password eye icon */}
                 <div style={{ position: 'relative' }}>
-                  <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && loginPassword()} style={{ ...inp, paddingRight: 42 }} className="pr-input" placeholder="••••••••" />
+                  <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && loginPassword()} style={{ ...inp, paddingRight: 42 }} placeholder="••••••••" />
                   <button type="button" onClick={() => setShowPass(p => !p)} style={eyeBtn}>{showPass ? '🙈' : '👁️'}</button>
                 </div>
               </div>
@@ -123,7 +122,7 @@ export default function LoginPage() {
             <div style={{ textAlign: 'right', marginBottom: 16 }}>
               <a href="/forgot-password" style={{ color: T.pri, fontSize: 12, fontWeight: 600, textDecoration: 'underline' }}>Forgot Password? →</a>
             </div>
-            <button onClick={loginPassword} disabled={loading || !email || !password} className="pr-btn" style={btnPri(loading || !email || !password)}>{loading ? 'Logging in...' : 'Login →'}</button>
+            <button onClick={loginPassword} disabled={loading || !email || !password} style={btnPri(loading || !email || !password)}>{loading ? 'Logging in...' : 'Login →'}</button>
           </>
         )}
 
@@ -131,18 +130,18 @@ export default function LoginPage() {
           <>
             <div style={{ marginBottom: 13 }}>
               <label style={lbl}>Email</label>
-              <input type="email" value={otpEmail} onChange={e => setOtpEmail(e.target.value)} style={inp} className="pr-input" placeholder="your@email.com" disabled={otpSent} />
+              <input type="email" value={otpEmail} onChange={e => setOtpEmail(e.target.value)} style={inp} placeholder="your@email.com" disabled={otpSent} />
             </div>
             {!otpSent ? (
-              <button onClick={sendLoginOtp} disabled={loading || !otpEmail} className="pr-btn" style={btnPri(loading || !otpEmail)}>{loading ? 'Sending OTP...' : 'Send OTP →'}</button>
+              <button onClick={sendLoginOtp} disabled={loading || !otpEmail} style={btnPri(loading || !otpEmail)}>{loading ? 'Sending OTP...' : 'Send OTP →'}</button>
             ) : (
               <>
                 <div style={{ marginBottom: 13 }}>
                   <label style={lbl}>Enter OTP</label>
-                  <input value={loginOtp} onChange={e => setLoginOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} style={{ ...inp, fontSize: 24, fontWeight: 900, textAlign: 'center', letterSpacing: 10, fontFamily: 'monospace' }} className="pr-input" placeholder="000000" maxLength={6} inputMode="numeric" />
+                  <input value={loginOtp} onChange={e => setLoginOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} style={{ ...inp, fontSize: 24, fontWeight: 900, textAlign: 'center', letterSpacing: 10, fontFamily: 'monospace' }} placeholder="000000" maxLength={6} inputMode="numeric" />
                   <div style={{ fontSize: 11, color: T.sub, marginTop: 5, textAlign: 'center' }}>OTP sent to {otpEmail} · <button onClick={sendLoginOtp} style={linkBtn}>Resend</button></div>
                 </div>
-                <button onClick={loginWithOtp} disabled={loading || loginOtp.length !== 6} className="pr-btn" style={btnSuc(loading || loginOtp.length !== 6)}>{loading ? 'Verifying...' : '✅ Login with OTP →'}</button>
+                <button onClick={loginWithOtp} disabled={loading || loginOtp.length !== 6} style={btnSuc(loading || loginOtp.length !== 6)}>{loading ? 'Verifying...' : '✅ Login with OTP →'}</button>
                 <button onClick={() => { setOtpSent(false); setLoginOtp(''); clearAll() }} style={backBtn}>← Change Email</button>
               </>
             )}
@@ -159,7 +158,7 @@ const lbl: any = { fontSize: 11, color: T.pri, fontWeight: 600, display: 'block'
 const eyeBtn: any = { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 4 }
 const linkBtn: any = { background: 'none', border: 'none', color: T.pri, fontSize: 11, cursor: 'pointer', fontFamily: 'Inter,sans-serif', fontWeight: 600, padding: 0 }
 const backBtn: any = { width: '100%', marginTop: 10, padding: '8px', background: 'none', border: `1px solid ${T.cardBorder}`, borderRadius: 9, color: T.sub, cursor: 'pointer', fontSize: 12, fontFamily: 'Inter,sans-serif' }
-const errBox: any = { background: 'rgba(255,71,87,.12)', border: `1px solid rgba(255,71,87,.3)`, borderRadius: 9, padding: '10px 14px', fontSize: 13, color: T.danger, marginBottom: 14, textAlign: 'center' }
-const okBox: any = { background: 'rgba(0,196,140,.1)', border: `1px solid rgba(0,196,140,.3)`, borderRadius: 9, padding: '10px 14px', fontSize: 13, color: T.success, marginBottom: 14, textAlign: 'center' }
-function btnPri(disabled: boolean): any { return { width: '100%', padding: '13px', background: `linear-gradient(135deg,${T.pri},${T.cyan})`, color: T.dark, border: 'none', borderRadius: 12, cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'Inter,sans-serif', opacity: disabled ? .6 : 1, boxShadow: '0 4px 16px rgba(77,159,255,0.35)' } }
-function btnSuc(disabled: boolean): any { return { width: '100%', padding: '13px', background: disabled ? 'rgba(107,139,175,.15)' : `linear-gradient(135deg,${T.success},#00a87a)`, color: disabled ? T.sub : T.dark, border: 'none', borderRadius: 12, cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'Inter,sans-serif', opacity: disabled ? .6 : 1 } }
+const errBox: any = { background: 'rgba(255,77,77,.12)', border: '1px solid rgba(255,77,77,.3)', borderRadius: 9, padding: '10px 14px', fontSize: 13, color: '#FF4D4D', marginBottom: 14, textAlign: 'center' }
+const okBox: any = { background: 'rgba(0,196,140,.1)', border: '1px solid rgba(0,196,140,.3)', borderRadius: 9, padding: '10px 14px', fontSize: 13, color: '#00C48C', marginBottom: 14, textAlign: 'center' }
+function btnPri(disabled: boolean): any { return { width: '100%', padding: '13px', background: `linear-gradient(135deg,${T.pri},#0D9488)`, color: '#001A1A', border: 'none', borderRadius: 12, cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'Inter,sans-serif', opacity: disabled ? .6 : 1, boxShadow: '0 4px 16px rgba(45,212,191,0.4)' } }
+function btnSuc(disabled: boolean): any { return { width: '100%', padding: '13px', background: disabled ? 'rgba(94,234,212,.15)' : 'linear-gradient(135deg,#00C48C,#00a87a)', color: disabled ? T.sub : '#001A1A', border: 'none', borderRadius: 12, cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'Inter,sans-serif', opacity: disabled ? .6 : 1 } }
