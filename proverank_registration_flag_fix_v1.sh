@@ -1,3 +1,35 @@
+#!/bin/bash
+# ProveRank — Fix: Registration status showing "Closed" even when N21 flag is ON
+# Root cause: 3 separate bugs found in src/routes/auth.js —
+#   1) GET /registration-status checked FeatureFlag key 'student_registration'
+#      but N21 panel + registration-control route write key 'open_registration'
+#      → status route always read a non-existent/stale document.
+#   2) Legacy POST /admin/registration-control wrote field `value` instead of
+#      the schema's `enabled` field, using a bare (non-$set) update object —
+#      which REPLACES the whole document, silently wiping enabled/label/desc.
+#   3) POST /register only checked in-memory global.featureFlags — after a
+#      Render free-tier spin-down restart this resets, silently reopening
+#      registration submission even if DB says closed. Added a DB fallback.
+# Fix: unify everything on key 'open_registration' + correct $set usage.
+# No other route/feature touched.
+set -e
+
+cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
+
+echo "🔎 Locating src/routes/auth.js via grep..."
+AUTHJS=$(grep -rl "registration-status" --include="*.js" . 2>/dev/null | grep -v node_modules | head -1)
+echo "auth.js : ${AUTHJS:-NOT FOUND}"
+
+if [ -z "$AUTHJS" ]; then
+  echo "❌ auth.js not found. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$AUTHJS" "${AUTHJS}.bak_${TS}"
+echo "✅ Backup created (.bak_${TS})"
+
+cat > "$AUTHJS" << 'EOF_AUTHJS'
 const express = require('express')
 const router  = express.Router()
 const bcrypt  = require('bcrypt')
@@ -915,3 +947,12 @@ router.post('/checklist/complete', async (req, res) => {
 
 module.exports = router
 // trigger redeploy Fri Jul  3 10:17:03 AM UTC 2026
+EOF_AUTHJS
+echo "✅ auth.js updated: $AUTHJS"
+echo ""
+echo "🧪 Test after this:"
+echo "  1) N21 panel me 'Student Registration' toggle OFF karo -> /register page reload karo -> fields read-only + closed banner dikhna chahiye"
+echo "  2) Toggle ON karo -> /register reload -> form fully usable"
+echo "  3) Server restart hone ke baad bhi (Render spin-down) status sahi rehna chahiye — ab DB se fallback leta hai"
+echo ""
+echo "▶ Restart backend to load new code: cd ~/workspace && node src/index.js"

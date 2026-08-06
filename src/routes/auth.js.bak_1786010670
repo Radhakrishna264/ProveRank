@@ -14,18 +14,7 @@ const genOTP = () => String(Math.floor(100000 + Math.random() * 900000))
 // ── REGISTER ──────────────────────────────────────────────────────
 router.post('/register', async (req, res) => {
   try {
-    // F-REG-FIX: check in-memory flag first; if not set yet (e.g. right after a
-    // Render free-tier spin-down restart, before /admin/features has repopulated
-    // global.featureFlags), fall back to the DB so a closed registration can't
-    // silently reopen after a server restart.
-    let regFlag = global.featureFlags?.['open_registration']
-    if (regFlag === undefined) {
-      try {
-        const FeatureFlag = require('../models/FeatureFlag')
-        const dbFlag = await FeatureFlag.findOne({ key: 'open_registration' })
-        regFlag = dbFlag ? dbFlag.enabled === true : true
-      } catch (_e) { regFlag = true }
-    }
+    const regFlag = global.featureFlags?.['open_registration']
     if (regFlag === false) {
       return res.status(403).json({ message: 'Registration is currently closed. Please contact admin.' })
     }
@@ -724,16 +713,9 @@ router.post('/admin/registration-control', async (req, res) => {
     global.featureFlags['open_registration'] = Boolean(enabled)
     try {
       const FF = require('../models/FeatureFlag')
-      // F-REG-FIX: correct field name is `enabled` (per FeatureFlag schema),
-      // and $set/$setOnInsert instead of a bare replacement object — a bare
-      // object here would REPLACE the whole document and silently drop
-      // enabled/label/description on every call.
       await FF.findOneAndUpdate(
         { key: 'open_registration' },
-        {
-          $set: { enabled: Boolean(enabled), updatedAt: new Date() },
-          $setOnInsert: { key: 'open_registration', label: 'Student Registration', description: 'Allow new student registrations. Toggle OFF to close (Superadmin only)' },
-        },
+        { key: 'open_registration', value: Boolean(enabled) },
         { upsert: true }
       )
     } catch(e) {}
@@ -787,11 +769,7 @@ router.get('/registration-status', async (req, res) => {
     let open = true
     try {
       const FeatureFlag = require('../models/FeatureFlag')
-      // F-REG-FIX: key must match what N21 panel + registration-control route
-      // actually write ('open_registration'). It was 'student_registration'
-      // here, a key nothing else ever wrote to — so this always read a
-      // stale/non-existent document instead of the real toggle state.
-      const flag = await FeatureFlag.findOne({ key: 'open_registration' })
+      const flag = await FeatureFlag.findOne({ key: 'student_registration' })
       if (flag) open = flag.enabled === true
     } catch (_e) {
       // FeatureFlag model not available — default open
