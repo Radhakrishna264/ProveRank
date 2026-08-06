@@ -1,3 +1,23 @@
+#!/bin/bash
+# ProveRank — Register page: show fields in read-only mode + closed banner when registration is off
+set -e
+
+cd ~/workspace/frontend 2>/dev/null || cd ~/workspace 2>/dev/null || { echo "❌ workspace not found — run this from ~/workspace"; exit 1; }
+
+echo "🔎 Locating register page via grep..."
+REGISTERPAGE=$(grep -rl "verifyOtp" --include="*.tsx" . 2>/dev/null | head -1)
+echo "Register page : ${REGISTERPAGE:-NOT FOUND}"
+
+if [ -z "$REGISTERPAGE" ]; then
+  echo "❌ Register page not found. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$REGISTERPAGE" "${REGISTERPAGE}.bak_${TS}"
+echo "✅ Backup created (.bak_${TS})"
+
+cat > "$REGISTERPAGE" << 'EOF_REGISTER'
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -293,3 +313,9 @@ const errBox: any = { background: 'rgba(255,71,87,.12)', border: `1px solid rgba
 const okBox: any = { background: 'rgba(0,196,140,.1)', border: `1px solid rgba(0,196,140,.3)`, borderRadius: 9, padding: '10px 14px', fontSize: 13, color: T.success, marginBottom: 14, textAlign: 'center' }
 function btnPri(disabled: boolean): any { return { width: '100%', padding: '13px', background: `linear-gradient(135deg,${T.pri},${T.cyan})`, color: T.dark, border: 'none', borderRadius: 12, cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'Inter,sans-serif', opacity: disabled ? .6 : 1, boxShadow: '0 4px 16px rgba(77,159,255,0.35)' } }
 function btnSuc(disabled: boolean): any { return { width: '100%', padding: '13px', background: disabled ? 'rgba(107,139,175,.15)' : `linear-gradient(135deg,${T.success},#00a87a)`, color: disabled ? T.sub : T.dark, border: 'none', borderRadius: 12, cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'Inter,sans-serif', opacity: disabled ? .6 : 1 } }
+EOF_REGISTER
+echo "✅ Register page updated: $REGISTERPAGE"
+echo "   → When registration is OFF: all fields visible but read-only/disabled, red closed-banner on top."
+echo "   → When registration is ON: form works exactly as before — no logic changed."
+echo ""
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (then check /register)"
