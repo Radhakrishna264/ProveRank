@@ -1,5 +1,5 @@
 'use client'
-import React,{createContext,useContext,useState,useEffect,useCallback,ReactNode}from 'react'
+import React,{createContext,useContext,useState,useEffect,useCallback,useRef,ReactNode}from 'react'
 import{useRouter}from 'next/navigation'
 
 const API=process.env.NEXT_PUBLIC_API_URL||'https://proverank.onrender.com'
@@ -19,22 +19,33 @@ export function PRLogo({size=40}:{size?:number}){
   return(<div style={{position:'relative',width:b,height:b,flexShrink:0,display:'inline-flex'}}><div style={{position:'absolute',top:0,left:0,width:p,height:p,borderRadius:rd,background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:f,fontWeight:900,fontFamily:'Inter,sans-serif',color:'#030810',boxShadow:'0 4px 16px rgba(77,159,255,0.4)'}}>P</div><div style={{position:'absolute',bottom:0,right:0,width:r,height:r,borderRadius:rd,background:'rgba(0,212,255,0.1)',border:'1.5px solid rgba(0,212,255,0.45)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:f,fontWeight:900,fontFamily:'Inter,sans-serif',color:'#00D4FF',backdropFilter:'blur(8px)'}}>R</div></div>)
 }
 
-// Ultra Premium ambient background — CSS-only aurora glow + fine mesh grid.
-// Replaces the old canvas particle/star/connecting-line animation: no moving
-// dots, no requestAnimationFrame loop, no resize listener — just a few soft
-// brand-colour glow orbs that slowly breathe/drift, plus a faint grid
-// texture. Same component name (GalaxyBg) so the existing render call
-// ({th.showGalaxy&&<GalaxyBg/>}) and both theme configs need no changes.
 function GalaxyBg(){
-  return(
-    <div aria-hidden style={{position:'fixed',inset:0,pointerEvents:'none',zIndex:0,overflow:'hidden'}}>
-      <div style={{position:'absolute',inset:0,backgroundImage:'linear-gradient(rgba(77,159,255,0.035) 1px, transparent 1px),linear-gradient(90deg, rgba(77,159,255,0.035) 1px, transparent 1px)',backgroundSize:'44px 44px'}}/>
-      <div style={{position:'absolute',top:'6%',left:'4%',width:360,height:360,borderRadius:'50%',background:'radial-gradient(circle, rgba(77,159,255,0.11), transparent 70%)',filter:'blur(55px)',animation:'prOrbPulse 10s ease-in-out infinite, prOrbDrift 17s ease-in-out infinite'}}/>
-      <div style={{position:'absolute',bottom:'8%',right:'5%',width:400,height:400,borderRadius:'50%',background:'radial-gradient(circle, rgba(167,139,250,0.09), transparent 70%)',filter:'blur(65px)',animation:'prOrbPulse 12s ease-in-out infinite 2.2s, prOrbDrift 21s ease-in-out infinite 3s'}}/>
-      <div style={{position:'absolute',top:'52%',left:'46%',width:270,height:270,borderRadius:'50%',background:'radial-gradient(circle, rgba(255,100,157,0.05), transparent 70%)',filter:'blur(60px)',animation:'prOrbPulse 14s ease-in-out infinite 4.4s, prOrbDrift 19s ease-in-out infinite 1.5s'}}/>
-      <div style={{position:'absolute',bottom:'16%',left:'36%',width:310,height:310,borderRadius:'50%',background:'radial-gradient(circle, rgba(0,196,140,0.06), transparent 70%)',filter:'blur(58px)',animation:'prOrbPulse 11s ease-in-out infinite 1.1s, prOrbDrift 15s ease-in-out infinite 6s'}}/>
-    </div>
-  )
+  const ref=useRef<HTMLCanvasElement>(null)
+  useEffect(()=>{
+    const canvas=ref.current;if(!canvas)return
+    const ctx=canvas.getContext('2d');if(!ctx)return
+    const resize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight};resize()
+    const stars=Array.from({length:220},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.6+0.2,op:Math.random()*0.7+0.1,tw:Math.random()*0.018+0.004,ph:Math.random()*Math.PI*2,col:Math.random()>0.85?'rgba(255,215,100,':'rgba(200,218,255,'}))
+    const parts=Array.from({length:65},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*1.8+0.4,op:Math.random()*.25+.04}))
+    const spiral:any[]=[];for(let a=0;a<2;a++)for(let i=0;i<80;i++){const t=i/80,angle=a*Math.PI+t*Math.PI*3,rad=t*Math.min(canvas.width,canvas.height)*0.22;spiral.push({x:canvas.width/2+rad*Math.cos(angle)+(Math.random()-.5)*30,y:canvas.height/2+rad*Math.sin(angle)+(Math.random()-.5)*30,r:Math.random()*1.2+0.3,op:Math.random()*0.3+0.05})}
+    let sx=-100,sy=-100,sA=false,sT=0,sVx=0,sVy=0
+    const shoot=()=>{sx=Math.random()*canvas.width*.6;sy=Math.random()*canvas.height*.25;sVx=3+Math.random()*4;sVy=1+Math.random()*2;sA=true;sT=0;setTimeout(shoot,3000+Math.random()*7000)}
+    setTimeout(shoot,2500)
+    let animId:number
+    const draw=()=>{
+      ctx.clearRect(0,0,canvas.width,canvas.height)
+      ;[{x:canvas.width*.08,y:canvas.height*.18,r:220,c:'rgba(77,159,255,0.05)'},{x:canvas.width*.88,y:canvas.height*.72,r:280,c:'rgba(167,139,250,0.04)'},{x:canvas.width*.5,y:canvas.height*.5,r:180,c:'rgba(255,100,157,0.02)'},{x:canvas.width*.4,y:canvas.height*.85,r:200,c:'rgba(0,196,140,0.03)'}].forEach(n=>{const g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r);g.addColorStop(0,n.c);g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,Math.PI*2);ctx.fill()})
+      spiral.forEach(s=>{ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle='rgba(180,210,255,'+s.op+')';ctx.fill()})
+      stars.forEach(s=>{s.ph+=s.tw;const op=s.op*(0.55+0.45*Math.sin(s.ph));ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle=s.col+op+')';ctx.fill()})
+      if(sA){sT+=0.05;sx+=sVx;sy+=sVy;if(sT<1){const tail=80,grd=ctx.createLinearGradient(sx-tail*sVx/5,sy-tail*sVy/5,sx,sy);grd.addColorStop(0,'rgba(255,255,255,0)');grd.addColorStop(1,'rgba(255,255,255,0.85)');ctx.strokeStyle=grd;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(sx-tail*sVx/5,sy-tail*sVy/5);ctx.lineTo(sx,sy);ctx.stroke();const gl=ctx.createRadialGradient(sx,sy,0,sx,sy,4);gl.addColorStop(0,'rgba(255,255,255,0.6)');gl.addColorStop(1,'transparent');ctx.fillStyle=gl;ctx.beginPath();ctx.arc(sx,sy,4,0,Math.PI*2);ctx.fill()}else sA=false;if(sx>canvas.width+100||sy>canvas.height+100)sA=false}
+      parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0;if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle='rgba(77,159,255,'+p.op+')';ctx.fill()})
+      for(let i=0;i<parts.length;i++)for(let j=i+1;j<parts.length;j++){const dx=parts[i].x-parts[j].x,dy=parts[i].y-parts[j].y,d=Math.sqrt(dx*dx+dy*dy);if(d<110){ctx.beginPath();ctx.moveTo(parts[i].x,parts[i].y);ctx.lineTo(parts[j].x,parts[j].y);ctx.strokeStyle='rgba(77,159,255,'+(0.07*(1-d/110))+')';ctx.lineWidth=.5;ctx.stroke()}}
+      animId=requestAnimationFrame(draw)
+    }
+    draw();window.addEventListener('resize',resize)
+    return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',resize)}
+  },[])
+  return <canvas ref={ref} style={{position:'fixed',inset:0,pointerEvents:'none',zIndex:0}}/>
 }
 
 // ── Navigation — grouped for a cleaner sidebar (all existing features kept, none removed) ──
@@ -192,9 +203,6 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
           @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap');
           @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
           @keyframes gradMove{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-          @keyframes prOrbPulse{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
-          @keyframes prOrbDrift{0%,100%{transform:translate(0,0)}50%{transform:translate(16px,-12px)}}
-          @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
           *{box-sizing:border-box}
           ::-webkit-scrollbar{width:4px}
           ::-webkit-scrollbar-thumb{background:rgba(77,159,255,.4);border-radius:4px}

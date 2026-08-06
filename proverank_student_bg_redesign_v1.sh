@@ -1,3 +1,28 @@
+#!/bin/bash
+# ProveRank — Student Panel: remove particle-web canvas background,
+# replace with Ultra Premium CSS-only ambient glow (no motion clutter).
+# Fix is inside StudentShell.tsx (GalaxyBg component) — since every Student
+# Panel page (Dashboard, My Batches, Profile, Exam/Webcam, etc.) renders
+# inside <StudentShell>, this single file covers ALL of them.
+# No sidebar/nav/theme/logic touched — only the background component.
+set -e
+
+cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
+
+echo "🔎 Locating StudentShell.tsx via grep..."
+SHELLFILE=$(grep -rl "export default function StudentShell" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+echo "StudentShell.tsx : ${SHELLFILE:-NOT FOUND}"
+
+if [ -z "$SHELLFILE" ]; then
+  echo "❌ StudentShell.tsx not found. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$SHELLFILE" "${SHELLFILE}.bak_${TS}"
+echo "✅ Backup created (.bak_${TS})"
+
+cat > "$SHELLFILE" << 'EOF_STUDENTSHELL'
 'use client'
 import React,{createContext,useContext,useState,useEffect,useCallback,ReactNode}from 'react'
 import{useRouter}from 'next/navigation'
@@ -292,3 +317,14 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
     </ShellCtx.Provider>
   )
 }
+EOF_STUDENTSHELL
+echo "✅ StudentShell.tsx updated: $SHELLFILE"
+echo ""
+echo "🎨 Old canvas particle-web/stars/shooting-star animation removed."
+echo "   New: static-position, slow-breathing brand-colour glow orbs + faint"
+echo "   grid texture — CSS only, no canvas, no requestAnimationFrame loop,"
+echo "   respects prefers-reduced-motion."
+echo "   Applies to every Student Panel page automatically (all use StudentShell)."
+echo "   Sidebar / nav / theme toggle / maintenance screen — untouched."
+echo ""
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check Dashboard, My Batches, Profile — dark mode)"
