@@ -1,3 +1,35 @@
+#!/bin/bash
+# ProveRank — Admin/SuperAdmin Panel topbar: Ultra Premium redesign with
+# Golden accent theme.
+#   - Gold gradient hairline under the header
+#   - Hamburger: crisp SVG icon in a gold-tinted gradient tile
+#   - Role badge → solid chip: gold for SuperAdmin, blue for Admin
+#     (preserves the existing role distinction, just made it a proper chip)
+#   - Right side (notifs/refresh/logout) grouped into one premium capsule
+#   - Fixed a pre-existing duplicate `style` prop bug on the notif button
+#   - Desktop (≥768px): brand block now centers in the topbar (extended
+#     the existing #pr-nav-desktop-styles injection already in the file)
+# Logout button's hover color-swap logic (onMouseEnter/onMouseLeave) is
+# untouched — same imperative handlers, just restyled base look.
+# File: the single admin/superadmin page (app/admin/x7k2p/page.tsx).
+set -e
+
+cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
+
+echo "🔎 Locating admin panel page via grep..."
+ADMINPAGE=$(grep -rl "pr-nav-desktop-styles" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+echo "Admin page : ${ADMINPAGE:-NOT FOUND}"
+
+if [ -z "$ADMINPAGE" ]; then
+  echo "❌ Admin panel page not found. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$ADMINPAGE" "${ADMINPAGE}.bak_${TS}"
+echo "✅ Backup created (.bak_${TS})"
+
+cat > "$ADMINPAGE" << 'EOF_ADMINPAGE'
 'use client'
 import BatchManagerUltra from './BatchManagerUltra'
 import TestSeriesManagerUltra from './TestSeriesManagerUltra'
@@ -4998,3 +5030,10 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 </div>
   )
 }// deploy Sun May 31 01:52:47 AM UTC 2026
+EOF_ADMINPAGE
+echo "✅ Admin panel page updated: $ADMINPAGE"
+echo ""
+echo "🎨 Admin/SuperAdmin topbar: golden accent theme, grouped action capsule,"
+echo "   solid role-chip (gold=SuperAdmin, blue=Admin), desktop brand centering."
+echo ""
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check /admin/x7k2p as both roles, mobile + desktop)"
