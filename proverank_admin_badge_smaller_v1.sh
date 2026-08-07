@@ -1,3 +1,26 @@
+#!/bin/bash
+# ProveRank — Admin/SuperAdmin topbar role tag: redesigned smaller +
+# lighter (was a bold solid pill competing visually with "ProveRank").
+# Now: thin outline label + tiny dot, small text — clearly subordinate
+# to the brand wordmark in size, both on mobile and desktop.
+set -e
+
+cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
+
+echo "🔎 Locating admin panel page via grep..."
+ADMINPAGE=$(grep -rl "pr-nav-desktop-styles" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+echo "Admin page : ${ADMINPAGE:-NOT FOUND}"
+
+if [ -z "$ADMINPAGE" ]; then
+  echo "❌ Admin panel page not found. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$ADMINPAGE" "${ADMINPAGE}.bak_${TS}"
+echo "✅ Backup created (.bak_${TS})"
+
+cat > "$ADMINPAGE" << 'EOF_ADMINPAGE2'
 'use client'
 import BatchManagerUltra from './BatchManagerUltra'
 import TestSeriesManagerUltra from './TestSeriesManagerUltra'
@@ -4998,3 +5021,10 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 </div>
   )
 }// deploy Sun May 31 01:52:47 AM UTC 2026
+EOF_ADMINPAGE2
+echo "✅ Admin panel page updated: $ADMINPAGE"
+echo ""
+echo "🎨 Role tag now a small outline label — clearly smaller than ProveRank,"
+echo "   on both mobile and desktop."
+echo ""
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check /admin/x7k2p)"

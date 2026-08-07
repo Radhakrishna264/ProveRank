@@ -1106,7 +1106,7 @@ export default function AdminPanel() {
     if(document.getElementById(id))return;
     const s=document.createElement('style');
     s.id=id;
-    s.textContent='@media(min-width:768px){#pr-top-nav{height:68px!important;}#pr-top-nav>div:first-child{gap:20px!important;}#pr-top-nav>div:first-child>button:first-child{width:44px!important;height:44px!important;}#pr-top-nav>div:last-child{gap:14px!important;}#pr-top-nav>div:last-child button{min-width:42px!important;height:42px!important;border-radius:10px!important;}#pr-top-nav .pr-brand-name{font-size:16px!important;}#pr-top-nav .pr-role-tag{font-size:8px!important;letter-spacing:1.2px!important;}#pr-top-nav .pr-brand{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;z-index:1;}}';
+    s.textContent='@media(min-width:768px){#pr-top-nav{height:68px!important;}#pr-top-nav>div:first-child{gap:20px!important;}#pr-top-nav>div:first-child>button:first-child{width:44px!important;height:44px!important;}#pr-top-nav>div:last-child{gap:14px!important;}#pr-top-nav>div:last-child button{min-width:42px!important;height:42px!important;border-radius:10px!important;}#pr-top-nav .pr-brand-name{font-size:16px!important;}#pr-top-nav .pr-role-tag{font-size:11px!important;letter-spacing:1.5px!important;}#pr-top-nav .pr-brand{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;z-index:1;}}';
     document.head.appendChild(s);
     return()=>{const el=document.getElementById(id);if(el)el.remove();};
   },[]);
@@ -2394,10 +2394,10 @@ const confirmAndAdd=useCallback(async()=>{
               <div className="pr-brand-name" style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:13,background:`linear-gradient(90deg,${ACC},#fff)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',lineHeight:1,whiteSpace:'nowrap'}}>
                 ProveRank
               </div>
-              {/* Role tag — small outline label, clearly smaller than "ProveRank" */}
-              <div style={{display:'inline-flex',alignItems:'center',gap:3,padding:'1.5px 6px',borderRadius:5,whiteSpace:'nowrap',background:role==='superadmin'?'rgba(255,215,0,0.08)':'rgba(77,159,255,0.08)',border:`1px solid ${role==='superadmin'?'rgba(255,215,0,0.45)':'rgba(77,159,255,0.4)'}`}}>
-                <span style={{width:3.5,height:3.5,borderRadius:'50%',flexShrink:0,background:role==='superadmin'?GOLD:ACC}}/>
-                <span className="pr-role-tag" style={{fontSize:6.5,fontWeight:800,letterSpacing:1,color:role==='superadmin'?GOLD:ACC}}>{role.toUpperCase()}</span>
+              {/* Role chip — solid surface, gold for SuperAdmin, blue for Admin */}
+              <div className="pr-role-tag" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'2.5px 9px 2.5px 7px',borderRadius:20,whiteSpace:'nowrap',background:role==='superadmin'?'linear-gradient(135deg,#B8860B,#FFD700)':'linear-gradient(135deg,#2E5FA3,#4D9FFF)',boxShadow:role==='superadmin'?'0 2px 10px rgba(255,215,0,.35)':'0 2px 10px rgba(77,159,255,.35)'}}>
+                <span style={{fontSize:9}}>⚡</span>
+                <span style={{fontSize:9,fontWeight:800,letterSpacing:1,color:role==='superadmin'?'#241a00':'#fff'}}>{role.toUpperCase()}</span>
               </div>
             </div>
           </div>
