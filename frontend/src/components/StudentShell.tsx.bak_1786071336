@@ -1,28 +1,3 @@
-#!/bin/bash
-# ProveRank — Student Panel Topbar: Ultra Premium redesign
-# (grouped action capsule, gradient accent hairline, refined logo lockup,
-# crisp SVG hamburger/logout icons instead of plain bordered squares).
-# Same file as the earlier background fix — this includes both changes.
-# Zero logic/handler/href changes — theme toggle, lang toggle, bell,
-# notifications count, logout, sidebar drawer — all identical behavior.
-set -e
-
-cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
-
-echo "🔎 Locating StudentShell.tsx via grep..."
-SHELLFILE=$(grep -rl "export default function StudentShell" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
-echo "StudentShell.tsx : ${SHELLFILE:-NOT FOUND}"
-
-if [ -z "$SHELLFILE" ]; then
-  echo "❌ StudentShell.tsx not found. Aborting — no changes made."
-  exit 1
-fi
-
-TS=$(date +%s)
-cp "$SHELLFILE" "${SHELLFILE}.bak_${TS}"
-echo "✅ Backup created (.bak_${TS})"
-
-cat > "$SHELLFILE" << 'EOF_STUDENTSHELL2'
 'use client'
 import React,{createContext,useContext,useState,useEffect,useCallback,ReactNode}from 'react'
 import{useRouter}from 'next/navigation'
@@ -323,14 +298,3 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
     </ShellCtx.Provider>
   )
 }
-EOF_STUDENTSHELL2
-echo "✅ StudentShell.tsx updated: $SHELLFILE"
-echo ""
-echo "🎨 Topbar redesigned:"
-echo "   - Right side actions grouped into one premium glass capsule (theme/lang/bell/logout)"
-echo "   - Gradient blue→cyan accent hairline under the header"
-echo "   - Hamburger + logout now crisp SVG icons in soft gradient tiles"
-echo "   - Logo gets a subtle glow in dark mode, badge lockup refined"
-echo "   - Works in both Light and Dark mode"
-echo ""
-echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check any Student Panel page, both themes)"

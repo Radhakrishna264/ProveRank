@@ -1,3 +1,32 @@
+#!/bin/bash
+# ProveRank — Topbar Ultra Smooth upgrade v2:
+#   1) Desktop (≥769px): Logo + "ProveRank" + role badge now perfectly
+#      centered in the topbar (was left-aligned next to hamburger).
+#      Mobile view unchanged — logo stays next to hamburger.
+#   2) STUDENT/PARENT role badge completely redesigned — premium blue/violet
+#      glass "chip" with glow-dot + shimmer text, replacing the old plain
+#      green badge. NO gold used anywhere (reserved for a future Premium
+#      student tier, per instruction).
+# Same file as the earlier background + topbar-capsule fixes — cumulative.
+# Zero logic/handler changes.
+set -e
+
+cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
+
+echo "🔎 Locating StudentShell.tsx via grep..."
+SHELLFILE=$(grep -rl "export default function StudentShell" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+echo "StudentShell.tsx : ${SHELLFILE:-NOT FOUND}"
+
+if [ -z "$SHELLFILE" ]; then
+  echo "❌ StudentShell.tsx not found. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$SHELLFILE" "${SHELLFILE}.bak_${TS}"
+echo "✅ Backup created (.bak_${TS})"
+
+cat > "$SHELLFILE" << 'EOF_STUDENTSHELL3'
 'use client'
 import React,{createContext,useContext,useState,useEffect,useCallback,ReactNode}from 'react'
 import{useRouter}from 'next/navigation'
@@ -302,3 +331,13 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
     </ShellCtx.Provider>
   )
 }
+EOF_STUDENTSHELL3
+echo "✅ StudentShell.tsx updated: $SHELLFILE"
+echo ""
+echo "🎨 Changes:"
+echo "   - Desktop: brand block (logo+name+badge) now centered in topbar"
+echo "   - Mobile: unchanged, still next to hamburger"
+echo "   - Role badge redesigned: blue/violet glass chip, glow dot, shimmer text"
+echo "   - No gold anywhere in the badge (kept free for future Premium tier)"
+echo ""
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check on a wide/desktop browser window + mobile)"
