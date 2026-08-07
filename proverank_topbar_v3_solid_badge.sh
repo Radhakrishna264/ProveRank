@@ -1,14 +1,11 @@
 #!/bin/bash
-# ProveRank — Topbar Ultra Smooth upgrade v2:
-#   1) Desktop (≥769px): Logo + "ProveRank" + role badge now perfectly
-#      centered in the topbar (was left-aligned next to hamburger).
-#      Mobile view unchanged — logo stays next to hamburger.
-#   2) STUDENT/PARENT role badge completely redesigned — premium blue/violet
-#      glass "chip" with glow-dot + shimmer text, replacing the old plain
-#      green badge. NO gold used anywhere (reserved for a future Premium
-#      student tier, per instruction).
-# Same file as the earlier background + topbar-capsule fixes — cumulative.
-# Zero logic/handler changes.
+# ProveRank — Topbar role badge v3: removed the shimmer gradient-text effect
+# (could read low-contrast, especially in Light theme). Replaced with a
+# solid indigo/violet chip — fixed white text on its own colored surface,
+# so it's always clearly readable in BOTH Light and Dark themes regardless
+# of page background. Subtle breathing glow kept, no shimmer motion on text.
+# No gold used (reserved for future Premium tier).
+# Same file as earlier fixes — cumulative, nothing else touched.
 set -e
 
 cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
@@ -26,7 +23,7 @@ TS=$(date +%s)
 cp "$SHELLFILE" "${SHELLFILE}.bak_${TS}"
 echo "✅ Backup created (.bak_${TS})"
 
-cat > "$SHELLFILE" << 'EOF_STUDENTSHELL3'
+cat > "$SHELLFILE" << 'EOF_STUDENTSHELL4'
 'use client'
 import React,{createContext,useContext,useState,useEffect,useCallback,ReactNode}from 'react'
 import{useRouter}from 'next/navigation'
@@ -239,7 +236,6 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
           .pr-shell-main img,.pr-shell-main svg,.pr-shell-main video,.pr-shell-main table{max-width:100%}
           @media(min-width:769px){.pr-shell-main:not(.immersive){padding:24px 32px 72px}}
           @media(max-width:360px){.hide-xs{display:none!important}}
-          @keyframes silverShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
           @keyframes chipPulse{0%,100%{box-shadow:0 0 6px rgba(77,159,255,.32),inset 0 0 5px rgba(167,139,250,.14)}50%{box-shadow:0 0 15px rgba(77,159,255,.75),inset 0 0 9px rgba(167,139,250,.28)}}
           @media(min-width:769px){.pr-brand{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;z-index:1}}
           @media(max-width:768px){div[style*="display:flex"][style*="flexWrap"]{row-gap:8px}}
@@ -301,10 +297,10 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
               <div style={{filter:dm?'drop-shadow(0 0 8px rgba(77,159,255,0.5))':'none',flexShrink:0}}><PRLogo size={30}/></div>
               <div style={{minWidth:0,display:'flex',flexDirection:'column',alignItems:'flex-start',gap:4}}>
                 <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,lineHeight:1,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:{color:'#2563EB'})}}>ProveRank</div>
-                {/* Premium role chip — blue/violet glass, no gold (gold reserved for future Premium tier) */}
-                <div style={{position:'relative',display:'inline-flex',alignItems:'center',gap:4,padding:'2.5px 9px 2.5px 6px',borderRadius:20,whiteSpace:'nowrap',background:dm?'linear-gradient(135deg,rgba(77,159,255,0.2),rgba(167,139,250,0.16))':'linear-gradient(135deg,rgba(37,99,235,0.13),rgba(167,139,250,0.11))',border:'1px solid rgba(77,159,255,0.45)',animation:'chipPulse 2.4s ease-in-out infinite'}}>
-                  <span style={{width:5,height:5,borderRadius:'50%',flexShrink:0,background:'linear-gradient(135deg,#4D9FFF,#A78BFA)',boxShadow:'0 0 5px #4D9FFF'}}/>
-                  <span style={{fontSize:7,fontWeight:800,letterSpacing:1.3,background:'linear-gradient(90deg,#4D9FFF,#00D4FF,#A78BFA,#00D4FF,#4D9FFF)',backgroundSize:'300% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'silverShimmer 3s linear infinite'}}>{lang==='en'?'STUDENT':'छात्र'}</span>
+                {/* Premium role chip — solid surface, always legible in Light/Dark, no gold (reserved for future Premium tier) */}
+                <div style={{position:'relative',display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px 3px 7px',borderRadius:20,whiteSpace:'nowrap',background:'linear-gradient(135deg,#3D7FE0,#6D5FD8)',boxShadow:dm?'0 2px 10px rgba(77,159,255,.4)':'0 2px 8px rgba(61,127,224,.35)',animation:'chipPulse 2.4s ease-in-out infinite'}}>
+                  <span style={{width:5,height:5,borderRadius:'50%',flexShrink:0,background:'#fff',boxShadow:'0 0 4px rgba(255,255,255,.9)'}}/>
+                  <span style={{fontSize:7.5,fontWeight:800,letterSpacing:1.3,color:'#fff'}}>{lang==='en'?'STUDENT':'छात्र'}</span>
                 </div>
               </div>
             </div>
@@ -331,13 +327,10 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
     </ShellCtx.Provider>
   )
 }
-EOF_STUDENTSHELL3
+EOF_STUDENTSHELL4
 echo "✅ StudentShell.tsx updated: $SHELLFILE"
 echo ""
-echo "🎨 Changes:"
-echo "   - Desktop: brand block (logo+name+badge) now centered in topbar"
-echo "   - Mobile: unchanged, still next to hamburger"
-echo "   - Role badge redesigned: blue/violet glass chip, glow dot, shimmer text"
-echo "   - No gold anywhere in the badge (kept free for future Premium tier)"
+echo "🎨 Role badge: solid indigo/violet chip, white text, no shimmer, no gold."
+echo "   Clearly visible in both Light and Dark theme now."
 echo ""
-echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check on a wide/desktop browser window + mobile)"
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check Light + Dark theme)"
