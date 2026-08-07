@@ -1,265 +1,163 @@
-const express = require('express');
-const router = express.Router();
 const mongoose = require('mongoose');
-const AntiCheatLog = require('../models/AntiCheatLog');
-const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'proverank_jwt_super_secret_key_2024';
+const bcrypt = require('bcrypt');
 
-function authMiddleware(req, res, next) {
-  const h = req.headers.authorization;
-  if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ message: 'Token required' });
-  try {
-    req.user = jwt.verify(h.split(' ')[1], JWT_SECRET);
-    next();
-  } catch { return res.status(401).json({ message: 'Invalid token' }); }
-}
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  phone: { type: String },
+  password: { type: String, required: true },
+  studentId: { type: String, unique: true, sparse: true, trim: true },
+  adminId: { type: String, unique: true, sparse: true, trim: true },
 
-function adminMiddleware(req, res, next) {
-  if (req.user.role !== 'superadmin' && req.user.role !== 'admin')
-    return res.status(403).json({ message: 'Admin access required' });
-  next();
-}
+  // ── F38/F39: Extended Profile Fields ──────────────────────────
+  state:              { type: String, default: '' },
+  gender:             { type: String, default: '' },
+  timezone:           { type: String, default: 'Asia/Kolkata' },
+  targetYear:         { type: String, default: '' },
+  yearOfAppearing:    { type: String, default: '' },
+  coachingInstitute:  { type: String, default: '' },
+  dob:                { type: String, default: '' },
+  city:               { type: String, default: '' },
+  bio:                { type: String, default: '', maxlength: 160 },
+  avatar:             { type: String, default: '' },
+  targetExam:         { type: String, default: '' },
+  board:              { type: String, default: '' },
+  school:             { type: String, default: '' },
+  medium:             { type: String, default: '' },
+  batch:              { type: String, default: '' },
 
-// Shared warning-count computation (dedup-aware, with 4s startup grace) —
-// used ONLY for display/proctoring-record purposes (N14, AI-6, M15). It never
-// auto-submits the attempt. Auto-submit happens ONLY on time expiry
-// (handled entirely by the /timer route + frontend countdown).
-async function computeWarningCount(attemptId, attempt) {
-  const warningEvents = ['tab_switch', 'window_blur', 'fullscreen_exit'];
-  const graceMs = 4000;
-  const graceCutoff = attempt ? new Date(new Date(attempt.startedAt).getTime() + graceMs) : new Date(0);
-  const logs = await AntiCheatLog.find({
-    attemptId: new mongoose.Types.ObjectId(attemptId),
-    eventType: { $in: warningEvents },
-    timestamp: { $gt: graceCutoff }
-  }).sort({ timestamp: 1 });
+  // ── F38: 2FA (TOTP) ────────────────────────────────────────────
+  twoFactorEnabled:     { type: Boolean, default: false },
+  twoFactorSecret:      { type: String, default: null },
+  twoFactorTempSecret:  { type: String, default: null },
 
-  let incidents = 0;
-  let lastTs = null;
-  for (const log of logs) {
-    const ts = new Date(log.timestamp).getTime();
-    if (lastTs === null || ts - lastTs > 2000) incidents++;
-    lastTs = ts;
-  }
-  return incidents;
-}
+  // ── F38: Login health / device tracking ─────────────────────────
+  failedLoginAttempts: { type: Number, default: 0 },
+  lastFailedLoginAt:   { type: Date, default: null },
+  loginCount:          { type: Number, default: 0 },
+  trustedDevices: [{
+    deviceId:   String,
+    label:      String,
+    browser:    String,
+    os:         String,
+    addedAt:    { type: Date, default: Date.now },
+    lastUsedAt: Date,
+  }],
 
-// FIX (per project owner instruction) — warnings/violations must NEVER
-// auto-submit the exam. This function only logs and reports the count for
-// admin visibility (N14 Suspicious Pattern, AI-6 Integrity Score, M15
-// Proctoring Report). autoSubmitted is always false here; the ONLY thing
-// that can auto-submit an attempt is time running out (see attemptRoutes.js
-// /timer route and the frontend countdown).
-async function checkAndAutoSubmit(attemptId, studentId) {
-  try {
-    const Attempt = mongoose.model('Attempt');
-    const attempt = await Attempt.findById(attemptId);
-    if (!attempt) return { autoSubmitted: false, warningCount: 0 };
-    const warningCount = await computeWarningCount(attemptId, attempt);
-    return { autoSubmitted: false, warningCount };
-  } catch (err) {
-    return { autoSubmitted: false, warningCount: 0 };
-  }
-}
+  // ── F38B §7 — Profile photo version history (Superadmin only view) ──
+  avatarHistory: [{
+    url:       String,
+    updatedAt: { type: Date, default: Date.now },
+    updatedBy: { type: String, default: 'self' },
+    source:    { type: String, default: 'profile_page' },
+  }],
 
-// STEP 1 — Tab Switch
-router.post('/tab-switch', authMiddleware, async (req, res) => {
-  try {
-    const { attemptId, examId, metadata } = req.body;
-    if (!attemptId || !examId) return res.status(400).json({ message: 'attemptId aur examId required' });
-    const log = await AntiCheatLog.create({
-      attemptId: new mongoose.Types.ObjectId(attemptId),
-      examId: new mongoose.Types.ObjectId(examId),
-      studentId: new mongoose.Types.ObjectId(req.user.id),
-      eventType: 'tab_switch',
-      metadata: metadata || {},
-      timestamp: new Date()
-    });
-    const r = await checkAndAutoSubmit(attemptId, req.user.id);
-    log.warningNumber = r.warningCount;
-    if (r.autoSubmitted) log.autoSubmitTriggered = true;
-    await log.save();
-    return res.status(200).json({ message: 'Tab switch logged', warningCount: r.warningCount, autoSubmitted: r.autoSubmitted, logId: log._id });
-  } catch (err) { return res.status(500).json({ message: 'Server error', error: err.message }); }
-});
+  // ── F38B §5 — Password change metadata (never the password itself) ──
+  passwordChangedAt:   { type: Date, default: null },
+  passwordChangeCount: { type: Number, default: 0 },
+  passwordResetHistory: [{
+    requestedAt: { type: Date, default: Date.now },
+    resetBy:     { type: String, default: 'self' },
+    method:      { type: String, default: 'otp' },
+  }],
 
-// STEP 2 — Window Blur
-router.post('/window-blur', authMiddleware, async (req, res) => {
-  try {
-    const { attemptId, examId, metadata } = req.body;
-    if (!attemptId || !examId) return res.status(400).json({ message: 'attemptId aur examId required' });
-    const log = await AntiCheatLog.create({
-      attemptId: new mongoose.Types.ObjectId(attemptId),
-      examId: new mongoose.Types.ObjectId(examId),
-      studentId: new mongoose.Types.ObjectId(req.user.id),
-      eventType: 'window_blur',
-      metadata: metadata || {},
-      timestamp: new Date()
-    });
-    const r = await checkAndAutoSubmit(attemptId, req.user.id);
-    log.warningNumber = r.warningCount;
-    if (r.autoSubmitted) log.autoSubmitTriggered = true;
-    await log.save();
-    return res.status(200).json({ message: 'Window blur logged', warningCount: r.warningCount, autoSubmitted: r.autoSubmitted, logId: log._id });
-  } catch (err) { return res.status(500).json({ message: 'Server error', error: err.message }); }
-});
-
-// STEP 3 — Warning Count
-router.get('/warning-count/:attemptId', authMiddleware, async (req, res) => {
-  try {
-    const { attemptId } = req.params;
-    const Attempt = mongoose.model('Attempt');
-    const attempt = await Attempt.findById(attemptId);
-    const warningCount = await computeWarningCount(attemptId, attempt);
-    const autoSub = await AntiCheatLog.findOne({ attemptId: new mongoose.Types.ObjectId(attemptId), autoSubmitTriggered: true });
-    return res.status(200).json({ attemptId, warningCount, maxWarnings: 3, autoSubmitTriggered: !!autoSub, remainingWarnings: Math.max(0, 3 - warningCount) });
-  } catch (err) { return res.status(500).json({ message: 'Server error', error: err.message }); }
-});
-
-// STEP 4 — Fullscreen Exit (S32)
-router.post('/fullscreen-exit', authMiddleware, async (req, res) => {
-  try {
-    const { attemptId, examId, metadata } = req.body;
-    if (!attemptId || !examId) return res.status(400).json({ message: 'attemptId aur examId required' });
-    const log = await AntiCheatLog.create({
-      attemptId: new mongoose.Types.ObjectId(attemptId),
-      examId: new mongoose.Types.ObjectId(examId),
-      studentId: new mongoose.Types.ObjectId(req.user.id),
-      eventType: 'fullscreen_exit',
-      metadata: metadata || { reason: 'student_exited_fullscreen' },
-      timestamp: new Date()
-    });
-    const r = await checkAndAutoSubmit(attemptId, req.user.id);
-    log.warningNumber = r.warningCount;
-    if (r.autoSubmitted) log.autoSubmitTriggered = true;
-    await log.save();
-    return res.status(200).json({ message: 'Fullscreen exit logged (S32)', warningCount: r.warningCount, autoSubmitted: r.autoSubmitted, action: r.warningCount >= 3 ? 'HIGH_VIOLATION_COUNT_RECORDED' : 'WARNING_ISSUED' });
-  } catch (err) { return res.status(500).json({ message: 'Server error', error: err.message }); }
-});
-
-router.get('/fullscreen-status/:attemptId', authMiddleware, async (req, res) => {
-  try {
-    const count = await AntiCheatLog.countDocuments({ attemptId: new mongoose.Types.ObjectId(req.params.attemptId), eventType: 'fullscreen_exit' });
-    return res.status(200).json({ attemptId: req.params.attemptId, fullscreenExitCount: count, fullscreenEnforced: true, warningLimit: 3 });
-  } catch (err) { return res.status(500).json({ message: 'Server error', error: err.message }); }
-});
-
-// STEP 5 — Watermark (S76)
-router.get('/watermark/:attemptId', authMiddleware, async (req, res) => {
-  try {
-    const User = mongoose.model('User');
-    const student = await User.findById(req.user.id).select('name email');
-    if (!student) return res.status(404).json({ message: 'Student not found' });
-    return res.status(200).json({
-      message: 'Watermark data ready (S76)',
-      watermark: {
-        studentId: req.user.id,
-        studentName: student.name,
-        studentEmail: student.email,
-        attemptId: req.params.attemptId,
-        watermarkText: student.name + ' | ' + student.email + ' | ' + new Date().toISOString().split('T')[0],
-        displayStyle: { opacity: 0.15, position: 'diagonal', fontSize: '14px', color: '#000000' },
-        generatedAt: new Date()
-      }
-    });
-  } catch (err) { return res.status(500).json({ message: 'Server error', error: err.message }); }
-});
-
-// STEP 6 — Session Lock (S112)
-router.post('/session-lock-check', authMiddleware, async (req, res) => {
-  try {
-    const { attemptId, examId, deviceFingerprint } = req.body;
-    if (!attemptId || !examId) return res.status(400).json({ message: 'attemptId aur examId required' });
-    const Attempt = mongoose.model('Attempt');
-    const attempt = await Attempt.findById(attemptId);
-    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
-    if (attempt.studentId.toString() !== req.user.id.toString()) {
-      await AntiCheatLog.create({ attemptId: new mongoose.Types.ObjectId(attemptId), examId: new mongoose.Types.ObjectId(examId), studentId: new mongoose.Types.ObjectId(req.user.id), eventType: 'multi_device', metadata: { blockedDevice: deviceFingerprint } });
-      return res.status(403).json({ message: 'Session lock — doosre device pe exam chal raha hai (S112)', sessionLocked: true });
+  // Profile history (F38 §9 — per-field internal audit trail, DB only, never shown to student)
+  profileHistory: [{
+    updatedAt:        { type: Date, default: Date.now },
+    updatedFields:    [String],
+    changes: [{
+      field:    String,
+      oldValue: mongoose.Schema.Types.Mixed,
+      newValue: mongoose.Schema.Types.Mixed,
+    }],
+    updatedBy: { type: String, default: 'self' },
+    source:    { type: String, default: 'profile_page' },
+    snapshot: {
+      name: String, phone: String, dob: String, city: String,
+      state: String, gender: String, bio: String,
+      targetExam: String, targetYear: String, board: String,
+      school: String, coachingInstitute: String,
     }
-    if (attempt.status !== 'active') return res.status(403).json({ message: 'Attempt active nahi hai', status: attempt.status, sessionLocked: false });
-    const existingMulti = await AntiCheatLog.findOne({ attemptId: new mongoose.Types.ObjectId(attemptId), eventType: 'multi_device' });
-    if (existingMulti) return res.status(403).json({ message: 'Multi-device attempt detected (S112)', sessionLocked: true });
-    return res.status(200).json({ message: 'Session valid — single device confirmed (S112)', sessionLocked: false, attemptId, studentId: req.user.id });
-  } catch (err) { return res.status(500).json({ message: 'Server error', error: err.message }); }
-});
+  }],
 
-// STEP 7 — N14: Suspicious Answer Pattern
-router.get('/suspicious-patterns/:attemptId', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const Attempt = mongoose.model('Attempt');
-    const attempt = await Attempt.findById(req.params.attemptId);
-    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
-    const suspiciousFlags = [];
-    if (attempt.answers && attempt.answers.length > 0) {
-      for (const ans of attempt.answers) {
-        if (ans.timeTaken !== undefined && ans.timeTaken < 5) {
-          suspiciousFlags.push({ type: 'TOO_FAST_ANSWER', questionId: ans.questionId, timeTaken: ans.timeTaken, threshold: 5 });
-        }
-      }
-      if (attempt.answers.length >= 10) {
-        let streak = 1, maxStreak = 1;
-        for (let i = 1; i < attempt.answers.length; i++) {
-          const p = attempt.answers[i - 1], c = attempt.answers[i];
-          if (c.selectedOption !== undefined && p.selectedOption !== undefined && c.selectedOption === p.selectedOption) {
-            streak++; maxStreak = Math.max(maxStreak, streak);
-          } else streak = 1;
-        }
-        if (maxStreak >= 10) suspiciousFlags.push({ type: 'IDENTICAL_PATTERN', maxConsecutiveStreak: maxStreak, threshold: 10 });
-      }
-    }
-    if (suspiciousFlags.length > 0) {
-      await AntiCheatLog.create({ attemptId: new mongoose.Types.ObjectId(req.params.attemptId), examId: attempt.examId, studentId: attempt.studentId, eventType: 'fast_answer', metadata: { flags: suspiciousFlags, totalFlags: suspiciousFlags.length } });
-    }
-    return res.status(200).json({ message: 'N14: Suspicious pattern analysis complete', attemptId: req.params.attemptId, isSuspicious: suspiciousFlags.length > 0, suspiciousFlags, totalFlagsFound: suspiciousFlags.length, adminAlert: suspiciousFlags.length > 0 ? 'REVIEW_REQUIRED' : 'CLEAN' });
-  } catch (err) { return res.status(500).json({ message: 'Server error', error: err.message }); }
-});
+  // Preferences
+  preferences: {
+    emailNotif:    { type: Boolean, default: true },
+    smsNotif:      { type: Boolean, default: false },
+    studyReminder: { type: Boolean, default: true },
+  },
 
-// STEP 8 — AI-6: Integrity Score
-router.get('/integrity-score/:attemptId', authMiddleware, async (req, res) => {
-  try {
-    const logs = await AntiCheatLog.find({ attemptId: new mongoose.Types.ObjectId(req.params.attemptId) });
-    const s = { tab_switch: 0, window_blur: 0, fullscreen_exit: 0, fast_answer: 0, identical_pattern: 0, ip_flag: 0, face_away: 0, multi_device: 0 };
-    for (const log of logs) {
-      if (s[log.eventType] !== undefined) s[log.eventType]++;
-      if (log.eventType === 'fast_answer' && log.metadata && log.metadata.flags) {
-        s.fast_answer += log.metadata.flags.filter(f => f.type === 'TOO_FAST_ANSWER').length;
-        if (log.metadata.flags.some(f => f.type === 'IDENTICAL_PATTERN')) s.identical_pattern++;
-      }
-    }
-    const penalties = {
-      tab_switch: s.tab_switch * 15, window_blur: s.window_blur * 10,
-      fullscreen_exit: s.fullscreen_exit * 15, fast_answer: Math.min(s.fast_answer * 5, 20),
-      identical_pattern: s.identical_pattern * 20, ip_flag: s.ip_flag * 25,
-      face_away: s.face_away * 10, multi_device: s.multi_device * 30
-    };
-    const totalPenalty = Object.values(penalties).reduce((a, b) => a + b, 0);
-    const integrityScore = Math.max(0, Math.min(100, 100 - totalPenalty));
-    const riskLevel = integrityScore < 40 ? 'HIGH' : integrityScore < 70 ? 'MEDIUM' : 'LOW';
-    const interp = integrityScore >= 90 ? 'Clean — No suspicious activity' : integrityScore >= 70 ? 'Minor — Some warnings logged' : integrityScore >= 40 ? 'Medium Risk — Review recommended' : 'High Risk — Likely cheating attempt';
-    return res.status(200).json({ message: 'AI-6: Integrity Score calculated', attemptId: req.params.attemptId, integrityScore, riskLevel, signals: s, penalties, totalPenalty, interpretation: interp });
-  } catch (err) { return res.status(500).json({ message: 'Server error', error: err.message }); }
-});
+  welcomeSeen: { type: Boolean, default: false },
+  role: {
+    type: String,
+    enum: ['superadmin', 'admin', 'student'],
+    default: 'student'
+  },
+  termsAccepted: { type: Boolean, default: false },
+  permissions: { type: Map, of: Boolean, default: {} },
+  adminFrozen: { type: Boolean, default: false },
+  group: { type: String },
+  otp: { type: String },
+  otpExpiry: { type: Date },
+  verified: { type: Boolean, default: false },
+  profilePhoto: { type: String },
+  emailVerified: { type: Boolean, default: false },
 
-// ADMIN — All logs
-router.get('/admin/logs/:attemptId', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const logs = await AntiCheatLog.find({ attemptId: new mongoose.Types.ObjectId(req.params.attemptId) }).sort({ timestamp: 1 });
-    return res.status(200).json({ message: 'Logs fetched', totalLogs: logs.length, logs });
-  } catch (err) { return res.status(500).json({ message: 'Server error', error: err.message }); }
-});
+  // OTP fields — register verify, login OTP, reset password
+  emailVerifyOTP:      { type: String, default: null },
+  emailVerifyOTPExpiry:{ type: Date,   default: null },
+  loginOTP:            { type: String, default: null },
+  loginOTPExpiry:      { type: Date,   default: null },
+  resetOTP:            { type: String, default: null },
+  resetOTPExpiry:      { type: Date,   default: null },
+  emailVerifyToken: { type: String },
+  emailVerifyExpiry: { type: Date },
+  loginHistory: [{
+    ip: String,
+    device: String,
+    time: { type: Date, default: Date.now }
+  }],
+  customFields: { type: Object },
+  banned: { type: Boolean, default: false },
+  frozen: { type: Boolean, default: false },
+  archived: { type: Boolean, default: false },
+  banReason: { type: String },
+  banExpiry: { type: Date },
+  parentEmail: { type: String },
 
-// ADMIN — Alerts summary
-router.get('/admin/alerts', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const alerts = await AntiCheatLog.aggregate([
-      { $group: { _id: '$attemptId', studentId: { $first: '$studentId' }, examId: { $first: '$examId' }, totalEvents: { $sum: 1 }, eventTypes: { $addToSet: '$eventType' }, latestEvent: { $max: '$timestamp' } } },
-      { $match: { totalEvents: { $gte: 1 } } },
-      { $sort: { totalEvents: -1 } },
-      { $limit: 50 }
-    ]);
-    return res.status(200).json({ message: 'Admin alerts fetched', totalAlerts: alerts.length, alerts });
-  } catch (err) { return res.status(500).json({ message: 'Server error', error: err.message }); }
-});
+  // ── F35: Multi-device session control + Terms tracking ─────────
+  activeSessionToken: { type: String, default: null },
+  termsAcceptedAt:    { type: Date,    default: null },
+  termsVersion:        { type: String, default: null },
 
-module.exports = router;
+  // ══════════════════════════════════════════════════════════
+  // F52-F57 v2 — Waiting Room resume tracking (Rule 1.15.3/1.15.4)
+  // NOTE: read/write via User.collection.findOne/updateOne (raw driver)
+  // to match project convention (see D-36/D-37 in Brief) — same
+  // pattern already used for enrolledBatches/enrolledBatchesMeta.
+  // ══════════════════════════════════════════════════════════
+  waitingRoomJoins: [{
+    examId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Exam' },
+    joinedAt: { type: Date, default: Date.now }
+  }],
+
+  // F52-F57 v2 — Per-exam T&C consent log (F55 §1.5/§2.5/§3.1)
+  examConsents: [{
+    examId:     { type: mongoose.Schema.Types.ObjectId, ref: 'Exam' },
+    version:    { type: String, default: '1.0' },
+    acceptedAt: { type: Date, default: Date.now }
+  }],
+
+  // F52 §7 — Per-exam reminder toggle (server-persisted)
+  examReminders: [{
+    examId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Exam' },
+    enabled:   { type: Boolean, default: true },
+    updatedAt: { type: Date, default: Date.now }
+  }],
+
+}, { timestamps: true });
+
+// password hashing removed — done in auth.js directly;
+
+if (mongoose.models.User) delete mongoose.connection.models['User'];
+module.exports = mongoose.model('User', userSchema, 'students');
