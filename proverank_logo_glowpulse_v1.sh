@@ -1,20 +1,13 @@
 #!/bin/bash
-# ProveRank — Add heartbeat pulse animation to the PRLogo, baked directly
-# into the component itself (self-contained keyframes + reduced-motion
-# support), so it automatically applies EVERYWHERE the logo is used —
-# Student Panel (topbar + sidebar), Admin/SuperAdmin Panel, Login,
-# Register, Forgot Password — no per-page changes needed.
-# Two files touched:
-#   1) components/PRLogo.tsx     — shared component (Auth pages, Admin Panel)
-#   2) src/components/StudentShell.tsx — has its own local copy of PRLogo
-#      used only inside the Student Panel shell; patched identically.
-# Rhythm: quick double "lub-dub" beat then a pause, repeating — not a
-# plain sine pulse — mimics a real heartbeat. Scale-based, no layout shift.
+# ProveRank — Cancel the heartbeat (scale) animation on PRLogo, replace
+# with a Glow Pulse effect (drop-shadow breathing) instead. Same 2 files
+# as before, same self-contained approach (applies everywhere the logo
+# renders automatically).
 set -e
 
 cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
 
-echo "🔎 Locating PRLogo.tsx (shared component) via grep..."
+echo "🔎 Locating files via grep..."
 PRLOGO=$(grep -rl "export default PRLogo" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
 SHELLFILE=$(grep -rl "export default function StudentShell" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
 
@@ -31,8 +24,7 @@ cp "$PRLOGO" "${PRLOGO}.bak_${TS}"
 cp "$SHELLFILE" "${SHELLFILE}.bak_${TS}"
 echo "✅ Backups created (.bak_${TS})"
 
-# ── 1) Shared PRLogo.tsx ─────────────────────────────────────────
-cat > "$PRLOGO" << 'EOF_PRLOGO'
+cat > "$PRLOGO" << 'EOF_PRLOGO2'
 'use client'
 
 function PRLogo({size=36}:{size?:number}) {
@@ -42,18 +34,14 @@ function PRLogo({size=36}:{size?:number}) {
   const fontSize = Math.round(pSize * 0.52)
   const radius = Math.round(pSize * 0.28)
   return (
-    <div className="pr-logo-heartbeat" style={{position:'relative',width:blockSize,height:blockSize,flexShrink:0,display:'inline-flex'}}>
+    <div className="pr-logo-glowpulse" style={{position:'relative',width:blockSize,height:blockSize,flexShrink:0,display:'inline-flex'}}>
       <style>{`
-        @keyframes prLogoHeartbeat{
-          0%{transform:scale(1)}
-          14%{transform:scale(1.09)}
-          28%{transform:scale(1)}
-          42%{transform:scale(1.09)}
-          70%{transform:scale(1)}
-          100%{transform:scale(1)}
+        @keyframes prLogoGlowPulse{
+          0%,100%{filter:drop-shadow(0 0 4px rgba(77,159,255,0.35)) drop-shadow(0 0 2px rgba(0,212,255,0.2))}
+          50%{filter:drop-shadow(0 0 16px rgba(77,159,255,0.85)) drop-shadow(0 0 8px rgba(0,212,255,0.55))}
         }
-        .pr-logo-heartbeat{animation:prLogoHeartbeat 1.9s ease-in-out infinite}
-        @media (prefers-reduced-motion: reduce){.pr-logo-heartbeat{animation:none}}
+        .pr-logo-glowpulse{animation:prLogoGlowPulse 2.6s ease-in-out infinite}
+        @media (prefers-reduced-motion: reduce){.pr-logo-glowpulse{animation:none}}
       `}</style>
       <div style={{
         position:'absolute',top:0,left:0,
@@ -81,11 +69,10 @@ function PRLogo({size=36}:{size?:number}) {
 }
 
 export default PRLogo;
-EOF_PRLOGO
+EOF_PRLOGO2
 echo "✅ PRLogo.tsx updated: $PRLOGO"
 
-# ── 2) StudentShell.tsx (local PRLogo copy) ──────────────────────
-cat > "$SHELLFILE" << 'EOF_STUDENTSHELL6'
+cat > "$SHELLFILE" << 'EOF_STUDENTSHELL7'
 'use client'
 import React,{createContext,useContext,useState,useEffect,useCallback,ReactNode}from 'react'
 import{useRouter}from 'next/navigation'
@@ -104,7 +91,7 @@ export const useShell=()=>useContext(ShellCtx)
 
 export function PRLogo({size=40}:{size?:number}){
   const b=size*0.94,p=Math.round(b*0.63),r=Math.round(b*0.63),f=Math.round(p*0.52),rd=Math.round(p*0.28)
-  return(<div className="pr-logo-heartbeat" style={{position:'relative',width:b,height:b,flexShrink:0,display:'inline-flex'}}><style>{`@keyframes prLogoHeartbeat{0%{transform:scale(1)}14%{transform:scale(1.09)}28%{transform:scale(1)}42%{transform:scale(1.09)}70%{transform:scale(1)}100%{transform:scale(1)}}.pr-logo-heartbeat{animation:prLogoHeartbeat 1.9s ease-in-out infinite}@media (prefers-reduced-motion: reduce){.pr-logo-heartbeat{animation:none}}`}</style><div style={{position:'absolute',top:0,left:0,width:p,height:p,borderRadius:rd,background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:f,fontWeight:900,fontFamily:'Inter,sans-serif',color:'#030810',boxShadow:'0 4px 16px rgba(77,159,255,0.4)'}}>P</div><div style={{position:'absolute',bottom:0,right:0,width:r,height:r,borderRadius:rd,background:'rgba(0,212,255,0.1)',border:'1.5px solid rgba(0,212,255,0.45)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:f,fontWeight:900,fontFamily:'Inter,sans-serif',color:'#00D4FF',backdropFilter:'blur(8px)'}}>R</div></div>)
+  return(<div className="pr-logo-glowpulse" style={{position:'relative',width:b,height:b,flexShrink:0,display:'inline-flex'}}><style>{`@keyframes prLogoGlowPulse{0%,100%{filter:drop-shadow(0 0 4px rgba(77,159,255,0.35)) drop-shadow(0 0 2px rgba(0,212,255,0.2))}50%{filter:drop-shadow(0 0 16px rgba(77,159,255,0.85)) drop-shadow(0 0 8px rgba(0,212,255,0.55))}}.pr-logo-glowpulse{animation:prLogoGlowPulse 2.6s ease-in-out infinite}@media (prefers-reduced-motion: reduce){.pr-logo-glowpulse{animation:none}}`}</style><div style={{position:'absolute',top:0,left:0,width:p,height:p,borderRadius:rd,background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:f,fontWeight:900,fontFamily:'Inter,sans-serif',color:'#030810',boxShadow:'0 4px 16px rgba(77,159,255,0.4)'}}>P</div><div style={{position:'absolute',bottom:0,right:0,width:r,height:r,borderRadius:rd,background:'rgba(0,212,255,0.1)',border:'1.5px solid rgba(0,212,255,0.45)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:f,fontWeight:900,fontFamily:'Inter,sans-serif',color:'#00D4FF',backdropFilter:'blur(8px)'}}>R</div></div>)
 }
 
 // Ultra Premium ambient background — CSS-only aurora glow + fine mesh grid.
@@ -397,12 +384,8 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
     </ShellCtx.Provider>
   )
 }
-EOF_STUDENTSHELL6
+EOF_STUDENTSHELL7
 echo "✅ StudentShell.tsx updated: $SHELLFILE"
-
 echo ""
-echo "💓 Heartbeat animation now baked into the logo everywhere it appears."
-echo "   If Admin Panel imports a DIFFERENT PRLogo file (not the one found"
-echo "   above), share its path and I'll patch that one too."
-echo ""
-echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check any page's logo)"
+echo "✨ Heartbeat cancelled, Glow Pulse active everywhere the logo renders."
+echo "▶ Next: cd ~/workspace/frontend && npm run dev"
