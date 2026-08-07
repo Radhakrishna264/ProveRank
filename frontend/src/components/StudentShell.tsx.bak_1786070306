@@ -260,33 +260,27 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
         </div>
 
         {/* ── HEADER ──────────────────────────────────────────── */}
-        <div style={{position:'sticky',top:0,zIndex:40,background:th.headerBg,backdropFilter:'blur(22px)',borderBottom:`1px solid ${bdr}`,minHeight:60,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 12px 0 10px',gap:8,boxShadow:dm?'0 2px 24px rgba(0,0,0,.4)':'0 2px 16px rgba(37,99,235,.08)'}}>
-          {/* premium gradient accent hairline */}
-          <div aria-hidden style={{position:'absolute',left:0,right:0,bottom:-1,height:2,background:`linear-gradient(90deg,transparent,${th.primary},#00D4FF,transparent)`,opacity:dm?.6:.4,pointerEvents:'none'}}/>
-
-          <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0}}>
-            <button onClick={()=>setSide(true)} aria-label="Open menu" style={{background:dm?'linear-gradient(135deg,rgba(77,159,255,0.16),rgba(0,212,255,0.06))':'linear-gradient(135deg,rgba(37,99,235,0.12),rgba(0,180,255,0.05))',border:`1px solid ${bdr}`,color:th.primary,cursor:'pointer',width:38,height:38,borderRadius:11,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .2s',boxShadow:dm?'0 2px 10px rgba(77,159,255,.12)':'0 2px 8px rgba(37,99,235,.08)'}} title="Menu">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-            </button>
-            <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
-              <div style={{filter:dm?'drop-shadow(0 0 8px rgba(77,159,255,0.5))':'none',flexShrink:0}}><PRLogo size={30}/></div>
-              <div style={{minWidth:0,display:'flex',flexDirection:'column',alignItems:'flex-start',gap:3}}>
-                <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,lineHeight:1,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:{color:'#2563EB'})}}>ProveRank</div>
-                <div style={{fontSize:7,fontWeight:800,letterSpacing:1.4,whiteSpace:'nowrap',padding:'1.5px 7px',borderRadius:20,border:'1.5px solid rgba(0,196,140,0.7)',background:'linear-gradient(90deg,#00A86B,#00FF88,#00C48C,#00FF88,#00A86B)',backgroundSize:'300% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'silverShimmer 2.5s linear infinite, greenBadge 2s ease-in-out infinite'}}>{lang==='en'?'STUDENT':'छात्र'}</div>
+        <div style={{position:'sticky',top:0,zIndex:40,background:th.headerBg,backdropFilter:'blur(20px)',borderBottom:`1px solid ${bdr}`,minHeight:58,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 10px 0 8px',gap:8,boxShadow:dm?'0 2px 20px rgba(0,0,0,.35)':'0 2px 14px rgba(37,99,235,.06)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
+            <button onClick={()=>setSide(true)} aria-label="Open menu" style={{background:dm?'rgba(255,255,255,0.05)':'rgba(37,99,235,0.06)',border:`1px solid ${bdr}`,color:txt,fontSize:19,cursor:'pointer',width:36,height:36,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}} title="Menu">☰</button>
+            <div style={{display:'flex',alignItems:'center',gap:7,minWidth:0}}>
+              <PRLogo size={28}/>
+              <div style={{minWidth:0}}>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+                  <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:14.5,lineHeight:1,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:{color:'#2563EB'})}}>ProveRank</div>
+                  <div style={{fontSize:7,fontWeight:800,letterSpacing:1.4,whiteSpace:'nowrap',padding:'1px 7px',borderRadius:20,border:'1.5px solid rgba(0,196,140,0.7)',background:'linear-gradient(90deg,#00A86B,#00FF88,#00C48C,#00FF88,#00A86B)',backgroundSize:'300% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'silverShimmer 2.5s linear infinite, greenBadge 2s ease-in-out infinite'}}>{lang==='en'?'STUDENT':'छात्र'}</div>
+                </div>
               </div>
             </div>
           </div>
-
-          {/* Grouped premium action capsule */}
-          <div style={{display:'flex',alignItems:'center',gap:2,flexShrink:0,padding:3,borderRadius:14,background:dm?'rgba(255,255,255,0.035)':'rgba(37,99,235,0.045)',border:`1px solid ${bdr}`,backdropFilter:'blur(10px)'}}>
-            <button className="tbtn icon-tbtn" onClick={toggleTheme} title={dm?(lang==='en'?'Switch to Light':'लाइट थीम'):(lang==='en'?'Switch to Dark':'डार्क थीम')} style={{border:'none',background:'transparent'}}>{dm?'☀️':'🌙'}</button>
-            <button className="tbtn icon-tbtn hide-xs" onClick={toggleLang} style={{border:'none',background:'transparent',fontSize:11,fontWeight:800}}>{lang==='en'?'हि':'EN'}</button>
-            <a href="/announcements" title={lang==='en'?'Announcements':'घोषणाएं'} className="tbtn icon-tbtn" style={{border:'none',background:'transparent',textDecoration:'none',color:txt,position:'relative'}}>
+          <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+            <button className="tbtn icon-tbtn" onClick={toggleTheme} title={dm?(lang==='en'?'Switch to Light':'लाइट थीम'):(lang==='en'?'Switch to Dark':'डार्क थीम')}>{dm?'☀️':'🌙'}</button>
+            <button className="tbtn hide-xs" onClick={toggleLang}>{lang==='en'?'हि':'EN'}</button>
+            <a href="/announcements" title={lang==='en'?'Announcements':'घोषणाएं'} style={{background:'transparent',border:`1px solid ${bdr}`,borderRadius:9,width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none',fontSize:15,color:txt,flexShrink:0,position:'relative'}}>
               🔔
-              {unreadAnn>0&&<span style={{position:'absolute',top:2,right:2,minWidth:15,height:15,padding:'0 3px',borderRadius:99,background:'#FF4D4D',color:'#fff',fontSize:9,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',border:`1.5px solid ${th.headerBg}`,boxShadow:'0 0 6px rgba(255,77,77,.6)'}}>{unreadAnn>9?'9+':unreadAnn}</span>}
+              {unreadAnn>0&&<span style={{position:'absolute',top:-3,right:-3,minWidth:15,height:15,padding:'0 3px',borderRadius:99,background:'#FF4D4D',color:'#fff',fontSize:9,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',border:'1.5px solid rgba(0,0,0,0.3)'}}>{unreadAnn>9?'9+':unreadAnn}</span>}
             </a>
-            <div aria-hidden style={{width:1,height:20,background:bdr,margin:'0 3px',flexShrink:0}}/>
-            <button onClick={logout} title={lang==='en'?'Sign Out':'साइन आउट'} className="icon-tbtn" style={{background:'rgba(255,77,77,0.1)',border:'1px solid rgba(255,77,77,0.3)',cursor:'pointer',color:'#FF6B6B',transition:'all .2s'}}>
+            <button onClick={logout} title={lang==='en'?'Sign Out':'साइन आउट'} style={{background:'transparent',border:'1px solid rgba(255,77,77,0.35)',borderRadius:9,width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#FF6B6B',flexShrink:0,transition:'all .2s'}}>
               <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             </button>
           </div>
