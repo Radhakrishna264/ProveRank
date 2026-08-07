@@ -1,3 +1,91 @@
+#!/bin/bash
+# ProveRank — Add heartbeat pulse animation to the PRLogo, baked directly
+# into the component itself (self-contained keyframes + reduced-motion
+# support), so it automatically applies EVERYWHERE the logo is used —
+# Student Panel (topbar + sidebar), Admin/SuperAdmin Panel, Login,
+# Register, Forgot Password — no per-page changes needed.
+# Two files touched:
+#   1) components/PRLogo.tsx     — shared component (Auth pages, Admin Panel)
+#   2) src/components/StudentShell.tsx — has its own local copy of PRLogo
+#      used only inside the Student Panel shell; patched identically.
+# Rhythm: quick double "lub-dub" beat then a pause, repeating — not a
+# plain sine pulse — mimics a real heartbeat. Scale-based, no layout shift.
+set -e
+
+cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
+
+echo "🔎 Locating PRLogo.tsx (shared component) via grep..."
+PRLOGO=$(grep -rl "export default PRLogo" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+SHELLFILE=$(grep -rl "export default function StudentShell" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+
+echo "PRLogo.tsx        : ${PRLOGO:-NOT FOUND}"
+echo "StudentShell.tsx  : ${SHELLFILE:-NOT FOUND}"
+
+if [ -z "$PRLOGO" ] || [ -z "$SHELLFILE" ]; then
+  echo "❌ One or more files not found. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$PRLOGO" "${PRLOGO}.bak_${TS}"
+cp "$SHELLFILE" "${SHELLFILE}.bak_${TS}"
+echo "✅ Backups created (.bak_${TS})"
+
+# ── 1) Shared PRLogo.tsx ─────────────────────────────────────────
+cat > "$PRLOGO" << 'EOF_PRLOGO'
+'use client'
+
+function PRLogo({size=36}:{size?:number}) {
+  const blockSize = size * 0.94
+  const pSize = Math.round(blockSize * 0.63)
+  const rSize = Math.round(blockSize * 0.63)
+  const fontSize = Math.round(pSize * 0.52)
+  const radius = Math.round(pSize * 0.28)
+  return (
+    <div className="pr-logo-heartbeat" style={{position:'relative',width:blockSize,height:blockSize,flexShrink:0,display:'inline-flex'}}>
+      <style>{`
+        @keyframes prLogoHeartbeat{
+          0%{transform:scale(1)}
+          14%{transform:scale(1.09)}
+          28%{transform:scale(1)}
+          42%{transform:scale(1.09)}
+          70%{transform:scale(1)}
+          100%{transform:scale(1)}
+        }
+        .pr-logo-heartbeat{animation:prLogoHeartbeat 1.9s ease-in-out infinite}
+        @media (prefers-reduced-motion: reduce){.pr-logo-heartbeat{animation:none}}
+      `}</style>
+      <div style={{
+        position:'absolute',top:0,left:0,
+        width:pSize,height:pSize,
+        borderRadius:radius,
+        background:'linear-gradient(135deg,#4D9FFF,#00D4FF)',
+        display:'flex',alignItems:'center',justifyContent:'center',
+        fontSize:fontSize,fontWeight:900,fontFamily:'Inter,sans-serif',
+        color:'#030810',
+        boxShadow:'0 4px 16px rgba(77,159,255,0.4)'
+      }}>P</div>
+      <div style={{
+        position:'absolute',bottom:0,right:0,
+        width:rSize,height:rSize,
+        borderRadius:radius,
+        background:'rgba(0,212,255,0.1)',
+        border:'1.5px solid rgba(0,212,255,0.45)',
+        display:'flex',alignItems:'center',justifyContent:'center',
+        fontSize:fontSize,fontWeight:900,fontFamily:'Inter,sans-serif',
+        color:'#00D4FF',
+        backdropFilter:'blur(8px)'
+      }}>R</div>
+    </div>
+  )
+}
+
+export default PRLogo;
+EOF_PRLOGO
+echo "✅ PRLogo.tsx updated: $PRLOGO"
+
+# ── 2) StudentShell.tsx (local PRLogo copy) ──────────────────────
+cat > "$SHELLFILE" << 'EOF_STUDENTSHELL6'
 'use client'
 import React,{createContext,useContext,useState,useEffect,useCallback,ReactNode}from 'react'
 import{useRouter}from 'next/navigation'
@@ -309,3 +397,12 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
     </ShellCtx.Provider>
   )
 }
+EOF_STUDENTSHELL6
+echo "✅ StudentShell.tsx updated: $SHELLFILE"
+
+echo ""
+echo "💓 Heartbeat animation now baked into the logo everywhere it appears."
+echo "   If Admin Panel imports a DIFFERENT PRLogo file (not the one found"
+echo "   above), share its path and I'll patch that one too."
+echo ""
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check any page's logo)"
