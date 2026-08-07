@@ -227,7 +227,15 @@ function PRLogo({size=36}:{size?:number}) {
   const fontSize = Math.round(pSize * 0.52)
   const radius = Math.round(pSize * 0.28)
   return (
-    <div style={{position:'relative',width:blockSize,height:blockSize,flexShrink:0,display:'inline-flex'}}>
+    <div className="pr-logo-glowpulse" style={{position:'relative',width:blockSize,height:blockSize,flexShrink:0,display:'inline-flex'}}>
+      <style>{`
+        @keyframes prLogoGlowPulse{
+          0%,100%{filter:drop-shadow(0 0 4px rgba(77,159,255,0.35)) drop-shadow(0 0 2px rgba(0,212,255,0.2))}
+          50%{filter:drop-shadow(0 0 16px rgba(77,159,255,0.85)) drop-shadow(0 0 8px rgba(0,212,255,0.55))}
+        }
+        .pr-logo-glowpulse{animation:prLogoGlowPulse 2.6s ease-in-out infinite}
+        @media (prefers-reduced-motion: reduce){.pr-logo-glowpulse{animation:none}}
+      `}</style>
       <div style={{
         position:'absolute',top:0,left:0,
         width:pSize,height:pSize,

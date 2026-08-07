@@ -1,8 +1,9 @@
 #!/bin/bash
-# ProveRank — Admin/SuperAdmin topbar role tag: redesigned smaller +
-# lighter (was a bold solid pill competing visually with "ProveRank").
-# Now: thin outline label + tiny dot, small text — clearly subordinate
-# to the brand wordmark in size, both on mobile and desktop.
+# ProveRank — Admin/SuperAdmin panel logo: add Glow Pulse animation.
+# Found that this file has its OWN third local copy of PRLogo (separate
+# from the shared components/PRLogo.tsx and StudentShell.tsx's copy) —
+# that's why the earlier glow-pulse fix never reached the Admin Panel.
+# Patched identically here now, self-contained (reduced-motion respected).
 set -e
 
 cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
@@ -20,7 +21,7 @@ TS=$(date +%s)
 cp "$ADMINPAGE" "${ADMINPAGE}.bak_${TS}"
 echo "✅ Backup created (.bak_${TS})"
 
-cat > "$ADMINPAGE" << 'EOF_ADMINPAGE2'
+cat > "$ADMINPAGE" << 'EOF_ADMINPAGE3'
 'use client'
 import BatchManagerUltra from './BatchManagerUltra'
 import TestSeriesManagerUltra from './TestSeriesManagerUltra'
@@ -250,7 +251,15 @@ function PRLogo({size=36}:{size?:number}) {
   const fontSize = Math.round(pSize * 0.52)
   const radius = Math.round(pSize * 0.28)
   return (
-    <div style={{position:'relative',width:blockSize,height:blockSize,flexShrink:0,display:'inline-flex'}}>
+    <div className="pr-logo-glowpulse" style={{position:'relative',width:blockSize,height:blockSize,flexShrink:0,display:'inline-flex'}}>
+      <style>{`
+        @keyframes prLogoGlowPulse{
+          0%,100%{filter:drop-shadow(0 0 4px rgba(77,159,255,0.35)) drop-shadow(0 0 2px rgba(0,212,255,0.2))}
+          50%{filter:drop-shadow(0 0 16px rgba(77,159,255,0.85)) drop-shadow(0 0 8px rgba(0,212,255,0.55))}
+        }
+        .pr-logo-glowpulse{animation:prLogoGlowPulse 2.6s ease-in-out infinite}
+        @media (prefers-reduced-motion: reduce){.pr-logo-glowpulse{animation:none}}
+      `}</style>
       <div style={{
         position:'absolute',top:0,left:0,
         width:pSize,height:pSize,
@@ -5021,10 +5030,8 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 </div>
   )
 }// deploy Sun May 31 01:52:47 AM UTC 2026
-EOF_ADMINPAGE2
+EOF_ADMINPAGE3
 echo "✅ Admin panel page updated: $ADMINPAGE"
 echo ""
-echo "🎨 Role tag now a small outline label — clearly smaller than ProveRank,"
-echo "   on both mobile and desktop."
-echo ""
+echo "✨ Logo now has the same glow-pulse as Student Panel / Auth pages."
 echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check /admin/x7k2p)"
