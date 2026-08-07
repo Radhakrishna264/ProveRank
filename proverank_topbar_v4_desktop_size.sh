@@ -1,11 +1,10 @@
 #!/bin/bash
-# ProveRank — Topbar role badge v3: removed the shimmer gradient-text effect
-# (could read low-contrast, especially in Light theme). Replaced with a
-# solid indigo/violet chip — fixed white text on its own colored surface,
-# so it's always clearly readable in BOTH Light and Dark themes regardless
-# of page background. Subtle breathing glow kept, no shimmer motion on text.
-# No gold used (reserved for future Premium tier).
-# Same file as earlier fixes — cumulative, nothing else touched.
+# ProveRank — Topbar v4: bigger logo/brand-name/STUDENT badge on Desktop
+# only (≥769px). Mobile view completely unchanged.
+# Logo cross-check result (see chat): both PRLogo.tsx (shared component)
+# and the local copy inside StudentShell.tsx are 100% static — neither
+# has ever had a heartbeat/pulse animation. No bug found, nothing changed
+# here for that — pending your decision on whether to add a glow-pulse.
 set -e
 
 cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
@@ -23,7 +22,7 @@ TS=$(date +%s)
 cp "$SHELLFILE" "${SHELLFILE}.bak_${TS}"
 echo "✅ Backup created (.bak_${TS})"
 
-cat > "$SHELLFILE" << 'EOF_STUDENTSHELL4'
+cat > "$SHELLFILE" << 'EOF_STUDENTSHELL5'
 'use client'
 import React,{createContext,useContext,useState,useEffect,useCallback,ReactNode}from 'react'
 import{useRouter}from 'next/navigation'
@@ -237,7 +236,15 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
           @media(min-width:769px){.pr-shell-main:not(.immersive){padding:24px 32px 72px}}
           @media(max-width:360px){.hide-xs{display:none!important}}
           @keyframes chipPulse{0%,100%{box-shadow:0 0 6px rgba(77,159,255,.32),inset 0 0 5px rgba(167,139,250,.14)}50%{box-shadow:0 0 15px rgba(77,159,255,.75),inset 0 0 9px rgba(167,139,250,.28)}}
-          @media(min-width:769px){.pr-brand{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;z-index:1}}
+          @media(min-width:769px){.pr-brand{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;z-index:1;gap:12px!important}}
+          @media(min-width:769px){
+            .pr-brand-logo{transform:scale(1.3)}
+            .pr-brand-textcol{gap:6px!important}
+            .pr-brand-name{font-size:20px!important}
+            .pr-brand-badge{padding:4px 13px 4px 9px!important}
+            .pr-badge-text{font-size:9.5px!important}
+            .pr-badge-dot{width:6px!important;height:6px!important}
+          }
           @media(max-width:768px){div[style*="display:flex"][style*="flexWrap"]{row-gap:8px}}
         `}</style>
         {th.showGalaxy&&<GalaxyBg/>}
@@ -294,13 +301,13 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
             <div className="pr-brand" style={{display:'flex',alignItems:'center',gap:8,minWidth:0,background:dm?'transparent':'transparent'}}>
-              <div style={{filter:dm?'drop-shadow(0 0 8px rgba(77,159,255,0.5))':'none',flexShrink:0}}><PRLogo size={30}/></div>
-              <div style={{minWidth:0,display:'flex',flexDirection:'column',alignItems:'flex-start',gap:4}}>
-                <div style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,lineHeight:1,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:{color:'#2563EB'})}}>ProveRank</div>
+              <div className="pr-brand-logo" style={{filter:dm?'drop-shadow(0 0 8px rgba(77,159,255,0.5))':'none',flexShrink:0,transformOrigin:'left center'}}><PRLogo size={30}/></div>
+              <div className="pr-brand-textcol" style={{minWidth:0,display:'flex',flexDirection:'column',alignItems:'flex-start',gap:4}}>
+                <div className="pr-brand-name" style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,lineHeight:1,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:{color:'#2563EB'})}}>ProveRank</div>
                 {/* Premium role chip — solid surface, always legible in Light/Dark, no gold (reserved for future Premium tier) */}
-                <div style={{position:'relative',display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px 3px 7px',borderRadius:20,whiteSpace:'nowrap',background:'linear-gradient(135deg,#3D7FE0,#6D5FD8)',boxShadow:dm?'0 2px 10px rgba(77,159,255,.4)':'0 2px 8px rgba(61,127,224,.35)',animation:'chipPulse 2.4s ease-in-out infinite'}}>
-                  <span style={{width:5,height:5,borderRadius:'50%',flexShrink:0,background:'#fff',boxShadow:'0 0 4px rgba(255,255,255,.9)'}}/>
-                  <span style={{fontSize:7.5,fontWeight:800,letterSpacing:1.3,color:'#fff'}}>{lang==='en'?'STUDENT':'छात्र'}</span>
+                <div className="pr-brand-badge" style={{position:'relative',display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px 3px 7px',borderRadius:20,whiteSpace:'nowrap',background:'linear-gradient(135deg,#3D7FE0,#6D5FD8)',boxShadow:dm?'0 2px 10px rgba(77,159,255,.4)':'0 2px 8px rgba(61,127,224,.35)',animation:'chipPulse 2.4s ease-in-out infinite'}}>
+                  <span className="pr-badge-dot" style={{width:5,height:5,borderRadius:'50%',flexShrink:0,background:'#fff',boxShadow:'0 0 4px rgba(255,255,255,.9)'}}/>
+                  <span className="pr-badge-text" style={{fontSize:7.5,fontWeight:800,letterSpacing:1.3,color:'#fff'}}>{lang==='en'?'STUDENT':'छात्र'}</span>
                 </div>
               </div>
             </div>
@@ -327,10 +334,10 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
     </ShellCtx.Provider>
   )
 }
-EOF_STUDENTSHELL4
+EOF_STUDENTSHELL5
 echo "✅ StudentShell.tsx updated: $SHELLFILE"
 echo ""
-echo "🎨 Role badge: solid indigo/violet chip, white text, no shimmer, no gold."
-echo "   Clearly visible in both Light and Dark theme now."
+echo "🎨 Desktop (≥769px): logo ~30% bigger, 'ProveRank' 15px→20px, badge scaled up."
+echo "   Mobile: unchanged."
 echo ""
-echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check Light + Dark theme)"
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (widen browser to desktop width to check)"
