@@ -47,7 +47,6 @@ export default function AuthShell({ steps = [], current = 0, children }: Props) 
         @keyframes radarSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         @keyframes bgPulse{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.85;transform:scale(1.08)}}
         @keyframes badgeFade{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
-        @keyframes gradMove{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
         *{box-sizing:border-box}
         .pr-input:focus{border-color:${T.pri} !important;box-shadow:0 0 0 3px rgba(77,159,255,0.16)}
         .pr-btn{transition:transform .18s ease, box-shadow .18s ease, filter .18s ease}
@@ -75,7 +74,7 @@ export default function AuthShell({ steps = [], current = 0, children }: Props) 
       <div className="auth-mobile-bar" style={{ position: 'sticky', top: 0, zIndex: 30, height: 54, alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', background: 'rgba(0,8,16,0.92)', backdropFilter: 'blur(16px)', borderBottom: `1px solid ${T.cardBorder}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ animation: 'glowPulse 3s ease-in-out infinite' }}><PRLogo size={24} /></div>
-          <span style={{ fontFamily: 'Playfair Display,serif', fontSize: 14, fontWeight: 700, background: `linear-gradient(90deg,${T.pri} 0%,${T.cyan} 50%,${T.pri} 100%)`, backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', animation: 'gradMove 5s ease infinite' }}>ProveRank</span>
+          <span style={{ fontFamily: 'Playfair Display,serif', fontSize: 14, fontWeight: 700, color: T.pri }}>ProveRank</span>
         </div>
         {hasSteps && (
           <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
@@ -94,7 +93,7 @@ export default function AuthShell({ steps = [], current = 0, children }: Props) 
             <PRLogo size={38} />
           </div>
           <div>
-            <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 21, fontWeight: 700, background: `linear-gradient(90deg,${T.pri} 0%,${T.cyan} 50%,${T.pri} 100%)`, backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', animation: 'gradMove 5s ease infinite', lineHeight: 1.25, letterSpacing: 0.2 }}>ProveRank</div>
+            <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 21, fontWeight: 700, color: T.txt, lineHeight: 1.25, letterSpacing: 0.2 }}>ProveRank</div>
             <div style={{ fontSize: 11, color: T.pri, marginTop: 3, fontWeight: 600, letterSpacing: 0.5 }}>Rise to the Top</div>
           </div>
 
