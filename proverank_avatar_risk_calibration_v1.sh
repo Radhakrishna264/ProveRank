@@ -1,3 +1,28 @@
+#!/bin/bash
+# ProveRank — Student 360 View: calibrate the Change Frequency risk
+# threshold. Was flat (5+ changes = High) applied to ALL fields equally,
+# including Avatar/photo — which normal students change often and
+# harmlessly, unlike identity-sensitive fields (email/phone/targetExam).
+# Now Avatar gets its own lenient threshold (High at 25+, Medium at 12+),
+# all other fields keep the original 5+/2+ thresholds.
+set -e
+
+cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
+
+echo "🔎 Locating studentProfilePreview.js via grep..."
+SPP=$(grep -rl "full-profile" --include="*.js" . 2>/dev/null | grep -v node_modules | head -1)
+echo "studentProfilePreview.js : ${SPP:-NOT FOUND}"
+
+if [ -z "$SPP" ]; then
+  echo "❌ File not found. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$SPP" "${SPP}.bak_${TS}"
+echo "✅ Backup created (.bak_${TS})"
+
+cat > "$SPP" << 'EOF_SPP'
 const express = require('express')
 const router = express.Router()
 const mongoose = require('mongoose')
@@ -211,3 +236,10 @@ router.get('/:id/full-profile', verifyToken, isSuperAdmin, async (req, res) => {
 })
 
 module.exports = router
+EOF_SPP
+echo "✅ studentProfilePreview.js updated: $SPP"
+echo ""
+echo "⚖️  Avatar changes now need 25+ for High risk (was 5+), 12+ for Medium (was 2+)."
+echo "   Other fields (email, phone, targetExam etc.) unchanged."
+echo ""
+echo "▶ Restart backend: cd ~/workspace && node src/index.js"

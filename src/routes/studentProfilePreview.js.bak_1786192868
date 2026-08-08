@@ -91,16 +91,7 @@ router.get('/:id/full-profile', verifyToken, isSuperAdmin, async (req, res) => {
     }))
     const changeFrequency = Object.values(freqMap)
       .sort((a,b) => b.count - a.count)
-      .map(f => {
-        // Avatar/photo swaps are normal, frequent student behaviour — not a
-        // security signal like repeated email/phone/targetExam changes.
-        // Give it a much more lenient threshold instead of the flat one.
-        const isPhoto = f.field === 'avatar'
-        const riskLevel = isPhoto
-          ? (f.count >= 25 ? 'high' : f.count >= 12 ? 'medium' : 'low')
-          : (f.count >= 5 ? 'high' : f.count >= 2 ? 'medium' : 'low')
-        return { ...f, riskLevel }
-      })
+      .map(f => ({ ...f, riskLevel: f.count >= 5 ? 'high' : f.count >= 2 ? 'medium' : 'low' }))
 
     // ── §7 Photo History (avatarHistory, newest first, current flagged) ──
     const photoHistory = (user.avatarHistory || []).slice().reverse().map((p, i) => ({ ...p, current: i === 0 }))
