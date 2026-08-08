@@ -1,11 +1,15 @@
 #!/bin/bash
-# ProveRank — Student 360 View: fix Timeline showing raw base64 image data.
-# Avatar changes were dumping the FULL base64 photo string directly into
-# the History Timeline / field-history cards ("data:image/jpeg;base64,/9j/..."
-# — thousands of characters, unreadable). Now shows "📷 Photo" instead.
-# Applied everywhere old/new values are rendered (Personal Details history,
-# Academic Profile history, and the main History Timeline panel).
-# Any other long text values also get truncated at 60 chars now.
+# ProveRank — Student 360 View "Details" tab: fix text overlapping
+# (Full Name touching Email, Email touching Phone, etc.)
+# Root cause: Personal Details and Academic Profile sections wrapped
+# their Row items in a `display:grid, gridTemplateColumns:auto-fit
+# minmax(160px,1fr), gap:0` container — on narrow screens this packed
+# 2 columns side-by-side with ZERO gap, so any value longer than ~160px
+# visually overflowed into the next field.
+# Fix: removed the broken grid (Security/Verification sections never had
+# this grid and always rendered correctly — matched that same pattern).
+# Also hardened the shared Row component itself (flexWrap + word-break)
+# so long values wrap instead of overflowing, as a safety net.
 set -e
 
 cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
@@ -23,7 +27,7 @@ TS=$(date +%s)
 cp "$S360" "${S360}.bak_${TS}"
 echo "✅ Backup created (.bak_${TS})"
 
-cat > "$S360" << 'EOF_STU360b'
+cat > "$S360" << 'EOF_STU360c'
 'use client'
 import { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react'
 import CopyBtn from '@/components/CopyBtn'
@@ -88,9 +92,9 @@ function Card({ title, icon, children, id }: any) {
 function Row({ label, value }: any) {
   const theme = useContext(ThemeCtx)
   return (
-    <div style={{display:'flex',justifyContent:'space-between',gap:10,padding:'7px 0',borderBottom:`1px solid ${theme.BOR}`,fontSize:12}}>
-      <span style={{color:theme.DIM}}>{label}</span>
-      <span style={{color:theme.TS,fontWeight:600,textAlign:'right'}}>{value ?? '—'}</span>
+    <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:'2px 10px',padding:'7px 0',borderBottom:`1px solid ${theme.BOR}`,fontSize:12}}>
+      <span style={{color:theme.DIM,flexShrink:0}}>{label}</span>
+      <span style={{color:theme.TS,fontWeight:600,textAlign:'right',minWidth:0,overflowWrap:'break-word',wordBreak:'break-word'}}>{value ?? '—'}</span>
     </div>
   )
 }
@@ -284,7 +288,7 @@ export default function Student360Preview({ studentId, token, onClose, theme }: 
 
             {/* §3 PERSONAL DETAILS */}
             <Card id="personal" title="Personal Details" icon="👤">
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:0}}>
+              <div>
                 <Row label="Full Name" value={data.personal.name}/>
                 <Row label="Email (read-only)" value={data.personal.email}/>
                 <Row label="Phone" value={data.personal.phone}/>
@@ -317,7 +321,7 @@ export default function Student360Preview({ studentId, token, onClose, theme }: 
 
             {/* §4 ACADEMIC PROFILE */}
             <Card id="academic" title="Academic Profile" icon="🎓">
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:0}}>
+              <div>
                 <Row label="Target Exam" value={data.academic.targetExam}/>
                 <Row label="Target Year" value={data.academic.targetYear}/>
                 <Row label="Board" value={data.academic.board}/>
@@ -564,8 +568,8 @@ export default function Student360Preview({ studentId, token, onClose, theme }: 
     </ThemeCtx.Provider>
   )
 }
-EOF_STU360b
+EOF_STU360c
 echo "✅ Student360Preview updated: $S360"
 echo ""
-echo "🧹 Timeline now shows '📷 Photo' for avatar changes instead of raw base64 dump."
-echo "▶ Next: cd ~/workspace/frontend && npm run dev   (open a student's 360° view → Timeline tab)"
+echo "🧹 Personal Details + Academic Profile now stack full-width, no overlap."
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check Details tab, mobile view)"
