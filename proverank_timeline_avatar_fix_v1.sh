@@ -1,3 +1,29 @@
+#!/bin/bash
+# ProveRank — Student 360 View: fix Timeline showing raw base64 image data.
+# Avatar changes were dumping the FULL base64 photo string directly into
+# the History Timeline / field-history cards ("data:image/jpeg;base64,/9j/..."
+# — thousands of characters, unreadable). Now shows "📷 Photo" instead.
+# Applied everywhere old/new values are rendered (Personal Details history,
+# Academic Profile history, and the main History Timeline panel).
+# Any other long text values also get truncated at 60 chars now.
+set -e
+
+cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
+
+echo "🔎 Locating Student360Preview via grep..."
+S360=$(grep -rl "360° Profile Preview\|Device Intelligence" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+echo "Student360Preview : ${S360:-NOT FOUND}"
+
+if [ -z "$S360" ]; then
+  echo "❌ File not found. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$S360" "${S360}.bak_${TS}"
+echo "✅ Backup created (.bak_${TS})"
+
+cat > "$S360" << 'EOF_STU360b'
 'use client'
 import { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react'
 import CopyBtn from '@/components/CopyBtn'
@@ -538,3 +564,8 @@ export default function Student360Preview({ studentId, token, onClose, theme }: 
     </ThemeCtx.Provider>
   )
 }
+EOF_STU360b
+echo "✅ Student360Preview updated: $S360"
+echo ""
+echo "🧹 Timeline now shows '📷 Photo' for avatar changes instead of raw base64 dump."
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (open a student's 360° view → Timeline tab)"
