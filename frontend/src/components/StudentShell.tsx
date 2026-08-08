@@ -155,7 +155,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
       primary:'#2563EB',text:'#0F172A',sub:'#51607A',
       border:'rgba(37,99,235,0.14)',navActive:'rgba(37,99,235,0.10)',
       isDark:false,showGalaxy:false,hexC:'rgba(37,99,235,0.035)',
-      brandGrad:'linear-gradient(90deg,#1D4ED8 0%,#7C3AED 50%,#1D4ED8 100%)',logoTag:'#374151',
+      brandGrad:'#2563EB',logoTag:'#374151',
       chipBg:'rgba(37,99,235,0.06)',
     },
     dark:{
@@ -234,7 +234,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
             <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0}}>
               <PRLogo size={36}/>
               <div style={{minWidth:0}}>
-                <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,whiteSpace:'nowrap',background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'gradMove 5s ease infinite'}}>ProveRank</div>
+                <div style={{fontFamily:'Playfair Display,serif',fontSize:17,fontWeight:700,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'gradMove 5s ease infinite'}:{color:'#2563EB'})}}>ProveRank</div>
                 <div style={{fontSize:10,color:th.logoTag,fontWeight:600,marginTop:1,whiteSpace:'nowrap'}}>{role==='parent'?(lang==='en'?'Parent Panel':'अभिभावक पैनल'):(lang==='en'?'Student Panel':'छात्र पैनल')}</div>
               </div>
             </div>
@@ -278,7 +278,7 @@ export default function StudentShell({pageKey,children}:{pageKey:string;children
             <div className="pr-brand" style={{display:'flex',alignItems:'center',gap:8,minWidth:0,background:dm?'transparent':'transparent'}}>
               <div className="pr-brand-logo" style={{filter:dm?'drop-shadow(0 0 8px rgba(77,159,255,0.5))':'none',flexShrink:0,transformOrigin:'left center'}}><PRLogo size={30}/></div>
               <div className="pr-brand-textcol" style={{minWidth:0,display:'flex',flexDirection:'column',alignItems:'flex-start',gap:4}}>
-                <div className="pr-brand-name" style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,lineHeight:1,whiteSpace:'nowrap',background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'gradMove 5s ease infinite'}}>ProveRank</div>
+                <div className="pr-brand-name" style={{fontFamily:'Playfair Display,serif',fontWeight:700,fontSize:15,lineHeight:1,whiteSpace:'nowrap',...(th.isDark?{background:th.brandGrad,backgroundSize:'200% 100%',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:{color:'#2563EB'})}}>ProveRank</div>
                 {/* Premium role chip — solid surface, always legible in Light/Dark, no gold (reserved for future Premium tier) */}
                 <div className="pr-brand-badge" style={{position:'relative',display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px 3px 7px',borderRadius:20,whiteSpace:'nowrap',background:'linear-gradient(135deg,#3D7FE0,#6D5FD8)',boxShadow:dm?'0 2px 10px rgba(77,159,255,.4)':'0 2px 8px rgba(61,127,224,.35)',animation:'chipPulse 2.4s ease-in-out infinite'}}>
                   <span className="pr-badge-dot" style={{width:5,height:5,borderRadius:'50%',flexShrink:0,background:'#fff',boxShadow:'0 0 4px rgba(255,255,255,.9)'}}/>
