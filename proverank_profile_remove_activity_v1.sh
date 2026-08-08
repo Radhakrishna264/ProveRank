@@ -1,3 +1,27 @@
+#!/bin/bash
+# ProveRank — Student Profile page: remove the "Activity" tab completely.
+# Removed: tab entry, its data fetch (GET /api/auth/activity + logs state),
+# the Recent Activity section UI, and both render call-sites (mobile chip
+# nav + desktop rail). Security/Preferences/Overview/Personal/Academic —
+# all untouched.
+set -e
+
+cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
+
+echo "🔎 Locating profile page via grep..."
+PROFILEPAGE=$(grep -rl "security-overview" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+echo "Profile page : ${PROFILEPAGE:-NOT FOUND}"
+
+if [ -z "$PROFILEPAGE" ]; then
+  echo "❌ Profile page not found. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$PROFILEPAGE" "${PROFILEPAGE}.bak_${TS}"
+echo "✅ Backup created (.bak_${TS})"
+
+cat > "$PROFILEPAGE" << 'EOF_PROFILEPAGE'
 'use client'
 import CopyBtn from '@/components/CopyBtn'
 import { useState, useEffect, useRef, useMemo } from 'react'
@@ -846,3 +870,8 @@ function ProfileContent() {
 export default function ProfilePage() {
   return <StudentShell pageKey="profile"><ProfileContent/></StudentShell>
 }
+EOF_PROFILEPAGE
+echo "✅ Profile page updated: $PROFILEPAGE"
+echo ""
+echo "🧹 Activity tab fully removed (tab, data fetch, UI section, both render sites)."
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check /profile)"

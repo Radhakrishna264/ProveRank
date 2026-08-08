@@ -93,6 +93,7 @@ function ProfileContent() {
     {id:'academic',  en:'Academic Profile',  hi:'शैक्षणिक प्रोफ़ाइल', icon:'🎓'},
     {id:'security',  en:'Security',          hi:'सुरक्षा',        icon:'🔒'},
     {id:'preferences',en:'Preferences',      hi:'प्राथमिकताएं',   icon:'⚙️'},
+    {id:'activity',  en:'Activity',          hi:'गतिविधि',        icon:'🕐'},
   ]
   const [section, setSection] = useState('overview')
   const [pendingSection, setPendingSection] = useState<string|null>(null)
@@ -125,6 +126,13 @@ function ProfileContent() {
     try { const r = await fetch(`${API}/api/auth/security-overview`, { headers:{Authorization:`Bearer ${token}`} }); const d = await r.json(); setSec(d) } catch {}
   }
   useEffect(() => { if (token && section==='security') loadSecurity() }, [token, section])
+
+  // ── Activity timeline data ──
+  const [logs, setLogs] = useState<any[]>([])
+  const loadActivity = async () => {
+    try { const r = await fetch(`${API}/api/auth/activity`, { headers:{Authorization:`Bearer ${token}`} }); const d = await r.json(); setLogs(d.logs||[]) } catch {}
+  }
+  useEffect(() => { if (token && section==='activity') loadActivity() }, [token, section])
 
   // ── Personal fields ──
   const [name,setName]=useState(''); const [phone,setPhone]=useState(''); const [dob,setDob]=useState('')
@@ -746,6 +754,26 @@ function ProfileContent() {
     </SectionCard>
   )
 
+  // ══════════════════════════════════════════════════════════
+  // ACTIVITY SECTION
+  // ══════════════════════════════════════════════════════════
+  const ACT_ICON:any = { LOGIN:'🔓', PROFILE_UPDATED:'✏️', PASSWORD_CHANGED:'🔑', EMAIL_VERIFIED:'✅', PHOTO_UPDATED:'📷', LOGOUT_ALL_DEVICES:'🚪' }
+  const activityEl = (
+    <SectionCard theme={theme} title={t('Recent Activity','हाल की गतिविधि')} icon="🕐">
+      {logs.length === 0 ? (
+        <div style={{textAlign:'center',padding:'30px 0',color:sub,fontSize:12.5}}>{t('No activity yet','अभी तक कोई गतिविधि नहीं')}</div>
+      ) : logs.map((l,i)=>(
+        <div key={i} style={{display:'flex',gap:10,padding:'10px 4px',borderBottom: i<logs.length-1?`1px solid ${bdr}`:'none'}}>
+          <div style={{width:30,height:30,borderRadius:'50%',background:theme.chipBg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,flexShrink:0}}>{ACT_ICON[l.action]||'•'}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12.5,color:txt,fontWeight:600}}>{l.details || l.action}</div>
+            <div style={{fontSize:10.5,color:sub,marginTop:2}}>{new Date(l.createdAt).toLocaleString()}</div>
+          </div>
+        </div>
+      ))}
+    </SectionCard>
+  )
+
   return (
     <div style={{maxWidth: isMobile?880:1040, margin:'0 auto'}}>
       <div style={{fontSize:20,fontWeight:800,marginBottom:4,color:txt}}>👤 {t('My Profile','मेरी प्रोफ़ाइल')}</div>
@@ -771,6 +799,7 @@ function ProfileContent() {
           {section==='academic' && academicEl}
           {section==='security' && securityEl}
           {section==='preferences' && preferencesEl}
+          {section==='activity' && activityEl}
         </>
       ) : (
         <div style={{display:'flex',gap:22,alignItems:'flex-start'}}>
@@ -792,6 +821,7 @@ function ProfileContent() {
             {section==='academic' && academicEl}
             {section==='security' && securityEl}
             {section==='preferences' && preferencesEl}
+            {section==='activity' && activityEl}
           </div>
         </div>
       )}
