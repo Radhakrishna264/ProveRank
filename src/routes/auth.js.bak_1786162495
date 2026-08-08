@@ -594,6 +594,7 @@ router.get('/profile-overview', async (req, res) => {
     if (user.avatar) health += 15
     if (completion >= 80) health += 25
     else if (completion >= 50) health += 15
+    if (user.twoFactorEnabled) health += 20
     health = Math.min(100, health)
 
     const missing = []
@@ -602,6 +603,7 @@ router.get('/profile-overview', async (req, res) => {
     if (!user.avatar) missing.push({ label: 'Upload profile photo', href: '#personal' })
     if (!user.dob || !user.city) missing.push({ label: 'Complete personal details', href: '#personal' })
     if (!user.targetExam || !user.board || !user.school) missing.push({ label: 'Complete academic profile', href: '#academic' })
+    if (!user.twoFactorEnabled) missing.push({ label: 'Enable 2FA for extra security', href: '#security' })
 
     res.json({
       completion, health, missing,
@@ -631,6 +633,7 @@ router.get('/security-overview', async (req, res) => {
       trustedDevices: user.trustedDevices || [],
       failedLoginAttempts: user.failedLoginAttempts || 0,
       lastFailedLoginAt: user.lastFailedLoginAt || null,
+      twoFactorEnabled: !!user.twoFactorEnabled,
     })
   } catch (err) {
     res.status(500).json({ message: 'Server error' })

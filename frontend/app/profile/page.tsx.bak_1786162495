@@ -146,6 +146,13 @@ function ProfileContent() {
   const [passSaving,setPassSaving]=useState(false)
   const [pwConfirmOpen,setPwConfirmOpen]=useState(false)
 
+  // ── 2FA flow ──
+  const [tfaBusy,setTfaBusy]=useState(false)
+  const [tfaSetup,setTfaSetup]=useState<{secret:string;qrCode:string}|null>(null)
+  const [tfaOtp,setTfaOtp]=useState('')
+  const [tfaDisableOtp,setTfaDisableOtp]=useState('')
+  const [tfaDisableOpen,setTfaDisableOpen]=useState(false)
+
   // ── Preferences ──
   const [notifEmail,setNotifEmail]=useState(true); const [notifSms,setNotifSms]=useState(false); const [notifStudy,setNotifStudy]=useState(true)
   const [savingPrefs,setSavingPrefs]=useState(false); const [dirtyPrefs,setDirtyPrefs]=useState(false)
@@ -356,6 +363,38 @@ function ProfileContent() {
     setPwConfirmOpen(false)
   }
 
+  // ── 2FA handlers ──
+  const enable2FA = async () => {
+    setTfaBusy(true)
+    try {
+      const r = await fetch(`${API}/api/auth/2fa/enable`, { method:'POST', headers:{Authorization:`Bearer ${token}`} })
+      const d = await r.json()
+      if (!r.ok) toast?.(d.message||t('Failed to start 2FA setup','2FA सेटअप शुरू नहीं हो सका'),'e')
+      else setTfaSetup({secret:d.secret, qrCode:d.qrCode})
+    } catch { toast?.(t('Network error','नेटवर्क त्रुटि'),'e') }
+    setTfaBusy(false)
+  }
+  const verify2FA = async () => {
+    if (!tfaOtp || tfaOtp.length !== 6) { toast?.(t('Enter the 6-digit code','6 अंकों का कोड डालें'),'e'); return }
+    setTfaBusy(true)
+    try {
+      const r = await fetch(`${API}/api/auth/2fa/verify`, { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`}, body: JSON.stringify({otp:tfaOtp}) })
+      const d = await r.json()
+      if (!r.ok) toast?.(d.message||t('Invalid code','अमान्य कोड'),'e')
+      else { toast?.(t('2FA enabled!','2FA सक्षम!'),'s'); setTfaSetup(null); setTfaOtp(''); loadSecurity(); loadOverview() }
+    } catch { toast?.(t('Network error','नेटवर्क त्रुटि'),'e') }
+    setTfaBusy(false)
+  }
+  const disable2FA = async () => {
+    setTfaBusy(true)
+    try {
+      const r = await fetch(`${API}/api/auth/2fa/disable`, { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`}, body: JSON.stringify({otp:tfaDisableOtp}) })
+      const d = await r.json()
+      if (!r.ok) toast?.(d.message||t('Invalid code','अमान्य कोड'),'e')
+      else { toast?.(t('2FA disabled','2FA अक्षम'),'s'); setTfaDisableOpen(false); setTfaDisableOtp(''); loadSecurity(); loadOverview() }
+    } catch { toast?.(t('Network error','नेटवर्क त्रुटि'),'e') }
+    setTfaBusy(false)
+  }
   const logoutOtherSessions = async () => {
     const ok = window.confirm(t('This will sign you out from every other device. This device stays logged in. Continue?','यह आपको अन्य सभी डिवाइस से लॉगआउट कर देगा। यह डिवाइस लॉगिन रहेगा। जारी रखें?'))
     if (!ok) return
@@ -616,6 +655,37 @@ function ProfileContent() {
               </div>
             </div>
           </div>
+        )}
+      </SectionCard>
+
+      <SectionCard theme={theme} title={t('Two-Factor Authentication (2FA)','दो-चरणीय सत्यापन')} icon="🛡️">
+        {sec?.twoFactorEnabled ? (
+          <>
+            <div style={{fontSize:12.5,color:'#00C48C',fontWeight:700,marginBottom:12}}>✓ {t('2FA is enabled on your account','आपके खाते पर 2FA सक्षम है')}</div>
+            {!tfaDisableOpen ? (
+              <button style={btnGhost} onClick={()=>setTfaDisableOpen(true)}>{t('Disable 2FA','2FA अक्षम करें')}</button>
+            ) : (
+              <div>
+                <Field label={t('Enter 6-digit code from your app','ऐप से 6 अंकों का कोड डालें')} theme={theme}><input style={inp} value={tfaDisableOtp} onChange={e=>setTfaDisableOtp(e.target.value)} maxLength={6} placeholder="000000"/></Field>
+                <div style={{display:'flex',gap:8}}>
+                  <button style={btnP} disabled={tfaBusy} onClick={disable2FA}>{t('Confirm Disable','अक्षम करने की पुष्टि करें')}</button>
+                  <button style={btnGhost} onClick={()=>setTfaDisableOpen(false)}>{t('Cancel','रद्द करें')}</button>
+                </div>
+              </div>
+            )}
+          </>
+        ) : tfaSetup ? (
+          <div>
+            <div style={{fontSize:12,color:sub,marginBottom:10}}>{t('Scan this QR with Google Authenticator / Authy, then enter the code below.','इस QR को Google Authenticator/Authy से स्कैन करें, फिर नीचे कोड डालें।')}</div>
+            <img src={tfaSetup.qrCode} alt="2FA QR" style={{width:140,height:140,borderRadius:10,background:'#fff',padding:6,marginBottom:12}}/>
+            <Field label={t('6-digit code','6 अंकों का कोड')} theme={theme}><input style={inp} value={tfaOtp} onChange={e=>setTfaOtp(e.target.value)} maxLength={6} placeholder="000000"/></Field>
+            <div style={{display:'flex',gap:8}}>
+              <button style={btnP} disabled={tfaBusy} onClick={verify2FA}>{t('Verify & Enable','सत्यापित करें और सक्षम करें')}</button>
+              <button style={btnGhost} onClick={()=>setTfaSetup(null)}>{t('Cancel','रद्द करें')}</button>
+            </div>
+          </div>
+        ) : (
+          <button style={btnP} disabled={tfaBusy} onClick={enable2FA}>{tfaBusy?t('Loading...','लोड हो रहा है...'):t('Enable 2FA','2FA सक्षम करें')}</button>
         )}
       </SectionCard>
 

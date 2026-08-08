@@ -26,6 +26,11 @@ const userSchema = new mongoose.Schema({
   medium:             { type: String, default: '' },
   batch:              { type: String, default: '' },
 
+  // ── F38: 2FA (TOTP) ────────────────────────────────────────────
+  twoFactorEnabled:     { type: Boolean, default: false },
+  twoFactorSecret:      { type: String, default: null },
+  twoFactorTempSecret:  { type: String, default: null },
+
   // ── F38: Login health / device tracking ─────────────────────────
   failedLoginAttempts: { type: Number, default: 0 },
   lastFailedLoginAt:   { type: Date, default: null },
