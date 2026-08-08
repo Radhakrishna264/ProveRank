@@ -1,3 +1,32 @@
+#!/bin/bash
+# ProveRank — Admin Panel: fix "360° view closes / sends me back to Student
+# Management on page refresh".
+# Root cause: preview360Id (which student's 360° view is open) was a plain
+# useState with no persistence — page refresh wipes React state entirely,
+# so the overlay just disappeared, revealing the Student Management page
+# underneath (looked like a redirect). The active TAB and Quick Bulk View
+# already used sessionStorage to survive refresh (pr_admin_tab / pr_qbv) —
+# preview360Id just never got the same treatment.
+# Fix: same sessionStorage pattern (key: pr_preview360) — now restores the
+# exact same student's 360° view automatically after a refresh.
+set -e
+
+cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
+
+echo "🔎 Locating admin panel page via grep..."
+ADMINPAGE=$(grep -rl "pr-nav-desktop-styles" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+echo "Admin page : ${ADMINPAGE:-NOT FOUND}"
+
+if [ -z "$ADMINPAGE" ]; then
+  echo "❌ Admin panel page not found. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$ADMINPAGE" "${ADMINPAGE}.bak_${TS}"
+echo "✅ Backup created (.bak_${TS})"
+
+cat > "$ADMINPAGE" << 'EOF_ADMINPAGE4'
 'use client'
 import BatchManagerUltra from './BatchManagerUltra'
 import TestSeriesManagerUltra from './TestSeriesManagerUltra'
@@ -5007,3 +5036,8 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 </div>
   )
 }// deploy Sun May 31 01:52:47 AM UTC 2026
+EOF_ADMINPAGE4
+echo "✅ Admin panel page updated: $ADMINPAGE"
+echo ""
+echo "🔁 Student 360° view now survives page refresh (same as tab/Quick Bulk View)."
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (open 360° view → refresh browser → should stay open)"

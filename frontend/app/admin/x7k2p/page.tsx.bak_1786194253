@@ -1149,8 +1149,7 @@ const [topStudents,setTopStudents]=useState<{rank:number,name:string,bestScore:n
   const [qSearch,setQSearch]=useState('')
   const [qSubjFilter,setQSubjFilter]=useState('all')
   const [selStudent,setSelStudent]=useState<Student|null>(null)
-  const [preview360Id,_setPreview360Id]=useState<string|null>(()=>{try{return sessionStorage.getItem('pr_preview360')||null}catch{return null}}) // F38B — persisted across refresh
-  const setPreview360Id=(id:string|null)=>{try{id?sessionStorage.setItem('pr_preview360',id):sessionStorage.removeItem('pr_preview360')}catch{};_setPreview360Id(id)}
+  const [preview360Id,setPreview360Id]=useState<string|null>(null) // F38B
 
   // Exam Create refs (keyboard fix)
   const eTitleR=useRef('');
