@@ -1,3 +1,26 @@
+#!/bin/bash
+# ProveRank — Auth pages: add a premium "Crafted with ♥ by Praveen Rajput"
+# credit footer. Added once inside AuthShell.tsx so it automatically shows
+# on all 3 auth pages (Login, Register, Forgot Password) — no per-page
+# changes needed. Beating heart icon + gradient shimmer on the name.
+set -e
+
+cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
+
+echo "🔎 Locating AuthShell.tsx via grep..."
+AUTHSHELL=$(grep -rl "export default function AuthShell" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+echo "AuthShell.tsx : ${AUTHSHELL:-NOT FOUND}"
+
+if [ -z "$AUTHSHELL" ]; then
+  echo "❌ AuthShell.tsx not found. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$AUTHSHELL" "${AUTHSHELL}.bak_${TS}"
+echo "✅ Backup created (.bak_${TS})"
+
+cat > "$AUTHSHELL" << 'EOF_AUTHSHELL6'
 'use client'
 import PRLogo from '@/components/PRLogo'
 import { ReactNode } from 'react'
@@ -183,3 +206,8 @@ export default function AuthShell({ steps = [], current = 0, children }: Props) 
     </div>
   )
 }
+EOF_AUTHSHELL6
+echo "✅ AuthShell.tsx updated: $AUTHSHELL"
+echo ""
+echo "❤️ Credit footer added — visible at the bottom of Login/Register/Forgot Password."
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check /login)"
