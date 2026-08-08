@@ -1,3 +1,31 @@
+#!/bin/bash
+# ProveRank — Admin Panel Student 360° View fixes:
+#   1) Removed "2FA Status" row from Security section (was stale — 2FA
+#      feature was already removed from Student model/backend earlier,
+#      this field would always show "Disabled" forever).
+#   2) Removed "Session Duration" and "Logout Reason" rows — these were
+#      always hardcoded to "—" (never actually tracked/wired to data).
+# Everything else — Personal Details, Academic Profile, Login Activity,
+# Photo History, Identity & Verification, Versioned Field History,
+# Change Frequency Analysis — untouched.
+set -e
+
+cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
+
+echo "🔎 Locating Student360Preview via grep..."
+S360=$(grep -rl "360° Profile Preview\|Device Intelligence" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+echo "Student360Preview : ${S360:-NOT FOUND}"
+
+if [ -z "$S360" ]; then
+  echo "❌ File not found. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$S360" "${S360}.bak_${TS}"
+echo "✅ Backup created (.bak_${TS})"
+
+cat > "$S360" << 'EOF_STU360'
 'use client'
 import { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react'
 import CopyBtn from '@/components/CopyBtn'
@@ -532,3 +560,8 @@ export default function Student360Preview({ studentId, token, onClose, theme }: 
     </ThemeCtx.Provider>
   )
 }
+EOF_STU360
+echo "✅ Student360Preview updated: $S360"
+echo ""
+echo "🧹 Removed: 2FA Status row, Session Duration row, Logout Reason row."
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (open a student's 360° view → Security section)"

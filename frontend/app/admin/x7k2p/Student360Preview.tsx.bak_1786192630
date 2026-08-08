@@ -331,6 +331,7 @@ export default function Student360Preview({ studentId, token, onClose, theme }: 
               <Row label="Password Last Changed" value={fmt(data.security.passwordChangedAt)}/>
               <Row label="Password Change Count" value={data.security.passwordChangeCount}/>
               <Row label="Password Reset History" value={data.security.passwordResetHistory?.length || 0}/>
+              <Row label="2FA Status" value={data.security.twoFactorEnabled ? <Badge col={T.SUC}>Enabled</Badge> : <Badge col={T.DNG}>Disabled</Badge>}/>
               <Row label="Active Devices" value={data.security.activeDeviceCount}/>
               <Row label="Trusted Devices" value={data.security.trustedDevices?.length || 0}/>
               <Row label="Last Login" value={fmt(data.security.lastLogin?.at || data.security.lastLogin?.time)}/>
@@ -355,6 +356,8 @@ export default function Student360Preview({ studentId, token, onClose, theme }: 
               <div style={{marginTop:12}}>
                 <div style={{fontSize:11,fontWeight:700,color:T.ACC,marginBottom:6}}>Session Intelligence</div>
                 <Row label="Active Session" value={data.security.activeDeviceCount>0?'Yes':'No'}/>
+                <Row label="Session Duration" value="—"/>
+                <Row label="Logout Reason" value="—"/>
                 <Row label="Failed Attempt Count" value={data.security.failedLoginAttempts}/>
                 <Row label="Suspicious Session Flag" value={data.security.failedLoginAttempts>=5 ? <Badge col={T.DNG}>⚠ Suspicious</Badge> : <Badge col={T.SUC}>Normal</Badge>}/>
               </div>
