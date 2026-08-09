@@ -165,7 +165,7 @@ export default function Student360Preview({ studentId, token, onClose, theme }: 
       <style>{`
         @keyframes s360SlideIn { from { opacity:0; transform:translateY(18px);} to { opacity:1; transform:translateY(0);} }
         .s360-scroll::-webkit-scrollbar{width:5px} .s360-scroll::-webkit-scrollbar-thumb{background:rgba(77,159,255,.3);border-radius:3px}
-        @media(max-width:980px){ .s360-panel-left,.s360-panel-right,.s360-main-panel{display:none !important} .s360-panel-left.mshow,.s360-panel-right.mshow,.s360-main-panel.mshow{display:block !important} .s360-panel-left.mshow{width:100% !important; max-width:560px; margin:0 auto} }
+        @media(max-width:980px){ .s360-panel-left,.s360-panel-right,.s360-main-panel{display:none !important} .s360-panel-left.mshow,.s360-panel-right.mshow,.s360-main-panel.mshow{display:block !important} .s360-panel-left.mshow,.s360-panel-right.mshow{width:100% !important; max-width:560px; margin:0 auto} }
       `}</style>
 
       {/* ── §1.3 Sticky top header ── */}

@@ -1,16 +1,13 @@
 #!/bin/bash
-# ProveRank — Student 360 View: fix excess blank space on Summary tab.
-# Root cause: Summary panel had a fixed width:260px (correct for desktop,
-# where it sits beside Details+Timeline). On mobile it's the ONLY visible
-# panel now (after the earlier mobile-tab fix), but kept the same narrow
-# 260px width — leaving a huge empty area beside it.
-# Fix:
-#   1) On mobile only, Summary panel now expands to fill available width
-#      (max 560px, centered) — desktop's 260px sidebar layout untouched.
-#   2) Restructured "Quick Actions" from 5 stacked full-width bars into an
-#      adaptive grid — naturally stays 1 column on desktop's narrow panel,
-#      becomes 2-3 columns when full-width on mobile, so the extra space
-#      is actually used instead of just being empty around thin buttons.
+# ProveRank — Student 360 View: fix Timeline tab blank space (same bug
+# class as the Summary tab fix, just missed on the Timeline panel).
+# .s360-panel-right (Timeline) had a fixed width:300px meant for desktop's
+# 3-column side-by-side layout. When it's the only visible panel (narrow
+# viewport / Chrome "Request Desktop Site" on mobile), it stayed 300px
+# wide with a huge blank area beside it — exactly like Summary did before.
+# Fix: same full-width override already applied to Summary, now also
+# applied to Timeline. Details tab was already fine (uses flex:1, not a
+# fixed width, so it never had this problem).
 set -e
 
 cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
@@ -28,7 +25,7 @@ TS=$(date +%s)
 cp "$S360" "${S360}.bak_${TS}"
 echo "✅ Backup created (.bak_${TS})"
 
-cat > "$S360" << 'EOF_STU360f'
+cat > "$S360" << 'EOF_STU360g'
 'use client'
 import { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react'
 
@@ -196,7 +193,7 @@ export default function Student360Preview({ studentId, token, onClose, theme }: 
       <style>{`
         @keyframes s360SlideIn { from { opacity:0; transform:translateY(18px);} to { opacity:1; transform:translateY(0);} }
         .s360-scroll::-webkit-scrollbar{width:5px} .s360-scroll::-webkit-scrollbar-thumb{background:rgba(77,159,255,.3);border-radius:3px}
-        @media(max-width:980px){ .s360-panel-left,.s360-panel-right,.s360-main-panel{display:none !important} .s360-panel-left.mshow,.s360-panel-right.mshow,.s360-main-panel.mshow{display:block !important} .s360-panel-left.mshow{width:100% !important; max-width:560px; margin:0 auto} }
+        @media(max-width:980px){ .s360-panel-left,.s360-panel-right,.s360-main-panel{display:none !important} .s360-panel-left.mshow,.s360-panel-right.mshow,.s360-main-panel.mshow{display:block !important} .s360-panel-left.mshow,.s360-panel-right.mshow{width:100% !important; max-width:560px; margin:0 auto} }
       `}</style>
 
       {/* ── §1.3 Sticky top header ── */}
@@ -563,9 +560,9 @@ export default function Student360Preview({ studentId, token, onClose, theme }: 
     </ThemeCtx.Provider>
   )
 }
-EOF_STU360f
+EOF_STU360g
 echo "✅ Student360Preview updated: $S360"
 echo ""
-echo "📱 Summary tab now fills available width on mobile, Quick Actions in adaptive grid."
-echo "🖥️  Desktop layout (260px sidebar) unaffected."
-echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check Summary tab on mobile)"
+echo "📱 Timeline tab now fills width correctly on mobile / Chrome desktop-site mode."
+echo "🖥️  True wide desktop (all 3 panels side-by-side) still unaffected."
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check Timeline tab, both mobile view + Chrome 'Request Desktop Site')"
