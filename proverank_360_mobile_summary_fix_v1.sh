@@ -1,3 +1,36 @@
+#!/bin/bash
+# ProveRank — Student 360 View: fix mobile "Summary" tab layout (Details
+# panel bleeding into a squeezed sliver on the right, text wrapping
+# character-by-character).
+# Root cause: on mobile, 3 panels exist (Summary/Details/Timeline) but the
+# hide/show CSS only ever handled 2 of them (left+right) — the middle
+# "Details" panel had a permanently-broken ternary
+# (`mobileTab==='main' ? 'block' : 'block'` — both branches identical, so
+# it NEVER hid, regardless of which tab was selected).
+# Fix: added the Details panel to the same mobile tab-toggle system, using
+# a new dedicated class (s360-main-panel) to avoid colliding with the
+# unrelated .s360-scroll class already reused elsewhere purely for
+# scrollbar cosmetics (that collision would've hidden the top tab-strip
+# too if not handled separately).
+# Desktop view (>980px) is completely unaffected — confirmed untouched.
+set -e
+
+cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
+
+echo "🔎 Locating Student360Preview via grep..."
+S360=$(grep -rl "360° Profile Preview\|Device Intelligence" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+echo "Student360Preview : ${S360:-NOT FOUND}"
+
+if [ -z "$S360" ]; then
+  echo "❌ File not found. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$S360" "${S360}.bak_${TS}"
+echo "✅ Backup created (.bak_${TS})"
+
+cat > "$S360" << 'EOF_STU360e'
 'use client'
 import { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react'
 
@@ -532,3 +565,9 @@ export default function Student360Preview({ studentId, token, onClose, theme }: 
     </ThemeCtx.Provider>
   )
 }
+EOF_STU360e
+echo "✅ Student360Preview updated: $S360"
+echo ""
+echo "📱 Mobile: only the selected tab (Summary/Details/Timeline) renders now."
+echo "🖥️  Desktop: unaffected, still shows all 3 panels side-by-side."
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check 360 view on mobile, tap between Summary/Details/Timeline)"
