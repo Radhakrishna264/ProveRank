@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react'
+import CopyBtn from '@/components/CopyBtn'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
 
@@ -177,6 +178,7 @@ export default function Student360Preview({ studentId, token, onClose, theme }: 
               <span style={{fontWeight:800, fontSize:15, color:T.TS}}>{data?.name || (loading?'Loading…':'Student')}</span>
               {data?.verified && <Badge col={T.SUC}>✓ Verified</Badge>}
               {data?.studentId && <span style={{fontSize:10.5,color:T.DIM}}>ID: {data.studentId}</span>}
+              {data?.studentId && <CopyBtn text={data.studentId} size="sm"/>}
             </div>
             <div style={{fontSize:10.5, color:T.DIM, marginTop:2}}>
               360° Profile Preview {data && <>· {data.completion}% complete · Last updated {fmt(data.lastUpdated)}</>}
@@ -229,7 +231,7 @@ export default function Student360Preview({ studentId, token, onClose, theme }: 
                   {data.targetExam && <Badge col={T.GOLD}>🎯 {data.targetExam}</Badge>}
                 </div>
               </div>
-              <Row label="Student ID" value={data.studentId||'—'}/>
+              <Row label="Student ID" value={<span style={{display:'flex',gap:6,alignItems:'center'}}>{data.studentId||'—'} {data.studentId && <CopyBtn text={data.studentId} size="sm"/>}</span>}/>
               <Row label="Profile Health" value={`${data.health}/100`}/>
               <Row label="Completion" value={`${data.completion}%`}/>
               <Row label="Last Login" value={fmt(data.security.lastLogin?.at || data.security.lastLogin?.time)}/>
@@ -238,6 +240,10 @@ export default function Student360Preview({ studentId, token, onClose, theme }: 
 
             <Card title="Quick Actions" icon="⚡">
               <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                  <span style={{fontSize:11.5,color:T.DIM}}>Copy Student ID</span>
+                  {data.studentId && <CopyBtn text={data.studentId} size="sm"/>}
+                </div>
                 <button style={btnGhost} onClick={()=>jump('personal')}>📄 Open Full Profile</button>
                 <button style={btnGhost} onClick={()=>jump('login')}>📶 View Login Activity</button>
                 <button style={btnGhost} onClick={()=>{setMobileTab('timeline')}}>🕐 View Audit Timeline</button>

@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 
 interface Props {
   student: { name: string; studentId: string; email: string }
@@ -21,6 +22,14 @@ const FEATURES = [
 ]
 
 export default function WelcomeBanner({ student, onClose }: Props) {
+  const [copied, setCopied] = useState(false)
+
+  const copyId = () => {
+    try { navigator.clipboard.writeText(student.studentId) } catch(e) {}
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <div style={{
       position:'fixed',inset:0,zIndex:9999,
@@ -92,6 +101,15 @@ export default function WelcomeBanner({ student, onClose }: Props) {
               background:'linear-gradient(135deg,#B8B8B8,#FFFFFF,#C8C8C8,#A0A0A0)',
               WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'
             }}>{student.studentId || 'Generating...'}</span>
+            {student.studentId && (
+              <button onClick={copyId} style={{
+                background:copied?'rgba(0,196,140,0.15)':'rgba(77,159,255,0.12)',
+                border:`1px solid ${copied?'rgba(0,196,140,0.45)':'rgba(77,159,255,0.35)'}`,
+                borderRadius:'8px',padding:'6px 14px',cursor:'pointer',
+                color:copied?'#00C48C':'#4D9FFF',fontSize:'12px',fontWeight:700,
+                fontFamily:'Inter,sans-serif',transition:'all 0.2s'
+              }}>{copied?'✓ Copied!':'⎘ Copy'}</button>
+            )}
           </div>
           <p style={{color:'#3A5070',fontSize:'11px',marginTop:'10px',fontFamily:'Inter,sans-serif'}}>
             Save this ID — required for admit cards &amp; support

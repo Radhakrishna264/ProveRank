@@ -1,3 +1,1475 @@
+#!/bin/bash
+# ProveRank — Completely remove the Copy Button system from all
+# Student/Admin/SuperAdmin pages (frontend). Backend had NO copy-related
+# routes/logs at all (verified via grep — clean, nothing to remove there).
+#
+# Files touched (7):
+#   1) src/components/WelcomeBanner.tsx      — Student welcome banner:
+#      removed "Copy ID" button + copyId() + unused useState import.
+#   2) app/admin/x7k2p/AdminWelcomeBanner.tsx — Admin welcome banner:
+#      removed "📋 Copy ID" button + handleCopy() + copied state.
+#   3) app/dashboard/store/page.tsx           — Store/payment failure
+#      screen: removed "📋 Copy" button next to Payment ID.
+#   4) app/admin/x7k2p/page.tsx               — removed the LOCAL CopyBtn
+#      component (this file had its own separate copy, like it did for
+#      PRLogo) + all 5 usages (Batch ID, Student ID x4).
+#   5) app/profile/page.tsx                   — removed CopyBtn import +
+#      its 1 usage (Student ID on profile header).
+#   6) app/admin/x7k2p/Student360Preview.tsx  — removed CopyBtn import +
+#      3 usages (header ID, Personal Details row, Quick Actions "Copy
+#      Student ID" row — removed the whole row since it existed only for
+#      this feature).
+#   7) components/CopyBtn.tsx                 — the shared component
+#      itself, DELETED entirely (nothing imports it anymore after the
+#      above 2 files are patched).
+#
+# NOTE — CreateExamWizard.tsx was explicitly EXCLUDED per your correction;
+# its "Copy Exam Link" and "Clone Exam" features were left untouched.
+#
+# Safety: only copy-to-clipboard buttons/functions were touched everywhere.
+# ID/link text displays, Clone/Duplicate exam features, "Copy-Paste" bulk
+# upload methods, and decorative 📋 icons (section headers, exam-type
+# icons, template icons) were all left completely alone — they were
+# checked and are NOT part of the copy-button system.
+set -e
+
+cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
+
+echo "🔎 Locating files via grep..."
+WB=$(grep -rl "Save this ID — required for admit cards" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+AWB=$(grep -rl "Your Admin ID" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+STOREPAGE=$(grep -rl "PAYMENT ID" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+ADMINPAGE=$(grep -rl "pr-nav-desktop-styles" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+PROFILEPAGE=$(grep -rl "security-overview" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+S360=$(grep -rl "360° Profile Preview\|Device Intelligence" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+COPYBTNFILE=$(grep -rl "export default function CopyBtn" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+
+echo "WelcomeBanner.tsx      : ${WB:-NOT FOUND}"
+echo "AdminWelcomeBanner.tsx : ${AWB:-NOT FOUND}"
+echo "Store page             : ${STOREPAGE:-NOT FOUND}"
+echo "Admin panel page       : ${ADMINPAGE:-NOT FOUND}"
+echo "Profile page           : ${PROFILEPAGE:-NOT FOUND}"
+echo "Student360Preview.tsx  : ${S360:-NOT FOUND}"
+echo "CopyBtn.tsx (shared)   : ${COPYBTNFILE:-NOT FOUND}"
+
+if [ -z "$WB" ] || [ -z "$AWB" ] || [ -z "$STOREPAGE" ] || [ -z "$ADMINPAGE" ] || [ -z "$PROFILEPAGE" ] || [ -z "$S360" ] || [ -z "$COPYBTNFILE" ]; then
+  echo "❌ One or more files not found. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$WB" "${WB}.bak_${TS}"
+cp "$AWB" "${AWB}.bak_${TS}"
+cp "$STOREPAGE" "${STOREPAGE}.bak_${TS}"
+cp "$ADMINPAGE" "${ADMINPAGE}.bak_${TS}"
+cp "$PROFILEPAGE" "${PROFILEPAGE}.bak_${TS}"
+cp "$S360" "${S360}.bak_${TS}"
+cp "$COPYBTNFILE" "${COPYBTNFILE}.bak_${TS}"
+echo "✅ Backups created (.bak_${TS}) for all 7 files"
+
+cat > "$WB" << 'EOF_WB'
+'use client'
+
+interface Props {
+  student: { name: string; studentId: string; email: string }
+  onClose: () => void
+}
+
+const FEATURES = [
+  { icon: '⚡', title: 'Real-Time All India Rankings', desc: 'Live rank updates across every exam' },
+  { icon: '🧠', title: 'AI Performance Intelligence', desc: 'Smart analytics powered by machine learning' },
+  { icon: '🔬', title: 'NEET Pattern Mock Tests', desc: '180-question full-length exam simulations' },
+  { icon: '📊', title: 'Deep Subject Analytics', desc: 'Physics · Chemistry · Biology breakdown' },
+  { icon: '🏆', title: 'Achievement Certificates', desc: 'Earn & download verified digital certificates' },
+  { icon: '📚', title: 'PYQ Bank 2015–2024', desc: 'Decade of previous year questions filtered by year' },
+  { icon: '🎯', title: 'Smart Revision Engine', desc: 'AI-identified weak areas with revision plans' },
+  { icon: '🛡️', title: 'Advanced Proctored Exams', desc: 'Secure, fair, tamper-proof examination system' },
+  { icon: '📄', title: 'Performance Report PDF', desc: 'Comprehensive downloadable progress report' },
+  { icon: '🪪', title: 'Digital Admit Cards', desc: 'Auto-generated with QR code verification' },
+  { icon: '👨‍👩‍👧', title: 'Parent Progress Portal', desc: 'Share your journey with your family' },
+  { icon: '🔥', title: 'Streak & Milestone Tracker', desc: 'Stay consistent, earn badges, climb ranks' },
+]
+
+export default function WelcomeBanner({ student, onClose }: Props) {
+  return (
+    <div style={{
+      position:'fixed',inset:0,zIndex:9999,
+      background:'rgba(0,0,0,0.88)',
+      backdropFilter:'blur(14px)',
+      display:'flex',alignItems:'center',justifyContent:'center',
+      padding:'16px',overflowY:'auto'
+    }}>
+      <div style={{
+        width:'100%',maxWidth:'660px',
+        background:'linear-gradient(145deg,rgba(10,14,28,0.99),rgba(6,10,22,0.99))',
+        border:'1px solid rgba(212,175,55,0.35)',
+        borderRadius:'24px',padding:'36px 28px',
+        boxShadow:'0 0 80px rgba(212,175,55,0.12),0 0 140px rgba(77,159,255,0.07)',
+        position:'relative',maxHeight:'92vh',overflowY:'auto'
+      }}>
+
+        {/* Gold top line */}
+        <div style={{
+          position:'absolute',top:0,left:'15%',right:'15%',height:'2px',
+          background:'linear-gradient(90deg,transparent,#D4AF37,#FFD700,#D4AF37,transparent)',
+          borderRadius:'2px'
+        }}/>
+
+        {/* Header */}
+        <div style={{textAlign:'center',marginBottom:'24px'}}>
+          <div style={{fontSize:'46px',marginBottom:'8px'}}>🎉</div>
+          <h1 style={{
+            fontSize:'25px',fontWeight:900,fontFamily:'Inter,sans-serif',
+            background:'linear-gradient(135deg,#FFD700,#FFF8DC,#D4AF37)',
+            WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',
+            marginBottom:'6px',letterSpacing:'-0.5px'
+          }}>Welcome to ProveRank!</h1>
+          <p style={{color:'#7A8FAA',fontSize:'13px',fontFamily:'Inter,sans-serif'}}>
+            Your journey to{' '}
+            <span style={{color:'#4D9FFF',fontWeight:700}}>All India Rank #1</span>{' '}
+            begins today
+          </p>
+        </div>
+
+        {/* Student Name */}
+        <div style={{textAlign:'center',marginBottom:'18px'}}>
+          <p style={{color:'#4B6080',fontSize:'11px',letterSpacing:'2px',textTransform:'uppercase',marginBottom:'4px',fontFamily:'Inter,sans-serif'}}>
+            Registered As
+          </p>
+          <p style={{
+            fontSize:'21px',fontWeight:800,fontFamily:'Inter,sans-serif',
+            background:'linear-gradient(135deg,#E8F4FF,#4D9FFF)',
+            WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'
+          }}>{student.name}</p>
+          <p style={{color:'#4B6080',fontSize:'12px',marginTop:'3px',fontFamily:'Inter,sans-serif'}}>{student.email}</p>
+        </div>
+
+        {/* Student ID Card */}
+        <div style={{
+          background:'linear-gradient(135deg,rgba(212,175,55,0.07),rgba(192,192,192,0.04))',
+          border:'1px solid rgba(212,175,55,0.3)',
+          borderRadius:'14px',padding:'16px 20px',
+          marginBottom:'24px',textAlign:'center',
+          boxShadow:'0 0 24px rgba(212,175,55,0.07)'
+        }}>
+          <p style={{color:'#7A8FAA',fontSize:'10px',letterSpacing:'2.5px',textTransform:'uppercase',marginBottom:'10px',fontFamily:'Inter,sans-serif'}}>
+            Your Unique Student ID
+          </p>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'12px',flexWrap:'wrap'}}>
+            <span style={{
+              fontSize:'26px',fontWeight:900,letterSpacing:'5px',
+              fontFamily:'monospace',
+              background:'linear-gradient(135deg,#B8B8B8,#FFFFFF,#C8C8C8,#A0A0A0)',
+              WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'
+            }}>{student.studentId || 'Generating...'}</span>
+          </div>
+          <p style={{color:'#3A5070',fontSize:'11px',marginTop:'10px',fontFamily:'Inter,sans-serif'}}>
+            Save this ID — required for admit cards &amp; support
+          </p>
+        </div>
+
+        {/* Features Grid */}
+        <div style={{marginBottom:'26px'}}>
+          <p style={{
+            textAlign:'center',color:'#7A8FAA',fontSize:'10px',
+            letterSpacing:'2px',textTransform:'uppercase',marginBottom:'14px',
+            fontFamily:'Inter,sans-serif'
+          }}>Everything You Unlock with ProveRank</p>
+          <div style={{
+            display:'grid',
+            gridTemplateColumns:'repeat(auto-fill,minmax(185px,1fr))',
+            gap:'9px'
+          }}>
+            {FEATURES.map((f,i) => (
+              <div key={i} style={{
+                background:'rgba(77,159,255,0.03)',
+                border:'1px solid rgba(192,192,192,0.09)',
+                borderRadius:'10px',padding:'11px 12px',
+                display:'flex',gap:'9px',alignItems:'flex-start'
+              }}>
+                <span style={{fontSize:'18px',lineHeight:1,flexShrink:0}}>{f.icon}</span>
+                <div>
+                  <p style={{
+                    fontSize:'11.5px',fontWeight:700,
+                    background:'linear-gradient(135deg,#CCCCCC,#F0F0F0)',
+                    WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',
+                    fontFamily:'Inter,sans-serif',marginBottom:'2px',lineHeight:1.3
+                  }}>{f.title}</p>
+                  <p style={{fontSize:'10.5px',color:'#3A5070',fontFamily:'Inter,sans-serif',lineHeight:1.4}}>{f.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* CTA */}
+        <button onClick={onClose} style={{
+          width:'100%',padding:'14px',
+          background:'linear-gradient(135deg,#1448b8,#4D9FFF,#1a5fd4)',
+          border:'none',borderRadius:'12px',
+          color:'#fff',fontSize:'15px',fontWeight:700,
+          fontFamily:'Inter,sans-serif',cursor:'pointer',
+          letterSpacing:'0.5px',
+          boxShadow:'0 4px 28px rgba(77,159,255,0.3)'
+        }}>Begin Your Journey →</button>
+
+        <p style={{textAlign:'center',color:'#2A3A50',fontSize:'11px',marginTop:'12px',fontFamily:'Inter,sans-serif'}}>
+          ProveRank · Advanced NEET Preparation Platform
+        </p>
+      </div>
+    </div>
+  )
+}
+EOF_WB
+echo "✅ WelcomeBanner.tsx updated: $WB"
+
+cat > "$AWB" << 'EOF_AWB'
+'use client';
+import { useEffect, useState } from 'react';
+
+const PERM_LABELS: Record<string, string> = {
+  manageExams: '📋 Exam Management',
+  createExam: '📝 Create Exams',
+  editExam: '✏️ Edit Exams',
+  deleteExam: '🗑️ Delete Exams',
+  manageQuestions: '❓ Question Bank',
+  bulkUpload: '📤 Bulk Upload',
+  manageStudents: '👥 Student Mgmt',
+  banStudents: '🚫 Ban Students',
+  viewResults: '📊 View Results',
+  exportReports: '📁 Export Reports',
+  sendAnnouncements: '📢 Announcements',
+  sendEmails: '📧 Email Templates',
+  manageSettings: '⚙️ Settings',
+  maintenance: '🔧 Maintenance',
+  viewAnalytics: '📈 Analytics',
+  manageAdmins: '👤 Manage Admins',
+  viewAuditLogs: '🔍 Audit Logs',
+  manageGrievances: '📋 Grievances',
+  manageBackup: '💾 Backup',
+  manageBranding: '🎨 Branding',
+  manageFeatureFlags: '🚩 Feature Flags',
+  manageBatches: '🎓 Batch Mgmt',
+  viewLiveMonitor: '🔴 Live Monitor',
+  managePermissions: '🔒 Permissions',
+  manageTemplates: '📄 Templates',
+  viewProctoringReports: '🛡️ Proctoring',
+};
+
+export default function AdminWelcomeBanner() {
+  const [visible, setVisible] = useState(false);
+  const [adminName, setAdminName] = useState('Admin');
+  const [adminId, setAdminId] = useState('');
+  const [loginNum, setLoginNum] = useState(1);
+  const [perms, setPerms] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem('pr_token');
+      const role = localStorage.getItem('pr_role');
+      if (!token || role !== 'admin') return;
+
+      const parts = token.split('.');
+      if (parts.length < 2) return;
+      const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(atob(b64));
+      const uid: string = payload.id || 'u';
+
+      const countKey = 'pr_adwc2_' + uid;
+      const sessionKey = 'pr_adm_sess_' + uid;
+
+      const alreadyShownThisSession = sessionStorage.getItem(sessionKey);
+      if (alreadyShownThisSession) return;
+
+      let count = parseInt(localStorage.getItem(countKey) || '0', 10);
+      count = count + 1;
+      localStorage.setItem(countKey, String(count));
+      sessionStorage.setItem(sessionKey, '1');
+
+      if (count > 2) return;
+
+      setLoginNum(count);
+      setVisible(true);
+
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com';
+      const ctrl = new AbortController();
+      const timer = setTimeout(function() { ctrl.abort(); }, 8000);
+
+      fetch(apiBase + '/api/admin/manage/profile/me', {
+        headers: { Authorization: 'Bearer ' + token },
+        signal: ctrl.signal,
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          clearTimeout(timer);
+          if (d && d.success && d.admin) {
+            setAdminName(d.admin.name || 'Admin');
+            setAdminId(d.admin.adminId || '');
+            const p = d.admin.permissions;
+            if (p && typeof p === 'object') {
+              const granted = Object.entries(p as Record<string, boolean>)
+                .filter(function(e) { return e[1] === true; })
+                .map(function(e) { return PERM_LABELS[e[0]] || e[0]; });
+              setPerms(granted);
+            }
+          }
+          setLoading(false);
+        })
+        .catch(function() {
+          clearTimeout(timer);
+          setLoading(false);
+        });
+    } catch (err) {
+      console.error('Banner err:', err);
+    }
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      zIndex: 99999,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'rgba(0,0,0,0.78)',
+      backdropFilter: 'blur(10px)',
+      padding: '16px',
+    }}>
+      <style>{`
+        @keyframes bannerIn {
+          from { opacity:0; transform:scale(0.82) translateY(32px); }
+          to { opacity:1; transform:scale(1) translateY(0); }
+        }
+        @keyframes goldShimmer {
+          0% { background-position:-200% center; }
+          100% { background-position:200% center; }
+        }
+        @keyframes goldenGlow {
+          0%,100% { box-shadow:0 0 60px rgba(255,180,0,0.22),0 0 120px rgba(255,140,0,0.1); }
+          50% { box-shadow:0 0 80px rgba(255,200,0,0.35),0 0 160px rgba(255,160,0,0.16); }
+        }
+      `}</style>
+
+      <div style={{
+        maxWidth: '520px',
+        width: '100%',
+        maxHeight: '92vh',
+        overflowY: 'auto',
+        borderRadius: '22px',
+        background: 'linear-gradient(145deg,rgba(18,10,2,0.98) 0%,rgba(28,18,4,0.98) 50%,rgba(22,12,2,0.98) 100%)',
+        border: '1.5px solid rgba(255,200,50,0.32)',
+        animation: 'bannerIn 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards, goldenGlow 3s ease-in-out infinite',
+      }}>
+
+        <div style={{
+          background: 'linear-gradient(90deg,#7c5200,#ffd700,#daa520,#ffc200,#b8860b,#ffd700,#7c5200)',
+          backgroundSize: '300% auto',
+          animation: 'goldShimmer 4s linear infinite',
+          borderRadius: '22px 22px 0 0',
+          height: '4px',
+        }} />
+
+        <div style={{ padding: '26px 22px 22px' }}>
+
+          <div style={{ textAlign: 'center', marginBottom: '22px' }}>
+            <div style={{ fontSize: '40px', marginBottom: '6px' }}>
+              {loginNum === 1 ? '🎊' : '👋'}
+            </div>
+            <div style={{
+              fontSize: '10px',
+              fontWeight: 700,
+              letterSpacing: '3.5px',
+              color: '#b8860b',
+              textTransform: 'uppercase',
+              marginBottom: '8px',
+            }}>
+              {loginNum === 1 ? '✦ Welcome to ProveRank Admin ✦' : '✦ Welcome Back, Admin ✦'}
+            </div>
+            <div style={{
+              fontSize: '24px',
+              fontWeight: 800,
+              background: 'linear-gradient(135deg,#ffd700 0%,#ffb300 40%,#ffe066 70%,#ffd700 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              fontFamily: "'Georgia','Times New Roman',serif",
+              lineHeight: 1.2,
+              marginBottom: '6px',
+            }}>
+              {loginNum === 1 ? 'Hello, ' + adminName + '!' : 'Great to see you, ' + adminName + '!'}
+            </div>
+            <div style={{ fontSize: '12px', color: '#78716c', lineHeight: 1.6, maxWidth: '340px', margin: '0 auto' }}>
+              {loginNum === 1
+                ? 'Your Admin account is active. Review your assigned permissions and Admin ID below.'
+                : "This is your last welcome banner. You're fully set up — let's build something great!"}
+            </div>
+          </div>
+
+          <div style={{
+            background: 'linear-gradient(135deg,rgba(217,119,6,0.12) 0%,rgba(180,90,0,0.08) 100%)',
+            border: '1px solid rgba(217,119,6,0.3)',
+            borderRadius: '14px',
+            padding: '16px 18px',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+          }}>
+            <div>
+              <div style={{
+                fontSize: '9px',
+                fontWeight: 700,
+                color: '#78716c',
+                letterSpacing: '2.5px',
+                textTransform: 'uppercase',
+                marginBottom: '4px',
+              }}>Your Admin ID</div>
+              <div style={{
+                fontSize: '20px',
+                fontWeight: 800,
+                color: '#fbbf24',
+                letterSpacing: '2px',
+                fontFamily: "'Courier New',monospace",
+              }}>
+                {loading ? '· · ·' : (adminId || '—')}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '18px' }}>
+            <div style={{
+              fontSize: '9px',
+              fontWeight: 700,
+              color: '#d97706',
+              letterSpacing: '2.5px',
+              textTransform: 'uppercase',
+              marginBottom: '10px',
+            }}>⚡ Your Granted Permissions</div>
+
+            {loading ? (
+              <div style={{ textAlign: 'center', color: '#57534e', padding: '20px', fontSize: '13px' }}>
+                Loading permissions...
+              </div>
+            ) : perms.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
+                {perms.map(function(p, i) {
+                  return (
+                    <div key={i} style={{
+                      background: 'rgba(217,119,6,0.08)',
+                      border: '1px solid rgba(217,119,6,0.2)',
+                      borderRadius: '8px',
+                      padding: '7px 10px',
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      color: '#d4a017',
+                      lineHeight: 1.4,
+                    }}>{p}</div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{
+                background: 'rgba(217,119,6,0.07)',
+                border: '1px solid rgba(217,119,6,0.2)',
+                borderRadius: '10px',
+                padding: '14px',
+                textAlign: 'center',
+                color: '#f59e0b',
+                fontSize: '12px',
+                fontWeight: 600,
+              }}>🔑 Permissions assigned by SuperAdmin</div>
+            )}
+          </div>
+
+          <div style={{
+            background: loginNum === 1 ? 'rgba(217,119,6,0.1)' : 'rgba(139,92,246,0.1)',
+            border: loginNum === 1 ? '1px solid rgba(217,119,6,0.3)' : '1px solid rgba(139,92,246,0.3)',
+            borderRadius: '9px',
+            padding: '9px 14px',
+            textAlign: 'center',
+            fontSize: '11px',
+            color: loginNum === 1 ? '#f59e0b' : '#a78bfa',
+            fontWeight: 600,
+            marginBottom: '18px',
+          }}>
+            {loginNum === 1
+              ? '🌟 First Login — Welcome to the ProveRank Team!'
+              : "✨ Second Login — Last welcome message. You're all set!"}
+          </div>
+
+          <button
+            onClick={function() { setVisible(false); }}
+            style={{
+              width: '100%',
+              background: 'linear-gradient(90deg,#7c5200,#ffd700,#daa520,#ffc200,#ffd700,#7c5200)',
+              backgroundSize: '200% auto',
+              animation: 'goldShimmer 4s linear infinite',
+              border: 'none',
+              borderRadius: '13px',
+              padding: '15px',
+              color: '#1a0a00',
+              fontSize: '13px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              letterSpacing: '1.5px',
+              textTransform: 'uppercase',
+            }}
+          >
+            🚀 Enter Admin Panel
+          </button>
+
+          <div style={{
+            marginTop: '16px',
+            borderTop: '1px solid rgba(217,119,6,0.12)',
+            paddingTop: '12px',
+            textAlign: 'center',
+            color: '#44403c',
+            fontSize: '9px',
+            letterSpacing: '2px',
+          }}>
+            PROVERANK · PROVE YOURSELF · RISE TO THE TOP
+          </div>
+        </div>
+
+        <div style={{
+          background: 'linear-gradient(90deg,#7c5200,#ffd700,#daa520,#ffc200,#b8860b,#ffd700,#7c5200)',
+          backgroundSize: '300% auto',
+          animation: 'goldShimmer 4s linear infinite',
+          borderRadius: '0 0 22px 22px',
+          height: '4px',
+        }} />
+      </div>
+    </div>
+  );
+}
+EOF_AWB
+echo "✅ AdminWelcomeBanner.tsx updated: $AWB"
+
+cat > "$STOREPAGE" << 'EOF_STORE'
+'use client';
+// Razorpay global type
+declare global { interface Window { Razorpay: any; } }
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com';
+const tok = () => typeof window !== 'undefined' ? localStorage.getItem('pr_token') || '' : '';
+const hdr = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` });
+const fmtP = (n: number) => '₹' + n.toLocaleString('en-IN');
+const pct  = (o: number, s: number) => Math.round(((o - s) / o) * 100);
+const fmtD = (d: string) => new Date(d).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+
+// ─── Shared styles ───────────────────────────────────────────────
+const S = {
+  page:   { minHeight:'100vh', background:'#030a1a', color:'#fff', fontFamily:"'Inter',sans-serif", paddingBottom:80 } as React.CSSProperties,
+  card:   { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:16 } as React.CSSProperties,
+  card2:  { background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:12 } as React.CSSProperties,
+  btnP:   { background:'linear-gradient(135deg,#2563eb,#0ea5e9)', color:'#fff', border:'none', borderRadius:12, padding:'12px 20px', fontWeight:700, fontSize:14, cursor:'pointer', transition:'opacity 0.2s' } as React.CSSProperties,
+  btnS:   { background:'rgba(255,255,255,0.06)', color:'rgba(255,255,255,0.7)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:12, padding:'10px 16px', fontWeight:600, fontSize:13, cursor:'pointer' } as React.CSSProperties,
+  inp:    { width:'100%', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, padding:'12px 16px', color:'#fff', fontSize:14, outline:'none', boxSizing:'border-box' } as React.CSSProperties,
+  sel:    { width:'100%', background:'#060d1f', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, padding:'11px 16px', color:'#fff', fontSize:13, outline:'none' } as React.CSSProperties,
+  tag:    (active: boolean, color = '#2563eb') => ({ padding:'6px 12px', borderRadius:20, fontSize:12, fontWeight:600, cursor:'pointer', border:`1px solid ${active ? color : 'rgba(255,255,255,0.1)'}`, background: active ? color + '33' : 'rgba(255,255,255,0.04)', color: active ? color : 'rgba(255,255,255,0.5)' } as React.CSSProperties),
+  topbar: { position:'sticky' as const, top:0, zIndex:40, background:'rgba(3,10,26,0.92)', backdropFilter:'blur(20px)', borderBottom:'1px solid rgba(255,255,255,0.06)', padding:'12px 16px' },
+};
+
+// Toast
+function Toast({ msg, type, onClose }: { msg: string; type: string; onClose: () => void }) {
+  useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
+  const bg = type === 'success' ? '#16a34a' : type === 'error' ? '#dc2626' : '#2563eb';
+  return (
+    <div style={{ position:'fixed', top:20, left:'50%', transform:'translateX(-50%)', zIndex:9999, background:bg, color:'#fff', padding:'12px 20px', borderRadius:16, fontWeight:600, fontSize:13, boxShadow:'0 8px 32px rgba(0,0,0,0.5)', whiteSpace:'nowrap' }}>
+      {type === 'success' ? '✓ ' : type === 'error' ? '✕ ' : 'ℹ '}{msg}
+    </div>
+  );
+}
+
+// Stars
+function Stars({ n }: { n: number }) {
+  return <span style={{ color:'#fbbf24', fontSize:12 }}>{'★'.repeat(Math.round(n))}{'☆'.repeat(5 - Math.round(n))}</span>;
+}
+
+// Product Card
+function PCard({ p, onView, onCart, onWish, wished }: any) {
+  const [adding, setAdding] = useState(false);
+  const discount = pct(p.originalPrice, p.price);
+  return (
+    <div onClick={() => onView(p)} style={{ ...S.card, cursor:'pointer', overflow:'hidden', transition:'transform 0.2s,box-shadow 0.2s' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-4px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 12px 40px rgba(37,99,235,0.15)'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}>
+      {/* Image */}
+      <div style={{ position:'relative', height:160, background:'linear-gradient(135deg,rgba(37,99,235,0.15),rgba(14,165,233,0.08))', display:'flex', alignItems:'center', justifyContent:'center' }}>
+        {p.images?.[0]?.url
+          ? <img src={p.images[0].url} alt={p.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+          : <span style={{ fontSize:48 }}>📚</span>}
+        {discount > 0 && <span style={{ position:'absolute', top:8, right:8, background:'#ef4444', color:'#fff', fontSize:11, fontWeight:700, padding:'2px 7px', borderRadius:20 }}>{discount}% OFF</span>}
+        {p.isBestSeller && <span style={{ position:'absolute', top:8, left:8, background:'linear-gradient(90deg,#f59e0b,#ef4444)', color:'#000', fontSize:10, fontWeight:800, padding:'2px 7px', borderRadius:20 }}>🔥 BESTSELLER</span>}
+        {p.stock === 0 && (
+          <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <span style={{ background:'rgba(239,68,68,0.8)', color:'#fff', padding:'6px 14px', borderRadius:20, fontSize:12, fontWeight:700 }}>Out of Stock</span>
+          </div>
+        )}
+        <button onClick={e => { e.stopPropagation(); onWish(p._id); }} style={{ position:'absolute', bottom:8, right:8, width:30, height:30, borderRadius:'50%', background:'rgba(0,0,0,0.5)', border:'1px solid rgba(255,255,255,0.2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>
+          {wished ? '❤️' : '🤍'}
+        </button>
+      </div>
+      {/* Info */}
+      <div style={{ padding:'12px 14px' }}>
+        <p style={{ fontSize:11, color:'#60a5fa', marginBottom:4, fontWeight:600 }}>{p.category} · {p.subject}</p>
+        <p style={{ fontSize:13, fontWeight:700, color:'#fff', marginBottom:4, lineHeight:1.4, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{p.name}</p>
+        {p.author && <p style={{ fontSize:11, color:'rgba(255,255,255,0.35)', marginBottom:6 }}>by {p.author}</p>}
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8 }}>
+          <Stars n={p.ratings?.average || 0} />
+          <span style={{ fontSize:11, color:'rgba(255,255,255,0.3)' }}>({p.ratings?.count || 0})</span>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+          <span style={{ fontSize:18, fontWeight:900, color:'#fff' }}>{fmtP(p.price)}</span>
+          {p.originalPrice > p.price && <span style={{ fontSize:12, color:'rgba(255,255,255,0.3)', textDecoration:'line-through' }}>{fmtP(p.originalPrice)}</span>}
+        </div>
+        <p style={{ fontSize:11, color: p.deliveryCharge === 0 ? '#4ade80' : 'rgba(255,255,255,0.4)', marginBottom:10 }}>
+          🚚 {p.deliveryCharge === 0 ? 'Free Delivery' : `+₹${p.deliveryCharge} delivery`}
+        </p>
+        <button onClick={async e => { e.stopPropagation(); setAdding(true); await onCart(p._id); setAdding(false); }}
+          disabled={adding || p.stock === 0} style={{ ...S.btnP, width:'100%', padding:'10px', opacity: (adding || p.stock === 0) ? 0.5 : 1 }}>
+          {adding ? '⏳ Adding...' : p.stock > 0 ? '🛒 Add to Cart' : 'Out of Stock'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════
+// MAIN
+// ════════════════════════════════════════════════════
+
+// Load Razorpay checkout script
+const loadRazorpayScript = (): Promise<boolean> => {
+  return new Promise(resolve => {
+    if (typeof window === 'undefined') return resolve(false);
+    if (window.Razorpay) return resolve(true);
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
+
+// ── Payment Failure Modal ───────────────────────────────────
+function PaymentFailureModal({
+  paymentId, amount, errorMsg, onRetry, onClose, retrying
+}: {
+  paymentId: string; amount: number; errorMsg?: string; onRetry: () => void;
+  onClose: () => void; retrying: boolean;
+}) {
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.9)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+      <div style={{ width:'100%', maxWidth:420, background:'#0a0f1e', border:'1px solid rgba(239,68,68,0.4)', borderRadius:20, padding:24 }}>
+        <div style={{ textAlign:'center', marginBottom:20 }}>
+          <div style={{ fontSize:48, marginBottom:8 }}>⚠️</div>
+          <h2 style={{ fontSize:18, fontWeight:900, color:'#fca5a5', margin:'0 0 6px' }}>
+            Payment Done — Order Failed
+          </h2>
+          <p style={{ fontSize:13, color:'rgba(255,255,255,0.5)', margin:0 }}>
+            ₹{amount} was deducted but order was not created. {errorMsg || 'Retry below or contact support.'}
+          </p>
+        </div>
+
+        <div style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:12, padding:14, marginBottom:16 }}>
+          <p style={{ fontSize:11, color:'rgba(255,255,255,0.4)', margin:'0 0 4px', fontWeight:700 }}>PAYMENT ID</p>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <p style={{ fontSize:13, fontFamily:'monospace', color:'#60a5fa', fontWeight:700, margin:0, wordBreak:'break-all', flex:1 }}>{paymentId}</p>
+          </div>
+        </div>
+
+        <div style={{ fontSize:12, color:'rgba(255,255,255,0.4)', marginBottom:16, lineHeight:1.7 }}>
+          <p style={{ margin:'0 0 6px' }}>✅ Payment ID saved in your browser</p>
+          <p style={{ margin:'0 0 6px' }}>📞 Share this ID with support to get your order created</p>
+          <p style={{ margin:0 }}>💰 Your money is safe — it reached merchant account</p>
+        </div>
+
+        <div style={{ display:'flex', gap:10 }}>
+          <button
+            onClick={onRetry}
+            disabled={retrying}
+            style={{ flex:1, padding:12, background:'linear-gradient(135deg,#2563eb,#0ea5e9)', color:'#fff', border:'none', borderRadius:12, fontWeight:700, fontSize:14, cursor:'pointer', opacity:retrying?0.6:1 }}
+          >
+            {retrying ? '⏳ Retrying...' : '🔄 Retry Order'}
+          </button>
+          <button
+            onClick={onClose}
+            style={{ padding:'12px 16px', background:'rgba(255,255,255,0.07)', color:'rgba(255,255,255,0.6)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:12, fontWeight:600, fontSize:13, cursor:'pointer' }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function StorePage() {
+  const router = useRouter();
+  const [failedPayment, setFailedPayment] = useState<any>(null);
+  const [retryingVerify, setRetryingVerify] = useState(false);
+  const [view, setView]   = useState<'store'|'product'|'cart'|'checkout'|'orders'|'wishlist'>('store');
+  const [toast, setToast] = useState<{ msg: string; type: string } | null>(null);
+  const T = (msg: string, type = 'success') => setToast({ msg, type });
+
+  // Products
+  const [products, setProducts] = useState<any[]>([]);
+  const [featured, setFeatured] = useState<any[]>([]);
+  const [total, setTotal]       = useState(0);
+  const [loading, setLoading]   = useState(true);
+  const [page, setPage]         = useState(1);
+  const [search, setSearch]     = useState('');
+  const [catF, setCatF]         = useState('');
+  const [subF, setSubF]         = useState('');
+  const [sortBy, setSortBy]     = useState('newest');
+
+  // Cart
+  const [cart, setCart]         = useState<any>({ items:[], total:0, subtotal:0, deliveryCharge:0, couponDiscount:0, itemCount:0 });
+  const [couponInput, setCouponInput] = useState('');
+
+  // Product detail
+  const [selProd, setSelProd]   = useState<any>(null);
+  const [reviews, setReviews]   = useState<any[]>([]);
+  const [myRating, setMyRating] = useState(0);
+  const [myReview, setMyReview] = useState({ title:'', body:'' });
+
+  // Orders
+  const [orders, setOrders]     = useState<any[]>([]);
+  const [selOrder, setSelOrder] = useState<any>(null);
+
+  // Wishlist
+  const [wishIds, setWishIds]   = useState<string[]>([]);
+  const [wishlist, setWishlist]    = useState<any[]>([]);
+  const [buyerNotes, setBuyerNotes] = useState('');
+
+  // Checkout
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
+  const [step, setStep]         = useState(0);
+  const [addr, setAddr]         = useState({ fullName:'', phone:'', addressLine1:'', addressLine2:'', city:'', state:'', pincode:'' });
+  const [payM, setPayM]         = useState('COD');
+  const [placing, setPlacing]   = useState(false);
+
+  const loadProducts = useCallback(() => {
+    setLoading(true);
+    const p = new URLSearchParams({ page: String(page), limit:'12', sort: sortBy });
+    if (search) p.set('search', search);
+    if (catF)   p.set('category', catF);
+    if (subF)   p.set('subject', subF);
+    fetch(`${API}/api/store/products?${p}`)
+      .then(r => r.json()).then(d => { setProducts(d.products||[]); setTotal(d.total||0); })
+      .finally(() => setLoading(false));
+  }, [page, search, catF, subF, sortBy]);
+
+  useEffect(() => { loadProducts(); }, [loadProducts]);
+  useEffect(() => {
+    fetch(`${API}/api/store/products/featured`).then(r=>r.json()).then(d=>setFeatured(d.products||[]));
+    if (tok()) { loadCart(); loadWish(); }
+    try { const s = localStorage.getItem('pr_saved_addrs'); if (s) setSavedAddresses(JSON.parse(s)); } catch(e){}
+  }, []);
+
+  const loadCart = () => fetch(`${API}/api/store/cart`,{headers:hdr()}).then(r=>r.json()).then(setCart).catch(()=>{});
+  const loadWish = () => fetch(`${API}/api/store/wishlist`,{headers:hdr()}).then(r=>r.json()).then(d=>{ const prods=d.products||[]; setWishIds(prods.map((p:any)=>p._id)); setWishlist(prods); }).catch(()=>{});
+  const loadOrders = () => fetch(`${API}/api/store/orders`,{headers:hdr()}).then(r=>r.json()).then(d=>setOrders(d.orders||[]));
+
+  const addToCart = async (productId: string) => {
+    if (!tok()) { T('Please login to add items','error'); return; }
+    const r = await fetch(`${API}/api/store/cart/add`,{method:'POST',headers:hdr(),body:JSON.stringify({productId,quantity:1})});
+    const d = await r.json();
+    if (r.ok) { loadCart(); T('Added to cart! 🛒'); } else T(d.message,'error');
+  };
+
+  const updateQty = async (productId: string, qty: number) => {
+    const r = await fetch(`${API}/api/store/cart/update`,{method:'PUT',headers:hdr(),body:JSON.stringify({productId,quantity:qty})});
+    const d = await r.json(); if (r.ok) setCart(d.cart);
+  };
+  const removeItem = async (productId: string) => {
+    const r = await fetch(`${API}/api/store/cart/remove/${productId}`,{method:'DELETE',headers:hdr()});
+    const d = await r.json(); if (r.ok) setCart(d.cart);
+  };
+  const applyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    const r = await fetch(`${API}/api/store/coupon/apply`,{method:'POST',headers:hdr(),body:JSON.stringify({couponCode:couponInput})});
+    const d = await r.json(); T(d.message, r.ok?'success':'error'); if (r.ok) loadCart();
+  };
+  const toggleWish = async (productId: string) => {
+    if (!tok()) { T('Please login','error'); return; }
+    const r = await fetch(`${API}/api/store/wishlist/toggle/${productId}`,{method:'POST',headers:hdr()});
+    const d = await r.json(); if (r.ok) { T(d.message); loadWish(); }
+  };
+  const toggleWishAndRefresh = async (productId: string) => {
+    await toggleWish(productId);
+  };
+  const viewProduct = async (p: any) => {
+    setSelProd(p); setView('product');
+    const r = await fetch(`${API}/api/store/products/${p._id}`);
+    const d = await r.json(); setSelProd(d.product); setReviews(d.reviews||[]);
+  };
+  const submitReview = async () => {
+    if (!myRating) { T('Select a rating','error'); return; }
+    const r = await fetch(`${API}/api/store/products/${selProd._id}/review`,{method:'POST',headers:hdr(),body:JSON.stringify({rating:myRating,...myReview})});
+    const d = await r.json(); T(d.message, r.ok?'success':'error'); if (r.ok) { setMyRating(0); setMyReview({title:'',body:''}); viewProduct(selProd); }
+  };
+  
+  const retryPaymentVerify = async () => {
+    if (!failedPayment) return;
+    setRetryingVerify(true);
+    try {
+      const verifyRes = await fetch(`${API}/api/store/payment/verify`, {
+        method: 'POST', headers: hdr(),
+        body: JSON.stringify({
+          razorpay_order_id:   failedPayment.rzpOrderId,
+          razorpay_payment_id: failedPayment.paymentId,
+          razorpay_signature:  failedPayment.rzpSignature,
+          shippingAddress:     addr,
+        }),
+      });
+      let vd: any = {};
+      try { vd = await verifyRes.json(); } catch { vd = { success: false, message: 'Parse error' }; }
+      if (verifyRes.ok && vd.success) {
+        localStorage.removeItem('pr_pending_payment');
+        setFailedPayment(null);
+        T(`✅ Order created! ${vd.orderId} 🎉`);
+        setCart({ items:[], total:0, subtotal:0, deliveryCharge:0, couponDiscount:0, itemCount:0 });
+        loadOrders(); setView('orders');
+      } else {
+        T(vd.message || 'Retry failed — contact support', 'error');
+      }
+    } catch {
+      T('Connection error — try again in a moment', 'error');
+    }
+    setRetryingVerify(false);
+  };
+
+  const placeOrder = async () => {
+    setPlacing(true);
+    try {
+      if (payM === 'COD') {
+        // ── COD flow ──
+        const r = await fetch(`${API}/api/store/orders/create`, {
+          method: 'POST', headers: hdr(),
+          body: JSON.stringify({ shippingAddress: addr, paymentMethod: 'COD', buyerNotes }),
+        });
+        const d = await r.json();
+        if (r.ok) {
+          T(`Order placed! ${d.orderId} 🎉`);
+          setCart({ items:[], total:0, subtotal:0, deliveryCharge:0, couponDiscount:0, itemCount:0 });
+          setStep(0); loadOrders(); setView('orders');
+        } else { T(d.message, 'error'); }
+      } else {
+        // ── Razorpay (UPI / Card / NetBanking) flow ──
+        const loaded = await loadRazorpayScript();
+        if (!loaded) { T('Razorpay failed to load. Check internet.', 'error'); setPlacing(false); return; }
+
+        // Step 1: Create Razorpay order on backend
+        const r = await fetch(`${API}/api/store/payment/create-order`, {
+          method: 'POST', headers: hdr(), body: JSON.stringify({ shippingAddress: addr, buyerNotes }),
+        });
+        const payData = await r.json();
+        if (!r.ok) { T(payData.message || 'Payment initiation failed', 'error'); setPlacing(false); return; }
+
+        // Step 2: Open Razorpay checkout
+        const options = {
+          key:       payData.key || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+          amount:    payData.amount,
+          currency:  payData.currency || 'INR',
+          order_id:  payData.order_id,
+          name:      'ProveRank Store',
+          description: 'Study Material Purchase',
+          image:     'https://prove-rank.vercel.app/favicon.ico',
+          prefill: {
+            name:    addr.fullName,
+            contact: addr.phone,
+          },
+          theme: { color: '#2563eb' },
+          modal: {
+            ondismiss: () => {
+              T('Payment cancelled', 'info');
+              setPlacing(false);
+            },
+          },
+          handler: async (response: any) => {
+            // Save to localStorage immediately as backup
+            const paymentBackup = {
+              paymentId: response.razorpay_payment_id,
+              orderId:   response.razorpay_order_id,
+              signature: response.razorpay_signature,
+              amount:    cart.total,
+              address:   addr,
+              timestamp: new Date().toISOString(),
+            };
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('pr_pending_payment', JSON.stringify(paymentBackup));
+            }
+
+            // Verify with backend (up to 2 retries)
+            let verified = false;
+            let lastError = '';
+            for (let attempt = 0; attempt < 2; attempt++) {
+              try {
+                if (attempt > 0) await new Promise(r => setTimeout(r, 2000)); // wait 2s before retry
+                const verifyRes = await fetch(`${API}/api/store/payment/verify`, {
+                  method: 'POST',
+                  headers: hdr(),
+                  body: JSON.stringify({
+                    razorpay_order_id:   response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature:  response.razorpay_signature,
+                    shippingAddress:     addr,
+                    buyerNotes,
+                  }),
+                });
+                let vd: any = {};
+                try { vd = await verifyRes.json(); } catch { vd = { success: false, message: 'Parse error' }; }
+
+                if (verifyRes.ok && vd.success) {
+                  // Success!
+                  localStorage.removeItem('pr_pending_payment');
+                  T(`✅ Payment verified! Order: ${vd.orderId} 🎉`);
+                  setCart({ items:[], total:0, subtotal:0, deliveryCharge:0, couponDiscount:0, itemCount:0 });
+                  setStep(0); loadOrders(); setView('orders');
+                  verified = true;
+                  break;
+                } else {
+                  lastError = vd.message || 'Verification failed';
+                }
+              } catch (err: any) {
+                lastError = 'Connection error';
+              }
+            }
+
+            if (!verified) {
+              // Show persistent modal instead of toast
+              setFailedPayment({
+                paymentId: response.razorpay_payment_id,
+                amount:    cart.total,
+                rzpOrderId: response.razorpay_order_id,
+                rzpSignature: response.razorpay_signature,
+                errorMsg:     lastError,
+              });
+            }
+            setPlacing(false);
+          },
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.on('payment.failed', (resp: any) => {
+          T(`Payment failed: ${resp.error?.description || 'Unknown error'}`, 'error');
+          setPlacing(false);
+        });
+        rzp.open();
+        return; // placing will be set false in handler
+      }
+    } catch (e) {
+      T('Something went wrong. Try again.', 'error');
+    }
+    setPlacing(false);
+  };
+  const setA = (k: string, v: string) => setAddr(p => ({...p, [k]:v}));
+  const saveCurrentAddress = () => {
+    if (!addr.fullName || !addr.phone || !addr.pincode) { T('Fill address first','error'); return; }
+    const entry = { ...addr, label: addr.fullName + ', ' + addr.city };
+    const existing: any[] = (() => { try { return JSON.parse(localStorage.getItem('pr_saved_addrs') || '[]'); } catch(e){ return []; } })();
+    const updated = [entry, ...existing.filter((a: any) => a.pincode !== entry.pincode)].slice(0, 5);
+    localStorage.setItem('pr_saved_addrs', JSON.stringify(updated));
+    setSavedAddresses(updated);
+    T('Address saved! 💾');
+  };
+  const goBack = () => {
+    if (view !== 'store') { setView('store'); setSelProd(null); setSelOrder(null); setStep(0); }
+    else router.push('/dashboard');
+  };
+
+  // ── Topbar ──────────────────────────────────────────
+  const Topbar = () => (
+    <div style={S.topbar}>
+      <div style={{ maxWidth:800, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <button onClick={goBack} style={{ width:36, height:36, borderRadius:10, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>←</button>
+          <div>
+            <div style={{ fontSize:18, fontWeight:900, letterSpacing:-0.5 }}>
+              <span style={{ background:'linear-gradient(90deg,#60a5fa,#22d3ee)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>Prove</span>
+              <span style={{ color:'#fff' }}>Store</span>
+            </div>
+            <div style={{ fontSize:10, color:'rgba(255,255,255,0.3)', marginTop:-2 }}>Study Materials</div>
+          </div>
+        </div>
+        <div style={{ display:'flex', gap:6 }}>
+          {[
+            { icon:'🏪', id:'store', onClick:()=>setView('store') },
+            { icon:'❤️', id:'wishlist', onClick:()=>{ loadWish(); setView('wishlist'); } },
+            { icon:'📦', id:'orders', onClick:()=>{ loadOrders(); setView('orders'); } },
+          ].map(b => (
+            <button key={b.id} onClick={b.onClick} style={{ ...S.btnS, padding:'8px 10px', background: view===b.id ? 'rgba(37,99,235,0.3)' : 'rgba(255,255,255,0.05)', border: view===b.id ? '1px solid rgba(37,99,235,0.5)' : '1px solid rgba(255,255,255,0.08)' }}>{b.icon}</button>
+          ))}
+          <button onClick={()=>setView('cart')} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 12px', background:'rgba(37,99,235,0.2)', border:'1px solid rgba(37,99,235,0.4)', borderRadius:12, cursor:'pointer', color:'#fff', fontWeight:700, fontSize:13, position:'relative' }}>
+            🛒 <span style={{ display:'none' }}>{fmtP(cart.total||0)}</span>
+            {cart.itemCount > 0 && <span style={{ background:'#3b82f6', color:'#fff', borderRadius:'50%', width:18, height:18, fontSize:10, fontWeight:900, display:'flex', alignItems:'center', justifyContent:'center' }}>{cart.itemCount}</span>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={S.page}>
+      {(failedPayment !== null && failedPayment !== undefined) && (
+        <PaymentFailureModal
+          paymentId={failedPayment.paymentId}
+          amount={failedPayment.amount}
+          onRetry={retryPaymentVerify}
+          errorMsg={failedPayment?.errorMsg}
+          onClose={() => setFailedPayment(null)}
+          retrying={retryingVerify}
+        />
+      )}
+      {toast && <Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)} />}
+      <Topbar />
+      <div style={{ maxWidth:800, margin:'0 auto', padding:'20px 16px' }}>
+
+        {/* ═══ STORE HOME ═══ */}
+        {view === 'store' && (
+          <div>
+            {/* Hero */}
+            <div style={{ borderRadius:20, padding:'28px 24px', marginBottom:24, background:'linear-gradient(135deg,rgba(37,99,235,0.2),rgba(14,165,233,0.1))', border:'1px solid rgba(96,165,250,0.2)', position:'relative', overflow:'hidden' }}>
+              <div style={{ position:'absolute', top:-20, right:-20, width:120, height:120, borderRadius:'50%', background:'radial-gradient(circle,rgba(96,165,250,0.15),transparent)' }} />
+              <span style={{ display:'inline-block', background:'rgba(96,165,250,0.15)', border:'1px solid rgba(96,165,250,0.3)', color:'#93c5fd', borderRadius:20, padding:'4px 12px', fontSize:11, fontWeight:600, marginBottom:12 }}>✨ Official NCERT Books & Study Material</span>
+              <h2 style={{ fontSize:26, fontWeight:900, color:'#fff', margin:'0 0 8px', lineHeight:1.2 }}>Everything You Need<br /><span style={{ background:'linear-gradient(90deg,#60a5fa,#22d3ee)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>to Crack NEET</span></h2>
+              <p style={{ color:'rgba(255,255,255,0.5)', fontSize:13, margin:'0 0 16px' }}>Books, Notes, Stationery — delivered to your door.</p>
+              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                {['🚚 Free delivery above ₹499','↩️ 7-day easy returns','🔒 Secure COD & UPI payment'].map(f=>(
+                  <span key={f} style={{ fontSize:12, color:'rgba(255,255,255,0.5)' }}>{f}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* Featured */}
+            {featured.length > 0 && (
+              <div style={{ marginBottom:20 }}>
+                <p style={{ fontSize:14, fontWeight:700, color:'#fff', marginBottom:10 }}>⭐ Featured</p>
+                <div style={{ display:'flex', gap:12, overflowX:'auto', paddingBottom:8 }}>
+                  {featured.map((p:any) => (
+                    <div key={p._id} onClick={()=>viewProduct(p)} style={{ flexShrink:0, width:140, cursor:'pointer', ...S.card, padding:10 }}>
+                      {p.images?.[0]?.url
+                        ? <img src={p.images[0].url} alt={p.name} style={{ width:'100%', height:100, objectFit:'cover', borderRadius:8, marginBottom:8 }} />
+                        : <div style={{ width:'100%', height:100, background:'rgba(37,99,235,0.1)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontSize:32, marginBottom:8 }}>📚</div>}
+                      <p style={{ fontSize:11, fontWeight:700, color:'#fff', marginBottom:4, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{p.name}</p>
+                      <p style={{ fontSize:13, fontWeight:900, color:'#60a5fa' }}>{fmtP(p.price)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Filters */}
+            <div style={{ ...S.card, padding:16, marginBottom:20 }}>
+              <div style={{ position:'relative', marginBottom:12 }}>
+                <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:16, color:'rgba(255,255,255,0.3)' }}>🔍</span>
+                <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Search books, notes, stationery..." style={{ ...S.inp, paddingLeft:40 }} />
+              </div>
+              <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
+                {['','Books','Notes','Stationery','Combo Pack','Other'].map(c=>(
+                  <button key={c} onClick={()=>{setCatF(c);setPage(1);}} style={S.tag(catF===c,'#2563eb')}>{c||'All'}</button>
+                ))}
+              </div>
+              <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
+                {['','Physics','Chemistry','Biology','Mathematics'].map(s=>(
+                  <button key={s} onClick={()=>{setSubF(s);setPage(1);}} style={S.tag(subF===s,'#0ea5e9')}>{s||'All Subjects'}</button>
+                ))}
+              </div>
+              <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={S.sel}>
+                <option value="newest">Newest First</option>
+                <option value="price_asc">Price: Low → High</option>
+                <option value="price_desc">Price: High → Low</option>
+                <option value="rating">Top Rated</option>
+                <option value="popular">Most Popular</option>
+              </select>
+            </div>
+
+            <p style={{ fontSize:12, color:'rgba(255,255,255,0.3)', marginBottom:14 }}>{total} products found</p>
+
+            {loading ? (
+              <div style={{ display:'flex', justifyContent:'center', padding:60 }}>
+                <div style={{ width:40, height:40, border:'3px solid rgba(37,99,235,0.3)', borderTop:'3px solid #3b82f6', borderRadius:'50%', animation:'spin 1s linear infinite' }} />
+                <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+              </div>
+            ) : products.length === 0 ? (
+              <div style={{ ...S.card, padding:60, textAlign:'center' }}>
+                <p style={{ fontSize:48, marginBottom:12 }}>📭</p>
+                <p style={{ color:'rgba(255,255,255,0.4)', fontSize:16, fontWeight:600 }}>No products found</p>
+                <p style={{ color:'rgba(255,255,255,0.25)', fontSize:13, margin:'8px 0 20px' }}>Products will appear after admin seeds them, or try clearing filters</p>
+                <button onClick={()=>{setSearch('');setCatF('');setSubF('');setPage(1);}} style={S.btnS}>Clear Filters</button>
+              </div>
+            ) : (
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:12 }}>
+                {products.map(p=>(
+                  <PCard key={p._id} p={p} onView={viewProduct} onCart={addToCart} onWish={toggleWish} wished={wishIds.includes(p._id)} />
+                ))}
+              </div>
+            )}
+
+            {total > 12 && (
+              <div style={{ display:'flex', justifyContent:'center', gap:10, marginTop:24 }}>
+                <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{ ...S.btnS, opacity:page===1?0.3:1 }}>← Prev</button>
+                <span style={{ color:'rgba(255,255,255,0.4)', fontSize:13, padding:'10px 0' }}>Page {page} / {Math.ceil(total/12)}</span>
+                <button onClick={()=>setPage(p=>p+1)} disabled={page>=Math.ceil(total/12)} style={{ ...S.btnS, opacity:page>=Math.ceil(total/12)?0.3:1 }}>Next →</button>
+              </div>
+            )}
+
+            <div style={{ marginTop:32, ...S.card2, padding:16, textAlign:'center' }}>
+              <p style={{ fontSize:11, color:'#60a5fa', fontWeight:600, marginBottom:4 }}>📖 Did you know?</p>
+              <p style={{ fontSize:12, color:'rgba(255,255,255,0.5)', lineHeight:1.6 }}>NCERT Biology Class 11 has 22 chapters. NEET 2024 had <strong style={{ color:'#fff' }}>90 biology questions</strong> — all directly from NCERT text.</p>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ PRODUCT DETAIL ═══ */}
+        {view === 'product' && selProd && (
+          <div>
+            {selProd.images?.[0]?.url
+              ? <img src={selProd.images[0].url} alt={selProd.name} style={{ width:'100%', height:260, objectFit:'cover', borderRadius:16, marginBottom:16 }} />
+              : <div style={{ width:'100%', height:200, background:'rgba(37,99,235,0.1)', borderRadius:16, display:'flex', alignItems:'center', justifyContent:'center', fontSize:60, marginBottom:16 }}>📚</div>}
+            <div style={{ display:'flex', gap:8, marginBottom:10, flexWrap:'wrap' }}>
+              {[selProd.category, selProd.subject, selProd.classLevel].map(t=>(
+                <span key={t} style={{ background:'rgba(37,99,235,0.2)', border:'1px solid rgba(37,99,235,0.4)', color:'#93c5fd', borderRadius:8, padding:'3px 8px', fontSize:11, fontWeight:600 }}>{t}</span>
+              ))}
+            </div>
+            <h1 style={{ fontSize:22, fontWeight:900, color:'#fff', marginBottom:6, lineHeight:1.3 }}>{selProd.name}</h1>
+            {selProd.author && <p style={{ fontSize:13, color:'rgba(255,255,255,0.4)', marginBottom:10 }}>by {selProd.author} · {selProd.publisher}</p>}
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+              <Stars n={selProd.ratings?.average||0} />
+              <span style={{ fontSize:13, color:'rgba(255,255,255,0.4)' }}>{selProd.ratings?.average?.toFixed(1)||'0.0'} ({selProd.ratings?.count||0} reviews)</span>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
+              <span style={{ fontSize:32, fontWeight:900, color:'#fff' }}>{fmtP(selProd.price)}</span>
+              {selProd.originalPrice > selProd.price && (
+                <>
+                  <span style={{ fontSize:16, color:'rgba(255,255,255,0.3)', textDecoration:'line-through' }}>{fmtP(selProd.originalPrice)}</span>
+                  <span style={{ background:'rgba(16,185,129,0.2)', border:'1px solid rgba(16,185,129,0.4)', color:'#4ade80', padding:'3px 8px', borderRadius:8, fontSize:12, fontWeight:700 }}>{pct(selProd.originalPrice,selProd.price)}% off</span>
+                </>
+              )}
+            </div>
+            <p style={{ fontSize:13, color: selProd.deliveryCharge===0?'#4ade80':'rgba(255,255,255,0.4)', marginBottom:12 }}>
+              🚚 {selProd.deliveryCharge===0?'Free Delivery':`Delivery: ₹${selProd.deliveryCharge}`}
+            </p>
+            <p style={{ fontSize:13, fontWeight:600, marginBottom:16, color: selProd.stock>10?'#4ade80':selProd.stock>0?'#fbbf24':'#f87171' }}>
+              {selProd.stock>10?`✓ In Stock (${selProd.stock})`:`${selProd.stock>0?`⚠ Only ${selProd.stock} left!`:'✕ Out of Stock'}`}
+            </p>
+            <div style={{ display:'flex', gap:10, marginBottom:20 }}>
+              <button onClick={()=>addToCart(selProd._id)} disabled={selProd.stock===0} style={{ ...S.btnP, flex:1, opacity:selProd.stock===0?0.5:1 }}>🛒 Add to Cart</button>
+              <button onClick={()=>toggleWish(selProd._id)} style={{ ...S.btnS, padding:'12px 16px' }}>{wishIds.includes(selProd._id)?'❤️':'🤍'}</button>
+            </div>
+
+            {selProd.description && (
+              <div style={{ ...S.card, padding:16, marginBottom:16 }}>
+                <p style={{ fontSize:14, fontWeight:700, color:'#fff', marginBottom:8 }}>About this Product</p>
+                <p style={{ fontSize:13, color:'rgba(255,255,255,0.6)', lineHeight:1.7 }}>{selProd.description}</p>
+                {selProd.features?.length>0 && (
+                  <ul style={{ marginTop:12, paddingLeft:0, listStyle:'none' }}>
+                    {selProd.features.map((f:string,i:number)=>(
+                      <li key={i} style={{ fontSize:13, color:'rgba(255,255,255,0.6)', marginBottom:6 }}><span style={{ color:'#60a5fa' }}>✓</span> {f}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {/* Reviews */}
+            <div style={{ ...S.card, padding:16 }}>
+              <p style={{ fontSize:14, fontWeight:700, color:'#fff', marginBottom:12 }}>Reviews ({reviews.length})</p>
+              {reviews.map((r:any,i:number)=>(
+                <div key={i} style={{ ...S.card2, padding:12, marginBottom:10 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+                    <Stars n={r.rating} />
+                    {r.isVerifiedPurchase && <span style={{ background:'rgba(16,185,129,0.15)', color:'#4ade80', fontSize:10, padding:'2px 6px', borderRadius:6, fontWeight:700 }}>✓ Verified</span>}
+                  </div>
+                  {r.title && <p style={{ fontSize:13, fontWeight:700, color:'#fff', marginBottom:4 }}>{r.title}</p>}
+                  <p style={{ fontSize:12, color:'rgba(255,255,255,0.4)', marginBottom:6 }}>{r.student?.name} · {fmtD(r.createdAt)}</p>
+                  <p style={{ fontSize:13, color:'rgba(255,255,255,0.6)' }}>{r.body}</p>
+                </div>
+              ))}
+              {tok() && (
+                <div style={{ ...S.card2, padding:12, marginTop:12 }}>
+                  <p style={{ fontSize:13, fontWeight:700, color:'#fff', marginBottom:10 }}>Write a Review</p>
+                  <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+                    {[1,2,3,4,5].map(n=>(
+                      <button key={n} onClick={()=>setMyRating(n)} style={{ fontSize:24, background:'none', border:'none', cursor:'pointer', color: n<=myRating?'#fbbf24':'#374151' }}>★</button>
+                    ))}
+                  </div>
+                  <input value={myReview.title} onChange={e=>setMyReview(p=>({...p,title:e.target.value}))} placeholder="Review title" style={{ ...S.inp, marginBottom:8 }} />
+                  <textarea value={myReview.body} onChange={e=>setMyReview(p=>({...p,body:e.target.value}))} rows={3} placeholder="Your experience..." style={{ ...S.inp, resize:'none', marginBottom:10 }} />
+                  <button onClick={submitReview} style={S.btnP}>Submit Review</button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ═══ CART ═══ */}
+        {view === 'cart' && (
+          <div>
+            <h2 style={{ fontSize:22, fontWeight:900, color:'#fff', marginBottom:20 }}>🛒 Cart</h2>
+            {cart.items?.length===0 ? (
+              <div style={{ ...S.card, padding:60, textAlign:'center' }}>
+                <p style={{ fontSize:48, marginBottom:12 }}>🛒</p>
+                <p style={{ color:'rgba(255,255,255,0.4)', fontSize:16, fontWeight:600, marginBottom:16 }}>Cart is empty</p>
+                <button onClick={()=>setView('store')} style={S.btnP}>Browse Store</button>
+              </div>
+            ) : (
+              <>
+                {cart.items?.map((item:any)=>(
+                  <div key={item.product._id} style={{ ...S.card, padding:14, marginBottom:12, display:'flex', gap:12 }}>
+                    {item.product.images?.[0]?.url
+                      ? <img src={item.product.images[0].url} alt="" style={{ width:60, height:72, objectFit:'cover', borderRadius:10, flexShrink:0 }} />
+                      : <div style={{ width:60, height:72, background:'rgba(37,99,235,0.1)', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 }}>📚</div>}
+                    <div style={{ flex:1 }}>
+                      <p style={{ fontSize:13, fontWeight:700, color:'#fff', marginBottom:4 }}>{item.product.name}</p>
+                      <p style={{ fontSize:13, fontWeight:900, color:'#60a5fa', marginBottom:8 }}>{fmtP(item.product.price)}</p>
+                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                        <button onClick={()=>updateQty(item.product._id,item.quantity-1)} style={{ width:28, height:28, borderRadius:8, background:'rgba(255,255,255,0.1)', border:'none', color:'#fff', fontSize:16, cursor:'pointer' }}>−</button>
+                        <span style={{ color:'#fff', fontWeight:700, width:24, textAlign:'center' }}>{item.quantity}</span>
+                        <button onClick={()=>updateQty(item.product._id,item.quantity+1)} style={{ width:28, height:28, borderRadius:8, background:'rgba(255,255,255,0.1)', border:'none', color:'#fff', fontSize:16, cursor:'pointer' }}>+</button>
+                        <span style={{ color:'#4ade80', fontWeight:700, marginLeft:8 }}>{fmtP(item.product.price*item.quantity)}</span>
+                        <button onClick={()=>removeItem(item.product._id)} style={{ marginLeft:'auto', background:'none', border:'none', color:'rgba(239,68,68,0.6)', cursor:'pointer', fontSize:18 }}>🗑</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {/* Coupon */}
+                <div style={{ ...S.card, padding:14, marginBottom:12 }}>
+                  <p style={{ fontSize:12, color:'rgba(255,255,255,0.4)', fontWeight:600, marginBottom:8 }}>COUPON CODE</p>
+                  {cart.couponCode
+                    ? <div style={{ display:'flex', justifyContent:'space-between', background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.3)', borderRadius:10, padding:'10px 14px' }}>
+                        <span style={{ color:'#4ade80', fontWeight:700 }}>{cart.couponCode} — −{fmtP(cart.couponDiscount)}</span>
+                        <button onClick={async()=>{ await fetch(`${API}/api/store/coupon/remove`,{method:'POST',headers:hdr()}); setCouponInput(''); loadCart(); }} style={{ background:'none', border:'none', color:'#f87171', cursor:'pointer', fontSize:12 }}>Remove</button>
+                      </div>
+                    : <div style={{ display:'flex', gap:8 }}>
+                        <input value={couponInput} onChange={e=>setCouponInput(e.target.value.toUpperCase())} placeholder="Enter coupon code" style={{ ...S.inp, flex:1 }} />
+                        <button onClick={applyCoupon} style={S.btnP}>Apply</button>
+                      </div>}
+                </div>
+                {/* Bill */}
+                <div style={{ ...S.card, padding:14, marginBottom:16 }}>
+                  <p style={{ fontSize:14, fontWeight:700, color:'#fff', marginBottom:12 }}>Bill Summary</p>
+                  {[['Subtotal', fmtP(cart.subtotal)],['Delivery', cart.deliveryCharge>0?fmtP(cart.deliveryCharge):'Free']].map(([k,v])=>(
+                    <div key={k} style={{ display:'flex', justifyContent:'space-between', fontSize:13, color:'rgba(255,255,255,0.5)', marginBottom:8 }}><span>{k}</span><span>{v}</span></div>
+                  ))}
+                  {cart.couponDiscount>0 && <div style={{ display:'flex', justifyContent:'space-between', fontSize:13, color:'#4ade80', marginBottom:8 }}><span>Coupon</span><span>−{fmtP(cart.couponDiscount)}</span></div>}
+                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:18, fontWeight:900, color:'#fff', borderTop:'1px solid rgba(255,255,255,0.1)', paddingTop:10, marginTop:4 }}><span>Total</span><span>{fmtP(cart.total)}</span></div>
+                </div>
+                <button onClick={()=>setView('checkout')} style={{ ...S.btnP, width:'100%', padding:16, fontSize:16 }}>Proceed to Checkout →</button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ═══ CHECKOUT ═══ */}
+        {view === 'checkout' && (
+          <div>
+            <h2 style={{ fontSize:22, fontWeight:900, color:'#fff', marginBottom:20 }}>Checkout</h2>
+            <div style={{ display:'flex', gap:8, marginBottom:24 }}>
+              {['Address','Payment','Confirm'].map((s,i)=>(
+                <div key={s} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                  <div style={{ width:28, height:28, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:900, background: i<step?'#2563eb':i===step?'transparent':'transparent', border: i===step?'2px solid #60a5fa':i<step?'none':'2px solid rgba(255,255,255,0.15)', color: i<=step?'#60a5fa':'rgba(255,255,255,0.3)' }}>{i<step?'✓':i+1}</div>
+                  <span style={{ fontSize:10, color:i<=step?'rgba(255,255,255,0.7)':'rgba(255,255,255,0.3)', fontWeight:600 }}>{s}</span>
+                </div>
+              ))}
+            </div>
+
+            {step === 0 && (
+              <div style={{ ...S.card, padding:16 }}>
+                {savedAddresses.length > 0 && (
+                  <div style={{ marginBottom:16 }}>
+                    <p style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.4)', marginBottom:8, letterSpacing:1 }}>💾 SAVED ADDRESSES — TAP TO USE</p>
+                    {savedAddresses.map((sa: any, i: number) => (
+                      <div key={i} onClick={() => setAddr(sa)} style={{ padding:'10px 12px', borderRadius:10, marginBottom:6, cursor:'pointer', border:'1px solid rgba(37,99,235,0.35)', background:'rgba(37,99,235,0.07)' }}>
+                        <p style={{ fontSize:13, fontWeight:700, color:'#fff', margin:'0 0 2px' }}>{sa.fullName} · {sa.phone}</p>
+                        <p style={{ fontSize:11, color:'rgba(255,255,255,0.4)', margin:0 }}>{sa.addressLine1}, {sa.city} — {sa.pincode}</p>
+                      </div>
+                    ))}
+                    <div style={{ height:1, background:'rgba(255,255,255,0.07)', margin:'10px 0 14px' }} />
+                  </div>
+                )}
+                <p style={{ fontSize:14, fontWeight:700, color:'#fff', marginBottom:14 }}>Delivery Address</p>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                  {[['fullName','Full Name *'],['phone','Phone *'],['addressLine1','Address Line 1 *'],['addressLine2','Address Line 2'],['city','City *'],['pincode','Pincode *']].map(([k,pl])=>(
+                    <div key={k} style={{ gridColumn: ['addressLine1','addressLine2'].includes(k)?'1/-1':'auto' }}>
+                      <label style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginBottom:4, display:'block' }}>{pl}</label>
+                      <input value={(addr as any)[k]} onChange={e=>setA(k,e.target.value)} placeholder={pl.replace(' *','')} style={S.inp} />
+                    </div>
+                  ))}
+                  <div>
+                    <label style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginBottom:4, display:'block' }}>State *</label>
+                    <select value={addr.state} onChange={e=>setA('state',e.target.value)} style={S.sel}>
+                      <option value="">Select State</option>
+                      {['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Delhi','Goa','Gujarat','Haryana','Himachal Pradesh','Jammu & Kashmir','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal'].map(s=><option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <button onClick={()=>{
+                  if (!addr.fullName||!addr.phone||!addr.addressLine1||!addr.city||!addr.state||!addr.pincode){T('Fill all required fields','error');return;}
+                  if (!addr.phone.match(/^[6-9]\d{9}$/)){T('Invalid phone number','error');return;}
+                  setStep(1);
+                }} style={{ ...S.btnP, width:'100%', padding:14, marginTop:16 }}>Continue to Payment →</button>
+                <button onClick={saveCurrentAddress} style={{ ...S.btnS, width:'100%', padding:10, marginTop:8, fontSize:12 }}>💾 Save This Address</button>
+              </div>
+            )}
+            {step === 1 && (
+              <div style={{ ...S.card, padding:16 }}>
+                <p style={{ fontSize:14, fontWeight:700, color:'#fff', marginBottom:14 }}>Payment Method</p>
+                {[{id:'COD',label:'Cash on Delivery',desc:'Pay when delivered',icon:'💵'},{id:'UPI',label:'UPI / Card / NetBanking',desc:'GPay, PhonePe, Paytm, Visa, Mastercard',icon:'💳'}].map(pm=>(
+                  <div key={pm.id} onClick={()=>setPayM(pm.id)} style={{ display:'flex', alignItems:'center', gap:14, padding:14, borderRadius:12, marginBottom:10, cursor:'pointer', border:`1px solid ${payM===pm.id?'rgba(37,99,235,0.6)':'rgba(255,255,255,0.08)'}`, background: payM===pm.id?'rgba(37,99,235,0.1)':'rgba(255,255,255,0.02)' }}>
+                    <span style={{ fontSize:28 }}>{pm.icon}</span>
+                    <div style={{ flex:1 }}>
+                      <p style={{ fontSize:13, fontWeight:700, color:'#fff', marginBottom:2 }}>{pm.label}</p>
+                      <p style={{ fontSize:11, color:'rgba(255,255,255,0.4)' }}>{pm.desc}</p>
+                    </div>
+                    <div style={{ width:20, height:20, borderRadius:'50%', border:`2px solid ${payM===pm.id?'#60a5fa':'rgba(255,255,255,0.2)'}`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      {payM===pm.id && <div style={{ width:10, height:10, borderRadius:'50%', background:'#60a5fa' }} />}
+                    </div>
+                  </div>
+                ))}
+                <div style={{ display:'flex', gap:10, marginTop:16 }}>
+                  <button onClick={()=>setStep(0)} style={{ ...S.btnS, flex:1 }}>← Back</button>
+                  <button onClick={()=>setStep(2)} style={{ ...S.btnP, flex:1 }}>Review Order →</button>
+                </div>
+              </div>
+            )}
+            {step === 2 && (
+              <div>
+                <div style={{ ...S.card, padding:14, marginBottom:12 }}>
+                  <p style={{ fontSize:13, color:'rgba(255,255,255,0.4)', fontWeight:600, marginBottom:8 }}>ORDER ITEMS</p>
+                  {cart.items?.map((item:any,i:number)=>(
+                    <div key={i} style={{ display:'flex', justifyContent:'space-between', fontSize:13, padding:'6px 0', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
+                      <span style={{ color:'rgba(255,255,255,0.7)' }}>{item.product.name} × {item.quantity}</span>
+                      <span style={{ color:'#fff', fontWeight:700 }}>{fmtP(item.product.price*item.quantity)}</span>
+                    </div>
+                  ))}
+                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:18, fontWeight:900, color:'#fff', paddingTop:10, marginTop:4 }}><span>Total</span><span>{fmtP(cart.total)}</span></div>
+                </div>
+                <div style={{ ...S.card, padding:14, marginBottom:12 }}>
+                  <p style={{ fontSize:12, color:'rgba(255,255,255,0.4)', fontWeight:600, marginBottom:6 }}>SHIPPING TO</p>
+                  <p style={{ fontSize:13, color:'#fff', fontWeight:700 }}>{addr.fullName} · {addr.phone}</p>
+                  <p style={{ fontSize:12, color:'rgba(255,255,255,0.5)' }}>{addr.addressLine1}, {addr.city}, {addr.state} — {addr.pincode}</p>
+                </div>
+                <div style={{ ...S.card, padding:14, marginBottom:16 }}>
+                  <p style={{ fontSize:12, color:'rgba(255,255,255,0.4)', fontWeight:600, marginBottom:4 }}>PAYMENT</p>
+                  <p style={{ fontSize:13, color:'#fff', fontWeight:700 }}>{payM==='COD'?'💵 Cash on Delivery':'📱 UPI Payment'}</p>
+                </div>
+                <div style={{ display:'flex', gap:10 }}>
+                  <button onClick={()=>setStep(1)} style={{ ...S.btnS, flex:1 }}>← Back</button>
+                  <button onClick={placeOrder} disabled={placing} style={{ ...S.btnP, flex:2, padding:16, opacity:placing?0.6:1 }}>{placing ? '⏳ Placing...' : '🎉 Place Order — ' + fmtP(cart.total)}</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══ ORDERS ═══ */}
+        {view === 'orders' && !selOrder && (
+          <div>
+            <h2 style={{ fontSize:22, fontWeight:900, color:'#fff', marginBottom:20 }}>📦 My Orders</h2>
+            {orders.length===0
+              ? <div style={{ ...S.card, padding:60, textAlign:'center' }}>
+                  <p style={{ fontSize:48, marginBottom:12 }}>📦</p>
+                  <p style={{ color:'rgba(255,255,255,0.4)', fontSize:16, fontWeight:600, marginBottom:16 }}>No orders yet</p>
+                  <button onClick={()=>setView('store')} style={S.btnP}>Start Shopping</button>
+                </div>
+              : orders.map((o:any)=>(
+                  <div key={o._id} onClick={()=>setSelOrder(o)} style={{ ...S.card, padding:14, marginBottom:12, cursor:'pointer' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
+                      <div>
+                        <p style={{ fontFamily:'monospace', color:'#60a5fa', fontSize:13, fontWeight:700 }}>{o.orderId}</p>
+                        <p style={{ fontSize:11, color:'rgba(255,255,255,0.4)' }}>{fmtD(o.createdAt)} · {o.items?.length} item(s)</p>
+                      </div>
+                      <div style={{ textAlign:'right' }}>
+                        <p style={{ fontSize:16, fontWeight:900, color:'#fff' }}>{fmtP(o.pricing?.total||0)}</p>
+                        <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:10, background:'rgba(37,99,235,0.2)', color:'#93c5fd' }}>{o.status}</span>
+                      </div>
+                    </div>
+                    <p style={{ fontSize:11, color:'rgba(255,255,255,0.35)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{o.items?.map((i:any)=>i.name).join(', ')}</p>
+                  </div>
+                ))}
+          </div>
+        )}
+
+        {/* Order Detail */}
+        {view==='orders' && selOrder && (
+          <div>
+            <button onClick={()=>setSelOrder(null)} style={{ ...S.btnS, marginBottom:16 }}>← Back to Orders</button>
+            <h2 style={{ fontSize:18, fontWeight:900, color:'#fff', marginBottom:4 }}>Order {selOrder.orderId}</h2>
+            <p style={{ fontSize:12, color:'rgba(255,255,255,0.4)', marginBottom:16 }}>{fmtD(selOrder.createdAt)}</p>
+            <div style={{ ...S.card, padding:14, marginBottom:12 }}>
+              <p style={{ fontSize:12, color:'rgba(255,255,255,0.4)', fontWeight:600, marginBottom:8 }}>ITEMS</p>
+              {selOrder.items?.map((item:any,i:number)=>(
+                <div key={i} style={{ display:'flex', justifyContent:'space-between', fontSize:13, padding:'6px 0', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
+                  <span style={{ color:'rgba(255,255,255,0.7)' }}>{item.name} × {item.quantity}</span>
+                  <span style={{ color:'#fff', fontWeight:700 }}>{fmtP(item.price*item.quantity)}</span>
+                </div>
+              ))}
+              <div style={{ display:'flex', justifyContent:'space-between', fontSize:16, fontWeight:900, color:'#fff', paddingTop:10 }}><span>Total</span><span>{fmtP(selOrder.pricing?.total||0)}</span></div>
+            </div>
+            <div style={{ ...S.card, padding:14, marginBottom:12 }}>
+              <p style={{ fontSize:12, color:'rgba(255,255,255,0.4)', fontWeight:600, marginBottom:6 }}>DELIVERY TO</p>
+              <p style={{ fontSize:13, color:'#fff', fontWeight:700 }}>{selOrder.shippingAddress?.fullName} · {selOrder.shippingAddress?.phone}</p>
+              <p style={{ fontSize:12, color:'rgba(255,255,255,0.5)' }}>{selOrder.shippingAddress?.addressLine1}, {selOrder.shippingAddress?.city} — {selOrder.shippingAddress?.pincode}</p>
+            </div>
+            <div style={{ ...S.card, padding:14, marginBottom:12 }}>
+              <p style={{ fontSize:12, color:'rgba(255,255,255,0.4)', fontWeight:600, marginBottom:6 }}>STATUS</p>
+              <span style={{ background:'rgba(37,99,235,0.2)', border:'1px solid rgba(37,99,235,0.4)', color:'#93c5fd', padding:'4px 12px', borderRadius:8, fontWeight:700, fontSize:13 }}>{selOrder.status}</span>
+              {selOrder.trackingNumber && <p style={{ fontSize:12, color:'#60a5fa', marginTop:8 }}>📦 Tracking: {selOrder.trackingNumber}</p>}
+            </div>
+            {['pending','confirmed'].includes(selOrder.status) && (
+              <button onClick={async()=>{ if(!confirm('Cancel this order?'))return; const r=await fetch(`${API}/api/store/orders/${selOrder._id}/cancel`,{method:'POST',headers:hdr(),body:JSON.stringify({reason:'Cancelled by student'})}); const d=await r.json(); T(d.message,r.ok?'success':'error'); if(r.ok){loadOrders();setSelOrder(null);}}} style={{ width:'100%', padding:14, borderRadius:12, border:'1px solid rgba(239,68,68,0.4)', background:'rgba(239,68,68,0.1)', color:'#f87171', fontWeight:700, cursor:'pointer', fontSize:13 }}>Cancel Order</button>
+            )}
+          </div>
+        )}
+
+        {/* ═══ WISHLIST ═══ */}
+        {view === 'wishlist' && (
+          <div>
+            <h2 style={{ fontSize:22, fontWeight:900, color:'#fff', marginBottom:20 }}>❤️ Wishlist</h2>
+            {!wishlist || wishlist.length === 0
+              ? <div style={{ ...S.card, padding:60, textAlign:'center' }}>
+                  <p style={{ fontSize:48, marginBottom:12 }}>🤍</p>
+                  <p style={{ color:'rgba(255,255,255,0.4)', fontSize:16, fontWeight:600, marginBottom:16 }}>Wishlist empty</p>
+                  <p style={{ color:'rgba(255,255,255,0.25)', fontSize:13, marginBottom:20 }}>
+                    Go to Store and tap ❤️ on any product
+                  </p>
+                  <button onClick={()=>setView('store')} style={S.btnP}>Browse Store</button>
+                </div>
+              : <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:12 }}>
+                  {wishlist.map((p: any) => (
+                    <PCard
+                      key={p._id}
+                      p={p}
+                      onView={viewProduct}
+                      onCart={addToCart}
+                      onWish={toggleWish}
+                      wished={wishIds.includes(p._id)}
+                    />
+                  ))}
+                </div>
+            }
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+EOF_STORE
+echo "✅ Store page updated: $STOREPAGE"
+
+cat > "$ADMINPAGE" << 'EOF_ADMINPAGE5'
 'use client'
 import BatchManagerUltra from './BatchManagerUltra'
 import TestSeriesManagerUltra from './TestSeriesManagerUltra'
@@ -5002,3 +6474,1332 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 </div>
   )
 }// deploy Sun May 31 01:52:47 AM UTC 2026
+EOF_ADMINPAGE5
+echo "✅ Admin panel page updated: $ADMINPAGE"
+
+cat > "$PROFILEPAGE" << 'EOF_PROFILEPAGE3'
+'use client'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import StudentShell, { useShell, C } from '@/src/components/StudentShell'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
+
+// ══════════════════════════════════════════════════════════════
+// F38 — Static option lists (per spec §4.2 / §4.3 / §4.4)
+// ══════════════════════════════════════════════════════════════
+const STATES = ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal','Delhi','Jammu & Kashmir','Ladakh','Chandigarh','Puducherry','Other']
+const CITY_MAP: Record<string,string[]> = {
+  'Delhi':['New Delhi','Dwarka','Rohini','Karol Bagh'],
+  'Maharashtra':['Mumbai','Pune','Nagpur','Nashik','Thane'],
+  'Karnataka':['Bengaluru','Mysuru','Hubli'],
+  'Rajasthan':['Jaipur','Jodhpur','Udaipur','Kota'],
+  'Uttar Pradesh':['Lucknow','Kanpur','Noida','Ghaziabad','Varanasi'],
+  'Tamil Nadu':['Chennai','Coimbatore','Madurai'],
+  'West Bengal':['Kolkata','Howrah','Siliguri'],
+  'Gujarat':['Ahmedabad','Surat','Vadodara'],
+  'Bihar':['Patna','Gaya'],
+  'Telangana':['Hyderabad','Warangal'],
+  'Punjab':['Ludhiana','Amritsar','Chandigarh'],
+  'Madhya Pradesh':['Bhopal','Indore','Gwalior'],
+  'Haryana':['Gurugram','Faridabad','Panipat'],
+}
+const TARGET_EXAMS = ['NEET UG','NEET PG','JEE Main','JEE Advanced','CUET UG','CUET PG','SSC','IIT JAM','Other']
+const TARGET_YEARS = ['2025','2026','2027','2028','2029']
+const BOARDS   = ['CBSE','Rajasthan','ICSE','UP Board','Maharashtra','Others']
+const MEDIUMS  = ['English','Hindi','Other']
+const YEAR_APPEAR = ['Class 11','Class 12','Dropper','Graduated']
+const GENDERS  = ['Male','Female','Non-binary','Prefer not to say']
+const TIMEZONES = ['Asia/Kolkata','Asia/Colombo','Asia/Dhaka','Asia/Kathmandu','UTC']
+
+const PHONE_RX = /^(\+91)?[6-9]\d{9}$/
+
+// ══════════════════════════════════════════════════════════════
+// Small shared pieces
+// ══════════════════════════════════════════════════════════════
+function CompletionRing({ pct, size=96, color }: { pct:number; size?:number; color?:string }) {
+  const r = (size-8)/2, circ = 2*Math.PI*r, dash = (pct/100)*circ
+  const col = color || (pct>=80?'#00C48C':pct>=50?'#4D9FFF':'#FFD700')
+  return (
+    <svg width={size} height={size} style={{position:'absolute',top:0,left:0,transform:'rotate(-90deg)'}}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(120,140,170,0.18)" strokeWidth="4"/>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={col} strokeWidth="4"
+        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" style={{transition:'stroke-dasharray .6s ease'}}/>
+    </svg>
+  )
+}
+function EyeBtn({show,toggle,sub}:{show:boolean;toggle:()=>void;sub:string}) {
+  return (
+    <button type="button" onClick={toggle} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:sub,padding:0,display:'flex',alignItems:'center'}}>
+      {show
+        ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
+    </button>
+  )
+}
+function SectionCard({title,icon,children,theme}:{title?:string;icon?:string;children:any;theme:any}) {
+  return (
+    <div style={{background: theme.isDark?'rgba(255,255,255,0.03)':'rgba(37,99,235,0.02)', border:`1px solid ${theme.border}`, borderRadius:16, padding:'18px 16px', marginBottom:14}}>
+      {title && <div style={{fontSize:13.5,fontWeight:700,color:theme.primary,marginBottom:14,display:'flex',alignItems:'center',gap:7}}>{icon}{title}</div>}
+      {children}
+    </div>
+  )
+}
+function Field({label,children,theme}:{label:string;children:any;theme:any}) {
+  return (<div style={{marginBottom:14}}><label style={{display:'block',fontSize:11,fontWeight:700,color:theme.sub,marginBottom:6,letterSpacing:'.02em'}}>{label}</label>{children}</div>)
+}
+function Toggle({on,onClick,dm,prim}:{on:boolean;onClick:()=>void;dm:boolean;prim:string}) {
+  return (
+    <button onClick={onClick} style={{width:44,height:24,borderRadius:99,border:'none',cursor:'pointer',background:on?prim:(dm?'rgba(255,255,255,.15)':'rgba(0,0,0,.15)'),position:'relative',transition:'background .2s',flexShrink:0}}>
+      <div style={{position:'absolute',top:2,left:on?22:2,width:20,height:20,borderRadius:'50%',background:'#fff',transition:'left .2s'}}/>
+    </button>
+  )
+}
+
+function ProfileContent() {
+  const { lang, darkMode:dm, user, toast, token, theme, setColorTheme } = useShell()
+  const t = (en:string, hi:string) => lang==='en' ? en : hi
+  const bdr = theme.border, txt = theme.text, sub = theme.sub, prim = theme.primary
+
+  const inp:any = { width:'100%',padding:'11px 14px', background: dm?'rgba(0,22,40,.7)':'rgba(255,255,255,.9)',
+    border:`1.5px solid ${bdr}`, borderRadius:11, color:txt, fontSize:13,
+    fontFamily:'Inter,sans-serif', outline:'none', boxSizing:'border-box', transition:'border-color .2s' }
+  const sel:any = { ...inp, cursor:'pointer' }
+  const btnP:any = { background:`linear-gradient(135deg,${prim},${dm?'#0055CC':'#1D4ED8'})`, color:'#fff', border:'none', borderRadius:10, padding:'11px 22px', cursor:'pointer', fontWeight:700, fontSize:13, fontFamily:'Inter,sans-serif' }
+  const btnGhost:any = { background:'transparent', border:`1.5px solid ${bdr}`, color:txt, borderRadius:10, padding:'10px 20px', cursor:'pointer', fontWeight:600, fontSize:13, fontFamily:'Inter,sans-serif' }
+
+  const SECTIONS = [
+    {id:'overview',  en:'Overview',          hi:'अवलोकन',        icon:'🏠'},
+    {id:'personal',  en:'Personal Details',  hi:'व्यक्तिगत विवरण', icon:'👤'},
+    {id:'academic',  en:'Academic Profile',  hi:'शैक्षणिक प्रोफ़ाइल', icon:'🎓'},
+    {id:'security',  en:'Security',          hi:'सुरक्षा',        icon:'🔒'},
+    {id:'preferences',en:'Preferences',      hi:'प्राथमिकताएं',   icon:'⚙️'},
+  ]
+  const [section, setSection] = useState('overview')
+  const [pendingSection, setPendingSection] = useState<string|null>(null)
+  const [isMobile, setIsMobile] = useState(true)
+  const [idCardOpen, setIdCardOpen] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 900)
+    check(); window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  // ── Core "me" state (own copy — refreshed after saves) ──
+  const [me, setMe] = useState<any>(user || null)
+  const loadMe = async () => {
+    try { const r = await fetch(`${API}/api/auth/me`, { headers:{Authorization:`Bearer ${token}`} }); const d = await r.json(); if (d?._id) setMe(d) } catch {}
+  }
+  useEffect(() => { if (user) setMe(user) }, [user])
+  useEffect(() => { if (token) loadMe() }, [token])
+
+  // ── Overview data ──
+  const [ov, setOv] = useState<any>(null)
+  const loadOverview = async () => {
+    try { const r = await fetch(`${API}/api/auth/profile-overview`, { headers:{Authorization:`Bearer ${token}`} }); const d = await r.json(); setOv(d) } catch {}
+  }
+  useEffect(() => { if (token) loadOverview() }, [token])
+
+  // ── Security overview data ──
+  const [sec, setSec] = useState<any>(null)
+  const loadSecurity = async () => {
+    try { const r = await fetch(`${API}/api/auth/security-overview`, { headers:{Authorization:`Bearer ${token}`} }); const d = await r.json(); setSec(d) } catch {}
+  }
+  useEffect(() => { if (token && section==='security') loadSecurity() }, [token, section])
+
+  // ── Personal fields ──
+  const [name,setName]=useState(''); const [phone,setPhone]=useState(''); const [dob,setDob]=useState('')
+  const [city,setCity]=useState(''); const [state,setState2]=useState(''); const [gender,setGender]=useState('')
+  const [bio,setBio]=useState(''); const [avatar,setAvatar]=useState(''); const [timezone,setTimezone]=useState('Asia/Kolkata')
+  const [savingPersonal,setSavingPersonal]=useState(false); const [dirtyPersonal,setDirtyPersonal]=useState(false)
+  const [editPersonal,setEditPersonal]=useState(false)
+
+  // ── Academic fields ──
+  const [targetExam,setTargetExam]=useState(''); const [targetYear,setTargetYear]=useState('')
+  const [yearAppearing,setYearAppearing]=useState(''); const [board,setBoard]=useState('')
+  const [school,setSchool]=useState(''); const [medium,setMedium]=useState(''); const [coaching,setCoaching]=useState('')
+  const [savingAcademic,setSavingAcademic]=useState(false); const [dirtyAcademic,setDirtyAcademic]=useState(false)
+  const [editAcademic,setEditAcademic]=useState(false)
+
+  // ── Security — password fields ──
+  const [cp,setCp]=useState(''); const [np,setNp]=useState(''); const [cnp,setCnp]=useState('')
+  const [showCp,setShowCp]=useState(false); const [showNp,setShowNp]=useState(false); const [showCnp,setShowCnp]=useState(false)
+  const [passSaving,setPassSaving]=useState(false)
+  const [pwConfirmOpen,setPwConfirmOpen]=useState(false)
+
+  // ── Preferences ──
+  const [notifEmail,setNotifEmail]=useState(true); const [notifSms,setNotifSms]=useState(false); const [notifStudy,setNotifStudy]=useState(true)
+  const [savingPrefs,setSavingPrefs]=useState(false); const [dirtyPrefs,setDirtyPrefs]=useState(false)
+  const [editPrefs,setEditPrefs]=useState(false)
+  const [photoViewerOpen,setPhotoViewerOpen]=useState(false)
+
+  const initial = useRef<any>({})
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    if (!me) return
+    const tz = me.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata'
+    setName(me.name||''); setPhone(me.phone||''); setDob(me.dob||''); setCity(me.city||'')
+    setState2(me.state||''); setGender(me.gender||''); setBio(me.bio||''); setAvatar(me.avatar||'')
+    setTimezone(tz)
+    setTargetExam(me.targetExam||''); setTargetYear(me.targetYear||''); setYearAppearing(me.yearOfAppearing||'')
+    setBoard(me.board||''); setSchool(me.school||''); setMedium(me.medium||''); setCoaching(me.coachingInstitute||'')
+    if (me.preferences) { setNotifEmail(me.preferences.emailNotif ?? true); setNotifSms(me.preferences.smsNotif ?? false); setNotifStudy(me.preferences.studyReminder ?? true) }
+    initial.current = {
+      name:me.name||'', phone:me.phone||'', dob:me.dob||'', city:me.city||'', state:me.state||'', gender:me.gender||'', bio:me.bio||'', avatar:me.avatar||'', timezone:tz,
+      targetExam:me.targetExam||'', targetYear:me.targetYear||'', yearAppearing:me.yearOfAppearing||'', board:me.board||'', school:me.school||'', medium:me.medium||'', coaching:me.coachingInstitute||'',
+      notifEmail: me.preferences?.emailNotif ?? true, notifSms: me.preferences?.smsNotif ?? false, notifStudy: me.preferences?.studyReminder ?? true,
+    }
+    setLoaded(true)
+  }, [me])
+
+  // Dirty checks are guarded by `loaded` — prevents a false "unsaved changes"
+  // prompt from firing before the initial snapshot has actually been set.
+  useEffect(()=>{ if(!loaded) return; const i=initial.current; setDirtyPersonal(name!==i.name||phone!==i.phone||dob!==i.dob||city!==i.city||state!==i.state||gender!==i.gender||bio!==i.bio||avatar!==i.avatar||timezone!==i.timezone) },[loaded,name,phone,dob,city,state,gender,bio,avatar,timezone])
+  useEffect(()=>{ if(!loaded) return; const i=initial.current; setDirtyAcademic(targetExam!==i.targetExam||targetYear!==i.targetYear||yearAppearing!==i.yearAppearing||board!==i.board||school!==i.school||medium!==i.medium||coaching!==i.coaching) },[loaded,targetExam,targetYear,yearAppearing,board,school,medium,coaching])
+  useEffect(()=>{ if(!loaded) return; const i=initial.current; setDirtyPrefs(notifEmail!==i.notifEmail||notifSms!==i.notifSms||notifStudy!==i.notifStudy) },[loaded,notifEmail,notifSms,notifStudy])
+
+  // ── F38 §11.4 — Live inline validation (as-you-type) ──
+  const phoneWarning = useMemo(() => {
+    if (!phone) return ''
+    return PHONE_RX.test(phone.replace(/[\s-]/g,'')) ? '' : t('Enter a valid 10-digit Indian mobile number (e.g. +919876543210)','एक मान्य 10 अंकों का मोबाइल नंबर दर्ज करें')
+  }, [phone])
+  const dobWarning = useMemo(() => {
+    if (!dob) return ''
+    const d = new Date(dob)
+    if (isNaN(d.getTime())) return t('Invalid date','अमान्य तिथि')
+    if (d > new Date()) return t('Date of birth cannot be in the future','जन्म तिथि भविष्य में नहीं हो सकती')
+    const age = new Date().getFullYear() - d.getFullYear()
+    if (age < 5 || age > 100) return t('Please enter a realistic date of birth','कृपया एक सही जन्म तिथि दर्ज करें')
+    return ''
+  }, [dob])
+  const cityWarning = useMemo(() => {
+    if (state && !city) return t('Please select/enter your city','कृपया अपना शहर चुनें/दर्ज करें')
+    return ''
+  }, [state, city])
+
+  // ── F38 §11.4.2.5 — Duplicate phone check (debounced, live) ──
+  const [phoneDupWarning, setPhoneDupWarning] = useState('')
+  const [phoneChecking, setPhoneChecking] = useState(false)
+  useEffect(() => {
+    if (!phone || phoneWarning) { setPhoneDupWarning(''); return }
+    if (phone === initial.current.phone) { setPhoneDupWarning(''); return }
+    setPhoneChecking(true)
+    const h = setTimeout(async () => {
+      try {
+        const r = await fetch(`${API}/api/auth/check-phone?phone=${encodeURIComponent(phone.replace(/[\s-]/g,''))}`, { headers:{Authorization:`Bearer ${token}`} })
+        const d = await r.json()
+        setPhoneDupWarning(d.available ? '' : t('This phone number is already registered with another account','यह फ़ोन नंबर पहले से किसी अन्य खाते से पंजीकृत है'))
+      } catch {} finally { setPhoneChecking(false) }
+    }, 600)
+    return () => clearTimeout(h)
+  }, [phone, token, phoneWarning])
+
+  const anyDirty = dirtyPersonal || dirtyAcademic || dirtyPrefs
+  const goSection = (id:string) => {
+    if (anyDirty && id !== section) {
+      setPendingSection(id)
+      return
+    }
+    setSection(id)
+  }
+  // Discard unsaved edits back to the last-saved snapshot, so the warning
+  // doesn't fire again on the next section switch (bug fix: was repeating).
+  const discardAndLeave = () => {
+    const i = initial.current
+    setName(i.name??''); setPhone(i.phone??''); setDob(i.dob??''); setCity(i.city??''); setState2(i.state??'')
+    setGender(i.gender??''); setBio(i.bio??''); setAvatar(i.avatar??''); setTimezone(i.timezone??'')
+    setTargetExam(i.targetExam??''); setTargetYear(i.targetYear??''); setYearAppearing(i.yearAppearing??'')
+    setBoard(i.board??''); setSchool(i.school??''); setMedium(i.medium??''); setCoaching(i.coaching??'')
+    setNotifEmail(i.notifEmail??true); setNotifSms(i.notifSms??false); setNotifStudy(i.notifStudy??true)
+    setDirtyPersonal(false); setDirtyAcademic(false); setDirtyPrefs(false)
+    setEditPersonal(false); setEditAcademic(false); setEditPrefs(false)
+    if (pendingSection) setSection(pendingSection)
+    setPendingSection(null)
+  }
+  const cancelLeave = () => setPendingSection(null)
+
+  // ── Avatar upload (client-side resize → base64, then auto-save) ──
+  // Clicking the avatar itself never opens the file picker directly anymore —
+  // it only opens the Photo Viewer modal (large view). Uploading/removing a
+  // photo happens only via the explicit buttons inside that modal.
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [avatarBusy,setAvatarBusy]=useState(false)
+  const onPickPhoto = () => fileRef.current?.click()
+  const onPhotoChange = (e:any) => {
+    const file = e.target.files?.[0]; if (!file) return
+    if (!file.type.startsWith('image/')) { toast?.(t('Please select an image file','कृपया इमेज फ़ाइल चुनें'),'e'); return }
+    setAvatarBusy(true)
+    const prevAvatar = avatar
+    const img = new Image()
+    const reader = new FileReader()
+    reader.onload = (ev:any) => {
+      img.onload = async () => {
+        // Fit the WHOLE photo inside a square canvas (no cropping/zooming) —
+        // letterbox with a neutral fill so nothing gets cut off. Kept small
+        // (220px, moderate quality) so the upload never gets silently
+        // rejected/truncated by a request body-size limit.
+        const size = 220
+        const canvas = document.createElement('canvas'); canvas.width = size; canvas.height = size
+        const ctx = canvas.getContext('2d')!
+        const scale = Math.max(size/img.width, size/img.height)
+        const w = img.width*scale, h = img.height*scale
+        ctx.drawImage(img, (size-w)/2, (size-h)/2, w, h)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+        setAvatar(dataUrl)
+        const ok = await saveSection({avatar:dataUrl}, 'personal')
+        if (ok) {
+          initial.current = { ...initial.current, avatar:dataUrl }
+          setDirtyPersonal(false)
+        } else {
+          // Server rejected the save — revert so the page never shows a
+          // photo that isn't actually persisted (was causing the
+          // large-view-vs-small-view mismatch after a reload).
+          setAvatar(prevAvatar)
+          toast?.(t('Photo could not be saved. Please try a smaller image.','फोटो सहेजा नहीं जा सका। कृपया छोटी इमेज आज़माएं।'),'e')
+        }
+        setAvatarBusy(false)
+      }
+      img.src = ev.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+  const removePhoto = async () => {
+    setAvatarBusy(true)
+    const prevAvatar = avatar
+    setAvatar('')
+    const ok = await saveSection({avatar:''}, 'personal')
+    if (ok) { initial.current = { ...initial.current, avatar:'' }; setDirtyPersonal(false) }
+    else setAvatar(prevAvatar)
+    setAvatarBusy(false)
+    setPhotoViewerOpen(false)
+  }
+
+  // ── Generic section save ──
+  const saveSection = async (body:any, section_:string, onDone?:()=>void) => {
+    try {
+      const r = await fetch(`${API}/api/auth/me`, { method:'PATCH', headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`}, body: JSON.stringify({ ...body, __section: section_ }) })
+      const d = await r.json()
+      if (!r.ok) { toast?.(d.message||t('Save failed','सहेजने में विफल'),'e'); return false }
+      toast?.(t('Saved successfully!','सफलतापूर्वक सहेजा गया!'),'s')
+      await loadMe(); await loadOverview()
+      onDone?.()
+      return true
+    } catch { toast?.(t('Network error','नेटवर्क त्रुटि'),'e'); return false }
+  }
+
+  const savePersonal = async () => {
+    if (phone && !PHONE_RX.test(phone.replace(/[\s-]/g,''))) { toast?.(t('Invalid phone number','अमान्य फ़ोन नंबर'),'e'); return }
+    if (phoneDupWarning) { toast?.(phoneDupWarning,'e'); return }
+    if (dobWarning) { toast?.(dobWarning,'e'); return }
+    if (dob) { const d=new Date(dob); if (isNaN(d.getTime())||d>new Date()) { toast?.(t('Invalid date of birth','अमान्य जन्म तिथि'),'e'); return } }
+    setSavingPersonal(true)
+    const ok = await saveSection({name,phone,dob,city,state,gender,bio,avatar,timezone}, 'personal')
+    if (ok) {
+      initial.current = { ...initial.current, name,phone,dob,city,state,gender,bio,avatar,timezone }
+      setDirtyPersonal(false)
+      setEditPersonal(false)
+    }
+    setSavingPersonal(false)
+  }
+  const saveAcademic = async () => {
+    setSavingAcademic(true)
+    const ok = await saveSection({targetExam,targetYear,yearOfAppearing:yearAppearing,board,school,medium,coachingInstitute:coaching}, 'academic')
+    if (ok) {
+      initial.current = { ...initial.current, targetExam,targetYear,yearAppearing,board,school,medium,coaching }
+      setDirtyAcademic(false)
+      setEditAcademic(false)
+    }
+    setSavingAcademic(false)
+  }
+  const savePrefs = async () => {
+    setSavingPrefs(true)
+    const ok = await saveSection({preferences:{emailNotif:notifEmail,smsNotif:notifSms,studyReminder:notifStudy}}, 'preferences')
+    if (ok) {
+      initial.current = { ...initial.current, notifEmail,notifSms,notifStudy }
+      setDirtyPrefs(false)
+      setEditPrefs(false)
+    }
+    setSavingPrefs(false)
+  }
+  const doChangePassword = async () => {
+    if (!cp || !np || !cnp) { toast?.(t('Fill all password fields','सभी पासवर्ड फ़ील्ड भरें'),'e'); return }
+    if (np.length < 6) { toast?.(t('New password min 6 characters','नया पासवर्ड कम से कम 6 अक्षर'),'e'); return }
+    if (np !== cnp) { toast?.(t('Passwords do not match','पासवर्ड मेल नहीं खाते'),'e'); return }
+    setPassSaving(true)
+    try {
+      const r = await fetch(`${API}/api/auth/change-password`, { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`}, body: JSON.stringify({currentPassword:cp,newPassword:np}) })
+      const d = await r.json()
+      if (!r.ok) toast?.(d.message||t('Failed','विफल'),'e')
+      else { toast?.(t('Password changed!','पासवर्ड बदल गया!'),'s'); setCp('');setNp('');setCnp(''); loadSecurity() }
+    } catch { toast?.(t('Network error','नेटवर्क त्रुटि'),'e') }
+    setPassSaving(false)
+    setPwConfirmOpen(false)
+  }
+
+  const logoutOtherSessions = async () => {
+    const ok = window.confirm(t('This will sign you out from every other device. This device stays logged in. Continue?','यह आपको अन्य सभी डिवाइस से लॉगआउट कर देगा। यह डिवाइस लॉगिन रहेगा। जारी रखें?'))
+    if (!ok) return
+    try {
+      const r = await fetch(`${API}/api/auth/logout-other-sessions`, { method:'POST', headers:{Authorization:`Bearer ${token}`} })
+      const d = await r.json()
+      if (!r.ok) { toast?.(d.message||t('Failed','विफल'),'e'); return }
+      try { if (d.token) localStorage.setItem('pr_token', d.token) } catch {}
+      toast?.(t('Logged out from other devices. This device stays signed in.','अन्य डिवाइस से लॉगआउट हो गया। यह डिवाइस लॉगिन है।'),'s')
+      loadSecurity()
+    } catch { toast?.(t('Network error','नेटवर्क त्रुटि'),'e') }
+  }
+
+  const cancelEditPersonal = () => {
+    const i = initial.current
+    setName(i.name??''); setPhone(i.phone??''); setDob(i.dob??''); setCity(i.city??''); setState2(i.state??'')
+    setGender(i.gender??''); setBio(i.bio??''); setAvatar(i.avatar??''); setTimezone(i.timezone??'')
+    setDirtyPersonal(false); setEditPersonal(false)
+  }
+  const cancelEditAcademic = () => {
+    const i = initial.current
+    setTargetExam(i.targetExam??''); setTargetYear(i.targetYear??''); setYearAppearing(i.yearAppearing??'')
+    setBoard(i.board??''); setSchool(i.school??''); setMedium(i.medium??''); setCoaching(i.coaching??'')
+    setDirtyAcademic(false); setEditAcademic(false)
+  }
+  const cancelEditPrefs = () => {
+    const i = initial.current
+    setNotifEmail(i.notifEmail??true); setNotifSms(i.notifSms??false); setNotifStudy(i.notifStudy??true)
+    setDirtyPrefs(false); setEditPrefs(false)
+  }
+
+  const cityOptions = state && CITY_MAP[state] ? CITY_MAP[state] : []
+  const initials = (name||me?.name||'S').trim().charAt(0).toUpperCase()
+
+  // ── Hero card (persistent, per spec §2.1 / §13.2) ──
+  const heroEl = (
+    <SectionCard theme={theme}>
+      <div style={{display:'flex',gap:16,alignItems:'center',flexWrap:'wrap'}}>
+        <div style={{position:'relative',width:84,height:84,flexShrink:0}}>
+          <CompletionRing pct={ov?.completion ?? 0} size={84}/>
+          <div onClick={()=>setPhotoViewerOpen(true)} style={{position:'absolute',top:6,left:6,width:72,height:72,borderRadius:'50%',background: avatar?'transparent':`linear-gradient(135deg,${prim},#00D4FF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,fontWeight:800,color:'#fff',cursor:'pointer',overflow:'hidden'}}>
+            {avatar ? <img src={avatar} alt="avatar" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/> : initials}
+            <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.35)',opacity:0,transition:'opacity .2s',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}} className="avatar-hover">📷</div>
+          </div>
+          {avatarBusy && <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#fff'}}>...</div>}
+          <input ref={fileRef} type="file" accept="image/*" onChange={onPhotoChange} style={{display:'none'}}/>
+        </div>
+        <div style={{flex:1,minWidth:160}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+            <div style={{fontSize:18,fontWeight:800,color:txt}}>{me?.name || '—'}</div>
+            {ov?.verified && <span style={{fontSize:10,fontWeight:700,color:'#00C48C',background:'rgba(0,196,140,0.12)',padding:'2px 8px',borderRadius:99}}>✓ {t('Verified','सत्यापित')}</span>}
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4,flexWrap:'wrap'}}>
+            <span style={{fontSize:11,color:sub}}>ID: {me?.studentId || '—'}</span>
+          </div>
+          <div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
+            {ov?.batch && <span style={{fontSize:10,fontWeight:700,color:prim,background:theme.chipBg,padding:'3px 9px',borderRadius:99}}>📚 {ov.batch}</span>}
+            {targetExam && <span style={{fontSize:10,fontWeight:700,color:'#FFD700',background:'rgba(255,215,0,0.1)',padding:'3px 9px',borderRadius:99}}>🎯 {targetExam}</span>}
+          </div>
+        </div>
+        <button onClick={()=>goSection('personal')} style={btnGhost}>✏️ {t('Quick Edit','त्वरित संपादन')}</button>
+      </div>
+    </SectionCard>
+  )
+
+  // ══════════════════════════════════════════════════════════
+  // OVERVIEW SECTION
+  // ══════════════════════════════════════════════════════════
+  const overviewEl = (
+    <>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:10,marginBottom:14}}>
+        {[
+          {lbl:t('Completion','पूर्णता'), val:`${ov?.completion ?? 0}%`, ico:'📊', col:'#4D9FFF'},
+          {lbl:t('Health Score','स्वास्थ्य स्कोर'), val:`${ov?.health ?? 0}/100`, ico:'💚', col:'#00C48C'},
+          {lbl:t('Total Exams','कुल परीक्षाएं'), val: ov?.stats?.totalExams ?? 0, ico:'📝', col:'#A855F7'},
+          {lbl:t('Best Score','सर्वश्रेष्ठ स्कोर'), val: ov?.stats?.bestScore ?? 0, ico:'🏆', col:'#FFD700'},
+          {lbl:t('Avg Score','औसत स्कोर'), val: ov?.stats?.avgScore ?? 0, ico:'📈', col:'#FF6B9D'},
+          {lbl:t('Current Streak','वर्तमान लकीर'), val:`${ov?.stats?.currentStreak ?? 0}d`, ico:'🔥', col:'#FFA502'},
+        ].map((s,i)=>(
+          <div key={i} style={{background:theme.chipBg,border:`1px solid ${bdr}`,borderRadius:14,padding:'14px 10px',textAlign:'center'}}>
+            <div style={{fontSize:18}}>{s.ico}</div>
+            <div style={{fontSize:16,fontWeight:800,color:s.col,marginTop:4}}>{s.val}</div>
+            <div style={{fontSize:9.5,color:sub,marginTop:2,fontWeight:600}}>{s.lbl}</div>
+          </div>
+        ))}
+      </div>
+
+      {!!(ov?.missing?.length) && (
+        <SectionCard theme={theme} title={t('Complete Your Profile','अपनी प्रोफ़ाइल पूरी करें')} icon="✅">
+          {ov.missing.map((m:any,i:number)=>(
+            <div key={i} onClick={()=> m.href && goSection(m.href.replace('#',''))} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 4px',cursor:m.href?'pointer':'default',borderBottom: i<ov.missing.length-1?`1px solid ${bdr}`:'none'}}>
+              <span style={{width:18,height:18,borderRadius:'50%',border:`1.5px solid ${prim}`,flexShrink:0}}/>
+              <span style={{fontSize:12.5,color:txt}}>{m.label}</span>
+              {m.href && <span style={{marginLeft:'auto',fontSize:11,color:prim}}>→</span>}
+            </div>
+          ))}
+        </SectionCard>
+      )}
+
+      <SectionCard theme={theme} title={t('Quick Actions','त्वरित कार्रवाई')} icon="⚡">
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>
+          {[
+            {lbl:t('Edit Profile','प्रोफ़ाइल संपादित करें'),ico:'✏️',fn:()=>goSection('personal')},
+            {lbl:t('Upload Photo','फोटो अपलोड करें'),ico:'📷',fn:onPickPhoto},
+            {lbl:t('Change Password','पासवर्ड बदलें'),ico:'🔑',fn:()=>goSection('security')},
+            {lbl:t('Manage Devices','डिवाइस प्रबंधित करें'),ico:'📱',fn:()=>goSection('security')},
+            {lbl:t('Academic Snapshot','शैक्षणिक स्नैपशॉट'),ico:'🎓',fn:()=>goSection('academic')},
+            {lbl:t('View ID Card','आईडी कार्ड देखें'),ico:'🪪',fn:()=>setIdCardOpen(true)},
+          ].map((a,i)=>(
+            <button key={i} onClick={a.fn} style={{...btnGhost,display:'flex',alignItems:'center',gap:8,justifyContent:'flex-start'}}>{a.ico} {a.lbl}</button>
+          ))}
+        </div>
+      </SectionCard>
+
+      <SectionCard theme={theme}>
+        <button onClick={()=>setIdCardOpen(true)} style={{...btnGhost,width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>🪪 {t('View Digital Student ID Card','डिजिटल छात्र आईडी कार्ड देखें')}</button>
+      </SectionCard>
+    </>
+  )
+
+  // ── Digital Student ID Card visual (used inline preview + modal) — §11.3 ──
+  const idCardVisualEl = (
+    <div style={{display:'flex',gap:16,alignItems:'center',flexWrap:'wrap',background: dm?'linear-gradient(135deg,#020816,#001830)':'linear-gradient(135deg,#EEF4FF,#DCEBFF)', borderRadius:14, padding:16, border:`1px solid ${bdr}`}}>
+      <div style={{width:56,height:56,borderRadius:'50%',background: avatar?'transparent':`linear-gradient(135deg,${prim},#00D4FF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:800,color:'#fff',flexShrink:0,overflow:'hidden'}}>{avatar ? <img src={avatar} alt="avatar" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/> : initials}</div>
+      <div style={{flex:1,minWidth:140}}>
+        <div style={{fontWeight:800,fontSize:14,color: dm?'#F1F6FC':'#0F172A'}}>{me?.name}</div>
+        <div style={{fontSize:11,color: dm?'#8DA2C0':'#51607A'}}>ID: {me?.studentId||'—'} {ov?.batch?`· ${ov.batch}`:''}</div>
+        <div style={{fontSize:11,color: dm?'#8DA2C0':'#51607A'}}>{t('Target','लक्ष्य')}: {targetExam||'—'}</div>
+        {ov?.verified && <span style={{fontSize:9,fontWeight:700,color:'#00C48C'}}>✓ {t('Verified','सत्यापित')}</span>}
+      </div>
+      {me?.studentId && <img alt="QR" width={72} height={72} style={{borderRadius:8,background:'#fff',padding:4}} src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(me.studentId)}`}/>}
+    </div>
+  )
+
+
+  // ══════════════════════════════════════════════════════════
+  // PERSONAL SECTION
+  // ══════════════════════════════════════════════════════════
+  const personalEl = (
+    <SectionCard theme={theme}>
+      <div style={{display:'flex',justifyContent:'flex-end',marginBottom:12}}>
+        {!editPersonal && <button style={btnGhost} onClick={()=>setEditPersonal(true)}>✏️ {t('Edit','संपादित करें')}</button>}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:0}}>
+        <Field label={t('FULL NAME','पूरा नाम')} theme={theme}><input style={{...inp,opacity:editPersonal?1:.65,cursor:editPersonal?'text':'not-allowed'}} disabled={!editPersonal} value={name} onChange={e=>setName(e.target.value)} placeholder={t('Your name','आपका नाम')}/></Field>
+        <Field label={t('EMAIL (read-only)','ईमेल (केवल पढ़ने योग्य)')} theme={theme}><input style={{...inp,opacity:.6,cursor:'not-allowed'}} value={me?.email||''} disabled/></Field>
+        <Field label={t('PHONE NUMBER','फ़ोन नंबर')} theme={theme}>
+          <input style={{...inp, opacity:editPersonal?1:.65,cursor:editPersonal?'text':'not-allowed', borderColor: (phoneWarning||phoneDupWarning)?'#FF4757':bdr}} disabled={!editPersonal} value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+91XXXXXXXXXX"/>
+          {editPersonal && phoneChecking && <div style={{fontSize:10.5,color:sub,marginTop:4}}>{t('Checking availability...','उपलब्धता जांची जा रही है...')}</div>}
+          {editPersonal && !phoneChecking && phoneWarning && <div style={{fontSize:10.5,color:'#FF4757',marginTop:4}}>⚠️ {phoneWarning}</div>}
+          {editPersonal && !phoneChecking && !phoneWarning && phoneDupWarning && <div style={{fontSize:10.5,color:'#FF4757',marginTop:4}}>⚠️ {phoneDupWarning}</div>}
+          {editPersonal && !phoneChecking && !phoneWarning && !phoneDupWarning && phone && phone!==initial.current.phone && <div style={{fontSize:10.5,color:'#00C48C',marginTop:4}}>✓ {t('Available','उपलब्ध')}</div>}
+        </Field>
+        <Field label={t('DATE OF BIRTH','जन्म तिथि')} theme={theme}>
+          <input type="date" style={{...inp, opacity:editPersonal?1:.65,cursor:editPersonal?'text':'not-allowed', borderColor: dobWarning?'#FF4757':bdr}} disabled={!editPersonal} value={dob} onChange={e=>setDob(e.target.value)} max={new Date().toISOString().split('T')[0]}/>
+          {editPersonal && dobWarning && <div style={{fontSize:10.5,color:'#FF4757',marginTop:4}}>⚠️ {dobWarning}</div>}
+        </Field>
+        <Field label={t('GENDER','लिंग')} theme={theme}>
+          <select style={{...sel,opacity:editPersonal?1:.65,cursor:editPersonal?'pointer':'not-allowed'}} disabled={!editPersonal} value={gender} onChange={e=>setGender(e.target.value)}><option value="">{t('Select','चुनें')}</option>{GENDERS.map(g=><option key={g} value={g}>{g}</option>)}</select>
+        </Field>
+        <Field label={t('STATE','राज्य')} theme={theme}>
+          <select style={{...sel,opacity:editPersonal?1:.65,cursor:editPersonal?'pointer':'not-allowed'}} disabled={!editPersonal} value={state} onChange={e=>{setState2(e.target.value); setCity('')}}><option value="">{t('Select','चुनें')}</option>{STATES.map(s=><option key={s} value={s}>{s}</option>)}</select>
+        </Field>
+        <Field label={t('CITY','शहर')} theme={theme}>
+          <input style={{...inp, opacity:editPersonal?1:.65,cursor:editPersonal?'text':'not-allowed', borderColor: cityWarning?'#FF4757':bdr}} disabled={!editPersonal} list="city-suggest" value={city} onChange={e=>setCity(e.target.value)} placeholder={t('Your city','आपका शहर')}/>
+          <datalist id="city-suggest">{cityOptions.map(c=><option key={c} value={c}/>)}</datalist>
+          {editPersonal && cityWarning && <div style={{fontSize:10.5,color:'#FF4757',marginTop:4}}>⚠️ {cityWarning}</div>}
+        </Field>
+        <Field label={t('TIMEZONE','समय क्षेत्र')} theme={theme}>
+          <select style={{...sel,opacity:editPersonal?1:.65,cursor:editPersonal?'pointer':'not-allowed'}} disabled={!editPersonal} value={timezone} onChange={e=>setTimezone(e.target.value)}>{TIMEZONES.map(z=><option key={z} value={z}>{z}</option>)}</select>
+        </Field>
+      </div>
+      <Field label={`${t('SHORT BIO','संक्षिप्त परिचय')} (${bio.length}/160)`} theme={theme}>
+        <textarea style={{...inp,minHeight:70,resize:'vertical',opacity:editPersonal?1:.65,cursor:editPersonal?'text':'not-allowed'}} disabled={!editPersonal} value={bio} maxLength={160} onChange={e=>setBio(e.target.value)} placeholder={t('Tell us about yourself...','अपने बारे में बताएं...')}/>
+      </Field>
+      {editPersonal && (
+        <div style={{display:'flex',gap:10,marginTop:6}}>
+          <button style={{...btnP,opacity:dirtyPersonal?1:.5,cursor:dirtyPersonal?'pointer':'not-allowed'}} disabled={!dirtyPersonal||savingPersonal} onClick={savePersonal}>{savingPersonal?t('Saving...','सहेज रहे हैं...'):t('Save Personal Details','व्यक्तिगत विवरण सहेजें')}</button>
+          <button style={btnGhost} onClick={cancelEditPersonal}>{t('Cancel','रद्द करें')}</button>
+        </div>
+      )}
+    </SectionCard>
+  )
+
+  // ══════════════════════════════════════════════════════════
+  // ACADEMIC SECTION
+  // ══════════════════════════════════════════════════════════
+  const academicEl = (
+    <>
+      <SectionCard theme={theme}>
+        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:12}}>
+          {!editAcademic && <button style={btnGhost} onClick={()=>setEditAcademic(true)}>✏️ {t('Edit','संपादित करें')}</button>}
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:0}}>
+          <Field label={t('TARGET EXAM','लक्षित परीक्षा')} theme={theme}><select style={{...sel,opacity:editAcademic?1:.65,cursor:editAcademic?'pointer':'not-allowed'}} disabled={!editAcademic} value={targetExam} onChange={e=>setTargetExam(e.target.value)}><option value="">{t('Select','चुनें')}</option>{TARGET_EXAMS.map(x=><option key={x} value={x}>{x}</option>)}</select></Field>
+          <Field label={t('TARGET YEAR','लक्षित वर्ष')} theme={theme}><select style={{...sel,opacity:editAcademic?1:.65,cursor:editAcademic?'pointer':'not-allowed'}} disabled={!editAcademic} value={targetYear} onChange={e=>setTargetYear(e.target.value)}><option value="">{t('Select','चुनें')}</option>{TARGET_YEARS.map(y=><option key={y} value={y}>{y}</option>)}</select></Field>
+          <Field label={t('BOARD','बोर्ड')} theme={theme}><select style={{...sel,opacity:editAcademic?1:.65,cursor:editAcademic?'pointer':'not-allowed'}} disabled={!editAcademic} value={board} onChange={e=>setBoard(e.target.value)}><option value="">{t('Select','चुनें')}</option>{BOARDS.map(b=><option key={b} value={b}>{b}</option>)}</select></Field>
+          <Field label={t('MEDIUM','माध्यम')} theme={theme}><select style={{...sel,opacity:editAcademic?1:.65,cursor:editAcademic?'pointer':'not-allowed'}} disabled={!editAcademic} value={medium} onChange={e=>setMedium(e.target.value)}><option value="">{t('Select','चुनें')}</option>{MEDIUMS.map(m=><option key={m} value={m}>{m}</option>)}</select></Field>
+          <Field label={t('YEAR OF APPEARING','उपस्थित होने का वर्ष')} theme={theme}><select style={{...sel,opacity:editAcademic?1:.65,cursor:editAcademic?'pointer':'not-allowed'}} disabled={!editAcademic} value={yearAppearing} onChange={e=>setYearAppearing(e.target.value)}><option value="">{t('Select','चुनें')}</option>{YEAR_APPEAR.map(y=><option key={y} value={y}>{y}</option>)}</select></Field>
+          <Field label={t('SCHOOL / COLLEGE NAME','स्कूल/कॉलेज का नाम')} theme={theme}><input style={{...inp,opacity:editAcademic?1:.65,cursor:editAcademic?'text':'not-allowed'}} disabled={!editAcademic} value={school} onChange={e=>setSchool(e.target.value)} placeholder={t('e.g. DPS RK Puram','जैसे DPS RK Puram')}/></Field>
+          <Field label={t('COACHING INSTITUTE (optional)','कोचिंग संस्थान (वैकल्पिक)')} theme={theme}><input style={{...inp,opacity:editAcademic?1:.65,cursor:editAcademic?'text':'not-allowed'}} disabled={!editAcademic} value={coaching} onChange={e=>setCoaching(e.target.value)} placeholder={t('Optional','वैकल्पिक')}/></Field>
+        </div>
+        {editAcademic && (
+          <div style={{display:'flex',gap:10,marginTop:6}}>
+            <button style={{...btnP,opacity:dirtyAcademic?1:.5,cursor:dirtyAcademic?'pointer':'not-allowed'}} disabled={!dirtyAcademic||savingAcademic} onClick={saveAcademic}>{savingAcademic?t('Saving...','सहेज रहे हैं...'):t('Save Academic Profile','शैक्षणिक प्रोफ़ाइल सहेजें')}</button>
+            <button style={btnGhost} onClick={cancelEditAcademic}>{t('Cancel','रद्द करें')}</button>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard theme={theme} title={t('Academic Snapshot','शैक्षणिक स्नैपशॉट')} icon="📊">
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:10}}>
+          {[
+            {lbl:t('Total Exams','कुल परीक्षाएं'),val:ov?.stats?.totalExams??0,col:'#A855F7'},
+            {lbl:t('Best Score','सर्वश्रेष्ठ स्कोर'),val:ov?.stats?.bestScore??0,col:'#FFD700'},
+            {lbl:t('Average Score','औसत स्कोर'),val:ov?.stats?.avgScore??0,col:'#4D9FFF'},
+            {lbl:t('Current Streak','वर्तमान लकीर'),val:`${ov?.stats?.currentStreak??0}d`,col:'#FFA502'},
+          ].map((s,i)=>(
+            <div key={i} style={{background:theme.chipBg,border:`1px solid ${bdr}`,borderRadius:12,padding:'12px 8px',textAlign:'center'}}>
+              <div style={{fontSize:16,fontWeight:800,color:s.col}}>{s.val}</div>
+              <div style={{fontSize:9.5,color:sub,marginTop:2,fontWeight:600}}>{s.lbl}</div>
+            </div>
+          ))}
+        </div>
+        {!!(ov?.stats?.rankHistory?.length) && (
+          <div style={{marginTop:14}}>
+            <div style={{fontSize:11,fontWeight:700,color:sub,marginBottom:8}}>{t('Rank History','रैंक इतिहास')}</div>
+            {ov.stats.rankHistory.map((r:any,i:number)=>(
+              <div key={i} style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'6px 0',borderBottom: i<ov.stats.rankHistory.length-1?`1px solid ${bdr}`:'none',color:txt}}>
+                <span>{r.examTitle}</span><span style={{color:prim,fontWeight:700}}>{r.rank?`#${r.rank}`:'—'} · {r.score}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionCard>
+    </>
+  )
+
+  // ══════════════════════════════════════════════════════════
+  // SECURITY SECTION
+  // ══════════════════════════════════════════════════════════
+  const securityEl = (
+    <>
+      <SectionCard theme={theme} title={t('Change Password','पासवर्ड बदलें')} icon="🔑">
+        <Field label={t('CURRENT PASSWORD','वर्तमान पासवर्ड')} theme={theme}><div style={{position:'relative'}}><input type={showCp?'text':'password'} style={inp} value={cp} onChange={e=>setCp(e.target.value)}/><EyeBtn show={showCp} toggle={()=>setShowCp(!showCp)} sub={sub}/></div></Field>
+        <Field label={t('NEW PASSWORD','नया पासवर्ड')} theme={theme}><div style={{position:'relative'}}><input type={showNp?'text':'password'} style={inp} value={np} onChange={e=>setNp(e.target.value)}/><EyeBtn show={showNp} toggle={()=>setShowNp(!showNp)} sub={sub}/></div></Field>
+        <Field label={t('CONFIRM PASSWORD','पासवर्ड की पुष्टि करें')} theme={theme}><div style={{position:'relative'}}><input type={showCnp?'text':'password'} style={inp} value={cnp} onChange={e=>setCnp(e.target.value)}/><EyeBtn show={showCnp} toggle={()=>setShowCnp(!showCnp)} sub={sub}/></div></Field>
+        <button style={btnP} disabled={passSaving} onClick={()=>setPwConfirmOpen(true)}>{passSaving?t('Saving...','सहेज रहे हैं...'):t('Change Password','पासवर्ड बदलें')}</button>
+        {pwConfirmOpen && (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>setPwConfirmOpen(false)}>
+            <div onClick={e=>e.stopPropagation()} style={{background: dm?'#0A0E17':'#fff', border:`1px solid ${bdr}`, borderRadius:16, padding:24, maxWidth:340, width:'100%'}}>
+              <div style={{fontWeight:800,fontSize:15,color:txt,marginBottom:8}}>⚠️ {t('Confirm Password Change','पासवर्ड परिवर्तन की पुष्टि करें')}</div>
+              <div style={{fontSize:12.5,color:sub,marginBottom:18}}>{t('Are you sure you want to change your password?','क्या आप वाकई अपना पासवर्ड बदलना चाहते हैं?')}</div>
+              <div style={{display:'flex',gap:10}}>
+                <button style={btnP} onClick={doChangePassword}>{t('Yes, Change It','हां, बदलें')}</button>
+                <button style={btnGhost} onClick={()=>setPwConfirmOpen(false)}>{t('Cancel','रद्द करें')}</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard theme={theme} title={t('Device & Login Health','डिवाइस और लॉगिन स्वास्थ्य')} icon="📱">
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10,marginBottom:14}}>
+          <div style={{background:theme.chipBg,border:`1px solid ${bdr}`,borderRadius:12,padding:'10px 12px'}}>
+            <div style={{fontSize:9.5,color:sub,fontWeight:700}}>{t('LAST LOGIN','अंतिम लॉगिन')}</div>
+            <div style={{fontSize:12,color:txt,marginTop:3}}>{sec?.lastLogin ? new Date(sec.lastLogin.at||sec.lastLogin.time).toLocaleString() : '—'}</div>
+            <div style={{fontSize:10.5,color:sub}}>{sec?.lastLogin?.city ? `${sec.lastLogin.city}, ${sec.lastLogin.country}` : ''}</div>
+          </div>
+          <div style={{background:theme.chipBg,border:`1px solid ${bdr}`,borderRadius:12,padding:'10px 12px'}}>
+            <div style={{fontSize:9.5,color:sub,fontWeight:700}}>{t('ACTIVE DEVICES','सक्रिय डिवाइस')}</div>
+            <div style={{fontSize:16,color:'#00C48C',fontWeight:800}}>{sec?.activeDeviceCount ?? 0}</div>
+          </div>
+          <div style={{background:theme.chipBg,border:`1px solid ${bdr}`,borderRadius:12,padding:'10px 12px'}}>
+            <div style={{fontSize:9.5,color:sub,fontWeight:700}}>{t('FAILED ATTEMPTS','असफल प्रयास')}</div>
+            <div style={{fontSize:16,fontWeight:800,color: (sec?.failedLoginAttempts||0)>3?'#FF4757':txt}}>{sec?.failedLoginAttempts ?? 0}</div>
+          </div>
+        </div>
+        <button style={{...btnGhost,borderColor:'rgba(255,71,87,0.4)',color:'#FF6B6B'}} onClick={logoutOtherSessions}>🚪 {t('Logout from Other Devices','अन्य डिवाइस से लॉगआउट करें')}</button>
+      </SectionCard>
+    </>
+  )
+
+  // ══════════════════════════════════════════════════════════
+  // PREFERENCES SECTION
+  // ══════════════════════════════════════════════════════════
+  const preferencesEl = (
+    <SectionCard theme={theme}>
+      <div style={{display:'flex',justifyContent:'flex-end',marginBottom:4}}>
+        {!editPrefs && <button style={btnGhost} onClick={()=>setEditPrefs(true)}>✏️ {t('Edit','संपादित करें')}</button>}
+      </div>
+      {[
+        {lbl:t('Email Notifications','ईमेल सूचनाएं'),val:notifEmail,fn:()=>setNotifEmail(!notifEmail)},
+        {lbl:t('SMS Notifications','SMS सूचनाएं'),val:notifSms,fn:()=>setNotifSms(!notifSms)},
+        {lbl:t('Study Reminders','अध्ययन अनुस्मारक'),val:notifStudy,fn:()=>setNotifStudy(!notifStudy)},
+      ].map((p,i)=>(
+        <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 4px',borderBottom:`1px solid ${bdr}`,opacity:editPrefs?1:.65}}>
+          <span style={{fontSize:13,color:txt,fontWeight:600}}>{p.lbl}</span><Toggle on={p.val} onClick={editPrefs?p.fn:()=>{}} dm={dm} prim={prim}/>
+        </div>
+      ))}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 4px',borderBottom:`1px solid ${bdr}`}}>
+        <span style={{fontSize:13,color:txt,fontWeight:600}}>{t('Theme','थीम')}</span>
+        <button onClick={()=>setColorTheme(dm?'light':'dark')} style={{display:'flex',alignItems:'center',gap:6,background:theme.chipBg,border:`1.5px solid ${bdr}`,borderRadius:99,padding:'6px 14px',cursor:'pointer',fontSize:12,fontWeight:700,color:prim}}>
+          {dm?'🌙':'☀️'} {dm?t('Dark','डार्क'):t('Light','लाइट')}
+        </button>
+      </div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 4px'}}>
+        <span style={{fontSize:13,color:txt,fontWeight:600}}>{t('Language','भाषा')}</span>
+        <span style={{fontSize:12,color:sub}}>{lang==='en'?'English':'हिन्दी'}</span>
+      </div>
+      {editPrefs && (
+        <div style={{display:'flex',gap:10,marginTop:14}}>
+          <button style={{...btnP,opacity:dirtyPrefs?1:.5,cursor:dirtyPrefs?'pointer':'not-allowed'}} disabled={!dirtyPrefs||savingPrefs} onClick={savePrefs}>{savingPrefs?t('Saving...','सहेज रहे हैं...'):t('Save Preferences','प्राथमिकताएं सहेजें')}</button>
+          <button style={btnGhost} onClick={cancelEditPrefs}>{t('Cancel','रद्द करें')}</button>
+        </div>
+      )}
+    </SectionCard>
+  )
+
+  return (
+    <div style={{maxWidth: isMobile?880:1040, margin:'0 auto'}}>
+      <div style={{fontSize:20,fontWeight:800,marginBottom:4,color:txt}}>👤 {t('My Profile','मेरी प्रोफ़ाइल')}</div>
+      <div style={{fontSize:12.5,color:sub,marginBottom:18}}>{t('Manage your personal, academic, and security settings','अपनी व्यक्तिगत, शैक्षणिक और सुरक्षा सेटिंग्स प्रबंधित करें')}</div>
+
+      {heroEl}
+
+      {isMobile ? (
+        <>
+          {/* ── Mobile: swipe-friendly horizontal chips (§1.2.2 / §13.1.3) ── */}
+          <div style={{display:'flex',gap:8,overflowX:'auto',marginBottom:16,paddingBottom:4,WebkitOverflowScrolling:'touch'}}>
+            {SECTIONS.map(s=>{
+              const active = section===s.id
+              return (
+                <button key={s.id} onClick={()=>goSection(s.id)} style={{flexShrink:0,display:'flex',alignItems:'center',gap:6,padding:'9px 16px',borderRadius:99,border:`1.5px solid ${active?prim:bdr}`,background: active?theme.navActive:'transparent',color: active?prim:txt,fontWeight:active?700:600,fontSize:12.5,cursor:'pointer',whiteSpace:'nowrap'}}>
+                  {s.icon} {lang==='en'?s.en:s.hi}
+                </button>
+              )
+            })}
+          </div>
+          {section==='overview' && overviewEl}
+          {section==='personal' && personalEl}
+          {section==='academic' && academicEl}
+          {section==='security' && securityEl}
+          {section==='preferences' && preferencesEl}
+        </>
+      ) : (
+        <div style={{display:'flex',gap:22,alignItems:'flex-start'}}>
+          {/* ── Desktop: real left section rail (§1.2.1 / §12.1.1) ── */}
+          <div style={{width:210,flexShrink:0,position:'sticky',top:76,background: theme.isDark?'rgba(255,255,255,0.03)':'rgba(37,99,235,0.02)',border:`1px solid ${bdr}`,borderRadius:16,padding:10}}>
+            {SECTIONS.map(s=>{
+              const active = section===s.id
+              return (
+                <button key={s.id} onClick={()=>goSection(s.id)} style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'11px 14px',borderRadius:11,border:'none',background: active?theme.navActive:'transparent',color: active?prim:txt,fontWeight:active?700:600,fontSize:13,cursor:'pointer',marginBottom:3,textAlign:'left'}}>
+                  <span style={{fontSize:16}}>{s.icon}</span> {lang==='en'?s.en:s.hi}
+                  {active && <span style={{marginLeft:'auto',width:6,height:6,borderRadius:'50%',background:prim}}/>}
+                </button>
+              )
+            })}
+          </div>
+          <div style={{flex:1,minWidth:0}}>
+            {section==='overview' && overviewEl}
+            {section==='personal' && personalEl}
+            {section==='academic' && academicEl}
+            {section==='security' && securityEl}
+            {section==='preferences' && preferencesEl}
+          </div>
+        </div>
+      )}
+
+      {/* ── Photo Viewer modal — large view + explicit Upload/Remove actions ── */}
+      {photoViewerOpen && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.75)',zIndex:280,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>setPhotoViewerOpen(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{maxWidth:300,width:'100%',textAlign:'center'}}>
+            <div style={{width:200,height:200,borderRadius:'50%',margin:'0 auto 22px',background: avatar?'transparent':`linear-gradient(135deg,${prim},#00D4FF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:60,fontWeight:800,color:'#fff',border:'4px solid rgba(255,255,255,0.2)',overflow:'hidden'}}>
+              {avatar ? <img src={avatar} alt="avatar" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/> : initials}
+              {avatarBusy && <div style={{position:'absolute'}}>...</div>}
+            </div>
+            <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
+              <button style={btnP} disabled={avatarBusy} onClick={onPickPhoto}>📤 {t('Upload New Photo','नई फोटो अपलोड करें')}</button>
+              {avatar && <button style={{...btnGhost,borderColor:'rgba(255,71,87,.4)',color:'#FF6B6B'}} disabled={avatarBusy} onClick={removePhoto}>🗑️ {t('Remove Photo','फोटो हटाएं')}</button>}
+            </div>
+            <button onClick={()=>setPhotoViewerOpen(false)} style={{marginTop:18,background:'rgba(255,255,255,.15)',border:'none',borderRadius:8,padding:'8px 22px',color:'#fff',cursor:'pointer',fontSize:12}}>{t('Close','बंद करें')}</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Custom "Unsaved Changes" modal (replaces native browser confirm) ── */}
+      {pendingSection && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:250,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={cancelLeave}>
+          <div onClick={e=>e.stopPropagation()} style={{background: dm?'#0A0E17':'#fff', border:`1px solid ${bdr}`, borderRadius:16, padding:24, maxWidth:340, width:'100%'}}>
+            <div style={{fontWeight:800,fontSize:15,color:txt,marginBottom:8}}>⚠️ {t('Unsaved Changes','असहेजे गए बदलाव')}</div>
+            <div style={{fontSize:12.5,color:sub,marginBottom:18}}>{t('You have unsaved changes in this section. Leave anyway? Your edits will be discarded.','इस सेक्शन में असहेजे गए बदलाव हैं। फिर भी छोड़ें? आपके बदलाव मिट जाएंगे।')}</div>
+            <div style={{display:'flex',gap:10}}>
+              <button style={btnP} onClick={discardAndLeave}>{t('Leave Without Saving','बिना सहेजे छोड़ें')}</button>
+              <button style={btnGhost} onClick={cancelLeave}>{t('Cancel','रद्द करें')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── §11.3 — Digital Student ID Card modal ── */}
+      {idCardOpen && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.65)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>setIdCardOpen(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{maxWidth:380,width:'100%'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+              <span style={{color:'#fff',fontWeight:700,fontSize:14}}>🪪 {t('Digital Student ID Card','डिजिटल छात्र आईडी कार्ड')}</span>
+              <button onClick={()=>setIdCardOpen(false)} style={{background:'rgba(255,255,255,.15)',border:'none',borderRadius:8,width:32,height:32,color:'#fff',cursor:'pointer',fontSize:16}}>✕</button>
+            </div>
+            {idCardVisualEl}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function ProfilePage() {
+  return <StudentShell pageKey="profile"><ProfileContent/></StudentShell>
+}
+EOF_PROFILEPAGE3
+echo "✅ Profile page updated: $PROFILEPAGE"
+
+cat > "$S360" << 'EOF_STU360d'
+'use client'
+import { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react'
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
+
+// ── Theme comes from the Admin Panel's shared constants (CRD/ACC/BOR/TS/DIM/
+//    SUC/DNG/WRN/GOLD), passed in via the `theme` prop from page.tsx. Falls
+//    back to sensible defaults if not provided so the component never breaks. ──
+const DEFAULT_THEME = {
+  CRD: 'rgba(0,22,40,0.78)', ACC: '#4D9FFF', BOR: 'rgba(77,159,255,0.18)',
+  TS: '#E8F4FD', DIM: '#8899AA', SUC: '#00C48C', DNG: '#FF4D4D', WRN: '#FFB84D', GOLD: '#FFD700',
+}
+const ThemeCtx = createContext(DEFAULT_THEME)
+
+const SECTIONS = [
+  { id: 'personal',  ico:'👤', lbl:'Personal Details' },
+  { id: 'academic',  ico:'🎓', lbl:'Academic Profile' },
+  { id: 'security',  ico:'🔒', lbl:'Security' },
+  { id: 'login',     ico:'📶', lbl:'Login Activity' },
+  { id: 'photos',    ico:'🖼️', lbl:'Photo History' },
+  { id: 'identity',  ico:'🛡️', lbl:'Identity & Verification' },
+  { id: 'versioned', ico:'🗂️', lbl:'Versioned Field History' },
+  { id: 'frequency', ico:'📊', lbl:'Change Frequency' },
+  { id: 'quick',     ico:'⚡', lbl:'Quick Inspect' },
+]
+
+const TIMELINE_FILTERS = [
+  { id:'all', lbl:'All' },
+  { id:'personal', lbl:'Personal Info' },
+  { id:'academic', lbl:'Academic Info' },
+  { id:'security', lbl:'Security' },
+  { id:'login', lbl:'Login Activity' },
+  { id:'photo', lbl:'Photo Changes' },
+]
+const PERSONAL_FIELDS = ['name','phone','dob','gender','state','city','bio','avatar']
+const ACADEMIC_FIELDS = ['targetExam','targetYear','board','school','medium','coachingInstitute','yearOfAppearing']
+
+function fmt(d:any) { if (!d) return '—'; try { return new Date(d).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) } catch { return '—' } }
+function fmtDate(d:any) { if (!d) return '—'; try { return new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) } catch { return '—' } }
+function formatChangeVal(field:string, val:any) {
+  const isImage = field === 'avatar' || field === 'photo' || (typeof val === 'string' && val.startsWith('data:image'))
+  if (isImage) return val ? '📷 Photo' : '—'
+  const s = String(val ?? '—')
+  return s.length > 60 ? s.slice(0, 60) + '…' : s
+}
+
+function Badge({ children, col, bg }: any) {
+  const theme = useContext(ThemeCtx)
+  const c = col || theme.ACC
+  return <span style={{fontSize:9.5,fontWeight:700,color:c,background:bg||`${c}22`,padding:'2px 8px',borderRadius:6,border:`1px solid ${c}44`}}>{children}</span>
+}
+function Card({ title, icon, children, id }: any) {
+  const theme = useContext(ThemeCtx)
+  return (
+    <div id={id} style={{background:theme.CRD,border:`1px solid ${theme.BOR}`,borderRadius:16,padding:'16px 16px',marginBottom:14,scrollMarginTop:80}}>
+      {title && <div style={{fontSize:13,fontWeight:700,color:theme.ACC,marginBottom:12,display:'flex',alignItems:'center',gap:7}}>{icon} {title}</div>}
+      {children}
+    </div>
+  )
+}
+function Row({ label, value }: any) {
+  const theme = useContext(ThemeCtx)
+  return (
+    <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:'2px 10px',padding:'7px 0',borderBottom:`1px solid ${theme.BOR}`,fontSize:12}}>
+      <span style={{color:theme.DIM,flexShrink:0}}>{label}</span>
+      <span style={{color:theme.TS,fontWeight:600,textAlign:'right',minWidth:0,overflowWrap:'break-word',wordBreak:'break-word'}}>{value ?? '—'}</span>
+    </div>
+  )
+}
+
+export default function Student360Preview({ studentId, token, onClose, theme }: { studentId: string; token: string; onClose: () => void; theme?: Partial<typeof DEFAULT_THEME> }) {
+  const T = { ...DEFAULT_THEME, ...(theme || {}) }
+  const [data, setData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
+  const [timelineFilter, setTimelineFilter] = useState('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [expandedField, setExpandedField] = useState<string|null>(null)
+  const [enlargedPhoto, setEnlargedPhoto] = useState<string|null>(null)
+  const [mobileTab, setMobileTab] = useState<'summary'|'main'|'timeline'>('main')
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true); setError('')
+    fetch(`${API}/api/admin/student-preview/${studentId}/full-profile`, { headers:{Authorization:`Bearer ${token}`} })
+      .then(r => r.json())
+      .then(d => { if (cancelled) return; if (d.success) setData(d.student); else setError(d.message||'Could not load profile') })
+      .catch(() => { if (!cancelled) setError('Network error') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [studentId, token])
+
+  // ESC key support (§1.2.6)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const jump = (id: string) => {
+    setMobileTab('main')
+    setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior:'smooth', block:'start' }), 60)
+  }
+
+  // ── §13.2 Timeline filters applied to field-change timeline + audit trail ──
+  const filteredTimeline = useMemo(() => {
+    if (!data) return []
+    let items = (data.fieldChangeTimeline || []).map((h:any) => ({ ...h, _type:'field' }))
+    if (timelineFilter !== 'all') {
+      items = items.filter((h:any) => {
+        const flds = h.updatedFields || []
+        if (timelineFilter === 'personal') return flds.some((f:string)=>PERSONAL_FIELDS.includes(f))
+        if (timelineFilter === 'academic') return flds.some((f:string)=>ACADEMIC_FIELDS.includes(f))
+        if (timelineFilter === 'security') return flds.includes('password')
+        if (timelineFilter === 'photo') return flds.includes('avatar')
+        if (timelineFilter === 'login') return false
+        return true
+      })
+    }
+    if (dateFrom) items = items.filter((h:any) => new Date(h.updatedAt) >= new Date(dateFrom))
+    if (dateTo) items = items.filter((h:any) => new Date(h.updatedAt) <= new Date(dateTo + 'T23:59:59'))
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      items = items.filter((h:any) => (h.updatedFields||[]).join(' ').toLowerCase().includes(q) || (h.source||'').toLowerCase().includes(q))
+    }
+    return items
+  }, [data, timelineFilter, dateFrom, dateTo, search])
+
+  const filteredAudit = useMemo(() => {
+    if (!data) return []
+    let items = data.auditTrail || []
+    if (timelineFilter === 'login') items = items.filter((a:any) => (a.action||'').toUpperCase().includes('LOGIN'))
+    else if (timelineFilter === 'security') items = items.filter((a:any) => (a.module||'')==='security')
+    else if (['personal','academic','photo'].includes(timelineFilter)) items = []
+    if (dateFrom) items = items.filter((a:any) => new Date(a.createdAt) >= new Date(dateFrom))
+    if (dateTo) items = items.filter((a:any) => new Date(a.createdAt) <= new Date(dateTo + 'T23:59:59'))
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      items = items.filter((a:any) => (a.details||'').toLowerCase().includes(q) || (a.action||'').toLowerCase().includes(q))
+    }
+    return items
+  }, [data, timelineFilter, search, dateFrom, dateTo])
+
+  // ── §13.1 Versioned field history — group profileHistory changes per field ──
+  const versionedFields = useMemo(() => {
+    if (!data) return {}
+    const map: Record<string, any[]> = {}
+    ;(data.fieldChangeTimeline || []).slice().reverse().forEach((h:any) => {
+      (h.changes||[]).forEach((c:any) => {
+        if (!map[c.field]) map[c.field] = []
+        map[c.field].push({ ...c, updatedAt: h.updatedAt, source: h.source, updatedBy: h.updatedBy })
+      })
+    })
+    return map
+  }, [data])
+
+  const btnGhost:any = { background:'transparent', border:`1px solid ${T.BOR}`, color:T.TS, borderRadius:9, padding:'7px 14px', cursor:'pointer', fontSize:11.5, fontWeight:600 }
+  const btnP:any = { background:`linear-gradient(135deg,${T.ACC},#0055CC)`, color:'#fff', border:'none', borderRadius:9, padding:'8px 16px', cursor:'pointer', fontSize:11.5, fontWeight:700 }
+
+  return (
+    <ThemeCtx.Provider value={T}>
+    <div style={{ position:'fixed', inset:0, zIndex:500, background:'#000A18', display:'flex', flexDirection:'column', animation:'s360SlideIn .28s cubic-bezier(.4,0,.2,1)' }}>
+      <style>{`
+        @keyframes s360SlideIn { from { opacity:0; transform:translateY(18px);} to { opacity:1; transform:translateY(0);} }
+        .s360-scroll::-webkit-scrollbar{width:5px} .s360-scroll::-webkit-scrollbar-thumb{background:rgba(77,159,255,.3);border-radius:3px}
+        @media(max-width:980px){ .s360-panel-left,.s360-panel-right{display:none !important} .s360-panel-left.mshow,.s360-panel-right.mshow{display:block !important} }
+      `}</style>
+
+      {/* ── §1.3 Sticky top header ── */}
+      <div style={{ position:'sticky', top:0, zIndex:5, background:'rgba(0,10,24,0.96)', backdropFilter:'blur(16px)', borderBottom:`1px solid ${T.BOR}`, padding:'12px 18px', display:'flex', alignItems:'center', gap:14, flexWrap:'wrap' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, flex:1, minWidth:220 }}>
+          <div style={{fontSize:20}}>🔎</div>
+          <div>
+            <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+              <span style={{fontWeight:800, fontSize:15, color:T.TS}}>{data?.name || (loading?'Loading…':'Student')}</span>
+              {data?.verified && <Badge col={T.SUC}>✓ Verified</Badge>}
+              {data?.studentId && <span style={{fontSize:10.5,color:T.DIM}}>ID: {data.studentId}</span>}
+            </div>
+            <div style={{fontSize:10.5, color:T.DIM, marginTop:2}}>
+              360° Profile Preview {data && <>· {data.completion}% complete · Last updated {fmt(data.lastUpdated)}</>}
+            </div>
+          </div>
+        </div>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search inside preview…" style={{ background:'rgba(0,22,40,0.7)', border:`1px solid ${T.BOR}`, borderRadius:9, padding:'8px 12px', color:T.TS, fontSize:12, outline:'none', width:200 }}/>
+        <button onClick={onClose} style={{ background:'rgba(255,71,87,0.12)', border:'1px solid rgba(255,71,87,0.35)', color:T.DNG, borderRadius:9, width:36, height:36, cursor:'pointer', fontSize:16 }}>✕</button>
+      </div>
+
+      {/* ── §1.2.8 Section jump navigation ── */}
+      <div className="s360-scroll" style={{ display:'flex', gap:6, overflowX:'auto', padding:'10px 18px', borderBottom:`1px solid ${T.BOR}`, background:'rgba(0,10,24,0.7)' }}>
+        {SECTIONS.map(s => (
+          <button key={s.id} onClick={()=>jump(s.id)} style={{ flexShrink:0, display:'flex', alignItems:'center', gap:5, padding:'7px 13px', borderRadius:99, border:`1px solid ${T.BOR}`, background:'rgba(77,159,255,0.06)', color:T.TS, fontSize:11.5, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>
+            {s.ico} {s.lbl}
+          </button>
+        ))}
+        <div style={{display:'flex',gap:6,marginLeft:'auto'}} className="mshow-tabs">
+          {(['summary','main','timeline'] as const).map(m=>(
+            <button key={m} onClick={()=>setMobileTab(m)} style={{ display:'none' }} />
+          ))}
+        </div>
+      </div>
+
+      {/* Mobile tab switcher (only relevant <980px, controlled via CSS) */}
+      <div style={{ display:'flex', gap:6, padding:'8px 18px 0' }} className="s360-mobiletabs">
+        {(['summary','main','timeline'] as const).map(m=>(
+          <button key={m} onClick={()=>setMobileTab(m)} style={{ flex:1, padding:'7px 0', borderRadius:8, border:`1px solid ${mobileTab===m?T.ACC:T.BOR}`, background:mobileTab===m?'rgba(77,159,255,0.15)':'transparent', color:mobileTab===m?T.ACC:T.DIM, fontSize:11, fontWeight:700, cursor:'pointer' }}>{m==='summary'?'Summary':m==='main'?'Details':'Timeline'}</button>
+        ))}
+      </div>
+
+      {loading && <div style={{padding:40,textAlign:'center',color:T.DIM}}>Loading 360° profile…</div>}
+      {error && <div style={{padding:40,textAlign:'center',color:T.DNG}}>⚠️ {error}</div>}
+
+      {data && !loading && (
+        <div style={{ flex:1, overflow:'hidden', display:'flex', gap:16, padding:'16px 18px' }}>
+
+          {/* ══ §1.1.1 LEFT SUMMARY PANEL ══ */}
+          <div className={`s360-panel-left${mobileTab==='summary'?' mshow':''}`} style={{ width:260, flexShrink:0, overflowY:'auto' }}>
+            <Card>
+              <div style={{textAlign:'center', marginBottom:12}}>
+                <div style={{ width:76, height:76, borderRadius:'50%', margin:'0 auto 10px', background: data.personal.avatar?`url(${data.personal.avatar})`:`linear-gradient(135deg,${T.ACC},#00D4FF)`, backgroundSize:'contain', backgroundPosition:'center', backgroundRepeat:'no-repeat', backgroundColor:'#0A0E17', display:'flex', alignItems:'center', justifyContent:'center', fontSize:26, fontWeight:800, color:'#fff', cursor: data.personal.avatar ? 'pointer':'default' }} onClick={()=>data.personal.avatar && setEnlargedPhoto(data.personal.avatar)}>
+                  {!data.personal.avatar && (data.name||'?').charAt(0).toUpperCase()}
+                </div>
+                <div style={{fontWeight:800, fontSize:15, color:T.TS}}>{data.name}</div>
+                <div style={{fontSize:10.5, color:T.DIM, marginTop:2}}>{data.email}</div>
+                <div style={{display:'flex',gap:6,justifyContent:'center',marginTop:8,flexWrap:'wrap'}}>
+                  {data.verified && <Badge col={T.SUC}>✓ Verified</Badge>}
+                  {data.batch && <Badge col={T.ACC}>📚 {data.batch}</Badge>}
+                  {data.targetExam && <Badge col={T.GOLD}>🎯 {data.targetExam}</Badge>}
+                </div>
+              </div>
+              <Row label="Student ID" value={data.studentId||'—'}/>
+              <Row label="Profile Health" value={`${data.health}/100`}/>
+              <Row label="Completion" value={`${data.completion}%`}/>
+              <Row label="Last Login" value={fmt(data.security.lastLogin?.at || data.security.lastLogin?.time)}/>
+              <Row label="Last Profile Update" value={fmt(data.lastUpdated)}/>
+            </Card>
+
+            <Card title="Quick Actions" icon="⚡">
+              <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                <button style={btnGhost} onClick={()=>jump('personal')}>📄 Open Full Profile</button>
+                <button style={btnGhost} onClick={()=>jump('login')}>📶 View Login Activity</button>
+                <button style={btnGhost} onClick={()=>{setMobileTab('timeline')}}>🕐 View Audit Timeline</button>
+                <button style={btnGhost} onClick={()=>jump('photos')}>🖼️ Open Photo History</button>
+                <button style={btnGhost} onClick={()=>jump('security')}>🔒 Jump to Security</button>
+              </div>
+            </Card>
+          </div>
+
+          {/* ══ §1.1.2 MAIN DETAIL WORKSPACE ══ */}
+          <div className="s360-scroll" style={{ flex:1, overflowY:'auto', minWidth:0, display: mobileTab==='main' || typeof window==='undefined' ? 'block':'block' }}>
+
+            {/* §3 PERSONAL DETAILS */}
+            <Card id="personal" title="Personal Details" icon="👤">
+              <div>
+                <Row label="Full Name" value={data.personal.name}/>
+                <Row label="Email (read-only)" value={data.personal.email}/>
+                <Row label="Phone" value={data.personal.phone}/>
+                <Row label="Date of Birth" value={data.personal.dob}/>
+                <Row label="Gender" value={data.personal.gender}/>
+                <Row label="State" value={data.personal.state}/>
+                <Row label="City" value={data.personal.city}/>
+                <Row label="Profile Completion" value={`${data.completion}%`}/>
+              </div>
+              {data.personal.bio && <div style={{marginTop:8,fontSize:11.5,color:T.DIM,fontStyle:'italic'}}>"{data.personal.bio}"</div>}
+              <div style={{marginTop:10,display:'flex',gap:8,flexWrap:'wrap'}}>
+                {PERSONAL_FIELDS.map(f => versionedFields[f]?.length ? (
+                  <button key={f} onClick={()=>setExpandedField(expandedField===f?null:f)} style={{...btnGhost, fontSize:10.5, padding:'5px 10px', borderColor: expandedField===f?T.ACC:T.BOR, color: expandedField===f?T.ACC:T.DIM}}>
+                    {f} · {versionedFields[f].length} version{versionedFields[f].length>1?'s':''}
+                  </button>
+                ) : null)}
+              </div>
+              {expandedField && PERSONAL_FIELDS.includes(expandedField) && versionedFields[expandedField] && (
+                <div style={{marginTop:10,background:'rgba(77,159,255,0.05)',borderRadius:10,padding:10,border:`1px solid ${T.BOR}`}}>
+                  <div style={{fontSize:10.5,fontWeight:700,color:T.ACC,marginBottom:6}}>History — {expandedField}</div>
+                  {versionedFields[expandedField].map((v:any,i:number)=>(
+                    <div key={i} style={{fontSize:11,color:T.TS,padding:'5px 0',borderBottom: i<versionedFields[expandedField].length-1?`1px solid ${T.BOR}`:'none',display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap'}}>
+                      <span><span style={{color:'#FF8C42'}}>{formatChangeVal(expandedField, v.oldValue)}</span> → <span style={{color:T.SUC}}>{formatChangeVal(expandedField, v.newValue)}</span></span>
+                      <span style={{color:T.DIM,fontSize:10}}>{fmt(v.updatedAt)} · {v.source}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {/* §4 ACADEMIC PROFILE */}
+            <Card id="academic" title="Academic Profile" icon="🎓">
+              <div>
+                <Row label="Target Exam" value={data.academic.targetExam}/>
+                <Row label="Target Year" value={data.academic.targetYear}/>
+                <Row label="Board" value={data.academic.board}/>
+                <Row label="School / College" value={data.academic.school}/>
+                <Row label="Medium" value={data.academic.medium}/>
+                <Row label="Coaching Institute" value={data.academic.coachingInstitute}/>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:8,marginTop:12}}>
+                {[
+                  {l:'Total Exams',v:data.academicSnapshot.totalExams,c:'#A855F7'},
+                  {l:'Best Score',v:data.academicSnapshot.bestScore,c:T.GOLD},
+                  {l:'Avg Score',v:data.academicSnapshot.avgScore,c:T.ACC},
+                  {l:'Streak',v:`${data.academicSnapshot.currentStreak}d`,c:'#FFA502'},
+                ].map((s,i)=>(
+                  <div key={i} style={{background:'rgba(77,159,255,0.05)',border:`1px solid ${T.BOR}`,borderRadius:10,padding:'9px 6px',textAlign:'center'}}>
+                    <div style={{fontSize:15,fontWeight:800,color:s.c}}>{s.v}</div>
+                    <div style={{fontSize:9,color:T.DIM,marginTop:2}}>{s.l}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{marginTop:10,display:'flex',gap:8,flexWrap:'wrap'}}>
+                {ACADEMIC_FIELDS.map(f => versionedFields[f]?.length ? (
+                  <button key={f} onClick={()=>setExpandedField(expandedField===f?null:f)} style={{...btnGhost, fontSize:10.5, padding:'5px 10px', borderColor: expandedField===f?T.ACC:T.BOR, color: expandedField===f?T.ACC:T.DIM}}>
+                    {f} · {versionedFields[f].length} version{versionedFields[f].length>1?'s':''}
+                  </button>
+                ) : null)}
+              </div>
+              {expandedField && ACADEMIC_FIELDS.includes(expandedField) && versionedFields[expandedField] && (
+                <div style={{marginTop:10,background:'rgba(77,159,255,0.05)',borderRadius:10,padding:10,border:`1px solid ${T.BOR}`}}>
+                  <div style={{fontSize:10.5,fontWeight:700,color:T.ACC,marginBottom:6}}>History — {expandedField}</div>
+                  {versionedFields[expandedField].map((v:any,i:number)=>(
+                    <div key={i} style={{fontSize:11,color:T.TS,padding:'5px 0',borderBottom: i<versionedFields[expandedField].length-1?`1px solid ${T.BOR}`:'none',display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap'}}>
+                      <span><span style={{color:'#FF8C42'}}>{formatChangeVal(expandedField, v.oldValue)}</span> → <span style={{color:T.SUC}}>{formatChangeVal(expandedField, v.newValue)}</span></span>
+                      <span style={{color:T.DIM,fontSize:10}}>{fmt(v.updatedAt)} · {v.source}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {/* §5 SECURITY */}
+            <Card id="security" title="Security" icon="🔒">
+              <Row label="Password Last Changed" value={fmt(data.security.passwordChangedAt)}/>
+              <Row label="Password Change Count" value={data.security.passwordChangeCount}/>
+              <Row label="Password Reset History" value={data.security.passwordResetHistory?.length || 0}/>
+              <Row label="Active Devices" value={data.security.activeDeviceCount}/>
+              <Row label="Trusted Devices" value={data.security.trustedDevices?.length || 0}/>
+              <Row label="Last Login" value={fmt(data.security.lastLogin?.at || data.security.lastLogin?.time)}/>
+              <Row label="Failed Login Attempts" value={data.security.failedLoginAttempts}/>
+              <Row label="Last Failed Login" value={fmt(data.security.lastFailedLoginAt)}/>
+              <div style={{fontSize:9.5,color:T.DIM,marginTop:10,fontStyle:'italic'}}>🔒 Actual password / hash is never shown or stored here — only change metadata.</div>
+
+              {/* §13.3 Device Intelligence */}
+              {data.security.trustedDevices?.length > 0 && (
+                <div style={{marginTop:12}}>
+                  <div style={{fontSize:11,fontWeight:700,color:T.ACC,marginBottom:6}}>Device Intelligence</div>
+                  {data.security.trustedDevices.map((d:any,i:number)=>(
+                    <div key={i} style={{display:'flex',justifyContent:'space-between',fontSize:11,padding:'6px 0',borderBottom: i<data.security.trustedDevices.length-1?`1px solid ${T.BOR}`:'none'}}>
+                      <span style={{color:T.TS}}>{d.label||d.browser||'Device'} · {d.os||'—'}</span>
+                      <span style={{color:T.DIM}}>First: {fmtDate(d.addedAt)} · Last: {fmtDate(d.lastUsedAt)} <Badge col={T.SUC}>Trusted</Badge></span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* §13.4 Session Intelligence */}
+              <div style={{marginTop:12}}>
+                <div style={{fontSize:11,fontWeight:700,color:T.ACC,marginBottom:6}}>Session Intelligence</div>
+                <Row label="Active Session" value={data.security.activeDeviceCount>0?'Yes':'No'}/>
+                <Row label="Failed Attempt Count" value={data.security.failedLoginAttempts}/>
+                <Row label="Suspicious Session Flag" value={data.security.failedLoginAttempts>=5 ? <Badge col={T.DNG}>⚠ Suspicious</Badge> : <Badge col={T.SUC}>Normal</Badge>}/>
+              </div>
+            </Card>
+
+            {/* §6 LOGIN ACTIVITY */}
+            <Card id="login" title="Login Activity" icon="📶">
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:8,marginBottom:12}}>
+                <div style={{background:'rgba(77,159,255,0.05)',border:`1px solid ${T.BOR}`,borderRadius:10,padding:'9px 6px',textAlign:'center'}}><div style={{fontSize:15,fontWeight:800,color:T.ACC}}>{data.loginActivity.loginCount}</div><div style={{fontSize:9,color:T.DIM}}>Login Count</div></div>
+                <div style={{background:'rgba(255,71,87,0.05)',border:`1px solid ${T.BOR}`,borderRadius:10,padding:'9px 6px',textAlign:'center'}}><div style={{fontSize:15,fontWeight:800,color:T.DNG}}>{data.loginActivity.failedLoginAttempts}</div><div style={{fontSize:9,color:T.DIM}}>Failed Logins</div></div>
+                <div style={{background:'rgba(255,215,0,0.05)',border:`1px solid ${T.BOR}`,borderRadius:10,padding:'9px 6px',textAlign:'center'}}><div style={{fontSize:15,fontWeight:800,color:T.GOLD}}>{data.loginActivity.peakHour!==null?`${data.loginActivity.peakHour}:00`:'—'}</div><div style={{fontSize:9,color:T.DIM}}>Peak Login Hour</div></div>
+              </div>
+              {/* Daily login pattern heatmap */}
+              {Object.keys(data.loginActivity.dailyPattern||{}).length > 0 && (
+                <div style={{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap'}}>
+                  {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(day=>{
+                    const c = data.loginActivity.dailyPattern[day]||0
+                    const max = Math.max(1,...Object.values(data.loginActivity.dailyPattern) as number[])
+                    return (
+                      <div key={day} style={{textAlign:'center',flex:1,minWidth:32}}>
+                        <div style={{height:40,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+                          <div style={{width:16,height:`${Math.max(4,(c/max)*40)}px`,background:c>0?T.ACC:'rgba(255,255,255,0.06)',borderRadius:3}}/>
+                        </div>
+                        <div style={{fontSize:9,color:T.DIM,marginTop:3}}>{day}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              <div style={{fontSize:11,fontWeight:700,color:T.ACC,marginBottom:6}}>Recent Sessions</div>
+              {data.loginActivity.history.length===0 ? <div style={{fontSize:11,color:T.DIM}}>No login history yet.</div> : data.loginActivity.history.slice(0,10).map((h:any,i:number)=>(
+                <div key={i} style={{display:'flex',justifyContent:'space-between',fontSize:11,padding:'6px 0',borderBottom: i<9?`1px solid ${T.BOR}`:'none',flexWrap:'wrap',gap:6}}>
+                  <span style={{color:T.TS}}>{h.device||`${h.browser} on ${h.os}`}</span>
+                  <span style={{color:T.DIM}}>{h.city&&h.city!=='Unknown'?`${h.city}, ${h.country}`:h.ip} · {fmt(h.at||h.time)}</span>
+                </div>
+              ))}
+            </Card>
+
+            {/* §7 PHOTO HISTORY */}
+            <Card id="photos" title="Photo History" icon="🖼️">
+              {data.photoHistory.length===0 ? <div style={{fontSize:11,color:T.DIM}}>No photo changes recorded.</div> : (
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(90px,1fr))',gap:10}}>
+                  {data.photoHistory.map((p:any,i:number)=>(
+                    <div key={i} onClick={()=>setEnlargedPhoto(p.url)} style={{cursor:'pointer',textAlign:'center'}}>
+                      <div style={{width:'100%',aspectRatio:'1',borderRadius:10,background:`url(${p.url})`,backgroundSize:'contain',backgroundPosition:'center',backgroundRepeat:'no-repeat',backgroundColor:'#0A0E17',border:`2px solid ${p.current?T.SUC:T.BOR}`}}/>
+                      <div style={{fontSize:9,color:T.DIM,marginTop:4}}>{fmtDate(p.updatedAt)}</div>
+                      {p.current && <Badge col={T.SUC}>Current</Badge>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {/* §10 IDENTITY & VERIFICATION */}
+            <Card id="identity" title="Identity & Verification" icon="🛡️">
+              <Row label="Verification Status" value={data.verification.emailVerified ? <Badge col={T.SUC}>Verified</Badge> : <Badge col={T.WRN}>Pending</Badge>}/>
+              <Row label="Email Verified" value={data.verification.emailVerified ? '✅ Yes' : '❌ No'}/>
+              <Row label="Phone Verified" value={data.verification.phoneVerified ? '✅ Yes' : '❌ No'}/>
+              <Row label="Photo Verified" value={data.verification.photoVerified ? '✅ Yes' : '❌ No'}/>
+              <Row label="Profile Health Score" value={`${data.verification.healthScore}/100`}/>
+              <Row label="Risk Indicator" value={<Badge col={data.verification.riskIndicator==='high'?T.DNG:data.verification.riskIndicator==='medium'?T.WRN:T.SUC}>{data.verification.riskIndicator.toUpperCase()}</Badge>}/>
+            </Card>
+
+            {/* §13.1 VERSIONED FIELD HISTORY */}
+            <Card id="versioned" title="Versioned Field History" icon="🗂️">
+              {Object.keys(versionedFields).length===0 ? <div style={{fontSize:11,color:T.DIM}}>No field changes recorded yet.</div> : Object.entries(versionedFields).map(([field, versions]:any) => (
+                <div key={field} style={{marginBottom:10,paddingBottom:10,borderBottom:`1px solid ${T.BOR}`}}>
+                  <div style={{fontSize:11.5,fontWeight:700,color:T.TS,marginBottom:6,textTransform:'capitalize'}}>{field}</div>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    {versions.map((v:any,i:number)=>(
+                      <div key={i} style={{fontSize:10,padding:'4px 9px',borderRadius:7,background: i===versions.length-1?'rgba(0,196,140,0.12)':'rgba(77,159,255,0.06)', border:`1px solid ${i===versions.length-1?'rgba(0,196,140,0.35)':T.BOR}`, color: i===versions.length-1?T.SUC:T.DIM}}>
+                        V{i+1}{i===versions.length-1?' (current)':''} · {fmtDate(v.updatedAt)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div style={{fontSize:9.5,color:T.DIM,marginTop:6,fontStyle:'italic'}}>Reference only — versions cannot be restored from here.</div>
+            </Card>
+
+            {/* §13.5 CHANGE FREQUENCY ANALYSIS */}
+            <Card id="frequency" title="Change Frequency Analysis" icon="📊">
+              {data.changeFrequency.length===0 ? <div style={{fontSize:11,color:T.DIM}}>No field changes recorded yet.</div> : (
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11.5}}>
+                  <thead><tr style={{color:T.DIM,textAlign:'left'}}><th style={{padding:'6px 4px'}}>Field</th><th>Changes</th><th>Last Update</th><th>Risk</th></tr></thead>
+                  <tbody>
+                    {data.changeFrequency.map((f:any,i:number)=>(
+                      <tr key={i} style={{borderTop:`1px solid ${T.BOR}`}}>
+                        <td style={{padding:'7px 4px',color:T.TS,textTransform:'capitalize'}}>{f.field}</td>
+                        <td style={{color:T.TS}}>{f.count}</td>
+                        <td style={{color:T.DIM}}>{fmtDate(f.lastUpdate)}</td>
+                        <td><Badge col={f.riskLevel==='high'?T.DNG:f.riskLevel==='medium'?T.WRN:T.SUC}>{f.riskLevel}</Badge></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </Card>
+
+            {/* §12 QUICK INSPECT CARDS */}
+            <Card id="quick" title="Quick Inspect" icon="⚡">
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:8}}>
+                {[
+                  {l:'Best Score',v:data.quickInspect.bestScore,c:T.GOLD,j:'academic'},
+                  {l:'Average Score',v:data.quickInspect.avgScore,c:T.ACC,j:'academic'},
+                  {l:'Total Exams',v:data.quickInspect.totalExams,c:'#A855F7',j:'academic'},
+                  {l:'Login Count',v:data.quickInspect.loginCount,c:T.SUC,j:'login'},
+                  {l:'Failed Logins',v:data.quickInspect.failedLogins,c:T.DNG,j:'security'},
+                  {l:'Photo Changes',v:data.quickInspect.photoChanges,c:'#FF8C42',j:'photos'},
+                  {l:'Last Active',v:fmtDate(data.quickInspect.lastActive),c:T.DIM,j:'login'},
+                ].map((s,i)=>(
+                  <div key={i} onClick={()=>jump(s.j)} style={{cursor:'pointer',background:'rgba(77,159,255,0.05)',border:`1px solid ${T.BOR}`,borderRadius:10,padding:'10px 6px',textAlign:'center'}}>
+                    <div style={{fontSize:14,fontWeight:800,color:s.c}}>{s.v}</div>
+                    <div style={{fontSize:9,color:T.DIM,marginTop:2}}>{s.l}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+
+          {/* ══ §1.1.3 RIGHT HISTORY TIMELINE PANEL ══ */}
+          <div className={`s360-panel-right${mobileTab==='timeline'?' mshow':''}`} style={{ width:300, flexShrink:0, overflowY:'auto' }}>
+            <Card title="History Timeline" icon="🕐">
+              {/* §13.2 Filters */}
+              <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:8}}>
+                {TIMELINE_FILTERS.map(f=>(
+                  <button key={f.id} onClick={()=>setTimelineFilter(f.id)} style={{fontSize:9.5,padding:'4px 9px',borderRadius:7,border:`1px solid ${timelineFilter===f.id?T.ACC:T.BOR}`,background:timelineFilter===f.id?'rgba(77,159,255,0.15)':'transparent',color:timelineFilter===f.id?T.ACC:T.DIM,cursor:'pointer',fontWeight:600}}>{f.lbl}</button>
+                ))}
+              </div>
+              <div style={{display:'flex',gap:6,marginBottom:10}}>
+                <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={{flex:1,fontSize:10,background:'rgba(0,22,40,0.7)',border:`1px solid ${T.BOR}`,borderRadius:7,padding:'5px 7px',color:T.TS}}/>
+                <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} style={{flex:1,fontSize:10,background:'rgba(0,22,40,0.7)',border:`1px solid ${T.BOR}`,borderRadius:7,padding:'5px 7px',color:T.TS}}/>
+              </div>
+
+              {/* Field change timeline (§8.4 expandable cards) */}
+              {filteredTimeline.map((h:any,i:number)=>(
+                <div key={'f'+i} style={{marginBottom:8,padding:'8px 10px',background:'rgba(77,159,255,0.04)',borderRadius:9,border:`1px solid ${T.BOR}`}}>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:10,marginBottom:4}}>
+                    <Badge col={T.ACC}>{(h.updatedFields||[]).join(', ')}</Badge>
+                    <span style={{color:T.DIM}}>{fmt(h.updatedAt)}</span>
+                  </div>
+                  {h.changes.map((c:any,j:number)=>(
+                    <div key={j} style={{fontSize:10.5,color:T.TS,marginBottom:2}}>
+                      <span style={{color:T.DIM}}>{c.field}:</span> <span style={{color:'#FF8C42'}}>{formatChangeVal(c.field, c.oldValue)}</span> → <span style={{color:T.SUC}}>{formatChangeVal(c.field, c.newValue)}</span>
+                    </div>
+                  ))}
+                  <div style={{fontSize:9,color:T.DIM,marginTop:3}}>Source: {h.source} · By: {h.updatedBy}</div>
+                </div>
+              ))}
+
+              {/* Audit / login events */}
+              {filteredAudit.map((a:any,i:number)=>(
+                <div key={'a'+i} style={{marginBottom:8,padding:'8px 10px',background:'rgba(168,85,247,0.04)',borderRadius:9,border:`1px solid ${T.BOR}`}}>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:10,marginBottom:3}}>
+                    <Badge col="#A855F7">{a.action}</Badge>
+                    <span style={{color:T.DIM}}>{fmt(a.createdAt)}</span>
+                  </div>
+                  <div style={{fontSize:10.5,color:T.TS}}>{a.details}</div>
+                </div>
+              ))}
+
+              {filteredTimeline.length===0 && filteredAudit.length===0 && <div style={{fontSize:11,color:T.DIM,textAlign:'center',padding:'20px 0'}}>No matching history events.</div>}
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* §7.2.4 Enlarge photo */}
+      {enlargedPhoto && (
+        <div onClick={()=>setEnlargedPhoto(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',zIndex:600,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          <img src={enlargedPhoto} alt="Enlarged" style={{maxWidth:'90vw',maxHeight:'90vh',borderRadius:16,border:`2px solid ${T.BOR}`}}/>
+        </div>
+      )}
+    </div>
+    </ThemeCtx.Provider>
+  )
+}
+EOF_STU360d
+echo "✅ Student360Preview.tsx updated: $S360"
+
+rm -f "$COPYBTNFILE"
+echo "✅ Deleted shared CopyBtn.tsx: $COPYBTNFILE"
+
+echo ""
+echo "🧹 Copy Button system removed from all 6 files + shared component deleted."
+echo "   CreateExamWizard.tsx intentionally left untouched (per your correction)."
+echo ""
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check Student Profile, Admin Panel student lists, 360 view, welcome banners, store payment-failure screen)"

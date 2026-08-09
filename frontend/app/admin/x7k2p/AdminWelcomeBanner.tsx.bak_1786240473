@@ -37,6 +37,7 @@ export default function AdminWelcomeBanner() {
   const [loginNum, setLoginNum] = useState(1);
   const [perms, setPerms] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     try {
@@ -98,6 +99,15 @@ export default function AdminWelcomeBanner() {
       console.error('Banner err:', err);
     }
   }, []);
+
+  const handleCopy = function() {
+    if (adminId) {
+      navigator.clipboard.writeText(adminId).then(function() {
+        setCopied(true);
+        setTimeout(function() { setCopied(false); }, 2000);
+      }).catch(function() {});
+    }
+  };
 
   if (!visible) return null;
 
@@ -213,6 +223,22 @@ export default function AdminWelcomeBanner() {
                 {loading ? '· · ·' : (adminId || '—')}
               </div>
             </div>
+            <button
+              onClick={handleCopy}
+              style={{
+                background: copied ? 'rgba(34,197,94,0.18)' : 'rgba(217,119,6,0.16)',
+                border: copied ? '1px solid #22c55e' : '1px solid rgba(217,119,6,0.5)',
+                color: copied ? '#22c55e' : '#f59e0b',
+                borderRadius: '9px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {copied ? '✓ Copied!' : '📋 Copy ID'}
+            </button>
           </div>
 
           <div style={{ marginBottom: '18px' }}>

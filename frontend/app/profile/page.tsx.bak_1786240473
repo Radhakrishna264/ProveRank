@@ -1,4 +1,5 @@
 'use client'
+import CopyBtn from '@/components/CopyBtn'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import StudentShell, { useShell, C } from '@/src/components/StudentShell'
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
@@ -409,6 +410,7 @@ function ProfileContent() {
           </div>
           <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4,flexWrap:'wrap'}}>
             <span style={{fontSize:11,color:sub}}>ID: {me?.studentId || '—'}</span>
+            {me?.studentId && <CopyBtn text={me.studentId}/>}
           </div>
           <div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
             {ov?.batch && <span style={{fontSize:10,fontWeight:700,color:prim,background:theme.chipBg,padding:'3px 9px',borderRadius:99}}>📚 {ov.batch}</span>}
