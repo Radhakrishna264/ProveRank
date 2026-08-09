@@ -1,3 +1,34 @@
+#!/bin/bash
+# ProveRank — Student 360 View: fix excess blank space on Summary tab.
+# Root cause: Summary panel had a fixed width:260px (correct for desktop,
+# where it sits beside Details+Timeline). On mobile it's the ONLY visible
+# panel now (after the earlier mobile-tab fix), but kept the same narrow
+# 260px width — leaving a huge empty area beside it.
+# Fix:
+#   1) On mobile only, Summary panel now expands to fill available width
+#      (max 560px, centered) — desktop's 260px sidebar layout untouched.
+#   2) Restructured "Quick Actions" from 5 stacked full-width bars into an
+#      adaptive grid — naturally stays 1 column on desktop's narrow panel,
+#      becomes 2-3 columns when full-width on mobile, so the extra space
+#      is actually used instead of just being empty around thin buttons.
+set -e
+
+cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
+
+echo "🔎 Locating Student360Preview via grep..."
+S360=$(grep -rl "360° Profile Preview\|Device Intelligence" --include="*.tsx" . 2>/dev/null | grep -v node_modules | head -1)
+echo "Student360Preview : ${S360:-NOT FOUND}"
+
+if [ -z "$S360" ]; then
+  echo "❌ File not found. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$S360" "${S360}.bak_${TS}"
+echo "✅ Backup created (.bak_${TS})"
+
+cat > "$S360" << 'EOF_STU360f'
 'use client'
 import { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react'
 
@@ -532,3 +563,9 @@ export default function Student360Preview({ studentId, token, onClose, theme }: 
     </ThemeCtx.Provider>
   )
 }
+EOF_STU360f
+echo "✅ Student360Preview updated: $S360"
+echo ""
+echo "📱 Summary tab now fills available width on mobile, Quick Actions in adaptive grid."
+echo "🖥️  Desktop layout (260px sidebar) unaffected."
+echo "▶ Next: cd ~/workspace/frontend && npm run dev   (check Summary tab on mobile)"
