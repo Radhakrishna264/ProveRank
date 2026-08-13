@@ -148,13 +148,7 @@ if (permissionTestRoutes) app.use('/api/permission', permissionTestRoutes);
 // ── Start Server ──────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 
-const adminBatchControlRoutes  = require('./routes/adminBatchControls');
-const studentBatchExtrasRoutes = require('./routes/studentBatchExtras');
 const { studentAnnouncementRoutes, adminAnnouncementRoutes } = require('./routes/announcements'); // F42A/F42B
-app.use('/api/admin/batch-controls',  adminBatchControlRoutes);
-const batchManagerUltraRoutes = require('./routes/batchManagerUltra');
-app.use('/api/admin/batch-manager', batchManagerUltraRoutes);
-app.use('/api/student/batch-extras',  studentBatchExtrasRoutes);
 app.use('/api/announcements', studentAnnouncementRoutes);          // F42B — student-facing
 app.use('/api/admin/announcements', adminAnnouncementRoutes);      // F42A — admin-facing
 
@@ -163,8 +157,6 @@ const adminNotificationRoutes = require('./routes/adminNotificationRoutes');
 app.use('/api/student/notifications', studentNotificationRoutes);
 app.use('/api/admin/notifications', adminNotificationRoutes);
 
-const batchActivityRoutes = require('./routes/batchActivityRoutes');
-app.use('/api/batch-activity', batchActivityRoutes);
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`ProveRank server running at http://0.0.0.0:${PORT}`);
 });
@@ -183,18 +175,12 @@ app.use('/api/webcam', webcamRoutes);
 app.use('/api/anticheat', antiCheatRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/admin', require('./routes/adminDashboardRoutes'));
-const studentBatchRoutes=require('./routes/studentBatches');
-const studentBatchWorkspaceRoutes = require('./routes/studentBatchWorkspace');
 const { adminEntryProctoringRoutes, studentEntryProctoringRoutes } = require('./routes/entryProctoringControl');
-const myBatchesRoutes=require('./routes/myBatches');
 const adminStoreRoutes   = require('./routes/adminStore');
 const studentStoreRoutes = require('./routes/studentStore');
 const paymentRoutes = require('./routes/payment');
 const brandingRoutes = require('./routes/brandingRoutes')
 app.use('/api/admin', brandingRoutes)
-app.use('/api/my-batches',myBatchesRoutes);
-app.use('/api/student/batches',studentBatchRoutes);
-app.use('/api/student/batch-workspace', studentBatchWorkspaceRoutes);
 app.use('/api/admin/entry-proctoring', adminEntryProctoringRoutes);
 app.use('/api/entry-proctoring', studentEntryProctoringRoutes);
 app.use('/api/admin/email', require('./routes/emailSend'))
@@ -212,5 +198,3 @@ app.use('/api/content-forge', contentForgeRoutes)
 app.use('/api/pyq-bank', pyqBankAdminRoutes);
 ;
 
-const studentBatchUltraRoutes = require('./routes/studentBatchUltra');
-app.use('/api/student/batch-ultra', studentBatchUltraRoutes);

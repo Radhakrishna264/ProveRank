@@ -1,3 +1,25 @@
+#!/bin/bash
+# ProveRank — Re-apply User.js fix (2FA removal + reward-system removal +
+# batch field removal) to the CONFIRMED, EXACT path only. No content-based
+# guessing this time — the earlier attempt's loose grep matched a different
+# file by accident (src/routes/antiCheatRoutes.js, which already contained
+# stray User-schema-like content unrelated to this task) and never actually
+# touched the real model file.
+set -e
+
+cd ~/workspace 2>/dev/null || { echo "❌ ~/workspace not found"; exit 1; }
+
+TARGET="src/models/User.js"
+if [ ! -f "$TARGET" ]; then
+  echo "❌ $TARGET not found at expected path. Aborting — no changes made."
+  exit 1
+fi
+
+TS=$(date +%s)
+cp "$TARGET" "${TARGET}.bak_${TS}"
+echo "✅ Backup: ${TARGET}.bak_${TS}"
+
+cat > "$TARGET" << 'EOF_USRFIX'
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
@@ -155,3 +177,13 @@ const userSchema = new mongoose.Schema({
 
 if (mongoose.models.User) delete mongoose.connection.models['User'];
 module.exports = mongoose.model('User', userSchema, 'students');
+EOF_USRFIX
+echo "✅ $TARGET updated (exact path — verified before and after)"
+
+echo ""
+echo "🔎 Verifying fix landed correctly..."
+if grep -qi "twoFactor\|checklist\|^  batch:" "$TARGET"; then
+  echo "❌ WARNING: old content still detected — something is wrong, please share output"
+else
+  echo "✅ Confirmed clean: no 2FA / checklist / xp / batch fields in $TARGET"
+fi

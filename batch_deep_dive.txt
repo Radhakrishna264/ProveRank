@@ -1,0 +1,2784 @@
+===== A. FULL FILE: src/index.js =====
+     1	require('dotenv').config();
+     2	const express    = require('express');
+     3	
+     4	// ===== STAGE 8: Security Middleware =====
+     5	const applySecurityMiddleware = require('./middleware/security').applySecurityMiddleware;
+     6	const { apiLimiter, uploadLimiter } = require('./middleware/rateLimiter');
+     7	const { checkJWTExpiry } = require('./middleware/loginProtection');
+     8	// ========================================
+     9	const http       = require('http');
+    10	const cors       = require('cors');
+    11	const helmet     = require('helmet');
+    12	const mongoose   = require('mongoose');
+    13	const { initSocket } = require('./config/socket');
+    14	
+    15	// ── Route Imports ─────────────────────────────────────────────
+    16	const authRoutes             = require('./routes/auth');
+    17	const adminRoutes            = require('./routes/admin');
+    18	const examPatchRoutes = require('./routes/exam_patch');
+    19	const examRoutes             = require('./routes/exam');
+    20	const examExtraRoutes        = require('./routes/examExtra');
+    21	const questionRoutes         = require('./routes/question');
+    22	const uploadRoutes           = require('./routes/upload');
+    23	const excelUploadRoutes      = require('./routes/excelUpload');
+    24	const paperGeneratorRoutes   = require('./routes/paperGenerator');
+    25	const pdfRoutes              = require('./routes/pdfRoutes');
+    26	
+    27	// ── New Feature Routes (load BEFORE conflicting base routes) ──
+    28	const examFeaturesRoutes     = require('./routes/examFeatures');
+    29	const examPaperRoutes = require('./routes/examPaper');
+    30	const pyqBankAdminRoutes = require('./routes/pyqBankAdmin');
+    31	const adminSystemRoutes      = require('./routes/adminSystem');
+    32	const adminMonitoringRoutes = require('./routes/adminMonitoringRoutes');
+    33	require('./models/AdminNotification');
+    34	require('./models/Challenge');
+    35	require('./models/ReEvaluation');
+    36	require('./models/Grievance');
+    37	require('./models/QuestionVersion');
+    38	require('./models/QuestionError');
+    39	require('./models/ExamTemplate');      // Feature 29 — Exam Templates
+    40	require('./models/TemplateCategory');  // Feature 29.10 — custom categories
+    41	require('./models/Doubt');
+    42	const questionStatsRoutes = require('./routes/questionStatsRoutes');
+    43	const examWizardRoutes = require('./routes/examWizardRoutes');
+    44	const questionDeleteRoutes = require('./routes/questionDeleteRoutes');
+    45	const adminQuestionMgmtRoutes = require('./routes/adminQuestionMgmtRoutes');
+    46	const adminResultRoutes = require('./routes/adminResultRoutes');
+    47	const adminManagementRoutes  = require('./routes/adminManagement');
+    48	const studentProfilePreviewRoutes = require('./routes/studentProfilePreview'); // F38B
+    49	const questionFeaturesRoutes = require('./routes/questionFeatures');
+    50	const materialRoutes = require('./routes/materialRoutes');
+    51	const twoFactorRoutes        = require('./routes/twoFactor');
+    52	
+    53	// ── Optional Routes (load if file exists) ────────────────────
+    54	let questionAIRoutes, questionAdvancedRoutes, questionExtraRoutes;
+    55	let examSubmissionRoutes, permissionTestRoutes;
+    56	try { questionAIRoutes       = require('./routes/questionAI'); } catch(e) {}
+    57	try { questionAdvancedRoutes = require('./routes/questionAdvanced'); } catch(e) {}
+    58	try { questionExtraRoutes    = require('./routes/questionExtra'); } catch(e) {}
+    59	try { examSubmissionRoutes   = require('./routes/examSubmission'); } catch(e) {}
+    60	try { permissionTestRoutes   = require('./routes/permissionTest'); } catch(e) {}
+    61	
+    62	// ── App Setup ─────────────────────────────────────────────────
+    63	const app    = express();
+    64	const server = http.createServer(app);
+    65	initSocket(server);
+    66	
+    67	app.set('trust proxy', 1);
+    68	app.use(helmet());
+    69	app.use(cors({
+    70	  origin: [
+    71	    'https://prove-rank.vercel.app',
+    72	    'http://localhost:3000',
+    73	    'http://localhost:3001'
+    74	  ],
+    75	  credentials: true,
+    76	  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    77	  allowedHeaders: ['Content-Type', 'Authorization']
+    78	}));
+    79	
+    80	// ===== STAGE 8: Apply Security =====
+    81	applySecurityMiddleware(app);
+    82	app.use('/api', apiLimiter);
+    83	app.use('/api/excel', uploadLimiter);
+    84	app.use('/api/upload', uploadLimiter);
+    85	app.use('/api', checkJWTExpiry);
+    86	// ====================================
+    87	app.use(express.json({limit:'1mb'}));
+    88	
+    89	// ── MongoDB ───────────────────────────────────────────────────
+    90	mongoose.connect(process.env.MONGO_URI)
+    91	  .then(() => console.log('MongoDB Connected:', mongoose.connection.host))
+    92	  .catch(err => console.log('MongoDB Error:', err));
+    93	
+    94	// ── Health Check ──────────────────────────────────────────────
+    95	app.get('/api/health', (req, res) => {
+    96	  res.json({ status: 'ok', timestamp: new Date() });
+    97	});
+    98	
+    99	// ── Auth Routes ───────────────────────────────────────────────
+   100	app.use('/api/auth', authRoutes);
+   101	app.use('/api/auth', twoFactorRoutes);
+   102	
+   103	// ── Admin Routes ──────────────────────────────────────────────
+   104	app.use('/api', questionDeleteRoutes)
+   105	app.use('/api', examWizardRoutes);
+   106	app.use('/api/exam-templates', require('./routes/examTemplates')); // Feature 29 — Exam Templates
+   107	
+   108	app.use('/api', questionStatsRoutes);
+   109	;
+   110	app.use('/api/admin/manage', adminManagementRoutes);  // S37/S72/S38/S93/M4
+   111	app.use('/api/admin/student-preview', studentProfilePreviewRoutes); // F38B — Superadmin-only 360° preview
+   112	app.use('/api/admin', adminSystemRoutes);
+   113	app.use('/api/admin', adminMonitoringRoutes);  // Phase 6.2
+   114	app.use('/api/admin', adminResultRoutes);       // Phase 6.3
+   115	app.use('/api/admin', adminQuestionMgmtRoutes); // Phase 6.4              // S66/N21
+   116	app.use('/api/admin', adminRoutes);
+   117	
+   118	// ── Question Routes ───────────────────────────────────────────
+   119	app.use('/api/materials', materialRoutes);
+   120	app.use('/api/questions', questionFeaturesRoutes);     // AI-1/AI-2/S33/S35/MCQ/MSQ
+   121	app.use('/api/questions', questionRoutes);
+   122	if (questionAIRoutes)       app.use('/api/questions-advanced', questionAIRoutes);
+   123	if (questionAdvancedRoutes) app.use('/api/questions-advanced', questionAdvancedRoutes);
+   124	if (questionExtraRoutes)    app.use('/api/questions', questionExtraRoutes);
+   125	
+   126	// ── Exam Routes ───────────────────────────────────────────────
+   127	app.use('/api/exams', examFeaturesRoutes);
+   128	const examFlowRoutes = require('./routes/examFlow');
+   129	app.use('/api/exams', examFlowRoutes);
+   130	app.use('/api/exams', examRoutes);
+   131	app.use('/api/exams-manage', require('./routes/examListing')); // Feature 33 — All Exams List/Filter/Search
+   132	app.use('/api/exams', examPatchRoutes);
+   133	             // S5/S75/S85/S26/S62/S31/S96
+   134	app.use('/api/exam-paper', examPaperRoutes);
+   135	app.use('/api/exams', examExtraRoutes);
+   136	if (examSubmissionRoutes) app.use('/api/exams', examSubmissionRoutes);
+   137	
+   138	// ── Other Routes ─────────────────────────────────────────────
+   139	app.use('/api/upload', uploadRoutes);
+   140	app.use('/api/excel', excelUploadRoutes);
+   141	app.use('/api/paper', paperGeneratorRoutes);
+   142	app.use('/api/pdf', pdfRoutes);
+   143	app.use('/api/exam-instances', require('./routes/examInstance'));
+   144	const attemptRoutes = require('./routes/attemptRoutes');
+   145	app.use('/api/attempts', attemptRoutes);
+   146	if (permissionTestRoutes) app.use('/api/permission', permissionTestRoutes);
+   147	
+   148	// ── Start Server ──────────────────────────────────────────────
+   149	const PORT = process.env.PORT || 3000;
+   150	
+   151	const adminBatchControlRoutes  = require('./routes/adminBatchControls');
+   152	const studentBatchExtrasRoutes = require('./routes/studentBatchExtras');
+   153	const { studentAnnouncementRoutes, adminAnnouncementRoutes } = require('./routes/announcements'); // F42A/F42B
+   154	app.use('/api/admin/batch-controls',  adminBatchControlRoutes);
+   155	const batchManagerUltraRoutes = require('./routes/batchManagerUltra');
+   156	app.use('/api/admin/batch-manager', batchManagerUltraRoutes);
+   157	app.use('/api/student/batch-extras',  studentBatchExtrasRoutes);
+   158	app.use('/api/announcements', studentAnnouncementRoutes);          // F42B — student-facing
+   159	app.use('/api/admin/announcements', adminAnnouncementRoutes);      // F42A — admin-facing
+   160	
+   161	const studentNotificationRoutes = require('./routes/studentNotificationRoutes');
+   162	const adminNotificationRoutes = require('./routes/adminNotificationRoutes');
+   163	app.use('/api/student/notifications', studentNotificationRoutes);
+   164	app.use('/api/admin/notifications', adminNotificationRoutes);
+   165	
+   166	const batchActivityRoutes = require('./routes/batchActivityRoutes');
+   167	app.use('/api/batch-activity', batchActivityRoutes);
+   168	server.listen(PORT, '0.0.0.0', () => {
+   169	  console.log(`ProveRank server running at http://0.0.0.0:${PORT}`);
+   170	});
+   171	
+   172	// -- Result Routes (Phase 4.3)
+   173	const sessionRoutes = require('./routes/sessionRoutes');
+   174	const faceRoutes = require('./routes/faceRoutes');
+   175	const audioRoutes = require('./routes/audioRoutes');
+   176	const webcamRoutes = require('./routes/webcamRoutes');
+   177	const antiCheatRoutes = require('./routes/antiCheatRoutes');
+   178	const resultRoutes = require('./routes/resultRoutes');
+   179	app.use('/api/session', sessionRoutes);
+   180	app.use('/api/face', faceRoutes);
+   181	app.use('/api/audio', audioRoutes);
+   182	app.use('/api/webcam', webcamRoutes);
+   183	app.use('/api/anticheat', antiCheatRoutes);
+   184	app.use('/api/results', resultRoutes);
+   185	app.use('/api/admin', require('./routes/adminDashboardRoutes'));
+   186	const studentBatchRoutes=require('./routes/studentBatches');
+   187	const studentBatchWorkspaceRoutes = require('./routes/studentBatchWorkspace');
+   188	const { adminEntryProctoringRoutes, studentEntryProctoringRoutes } = require('./routes/entryProctoringControl');
+   189	const myBatchesRoutes=require('./routes/myBatches');
+   190	const adminStoreRoutes   = require('./routes/adminStore');
+   191	const studentStoreRoutes = require('./routes/studentStore');
+   192	const paymentRoutes = require('./routes/payment');
+   193	const brandingRoutes = require('./routes/brandingRoutes')
+   194	app.use('/api/admin', brandingRoutes)
+   195	app.use('/api/my-batches',myBatchesRoutes);
+   196	app.use('/api/student/batches',studentBatchRoutes);
+   197	app.use('/api/student/batch-workspace', studentBatchWorkspaceRoutes);
+   198	app.use('/api/admin/entry-proctoring', adminEntryProctoringRoutes);
+   199	app.use('/api/entry-proctoring', studentEntryProctoringRoutes);
+   200	app.use('/api/admin/email', require('./routes/emailSend'))
+   201	app.use('/api/admin/store',  adminStoreRoutes);
+   202	const testSeriesManagerUltraRoutes = require('./routes/testSeriesManagerUltra');
+   203	app.use('/api/admin/test-series-manager', testSeriesManagerUltraRoutes);
+   204	const bannerAssetsRoutes = require('./routes/bannerAssets');
+   205	app.use('/api/admin/banner-assets', bannerAssetsRoutes);
+   206	app.use('/api/store/payment', paymentRoutes);
+   207	app.use('/api/store',        studentStoreRoutes);
+   208	
+   209	// -- Content Forge Routes (Features 19B / 20 / 20B / 21 / 21B)
+   210	const contentForgeRoutes = require('./routes/contentForge');
+   211	app.use('/api/content-forge', contentForgeRoutes)
+   212	app.use('/api/pyq-bank', pyqBankAdminRoutes);
+   213	;
+   214	
+   215	const studentBatchUltraRoutes = require('./routes/studentBatchUltra');
+   216	app.use('/api/student/batch-ultra', studentBatchUltraRoutes);
+
+===== B. CONTEXT: backend mixed files =====
+---- FILE: src/routes/examFeatures.js ----
+4-const Exam = require('../models/Exam');
+5-const User = require('../models/User');
+6-
+7:// ── S5: SERIES / BATCH SYSTEM ────────────────────────────────
+8-router.post('/series', verifyToken, isAdmin, async (req, res) => {
+9-  try {
+10-    const { name, description, examIds } = req.body;
+--
+16-
+17-router.get('/series', verifyToken, async (req, res) => {
+18-  try {
+19:    const series = await Exam.distinct('batch');
+20-    res.json({ success: true, series });
+21-  } catch(err) { res.status(500).json({ message: err.message }); }
+22-});
+
+---- FILE: src/routes/adminSystem.js ----
+233-router.get('/global-search', verifyToken, isSuperAdmin, async (req, res) => {
+234-  try {
+235-    const { q = '' } = req.query
+236:    if (!q || q.length < 2) return res.json({ success: true, results: { students: [], admins: [], exams: [], questions: [], batches: [] } })
+237-    const rx = new RegExp(q, 'i')
+238-    const db = req.app.locals.db || router.db
+239-    const col = (name) => require('mongoose').connection.db.collection(name)
+240:    const [students, admins, exams, questions, batches] = await Promise.all([
+241-      col('students').find({ role: 'student', $or: [{ name: rx }, { email: rx }, { studentId: rx }] }).limit(8).project({ name: 1, email: 1, studentId: 1 }).toArray(),
+242-      col('students').find({ role: { $in: ['admin', 'superadmin'] }, $or: [{ name: rx }, { email: rx }, { adminId: rx }] }).limit(6).project({ name: 1, email: 1, adminId: 1, role: 1 }).toArray(),
+243-      col('exams').find({ $or: [{ title: rx }, { status: rx }] }).limit(8).project({ title: 1, status: 1, createdAt: 1 }).toArray(),
+244-      col('questions').find({ $or: [{ text: rx }, { subject: rx }, { chapter: rx }] }).limit(8).project({ text: 1, subject: 1, chapter: 1, difficulty: 1 }).toArray(),
+245:      col('batches').find({ name: rx }).limit(6).project({ name: 1, description: 1 }).toArray()
+246-    ])
+247:    res.json({ success: true, results: { students, admins, exams, questions, batches } })
+248-  } catch (err) { res.status(500).json({ success: false, message: err.message }) }
+249-})
+250-
+--
+252-router.get('/global-search-admin', verifyToken, isSuperAdmin, async (req, res) => {
+253-  try {
+254-    const { q = '' } = req.query
+255:    if (!q || q.length < 2) return res.json({ success: true, results: { students: [], admins: [], exams: [], questions: [], batches: [] } })
+256-    const rx = new RegExp(q, 'i')
+257-    const col = (name) => require('mongoose').connection.db.collection(name)
+258:    const [students, exams, questions, batches] = await Promise.all([
+259-      col('students').find({ role: 'student', $or: [{ name: rx }, { email: rx }, { studentId: rx }] }).limit(8).project({ name: 1, email: 1, studentId: 1 }).toArray(),
+260-      col('exams').find({ $or: [{ title: rx }, { status: rx }] }).limit(8).project({ title: 1, status: 1 }).toArray(),
+261-      col('questions').find({ $or: [{ text: rx }, { subject: rx }, { chapter: rx }] }).limit(8).project({ text: 1, subject: 1, chapter: 1, difficulty: 1 }).toArray(),
+262:      col('batches').find({ name: rx }).limit(6).project({ name: 1, description: 1 }).toArray()
+263-    ])
+264:    res.json({ success: true, results: { students, admins: [], exams, questions, batches } })
+265-  } catch (err) { res.status(500).json({ success: false, message: err.message }) }
+266-})
+
+---- FILE: src/routes/examInstance.js ----
+17-router.post('/create', verifyToken, isAdmin, async (req, res) => {
+18-  try {
+19-    const adminId = await getAdminId(req.user.id);
+20:    const { examId, setLabel, batchId, sectionTimers } = req.body;
+21-    if (!examId) return res.status(400).json({ message: 'examId required' });
+22-
+23-    const exam = await Exam.findById(examId).lean();
+--
+62-      versionCode: vCode,
+63-      socketRoomId: `exam_room_${examId}_${vCode}`,
+64-      setLabel: setLabel || 'Default',
+65:      batchId: batchId || null,
+66-      questionSnapshot,
+67-      totalQuestions: questionSnapshot.length,
+68-      sectionTimers: sectionTimers || defaultSectionTimers,
+
+---- FILE: src/routes/adminQuestionMgmtRoutes.js ----
+361-  }
+362-});
+363-
+364:// ─── Step 11: Batch vs Batch Comparison (M8) ─────────────────────────────────
+365:router.get('/batches/compare', verifyToken, isSuperAdmin, async (req, res) => {
+366-  try {
+367-    const User = require('../models/User');
+368-    const Result = mongoose.model('Result');
+369:    const { batch1, batch2, examId } = req.query;
+370:    if (!batch1 || !batch2) return res.status(400).json({ success: false, message: 'batch1 and batch2 required' });
+371-
+372:    const getStats = async (batchName) => {
+373:      const students = await User.find({ role: 'student', batch: batchName }).select('_id image');
+374-      const ids = students.map(s => s._id);
+375-      const filter = { studentId: { $in: ids } };
+376-      if (examId) filter.examId = new mongoose.Types.ObjectId(examId);
+377-      const results = await Result.find(filter);
+378-      const scores = results.map(r => r.score || 0);
+379-      return {
+380:        batch: batchName,
+381-        studentCount: students.length,
+382-        attemptCount: results.length,
+383-        avgScore: scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(2) : 0,
+--
+386-      };
+387-    };
+388-
+389:    const [stats1, stats2] = await Promise.all([getStats(batch1), getStats(batch2)]);
+390:    res.json({ success: true, comparison: { batch1: stats1, batch2: stats2 } });
+391-  } catch (err) {
+392-    res.status(500).json({ success: false, message: err.message });
+393-  }
+394-});
+395-
+396:// ─── Step 12: Batch Transfer System (M3) ─────────────────────────────────────
+397:router.post('/batches/transfer', verifyToken, isSuperAdmin, async (req, res) => {
+398-  try {
+399-    const User = require('../models/User');
+400:    const { studentIds, fromBatch, toBatch } = req.body;
+401:    if (!toBatch) return res.status(400).json({ success: false, message: 'toBatch required' });
+402-
+403-    let filter = { role: 'student' };
+404-    if (studentIds && studentIds.length > 0) {
+405-      filter._id = { $in: studentIds.map(id => new mongoose.Types.ObjectId(id)) };
+406:    } else if (fromBatch) {
+407:      filter.batch = fromBatch;
+408-    } else {
+409:      return res.status(400).json({ success: false, message: 'studentIds or fromBatch required' });
+410-    }
+411-
+412:    const result = await User.updateMany(filter, { $set: { batch: toBatch } });
+413-    res.json({
+414-      success: true,
+415:      message: `${result.modifiedCount} students transferred to ${toBatch}`,
+416-      modifiedCount: result.modifiedCount
+417-    });
+418-  } catch (err) {
+--
+422-
+423-
+424-
+425:// BATCH_DETAIL_FIX — ProveRank S5/M3 Extended
+426:router.get('/batches/:id', verifyToken, isSuperAdmin, async (req, res) => {
+427-  try {
+428:    const Batch = require('../models/Batch'), User = require('../models/User');
+429:    const batch = await Batch.findById(req.params.id).lean();
+430:    if (!batch) return res.status(404).json({ success: false, message: 'Batch not found' });
+431:    const studentCount = await User.countDocuments({ batch: req.params.id, role: 'student' });
+432:    res.json({ ...batch, studentCount });
+433-  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+434-});
+435-
+436:router.get('/batches/:id/students', verifyToken, isSuperAdmin, async (req, res) => {
+437-  try {
+438-    const User = require('../models/User');
+439:    const students = await User.find({ batch: req.params.id, role: 'student' })
+440-      .select('-password -__v image').sort({ name: 1 }).lean();
+441-    res.json(students);
+442-  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+443-});
+444-
+445:router.post('/batches/:id/students/add', verifyToken, isSuperAdmin, async (req, res) => {
+446-  try {
+447-    const User = require('../models/User');
+448-    const { studentId, studentEmail } = req.body;
+--
+452-    else return res.status(400).json({ success: false, message: 'studentId or studentEmail required' });
+453-    const student = await User.findOneAndUpdate(
+454-      { ...filter, role: 'student' },
+455:      { $set: { batch: req.params.id } },
+456-      { new: true }
+457-    ).select('-password image');
+458-    if (!student) return res.status(404).json({ success: false, message: 'Student not found or not a student account' });
+--
+460-  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+461-});
+462-
+463:router.delete('/batches/:id/students/:sid', verifyToken, isSuperAdmin, async (req, res) => {
+464-  try {
+465-    const User = require('../models/User');
+466:    await User.findByIdAndUpdate(req.params.sid, { $unset: { batch: 1 } });
+467:    res.json({ success: true, message: 'Student removed from batch' });
+468-  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+469-});
+470-
+471:router.patch('/batches/:id', verifyToken, isSuperAdmin, async (req, res) => {
+472-  try {
+473:    const Batch = require('../models/Batch');
+474-    const { name } = req.body;
+475-    if (!name || !name.trim()) return res.status(400).json({ success: false, message: 'Name required' });
+476:    const batch = await Batch.findByIdAndUpdate(req.params.id, { name: name.trim() }, { new: true });
+477:    if (!batch) return res.status(404).json({ success: false, message: 'Not found' });
+478:    res.json({ success: true, batch });
+479-  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+480-});
+481-
+482:router.get('/batches/:id/exams', verifyToken, isSuperAdmin, async (req, res) => {
+483-  try {
+484-    const Exam = require('../models/Exam');
+485:    const exams = await Exam.find({ batch: req.params.id }).sort({ scheduledAt: -1 }).lean();
+486-    res.json(exams);
+487-  } catch(e) { res.json([]); }
+488-});
+489-
+490:router.post('/batches/:id/exams/assign', verifyToken, isSuperAdmin, async (req, res) => {
+491-  try {
+492-    const Exam = require('../models/Exam');
+493-    const { examId } = req.body;
+494:    await Exam.findByIdAndUpdate(examId, { $set: { batch: req.params.id } });
+495-    res.json({ success: true });
+496-  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+497-});
+498-
+499:router.delete('/batches/:id/exams/:eid', verifyToken, isSuperAdmin, async (req, res) => {
+500-  try {
+501-    const Exam = require('../models/Exam');
+502:    await Exam.findByIdAndUpdate(req.params.eid, { $unset: { batch: 1 } });
+503-    res.json({ success: true });
+504-  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+505-});
+506-
+507-
+508:// BATCH_NOTES_FIX — Notes/Study Material + Exam Assign routes
+509:// GET all notes for a batch
+510:router.get('/batches/:id/notes',verifyToken,isSuperAdmin,async(req,res)=>{
+511-  try{
+512:    const BatchNote=require('../models/BatchNote');
+513:    const notes=await BatchNote.find({batch:req.params.id}).sort({createdAt:-1}).lean();
+514-    res.json(notes);
+515-  }catch(e){res.status(500).json({success:false,message:e.message});}
+516-});
+517-
+518:// POST add note to batch
+519:router.post('/batches/:id/notes',verifyToken,isSuperAdmin,async(req,res)=>{
+520-  try{
+521:    const BatchNote=require('../models/BatchNote');
+522-    const{title,description,url,type,subject}=req.body;
+523-    if(!title||!title.trim())return res.status(400).json({success:false,message:'Title required'});
+524:    const note=await BatchNote.create({
+525:      batch:req.params.id,title:title.trim(),
+526-      description:description||'',url:url||'',
+527-      type:type||'link',subject:subject||'General',
+528-      createdBy:req.user&&req.user.id
+--
+532-});
+533-
+534-// DELETE note
+535:router.delete('/batches/:id/notes/:nid',verifyToken,isSuperAdmin,async(req,res)=>{
+536-  try{
+537:    const BatchNote=require('../models/BatchNote');
+538:    await BatchNote.findByIdAndDelete(req.params.nid);
+539-    res.json({success:true});
+540-  }catch(e){res.status(500).json({success:false,message:e.message});}
+541-});
+542-
+543-// GET all exams (for assign dropdown)
+544:router.get('/batches/all-exams',verifyToken,isSuperAdmin,async(req,res)=>{
+545-  try{
+546-    const Exam=require('../models/Exam');
+547-    const exams=await Exam.find({}).select('title status scheduledAt duration totalMarks image').sort({createdAt:-1}).lean();
+--
+549-  }catch(e){res.json([]);}
+550-});
+551-
+552:// POST assign exam to batch
+553:router.post('/batches/:id/exams/assign',verifyToken,isSuperAdmin,async(req,res)=>{
+554-  try{
+555-    const Exam=require('../models/Exam');
+556-    const{examId}=req.body;
+557-    if(!examId)return res.status(400).json({success:false,message:'examId required'});
+558:    await Exam.findByIdAndUpdate(examId,{$set:{batch:req.params.id}});
+559-    res.json({success:true,message:'Exam assigned'});
+560-  }catch(e){res.status(500).json({success:false,message:e.message});}
+561-});
+562-
+563:// DELETE unassign exam from batch
+564:router.delete('/batches/:id/exams/:eid',verifyToken,isSuperAdmin,async(req,res)=>{
+565-  try{
+566-    const Exam=require('../models/Exam');
+567:    await Exam.findByIdAndUpdate(req.params.eid,{$unset:{batch:1}});
+568-    res.json({success:true});
+569-  }catch(e){res.status(500).json({success:false,message:e.message});}
+570-});
+571-
+572:// BATCH_CRUD_FIX (S5/M3) - ProveRank
+573:router.get('/batches', verifyToken, isSuperAdmin, async (req, res) => {
+574-  try {
+575:    const Batch = require('../models/Batch');
+576-    const User = require('../models/User');
+577:    const batches = await Batch.find().sort({ createdAt: -1 }).lean();
+578:    const result = await Promise.all(batches.map(async b => {
+579:      const studentCount = await User.countDocuments({ batch: b._id, role: 'student' }).catch(()=>0);
+580-      return { ...b, studentCount, examCount: 0 };
+581-    }));
+582-    res.json(result);
+583-  } catch(err){ res.status(500).json({ success:false, message:err.message }); }
+584-});
+585-
+586:router.post('/batches', verifyToken, isSuperAdmin, async (req, res) => {
+587-  try {
+588:    const Batch = require('../models/Batch');
+589-    const { name } = req.body;
+590:    if (!name||!name.trim()) return res.status(400).json({ success:false, message:'Batch name required' });
+591:    const exists = await Batch.findOne({ name: name.trim() });
+592:    if (exists) return res.status(400).json({ success:false, message:'Batch name already exists' });
+593:    const batch = await Batch.create({ name: name.trim(), createdBy: req.user&&req.user.id });
+594:    res.json({ success:true, batch });
+595-  } catch(err){
+596:    if (err.code===11000) return res.status(400).json({ success:false, message:'Batch name already exists' });
+597-    res.status(500).json({ success:false, message:err.message });
+598-  }
+599-});
+600-
+601:router.delete('/batches/:id', verifyToken, isSuperAdmin, async (req, res) => {
+602-  try {
+603:    const Batch = require('../models/Batch');
+604-    const User = require('../models/User');
+605:    await Batch.findByIdAndDelete(req.params.id);
+606:    await User.updateMany({ batch: req.params.id }, { $unset: { batch: 1 } });
+607:    res.json({ success:true, message:'Batch deleted' });
+608-  } catch(err){ res.status(500).json({ success:false, message:err.message }); }
+609-});
+610-
+611:router.get('/manage/batches', verifyToken, isSuperAdmin, async (req, res) => {
+612-  try {
+613:    const Batch = require('../models/Batch');
+614-    const User = require('../models/User');
+615:    const batches = await Batch.find().sort({ createdAt: -1 }).lean();
+616:    const result = await Promise.all(batches.map(async b => {
+617:      const studentCount = await User.countDocuments({ batch: b._id, role: 'student' }).catch(()=>0);
+618-      return { ...b, studentCount, examCount: 0 };
+619-    }));
+620-    res.json(result);
+
+---- FILE: src/routes/announcements.js ----
+5-const { verifyToken } = require('../middleware/auth')
+6-const Announcement = require('../models/Announcement')
+7-const User = require('../models/User')
+8:const Batch = require('../models/Batch')
+9-
+10-// ══════════════════════════════════════════════════════════════
+11-// Helpers
+--
+28-  if (!audience || audience.mode === 'all') {
+29-    return User.find({ role: 'student', banned: { $ne: true } }, 'name email').lean()
+30-  }
+31:  if (audience.mode === 'batch' || audience.mode === 'testseries') {
+32:    const ids = (audience.mode === 'batch' ? audience.batchIds : audience.testSeriesIds || audience.batchIds) || []
+33-    const filtered = ids.filter(Boolean)
+34-    if (!filtered.length) return []
+35:    const batches = await Batch.find({ _id: { $in: filtered } }, 'students').lean()
+36:    const studentIds = [...new Set(batches.flatMap(b => (b.students || []).map(String)))]
+37-    if (!studentIds.length) return []
+38-    return User.find({ _id: { $in: studentIds }, role: 'student', banned: { $ne: true } }, 'name email').lean()
+39-  }
+--
+64-  try { return new mongoose.Types.ObjectId(id) } catch (e) { return null }
+65-}
+66-
+67:// v2 — Chunked email dispatch: processes recipients in batches of 50 IN
+68-// PARALLEL (Promise.allSettled per chunk), sequential across chunks. Fast
+69-// and scalable for large audiences while still fully personalizing each
+70-// email via {student_name}.
+--
+99-    const uid = toObjectId(req.user.id)
+100-    if (!uid) return res.status(400).json({ message: 'Invalid user' })
+101-
+102:    const myBatches = await Batch.find({ students: uid }, '_id').lean()
+103:    const myBatchIds = myBatches.map(b => b._id)
+104-    const now = new Date()
+105-
+106-    const list = await Announcement.find({
+--
+109-        { $or: [{ expiryDate: null }, { expiryDate: { $gte: now } }] }, // F42B §3.9 expiry check
+110-        { $or: [
+111-            { 'audience.mode': 'all' },
+112:            { 'audience.mode': 'batch', 'audience.batchIds': { $in: myBatchIds } },
+113:            { 'audience.mode': 'testseries', 'audience.testSeriesIds': { $in: myBatchIds } },
+114-            { 'audience.mode': 'students', 'audience.studentIds': uid },
+115-        ] },
+116-      ],
+--
+137-    await promoteScheduled()
+138-    const uid = toObjectId(req.user.id)
+139-    if (!uid) return res.status(400).json({ count: 0 })
+140:    const myBatches = await Batch.find({ students: uid }, '_id').lean()
+141:    const myBatchIds = myBatches.map(b => b._id)
+142-    const now = new Date()
+143-    const count = await Announcement.countDocuments({
+144-      status: 'sent',
+--
+147-        { $or: [{ expiryDate: null }, { expiryDate: { $gte: now } }] },
+148-        { $or: [
+149-            { 'audience.mode': 'all' },
+150:            { 'audience.mode': 'batch', 'audience.batchIds': { $in: myBatchIds } },
+151:            { 'audience.mode': 'testseries', 'audience.testSeriesIds': { $in: myBatchIds } },
+152-            { 'audience.mode': 'students', 'audience.studentIds': uid },
+153-        ] },
+154-      ],
+--
+173-  try {
+174-    const uid = toObjectId(req.user.id)
+175-    if (!uid) return res.status(400).json({ message: 'Invalid user' })
+176:    const myBatches = await Batch.find({ students: uid }, '_id').lean()
+177:    const myBatchIds = myBatches.map(b => b._id)
+178-    const now = new Date()
+179-    await Announcement.updateMany({
+180-      status: 'sent',
+--
+183-        { $or: [{ expiryDate: null }, { expiryDate: { $gte: now } }] },
+184-        { $or: [
+185-            { 'audience.mode': 'all' },
+186:            { 'audience.mode': 'batch', 'audience.batchIds': { $in: myBatchIds } },
+187:            { 'audience.mode': 'testseries', 'audience.testSeriesIds': { $in: myBatchIds } },
+188-            { 'audience.mode': 'students', 'audience.studentIds': uid },
+189-        ] },
+190-      ],
+--
+214-  next()
+215-}
+216-
+217:// GET /batches — audience picker: batches/test series with live student counts (F42A §1.2.2 / §3.1.2)
+218:adminRouter.get('/batches', verifyToken, requireAdminOrSuper, async (req, res) => {
+219-  try {
+220:    const batches = await Batch.find({ status: { $ne: 'inactive' } }, 'name examType students').lean()
+221:    res.json(batches.map(b => ({ _id: b._id, name: b.name, examType: b.examType, studentCount: (b.students || []).length })))
+222-  } catch (err) { res.status(500).json({ message: err.message }) }
+223-})
+224-
+--
+275-      if (dateFrom) q.createdAt.$gte = new Date(dateFrom)
+276-      if (dateTo) q.createdAt.$lte = new Date(dateTo + 'T23:59:59')
+277-    }
+278:    const list = await Announcement.find(q).populate('audience.batchIds', 'name').sort({ createdAt: -1 }).limit(200).lean()
+279-    const out = list.map(a => ({
+280-      ...a,
+281-      readCount: (a.readBy || []).length,
+--
+285-  } catch (err) { res.status(500).json({ message: err.message }) }
+286-})
+287-
+288:// GET /:id/delivery — F42A §2.3.2 per-batch delivery status detail
+289-adminRouter.get('/:id/delivery', verifyToken, requireAdminOrSuper, async (req, res) => {
+290-  try {
+291-    const ann = await Announcement.findById(req.params.id).lean()
+--
+303-    const { title, titleHi, message, messageHi, type, sendVia, pinned, imageUrl, scheduledAt, expiryDate, saveAsDraft, templateName } = req.body
+304-    if (!title || !message) return res.status(400).json({ message: 'Title and message are required' })
+305-
+306:    // Legacy-compat: existing BatchDetailOverlay widget & old compose form
+307:    // send { batch: 'all' | batchId } instead of a full audience object.
+308-    let audience = req.body.audience
+309:    if (!audience && req.body.batch !== undefined) {
+310:      audience = req.body.batch === 'all' || !req.body.batch ? { mode: 'all' } : { mode: 'batch', batchIds: [req.body.batch] }
+311-    }
+312-    if (!audience || !audience.mode) audience = { mode: 'all' }
+313-
+
+---- FILE: src/routes/antiCheatRoutes.js ----
+24-  board:              { type: String, default: '' },
+25-  school:             { type: String, default: '' },
+26-  medium:             { type: String, default: '' },
+27:  batch:              { type: String, default: '' },
+28-
+29-  // ── F38: Login health / device tracking ─────────────────────────
+30-  failedLoginAttempts: { type: Number, default: 0 },
+--
+129-  // F52-F57 v2 — Waiting Room resume tracking (Rule 1.15.3/1.15.4)
+130-  // NOTE: read/write via User.collection.findOne/updateOne (raw driver)
+131-  // to match project convention (see D-36/D-37 in Brief) — same
+132:  // pattern already used for enrolledBatches/enrolledBatchesMeta.
+133-  // ══════════════════════════════════════════════════════════
+134-  waitingRoomJoins: [{
+135-    examId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Exam' },
+
+---- FILE: src/routes/auth.js ----
+605-
+606-    res.json({
+607-      completion, health, missing,
+608:      studentId: user.studentId || null, batch: user.batch || '',
+609-      verified: !!(user.emailVerified || user.verified),
+610-      stats: { totalExams, bestScore, avgScore, currentStreak, rankHistory },
+611-    })
+
+---- FILE: src/routes/contentForge.js ----
+259-
+260-router.post('/check-duplicates', verifyToken, isAdmin, async (req, res) => {
+261-  try {
+262:    const { texts, batch } = req.body;
+263-    if (!Array.isArray(texts) || texts.length === 0) return res.json({ success: true, duplicates: [] });
+264-    const existing = await Question.find({ text: { $in: texts } }).select('text sourceExam');
+265:    let sameBatchExamIds = new Set();
+266:    if (batch) {
+267:      const exams = await Exam.find({ $or: [{ batch }, { multiBatch: batch }] }).select('_id');
+268:      sameBatchExamIds = new Set(exams.map(e => String(e._id)));
+269-    }
+270:    const duplicates = existing.map(e => ({ text: e.text, inSameBatch: sameBatchExamIds.has(String(e.sourceExam)) }));
+271-    res.json({ success: true, duplicates });
+272-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+273-});
+
+---- FILE: src/routes/entryProctoringControl.js ----
+28-const EntryControlLog = require('../models/EntryControlLog');
+29-const Exam = require('../models/Exam');
+30-let Announcement; try { Announcement = require('../models/Announcement'); } catch (e) { Announcement = null; }
+31:let Batch; try { Batch = require('../models/Batch'); } catch (e) { Batch = null; }
+32-let TestSeries; try { TestSeries = require('../models/TestSeries'); } catch (e) { TestSeries = null; }
+33-let User; try { User = require('../models/User'); } catch (e) { User = null; }
+34-
+--
+107-  let policy = await EntryProctoringPolicy.findOne({ status: 'published', 'scope.type': 'exam', 'scope.examId': examId }).sort({ version: -1 }).lean();
+108-  if (policy) return { exam, policy, resolvedFrom: 'exam' };
+109-
+110:  const batchTargets = [exam.batch, ...(exam.multiBatch || [])].filter(Boolean);
+111:  if (batchTargets.length) {
+112:    policy = await EntryProctoringPolicy.findOne({ status: 'published', 'scope.type': 'batch', 'scope.batchId': { $in: batchTargets.map(toId).filter(Boolean) } }).sort({ version: -1 }).lean();
+113:    if (policy) return { exam, policy, resolvedFrom: 'batch' };
+114-  }
+115-  if (exam.testSeriesId) {
+116-    policy = await EntryProctoringPolicy.findOne({ status: 'published', 'scope.type': 'series', 'scope.testSeriesId': exam.testSeriesId }).sort({ version: -1 }).lean();
+--
+220-adminRouter.get('/policies', verifyToken, isAdmin, async (req, res) => {
+221-  try {
+222-    await promoteScheduledPolicies();
+223:    const { scopeType, examId, batchId, testSeriesId, status, search } = req.query;
+224-    const filter = {};
+225-    if (scopeType) filter['scope.type'] = scopeType;
+226-    if (examId) filter['scope.examId'] = toId(examId);
+227:    if (batchId) filter['scope.batchId'] = toId(batchId);
+228-    if (testSeriesId) filter['scope.testSeriesId'] = toId(testSeriesId);
+229-    if (status) filter.status = status;
+230-    if (search) filter.name = { $regex: search, $options: 'i' };
+--
+423-  } catch (e) { res.status(500).json({ error: e.message }); }
+424-});
+425-
+426:// 16.6 Batch / Test Series Mass Apply
+427-adminRouter.post('/policies/:id/mass-apply', verifyToken, isAdmin, async (req, res) => {
+428-  try {
+429-    const { examIds } = req.body;
+--
+606-adminRouter.post('/broadcasts', verifyToken, isAdmin, async (req, res) => {
+607-  try {
+608-    if (!Announcement) return res.status(501).json({ error: 'Announcement model unavailable' });
+609:    const { examId, batchId, broadcastType, title, message, channel, scheduledAt } = req.body;
+610-    if (!title || !message) return res.status(400).json({ error: 'title and message required' });
+611-    const validTypes = ['waiting_room_announcement', 'instruction_update', 'consent_reminder', 'camera_reminder', 'fullscreen_reminder', 'join_window_warning', 'emergency_notice'];
+612-    if (!validTypes.includes(broadcastType)) return res.status(400).json({ error: 'Invalid broadcastType' });
+613-
+614-    let audience = { mode: 'all' };
+615:    if (batchId) audience = { mode: 'batch', batchIds: [batchId] };
+616-
+617-    const status = scheduledAt && new Date(scheduledAt) > new Date() ? 'scheduled' : 'sent';
+618-    const doc = await Announcement.create({
+--
+712-// STUDENT ROUTES — /api/entry-proctoring
+713-// ══════════════════════════════════════════════════════════════════
+714-
+715:// Effective (resolved) policy for a given exam — exam → batch → series → global → schema defaults
+716-studentRouter.get('/effective/:examId', verifyToken, async (req, res) => {
+717-  try {
+718-    const { exam, policy, resolvedFrom } = await findApplicablePolicy(req.params.examId);
+
+---- FILE: src/routes/exam.js ----
+23-// GET ALL EXAMS
+24-router.get('/', verifyToken, async (req, res) => {
+25-  try {
+26:    const { batch, category, status } = req.query;
+27-    const filter = {};
+28:    if (batch) filter.batch = batch;
+29-    if (category) filter.category = category;
+30-    if (status) filter.status = status;
+31-    const exams = await Exam.find(filter).populate('createdBy', 'name email');
+
+---- FILE: src/routes/examFlow.js ----
+4-const Exam = require('../models/Exam');
+5-const User = require('../models/User');
+6-const Attempt = require('../models/Attempt');
+7:const Batch = require('../models/Batch');
+8-let TestSeries;
+9-try { TestSeries = require('../models/TestSeries'); } catch (e) { TestSeries = null; }
+10-const { verifyToken } = require('../middleware/auth');
+--
+24-}
+25-
+26-// ══ Helper: read a student's real enrollment (Rule fix — was reading
+27:// Batch.students which is NEVER populated by the actual enroll flow;
+28:// real source of truth is User.enrolledBatches, populated via raw
+29:// collection driver same as studentBatches.js / myBatches.js) ══
+30-async function getEnrollment(studentId) {
+31-  const userDoc = await User.collection.findOne({ _id: new mongoose.Types.ObjectId(studentId) });
+32:  const ids = (userDoc && userDoc.enrolledBatches) || [];
+33:  const [batches, series] = await Promise.all([
+34:    Batch.find({ _id: { $in: ids } }).select('_id name').lean(),
+35-    TestSeries ? TestSeries.find({ _id: { $in: ids } }).select('_id title name').lean() : Promise.resolve([])
+36-  ]);
+37-  return {
+38-    userDoc,
+39:    batchIds: batches.map(b => String(b._id)),
+40:    batchNames: batches.map(b => b.name).filter(Boolean),
+41-    seriesIds: series.map(s => String(s._id)),
+42-    seriesNames: series.map(s => s.title || s.name).filter(Boolean)
+43-  };
+--
+55-  if (Array.isArray(exam.whitelist) && exam.whitelist.length > 0) {
+56-    return exam.whitelist.some(id => String(id) === String(studentId));
+57-  }
+58:  // F54 FIX — an exam can be linked to BOTH a series and a batch at once.
+59-  // Previously assignmentType==='series' short-circuited and skipped the
+60:  // batch check entirely, hiding the exam from batch-only-enrolled students.
+61:  // Now check series AND batch independently — visible if EITHER matches.
+62-  if (exam.testSeriesId && enrollment.seriesIds.includes(String(exam.testSeriesId))) {
+63-    return true;
+64-  }
+65:  const hasBatchTarget = !!exam.batch || (exam.multiBatch && exam.multiBatch.length > 0);
+66:  if (hasBatchTarget) {
+67:    const targets = [exam.batch, ...(exam.multiBatch || [])].filter(Boolean).map(String);
+68:    if (targets.some(t => enrollment.batchIds.includes(t) || enrollment.batchNames.includes(t))) {
+69-      return true;
+70-    }
+71-  }
+72:  return false; // F52/F54 — not linked to any enrolled batch or series, so must NOT show on My Exams
+73-}
+74-
+75-// ══ Helper: compute full exam state (status, join window, waiting-room ══
+--
+200-        category: e.category,
+201-        type: e.type || 'NEET',
+202-        assignmentType: e.assignmentType || 'individual',
+203:        batch: e.batch,
+204:        multiBatch: e.multiBatch,
+205-        testSeriesId: e.testSeriesId || null,
+206-        seriesName: e.seriesName || '',
+207-        schedule: e.schedule,
+--
+219-    res.json({
+220-      success: true,
+221-      exams: result,
+222:      syncedBatches: enrollment.batchNames,
+223-      syncedSeries: enrollment.seriesNames
+224-    });
+225-  } catch (err) {
+
+---- FILE: src/routes/examListing.js ----
+17- *  33.2  search query param     SMART search by title
+18- *  33.3  status query param     filter by draft/scheduled/live/ended
+19- *  33.4  category/subject       filter by category + subject
+20: *  33.5  batch/series           filter by batch + seriesName
+21- *  33.6  startDate/endDate      filter by schedule.startTime range
+22- *  33.7  studentCount           computed per exam via Attempt aggregation
+23- *  33.8  sort query param       newest/oldest/dateAsc/dateDesc
+--
+27- *  33.12 mine/createdBy         "My Created Exams" + superadmin admin-picker
+28- *  33.14 GET /:id/analytics     attempts, avg score, pass%, leaderboard, distribution
+29- *  33.17 GET /export            CSV/XLSX export of the filtered list
+30: *  33.18 needsAttention         filter — no batch assigned OR 0 questions
+31- *  33.20 PATCH /:id/pin         pin toggle
+32- *  33.27 POST /bulk-delete,
+33- *        POST /bulk-publish     bulk actions
+--
+51-}
+52-
+53-function buildFilter(req) {
+54:  const { search, status, category, subject, batch, series, startDate, endDate, needsAttention } = req.query
+55-  const filter = visibilityFilter(req)
+56-  filter.isArchived = { $ne: true } // Feature 34 — archived exams only show in the Recycle Bin (/trash)
+57-  if (search && String(search).trim()) filter.title = new RegExp(String(search).trim(), 'i')
+--
+61-  }
+62-  if (category) filter.category = category
+63-  if (subject) filter.subject = subject
+64:  if (batch) filter.batch = batch
+65-  if (series) filter.seriesName = series
+66-  if (startDate || endDate) {
+67-    filter['schedule.startTime'] = {}
+--
+69-    if (endDate) filter['schedule.startTime'].$lte = new Date(endDate)
+70-  }
+71-  if (needsAttention === 'true') {
+72:    filter.$or = [{ batch: '' }, { batch: null }, { questions: { $size: 0 } }]
+73-  }
+74-  return filter
+75-}
+--
+80-router.get('/filter-options', verifyToken, isAdmin, async (req, res) => {
+81-  try {
+82-    const filter = req.user.role === 'superadmin' ? {} : { createdBy: req.user.id }
+83:    const [categories, subjects, batches, series] = await Promise.all([
+84-      Exam.distinct('category', filter),
+85-      Exam.distinct('subject', filter),
+86:      Exam.distinct('batch', filter),
+87-      Exam.distinct('seriesName', filter)
+88-    ])
+89-    res.json({
+90-      success: true,
+91-      categories: categories.filter(Boolean),
+92-      subjects: subjects.filter(Boolean),
+93:      batches: batches.filter(Boolean),
+94-      series: series.filter(Boolean)
+95-    })
+96-  } catch (err) { res.status(500).json({ success: false, message: err.message }) }
+--
+132-
+133-    const total = await Exam.countDocuments(filter)
+134-    const exams = await Exam.find(filter)
+135:      .select('title category subject type duration totalMarks status batch seriesName schedule createdAt isPinned questions createdBy markingScheme assignmentType clonedFrom')
+136-      .sort(finalSort).skip(skip).limit(limit)
+137-      .populate('createdBy', 'name email')
+138-      .populate('clonedFrom', 'title')
+139-      .lean()
+140-
+141:    // 33.7 — student count per exam (distinct attempters), single batched aggregation
+142-    const Attempt = require('../models/Attempt')
+143-    const examIds = exams.map(e => e._id)
+144-    const counts = examIds.length ? await Attempt.aggregate([
+--
+307-    if (b.subject !== undefined) exam.subject = b.subject
+308-    if (b.type !== undefined) exam.type = b.type
+309-    if (b.totalMarks !== undefined) exam.totalMarks = parseInt(b.totalMarks) || exam.totalMarks
+310:    if (b.batch !== undefined) exam.batch = b.batch
+311-    if (b.seriesName !== undefined) exam.seriesName = b.seriesName
+312-    if (b.watermark !== undefined) exam.watermark = !!b.watermark
+313-    if (b.customInstructions !== undefined) exam.customInstructions = b.customInstructions
+314-    if (b.status !== undefined) exam.status = b.status
+315:    // F60 FIX — Attempt Limit editable from Batch/Series Manager's Exams tab Edit modal. -1 = unlimited.
+316-    if (b.maxAttempts !== undefined) exam.maxAttempts = parseInt(b.maxAttempts) || 1
+317-    // F63 FIX — 'unlimited' is a separate boolean field (exam.unlimitedAttempts),
+318-    // NOT a -1 sentinel in maxAttempts. examFlow.js's attempt-start check reads
+--
+418-  try {
+419-    const filter = buildFilter(req)
+420-    const exams = await Exam.find(filter)
+421:      .select('title category subject type duration totalMarks status batch seriesName schedule createdAt isPinned questions')
+422-      .lean()
+423-
+424-    const rows = exams.map(e => ({
+--
+429-      'Duration (min)': e.duration,
+430-      'Total Marks': e.totalMarks,
+431-      Status: e.status,
+432:      Batch: e.batch,
+433-      Series: e.seriesName,
+434-      'Start Time': e.schedule && e.schedule.startTime ? new Date(e.schedule.startTime).toLocaleString() : '',
+435-      'End Time': e.schedule && e.schedule.endTime ? new Date(e.schedule.endTime).toLocaleString() : '',
+--
+464-// FEATURE 31 — EXAM CLONE / DUPLICATE
+465-// ════════════════════════════════════════════════════════════════════════
+466-
+467:// ── 31.1-31.6 / 31.8 — rich clone with dialog inputs (new title/date/batch) ──
+468-router.post('/:id/clone-advanced', verifyToken, isAdmin, async (req, res) => {
+469-  try {
+470-    const original = await Exam.findById(req.params.id)
+--
+491-      startTime: cloneStart,
+492-      endTime: cloneStart ? new Date(cloneStart.getTime() + (parseInt(b.duration) || obj.duration || 0) * 60000) : (b.endTime ? new Date(b.endTime) : null)
+493-    }
+494:    // F60/F61 FIX — Attempt Limit copyable from the Batch/Series Manager Copy modal. -1 = unlimited.
+495-    if (b.maxAttempts !== undefined) obj.maxAttempts = parseInt(b.maxAttempts) || 1
+496-    // F63 FIX — 'unlimited' is a separate boolean field, not a -1 sentinel (see quick-edit route)
+497-    if (b.unlimitedAttempts !== undefined) obj.unlimitedAttempts = !!b.unlimitedAttempts
+498-
+499:    // 31.8 — clone to a different batch if provided, else keep original's batch
+500:    if (b.targetBatch !== undefined) {
+501:      obj.batch = b.targetBatch
+502:      obj.multiBatch = []
+503:      if (b.targetBatch) obj.assignmentType = 'batch'
+504-    }
+505-    // F61 FIX — clone to a different test series (previously only wrote a stray
+506-    // 'seriesName' string, not the real testSeriesId, so the copy never actually
+--
+516-
+517-    const cloned = await Exam.create(obj)
+518-
+519:    // F61 FIX — reverse-link the clone into Batch.exams / TestSeries.tests so it
+520-    // immediately shows up in the Assigned list, mirroring the normal assign flow.
+521-    try {
+522:      if (b.targetBatch) {
+523:        const Batch = require('../models/Batch')
+524:        await Batch.updateOne({ _id: b.targetBatch }, { $addToSet: { exams: cloned._id } })
+525-      }
+526-      if (b.targetSeries) {
+527-        const TestSeries = require('../models/TestSeries')
+
+---- FILE: src/routes/examSubmission.js ----
+116-    const User = require('../models/User');
+117-    const Exam = require('../models/Exam');
+118-    const exam = await Exam.findById(req.body.examId || req.params.examId).lean();
+119:    if (exam && exam.batch) {
+120:      const Batch = mongoose.model('Batch');
+121:      // F58 FIX — exam.batch is normally an ObjectId string (per Assign System fix),
+122:      // not a batch name. Try ID lookup first, fall back to legacy name-regex lookup.
+123:      let batchDoc = mongoose.Types.ObjectId.isValid(exam.batch) ? await Batch.findById(exam.batch).lean() : null;
+124:      if (!batchDoc) batchDoc = await Batch.findOne({ name: { $regex: exam.batch, $options: 'i' } }).lean();
+125:      if (batchDoc) {
+126-        const userDoc = await User.collection.findOne({ _id: new mongoose.Types.ObjectId(req.user.id) });
+127:        const meta = userDoc?.enrolledBatchesMeta || [];
+128:        const mIdx = meta.findIndex(m => m.batchId && m.batchId.toString() === batchDoc._id.toString());
+129-        if (mIdx >= 0) {
+130:          await User.collection.updateOne({ _id: new mongoose.Types.ObjectId(req.user.id) }, { $inc: { [`enrolledBatchesMeta.${mIdx}.testsCompleted`]: 1 } });
+131:          console.log('Progress synced for batch:', batchDoc.name);
+132-        }
+133-      }
+134-    }
+
+---- FILE: src/routes/examWizardRoutes.js ----
+17-const getExam     = () => mongoose.model('Exam');
+18-const getQuestion = () => mongoose.model('Question');
+19-const getUser     = () => mongoose.model('User');
+20:const getBatch      = () => mongoose.model('Batch');
+21-const getTestSeries = () => mongoose.model('TestSeries');
+22-
+23-function parseAnswerKey(text = '') {
+--
+112-      instructions, passwordEnabled, password,
+113-      whitelist, waitingRoom, waitingMinutes,
+114-      reattempt, reattemptUnlimited, reviewWindow, sectionWise, watermark,
+115:      liveQsRange, assignType, batchId, testSeriesId, multiBatches,
+116-      status
+117-    } = req.body;
+118-
+--
+157-      sectionWise: sectionWise || false,
+158-      watermark: watermark || false,
+159-      liveQsRange: liveQsRange || [],
+160:      // 🔧 FIX — batch/multiBatch/testSeriesId now match actual Exam schema field names
+161:      batch: assignType === 'batch' ? (batchId || '') : '',
+162:      multiBatch: multiBatches || [],
+163-      testSeriesId: assignType === 'series' ? (testSeriesId || null) : null,
+164-      seriesName: resolvedSeriesName,
+165:      assignmentType: assignType === 'batch' ? 'batch' : assignType === 'series' ? 'series' : 'individual',
+166-      status: status || 'draft',
+167-      questions: [],
+168-      createdBy: req.user.id,
+--
+170-
+171-    const exam = await Exam.create(examData);
+172-
+173:    // 🔧 FIX (Assign System) — link the exam back into the Batch/TestSeries so it actually
+174:    // "uploads" into that batch/series (previously this reverse-link never happened).
+175-    try {
+176:      if (assignType === 'batch' && batchId) {
+177:        const Batch = getBatch();
+178:        await Batch.findByIdAndUpdate(batchId, { $addToSet: { exams: exam._id } });
+179-      } else if (assignType === 'series' && testSeriesId) {
+180-        const TestSeries = getTestSeries();
+181-        await TestSeries.findByIdAndUpdate(testSeriesId, { $addToSet: { tests: exam._id } });
+182-      }
+183-    } catch (linkErr) {
+184:      console.error('Assign-link warning (exam created but batch/series link failed):', linkErr.message);
+185-    }
+186-
+187-    res.status(201).json({ success: true, message: 'Exam created!', exam, examId: exam._id });
+--
+359-    const Exam = getExam();
+360-    const exam = await Exam.findById(req.params.id).populate('questions', 'text subject chapter difficulty type options correct explanation image').lean();
+361-    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
+362:    // Student count if batch assigned
+363-    let studentCount = 0;
+364-    try {
+365:      if (exam.batch) { const User = getUser(); studentCount = await User.countDocuments({ role: 'student', batch: exam.batch }); }
+366-    } catch {}
+367-    res.json({ success: true, exam, studentCount });
+368-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+--
+377-    // F53-b FIX: 'published' is NOT a valid Exam.status enum value
+378-    // (valid: draft/scheduled/live/ended) and was invisible to every
+379-    // student-facing route. 'live' is schema-valid and is what
+380:    // examFlow.js / studentBatchWorkspace.js already filter for.
+381-    // F55 FIX — if a future startTime was already set in Step 1, "Publish Now"
+382-    // must NOT force it live immediately; it should schedule instead.
+383-    const existing = await Exam.findById(req.params.id).select('schedule').lean();
+--
+411-    const { publishAt } = req.body;
+412-    if (!publishAt) return res.status(400).json({ success: false, message: 'publishAt date required' });
+413-    // F53-e FIX: schema has no 'scheduledPublishAt' field — computeExamState()
+414:    // (examFlow.js / studentBatchWorkspace.js) reads exam.schedule.startTime.
+415-    // Writing to the wrong field meant Schedule Publish never actually worked.
+416-    const exam = await Exam.findByIdAndUpdate(
+417-      req.params.id,
+--
+435-    try {
+436-      const Notification = mongoose.model('Notification');
+437-      const User = getUser();
+438:      const filter = exam.batch ? { role: 'student', batch: exam.batch } : { role: 'student' };
+439-      const students = await User.find(filter).select('_id');
+440-      const notifs = students.map(s => ({ user: s._id, title: `New Exam: ${exam.title}`, message: `A new exam "${exam.title}" has been scheduled. Duration: ${exam.duration} min.`, type: 'exam', examId: exam._id }));
+441-      if (notifs.length) await Notification.insertMany(notifs, { ordered: false });
+
+---- FILE: src/routes/studentProfilePreview.js ----
+134-      success: true,
+135-      student: {
+136-        _id: user._id, name: user.name, email: user.email, studentId: user.studentId || null,
+137:        batch: user.batch || '', targetExam: user.targetExam || '',
+138-        verified: !!(user.emailVerified || user.verified),
+139-        completion, health, lastUpdated,
+140-
+
+---- FILE: src/controllers/uploadController.js ----
+171-        phone: String(row.phone || row.Phone || '').trim(),
+172-        password: defaultPassword,
+173-        role: 'student',
+174:        group: row.group || row.batch || 'General',
+175-        verified: true,
+176-        isActive: true
+177-      });
+
+---- FILE: src/controllers/paperGenerator.js ----
+4-// ═══════════════════════════════════════════════════════════════
+5-const Question = require('../models/Question');
+6-const Exam     = require('../models/Exam');
+7:const Batch      = require('../models/Batch');
+8-const TestSeries = require('../models/TestSeries');
+9-
+10-// 17.18 — In-memory saved templates (upgradeable to DB later)
+--
+318-// ─────────────────────────────────────────────────────────────
+319-exports.useAsExam = async (req, res) => {
+320-  try {
+321:    const { sets, meta, answerKey, examTitle, assignType, batchId, testSeriesId, type, targetType, selectedSetLabel, startDate, endDate } = req.body;
+322-
+323-    if (!sets || sets.length === 0)
+324-      return res.status(400).json({ success: false, message: 'No sets provided' });
+--
+381-        incorrect:   (meta.markingScheme && meta.markingScheme.incorrect)   || -1,
+382-        unattempted: (meta.markingScheme && meta.markingScheme.unattempted) || 0
+383-      },
+384:      // 🔧 FIX — batch/testSeriesId now match real Exam schema fields, resolved via proper IDs
+385:      batch:          assignType === 'batch'  ? (batchId || '') : '',
+386-      testSeriesId:   assignType === 'series' ? (testSeriesId || null) : null,
+387-      seriesName:     resolvedSeriesName,
+388:      assignmentType: assignType === 'batch' ? 'batch' : assignType === 'series' ? 'series' : 'individual',
+389-      category:   type     || 'Full Mock',
+390-      type:       (meta.mode || 'Custom').toUpperCase(),
+391-      // F57 FIX — Smart AI Generator had no schedule field at all; exam always
+--
+400-    const qIds = primarySet.questions.map(q => q.questionId);
+401-    await Question.updateMany({ _id: { $in: qIds } }, { $inc: { usageCount: 1 } });
+402-
+403:    // 🔧 FIX (Assign System) — link the exam back into the Batch/TestSeries so it actually
+404:    // "uploads" into that batch/series (same fix as the main Create Exam wizard).
+405-    try {
+406:      if (assignType === 'batch' && batchId) {
+407:        await Batch.findByIdAndUpdate(batchId, { $addToSet: { exams: exam._id } });
+408-      } else if (assignType === 'series' && testSeriesId) {
+409-        await TestSeries.findByIdAndUpdate(testSeriesId, { $addToSet: { tests: exam._id } });
+410-      }
+411-    } catch (linkErr) {
+412:      console.error('Assign-link warning (exam created but batch/series link failed):', linkErr.message);
+413-    }
+414-
+415-    return res.json({ success: true, message: 'Exam created! ✅', exam: { _id: exam._id, title: exam.title }, examId: exam._id });
+
+---- FILE: src/utils/groqAI.js ----
+392-
+393-${formatEnforcement}
+394-
+395:These FORMAT rules apply to EVERY SINGLE question in this batch. No exceptions.
+396-
+397-═══════════════ QUALITY RULES (MANDATORY) ═══════════════
+398-1. FORMAT FIRST — Every question MUST strictly follow the FORMAT specified above. This is the #1 rule. A wrong format means the question is completely rejected.
+
+---- FILE: src/utils/examBuilder.js ----
+1-const Question = require('../models/Question');
+2-const Exam = require('../models/Exam');
+3:const Batch = require('../models/Batch');
+4-const TestSeries = require('../models/TestSeries');
+5-const StudentNotification = require('../models/StudentNotification');
+6-const User = require('../models/User');
+--
+64- *                          schedule, customInstructions, password, whitelistEnabled, waitingRoomEnabled,
+65- *                          waitingRoomMinutes, reattemptCount, unlimitedAttempts, reviewWindow,
+66- *                          watermark, totalQuestionsRequested, subjectWiseCount }
+67: *   assignment        - { assignmentType, batch, multiBatch, seriesName, notifyStudents }
+68- *   postCreate         - { scheduledPublish, isTemplate, status }
+69- *   sourceMeta        - { sourceType, fileName, uploadedAt, pageCount, totalParsed, totalErrors, totalDuplicates }
+70- *   createdBy         - user id
+--
+147-    password: examDetails.password || '',
+148-    schedule: examDetails.schedule || {},
+149-    category,
+150:    batch: assignmentType === 'batch' ? (assignment.batch || '') : '',
+151:    multiBatch: assignment.multiBatch || [],
+152-    assignmentType,
+153-    testSeriesId: assignmentType === 'series' ? (assignment.testSeriesId || null) : null,
+154-    seriesName: resolvedSeriesName,
+--
+185-
+186-  await Question.updateMany({ _id: { $in: inserted.map(d => d._id) } }, { $inc: { usageCount: 1 } }).catch(() => {});
+187-
+188:  // 🔧 FIX (Assign System) — link the exam back into the Batch/TestSeries so it actually
+189:  // "uploads" into that batch/series (same fix applied to Create Exam wizard + Smart Paper Gen).
+190-  try {
+191:    if (assignmentType === 'batch' && assignment.batch) {
+192:      await Batch.findByIdAndUpdate(assignment.batch, { $addToSet: { exams: exam._id } });
+193-    } else if (assignmentType === 'series' && assignment.testSeriesId) {
+194-      await TestSeries.findByIdAndUpdate(assignment.testSeriesId, { $addToSet: { tests: exam._id } });
+195-    }
+196:    if (assignment.multiBatch && assignment.multiBatch.length) {
+197:      await Batch.updateMany({ _id: { $in: assignment.multiBatch } }, { $addToSet: { exams: exam._id } });
+198-    }
+199-  } catch (linkErr) {
+200:    console.error('Assign-link warning (exam created but batch/series link failed):', linkErr.message);
+201-  }
+202-
+203-  // F19B.8.6 / F20B.8.6 / F21B.11.6 — Notify Students toggle
+204-  let notifiedCount = 0;
+205:  if (assignment.notifyStudents && assignment.batch) {
+206-    try {
+207:      const students = await User.find({ batch: assignment.batch, role: 'student' }).select('_id');
+208-      const notifs = students.map(s => ({
+209-        userId: s._id,
+210:        batchId: assignment.batch,
+211:        type: 'batch_update', // reuse existing enum value (no model changes needed)
+212-        title: 'New Exam Published',
+213:        message: `A new exam "${exam.title}" has been added to your batch.`,
+214-        link: `/exam/${exam._id}`,
+215-      }));
+216-      if (notifs.length > 0) { await StudentNotification.insertMany(notifs); notifiedCount = notifs.length; }
+
+
+===== C. CONTEXT: model files =====
+---- FILE: src/models/ExamInstance.js ----
+12-  examId: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam', required: true },
+13-  versionCode: { type: String, unique: true, sparse: true },
+14-  setLabel: { type: String, enum: ['Set-A', 'Set-B', 'Set-C', 'Set-D', 'Default'], default: 'Default' },
+15:  batchId: { type: mongoose.Schema.Types.ObjectId, default: null },
+16-  questionSnapshot: [{
+17-    questionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Question' },
+18-    subject: String,
+
+---- FILE: src/models/Review.js ----
+1-const mongoose = require('mongoose');
+2-const ReviewSchema = new mongoose.Schema({
+3:  batchId:     { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', required: true },
+4-  studentId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true },
+5-  studentName: { type: String, default: 'Student' },
+6-  rating:      { type: Number, required: true, min: 1, max: 5 },
+
+---- FILE: src/models/StudentNotification.js ----
+1-const mongoose = require('mongoose');
+2-const StudentNotificationSchema = new mongoose.Schema({
+3-  userId:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+4:  type:    { type: String, enum: ['price_drop','batch_update','trial_expiry','general'], default: 'general' },
+5-  title:   { type: String, required: true },
+6-  message: { type: String, required: true },
+7:  batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
+8-  isRead:  { type: Boolean, default: false },
+9-  link:    { type: String, default: '/dashboard/test-series' },
+10-}, { timestamps: true });
+
+---- FILE: src/models/Coupon.js ----
+1-// ══════════════════════════════════════════════════════════════════
+2:// Coupon — scoped ONLY to a single Batch or single TestSeries via
+3-// scopeType + scopeId. No global coupon manager. Uniqueness of `code`
+4-// is enforced within (scopeType, scopeId) only, among non-deleted docs.
+5-// ══════════════════════════════════════════════════════════════════
+--
+7-
+8-const CouponSchema = new mongoose.Schema({
+9-  code: { type: String, required: true, uppercase: true, trim: true },
+10:  scopeType: { type: String, required: true, enum: ['batch', 'series'] },
+11-  scopeId: { type: mongoose.Schema.Types.ObjectId, required: true },
+12-
+13-  type: { type: String, required: true, enum: ['percent', 'flat'], default: 'percent' },
+
+---- FILE: src/models/Announcement.js ----
+23-  type: { type: String, enum: ['exam', 'update', 'result', 'maintenance', 'urgent'], default: 'update' }, // F42A §2.1.1 (v2: +maintenance)
+24-
+25-  audience: {
+26:    mode:         { type: String, enum: ['all', 'batch', 'testseries', 'students'], default: 'all' }, // F42A §1.2.2 / §2.1.9 (v2: +testseries)
+27:    batchIds:     [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }],   // multi-select batches
+28:    testSeriesIds:[{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }],   // multi-select test series (same underlying collection, tracked separately)
+29-    studentIds:   [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],    // specific students
+30-  },
+31-
+--
+53-    ackAt:  { type: Date, default: Date.now },
+54-  }],
+55-
+56:  // F42A §2.3.2 per-batch/email delivery status
+57-  emailStats: {
+58-    sent:      { type: Number, default: 0 },
+59-    delivered: { type: Number, default: 0 },
+--
+74-}, { timestamps: true })
+75-
+76-AnnouncementSchema.index({ status: 1, createdAt: -1 })
+77:AnnouncementSchema.index({ 'audience.batchIds': 1 })
+78-AnnouncementSchema.index({ 'audience.studentIds': 1 })
+79-AnnouncementSchema.index({ examId: 1, createdAt: -1 })
+80-
+
+---- FILE: src/models/User.js ----
+128-  // F52-F57 v2 — Waiting Room resume tracking (Rule 1.15.3/1.15.4)
+129-  // NOTE: read/write via User.collection.findOne/updateOne (raw driver)
+130-  // to match project convention (see D-36/D-37 in Brief) — same
+131:  // pattern already used for enrolledBatches/enrolledBatchesMeta.
+132-  // ══════════════════════════════════════════════════════════
+133-  waitingRoomJoins: [{
+134-    examId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Exam' },
+
+---- FILE: src/models/Exam.js ----
+35-  audioMonitoringEnabled: { type: Boolean, default: false },
+36-  status: { type: String, enum: ['draft', 'scheduled', 'live', 'ended'], default: 'draft' },
+37-
+38:  batch:    { type: String, default: '' },
+39:  multiBatch: [{ type: String, default: [] }],
+40-
+41:  assignmentType: { type: String, enum: ['batch', 'series', 'mini_test', 'individual'], default: 'individual' },
+42-  seriesName: { type: String, default: '' },
+43-  testSeriesId: { type: mongoose.Schema.Types.ObjectId, ref: 'TestSeries', default: null },
+44-
+
+---- FILE: src/models/EntryProctoringPolicy.js ----
+2-// F53–57-B — Entry & Proctoring Control Center — Policy model
+3-// One policy = the full entry-flow configuration (waiting room,
+4-// instructions, T&C, webcam, fullscreen, join rules) for a given
+5:// scope (global default / exam / batch / test series / custom).
+6-// ══════════════════════════════════════════════════════════════════
+7-const mongoose = require('mongoose');
+8-
+--
+38-
+39-  // ── 4.2 Scope ──
+40-  scope: {
+41:    type: { type: String, enum: ['global', 'exam', 'batch', 'series', 'subject_group', 'custom'], default: 'global' },
+42-    examId: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam', default: null },
+43:    batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', default: null },
+44-    testSeriesId: { type: mongoose.Schema.Types.ObjectId, ref: 'TestSeries', default: null },
+45-    subjectGroup: { type: String, default: '' },
+46-    customRuleSet: { type: mongoose.Schema.Types.Mixed, default: null }
+--
+185-  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+186-}, { timestamps: true });
+187-
+188:EntryProctoringPolicySchema.index({ 'scope.type': 1, 'scope.examId': 1, 'scope.batchId': 1, 'scope.testSeriesId': 1 });
+189-EntryProctoringPolicySchema.index({ status: 1, scheduledPublishAt: 1 });
+190-
+191-module.exports = mongoose.models.EntryProctoringPolicy || mongoose.model('EntryProctoringPolicy', EntryProctoringPolicySchema);
+
+---- FILE: src/models/Banner.js ----
+2-
+3-const BannerSchema = new mongoose.Schema({
+4-  // ── Legacy fields (preserved for backward compatibility) ──
+5:  batchId: { type: String, default: '' },
+6:  batchName: { type: String, default: '' },
+7-  title: { type: String, required: true },
+8-  tagline: { type: String, default: '' },
+9-  examType: { type: String, default: 'NEET' },
+--
+44-  createdBy: { type: String, default: '' },
+45-
+46-  // ── FPR3 Ultra SaaS Publish-Gate fields ──
+47:  linkedBatchId: { type: mongoose.Schema.Types.ObjectId, default: null },
+48:  linkedType: { type: String, default: 'none', enum: ['batch', 'series', 'none'] },
+49-  status: { type: String, default: 'draft', enum: ['draft', 'ready', 'scheduled', 'published', 'archived', 'removed', 'replaced'] },
+50-  syncState: { type: String, default: 'synced', enum: ['synced', 'pending_sync', 'conflict', 'manual_override', 'ready_to_publish'] },
+51-  qualityScore: { type: Number, default: 0 },
+
+---- FILE: src/models/BannerAuditLog.js ----
+8-  performedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+9-  performedByName: { type: String, default: 'Admin' },
+10-  linkedType: { type: String, default: 'none' },
+11:  linkedBatchId: { type: mongoose.Schema.Types.ObjectId, default: null },
+12-  reason: { type: String, default: '' },
+13-  timestamp: { type: Date, default: Date.now }
+14-}, { timestamps: true });
+
+
+===== D. CONTEXT: frontend mixed files =====
+---- FILE: frontend/app/admin/x7k2p/AdminWelcomeBanner.tsx ----
+23-  manageBackup: '💾 Backup',
+24-  manageBranding: '🎨 Branding',
+25-  manageFeatureFlags: '🚩 Feature Flags',
+26:  manageBatches: '🎓 Batch Mgmt',
+27-  viewLiveMonitor: '🔴 Live Monitor',
+28-  managePermissions: '🔒 Permissions',
+29-  manageTemplates: '📄 Templates',
+
+---- FILE: frontend/app/admin/x7k2p/SmartPaperGen.tsx ----
+52-}
+53-
+54-// ═══ MAIN COMPONENT ═══
+55:export default function SmartPaperGen({ API, token, batches, testSeries }: { API: string; token: string; batches?: any[]; testSeries?: any[] }) {
+56:  const uaeBatches = batches || [];
+57-  const uaeTestSeries = testSeries || [];
+58-  const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('pr_token') || '' : token;
+59-
+--
+97-  // ── 17.11 Use as Exam modal
+98-  const [showUAE,     setShowUAE]       = useState(false);
+99-  const [uaeTitle,    setUaeTitle]      = useState('');
+100:  const [uaeAssignType, setUaeAssignType] = useState<'open'|'batch'|'series'>('open');
+101:  const [uaeBatchId,    setUaeBatchId]    = useState('');
+102-  const [uaeTestSeriesId, setUaeTestSeriesId] = useState('');
+103-  const [uaeType,     setUaeType]       = useState('Full Mock');
+104-  const [uaeStartDate, setUaeStartDate] = useState(''); // F57 FIX — Smart AI Generator start date
+--
+268-          answerKey:        paper.answerKey,
+269-          examTitle:        uaeTitle || paper.meta.examTitle,
+270-          assignType:       uaeAssignType,
+271:          batchId:          uaeBatchId,
+272-          testSeriesId:     uaeTestSeriesId,
+273-          type:             uaeType,
+274-          selectedSetLabel: uaeSet,
+--
+1010-
+1011-            <label style={S.label}>Assign To (optional, 17.11)</label>
+1012-            <div style={{ display:'flex', gap:8, marginBottom:12 }}>
+1013:              {([['open','🌐 Open'],['batch','🏫 Batch'],['series','📚 Test Series']] as const).map(([v,l]) => (
+1014:                <button key={v} onClick={() => { setUaeAssignType(v); if (v!=='batch') setUaeBatchId(''); if (v!=='series') setUaeTestSeriesId(''); }} style={{ flex:1, padding:'8px', borderRadius:8, border:`1px solid ${uaeAssignType===v ? '#6366F1':'rgba(255,255,255,0.1)'}`, background: uaeAssignType===v ? 'rgba(99,102,241,0.2)':'rgba(255,255,255,0.04)', color: uaeAssignType===v ? '#A5B4FC':'#64748B', cursor:'pointer', fontWeight:700, fontSize:11 }}>
+1015-                  {l}
+1016-                </button>
+1017-              ))}
+1018-            </div>
+1019:            {uaeAssignType === 'batch' && (
+1020:              <select value={uaeBatchId} onChange={e => setUaeBatchId(e.target.value)} style={{ ...S.inp, marginBottom:12 }}>
+1021:                <option value="">— Select Batch —</option>
+1022:                {uaeBatches.map((b:any) => <option key={b._id} value={b._id}>{b.name}{b.lifecycleStatus?` · ${b.lifecycleStatus}`:''}</option>)}
+1023-              </select>
+1024-            )}
+1025-            {uaeAssignType === 'series' && (
+
+---- FILE: frontend/app/admin/x7k2p/AIExplainTab.tsx ----
+128-  const runBulk = async () => {
+129-    if (!bulkSelected.length) return;
+130-    setBulkRunning(true); setBulkResults([]); setBulkDone(0); setBulkTotal(bulkSelected.length);
+131:    const batchSize = 5;
+132:    for (let i=0; i<bulkSelected.length; i+=batchSize) {
+133:      const batch = bulkSelected.slice(i,i+batchSize);
+134-      try {
+135-        const res = await fetch(`${API}/api/questions/ai/explanation/bulk`, {
+136-          method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${getToken()}` },
+137:          body: JSON.stringify({ questionIds:batch, mode:bulkMode, lang:bulkLang, autoSave:bulkAutoSave })
+138-        });
+139-        const d = await res.json();
+140:        if (d.results) { setBulkResults(prev=>[...prev,...d.results.filter((r:any)=>r.success)]); setBulkDone(prev=>prev+d.done); if (bulkAutoSave) setQueue(prev=>prev.filter(q=>!batch.includes(q._id))); }
+141-      } catch(e){}
+142-    }
+143-    setBulkRunning(false); loadQueue();
+
+---- FILE: frontend/app/admin/x7k2p/ContentForge.tsx ----
+65-}
+66-
+67-interface AssignmentState {
+68:  assignmentType: 'batch' | 'series' | 'individual';
+69:  batch: string;
+70:  multiBatchEnabled: boolean;
+71:  multiBatch: string[];
+72-  testSeriesId: string;
+73-  notifyStudents: boolean;
+74-}
+--
+93-  };
+94-}
+95-function defaultAssignment(): AssignmentState {
+96:  return { assignmentType: 'individual', batch: '', multiBatchEnabled: false, multiBatch: [], testSeriesId: '', notifyStudents: false };
+97-}
+98-function defaultPostCreate(): PostCreateState {
+99-  return { scheduledPublishEnabled: false, publishAt: '', isTemplate: false, publishNow: false };
+--
+570-// ═══════════════════════════════════════════════════════
+571-function AssignmentSelector({ a, setA, API, token }: { a:AssignmentState; setA:React.Dispatch<React.SetStateAction<AssignmentState>>; API:string; token:string }) {
+572-  const upd = (patch: Partial<AssignmentState>) => setA(prev => ({ ...prev, ...patch }));
+573:  const [batches, setBatches] = useState<{_id:string; name:string; studentCount?:number}[]>([]);
+574-  const [seriesList, setSeriesList] = useState<{_id:string; name:string; title?:string; lifecycleStatus?:string}[]>([]);
+575-
+576-  useEffect(() => {
+577:    fetch(`${API}/api/admin/batches`, { headers:{ Authorization:`Bearer ${token}` } })
+578:      .then(r=>r.json()).then(d=>setBatches(d.batches||d||[])).catch(()=>{});
+579-    fetch(`${API}/api/content-forge/series`, { headers:{ Authorization:`Bearer ${token}` } })
+580-      .then(r=>r.json()).then(d=>setSeriesList(d.series||[])).catch(()=>{});
+581-  }, [API, token]);
+582-
+583-  const cards: { key:AssignmentState['assignmentType']; icon:string; label:string }[] = [
+584:    { key:'batch', icon:'🏫', label:'Assign to Batch' },
+585-    { key:'series', icon:'📚', label:'Test Series' },
+586-    { key:'individual', icon:'👤', label:'Individual / Open' },
+587-  ];
+--
+603-        ))}
+604-      </div>
+605-
+606:      {a.assignmentType==='batch' && (
+607-        <div style={{ marginBottom:10 }}>
+608:          <label style={S.lbl}>Batch</label>
+609:          <select value={a.batch} onChange={e=>upd({batch:e.target.value})} style={S.inp}>
+610:            <option value="">— Select Batch —</option>
+611:            {batches.map(b=><option key={b._id} value={b._id}>{b.name} {b.studentCount?`(${b.studentCount} students)`:''}</option>)}
+612-          </select>
+613:          {a.assignmentType==='batch' && (
+614-            <div style={{ marginTop:8, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+615:              <span style={{ fontSize:11, color:C.dim }}>Multi-batch assign</span>
+616:              <Toggle on={a.multiBatchEnabled} onClick={()=>upd({multiBatchEnabled:!a.multiBatchEnabled})} />
+617-            </div>
+618-          )}
+619:          {a.multiBatchEnabled && a.assignmentType==='batch' && (
+620:            <select multiple value={a.multiBatch} onChange={e=>upd({multiBatch:Array.from(e.target.selectedOptions).map(o=>o.value)})} style={{ ...S.inp, height:90, marginTop:6 }}>
+621:              {batches.map(b=><option key={b._id} value={b._id}>{b.name}</option>)}
+622-            </select>
+623-          )}
+624-        </div>
+--
+631-            <option value="">— Select Test Series —</option>
+632-            {seriesList.map(s=><option key={s._id} value={s._id}>{s.name||s.title}{s.lifecycleStatus?` · ${s.lifecycleStatus}`:''}</option>)}
+633-          </select>
+634:          <label style={{ ...S.lbl, marginTop:8 }}>Batch (optional)</label>
+635:          <select value={a.batch} onChange={e=>upd({batch:e.target.value})} style={S.inp}>
+636:            <option value="">— Select Batch —</option>
+637:            {batches.map(b=><option key={b._id} value={b._id}>{b.name}</option>)}
+638-          </select>
+639-        </div>
+640-      )}
+641-
+642-      {a.assignmentType==='individual' && (
+643:        <div style={{ fontSize:11, color:C.dim }}>No batch restriction — exam will be open to all students.</div>
+644-      )}
+645-
+646-      <div style={{ marginTop:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+647:        <span style={{ fontSize:11, color:C.dim }}>🔔 Notify students in batch</span>
+648-        <Toggle on={a.notifyStudents} onClick={()=>upd({notifyStudents:!a.notifyStudents})} />
+649-      </div>
+650:      {a.notifyStudents && a.batch && (
+651-        <div style={{ marginTop:6, fontSize:10, color:C.gold }}>
+652:          🔔 {batches.find(b=>b._id===a.batch)?.studentCount ?? '?'} students in selected batch will be notified
+653-        </div>
+654-      )}
+655-    </div>
+--
+745-}
+746-
+747-// ═══ Pre-submit checklist (19B.35 / 20B.43) ═══
+748:function PreSubmitChecklist({ questionsOk, titleOk, dateOk, batchOk }: { questionsOk:boolean; titleOk:boolean; dateOk:boolean; batchOk:boolean }) {
+749-  const items = [
+750-    { ok:questionsOk, label:'Questions' },
+751-    { ok:titleOk, label:'Title' },
+752-    { ok:dateOk, label:'Schedule' },
+753:    { ok:batchOk, label:'Assignment' },
+754-  ];
+755-  return (
+756-    <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginBottom:10 }}>
+--
+761-  );
+762-}
+763-
+764:// F19B.4.7 / F20B.3.7 / F21B.7.6 — Duplicate-in-exam/batch check (wires the backend
+765-// /check-duplicates endpoint into the UI, shared across all 3 Create-Exam wizards)
+766:function DuplicateCheckPanel({ texts, batch, API, token }: { texts:string[]; batch:string; API:string; token:string }) {
+767-  const [checking, setChecking] = useState(false);
+768:  const [result, setResult] = useState<{text:string; inSameBatch:boolean}[]|null>(null);
+769-
+770-  const runCheck = async () => {
+771-    if (texts.length === 0) return;
+--
+773-    try {
+774-      const res = await fetch(`${API}/api/content-forge/check-duplicates`, {
+775-        method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
+776:        body: JSON.stringify({ texts, batch }),
+777-      });
+778-      const d = await res.json();
+779-      setResult(d.duplicates || []);
+--
+784-  return (
+785-    <div style={{ marginBottom:10 }}>
+786-      <button onClick={runCheck} disabled={checking||texts.length===0} style={{ ...S.bg, fontSize:11, opacity:checking?0.6:1 }}>
+787:        {checking ? '⟳ Checking...' : '🔍 Check Duplicates (vs Question Bank & this batch)'}
+788-      </button>
+789-      {result && (
+790-        result.length === 0
+791-          ? <div style={{ marginTop:6, fontSize:11, color:C.suc }}>✅ No duplicates found</div>
+792:          : <div style={{ marginTop:6, fontSize:11, color:C.wrn }}>⚠️ {result.length} question(s) already exist {result.some(r=>r.inSameBatch)?'(some in this batch!)':'elsewhere in Question Bank'}</div>
+793-      )}
+794-    </div>
+795-  );
+--
+840-  const isMobile = useIsMobile();
+841-  const cards = [
+842-    { icon:'📚', title:'Upload to QB / PYQ Bank', sub:'Parse → auto-sync answers & explanations → bulk save to Question Bank or PYQ Bank', grad:`linear-gradient(135deg,${accent}22,${accent}11)`, bor:`${accent}55`, view:qbView },
+843:    { icon:'🎯', title:'Create Exam', sub:'Parse → build full exam with sections, marking scheme, schedule & batch assignment', grad:'linear-gradient(135deg,#A78BFA22,#7C3AED11)', bor:'rgba(167,139,250,0.3)', view:examView },
+844-  ];
+845-  return (
+846-    <div style={{ maxWidth:760, margin:'0 auto' }}>
+--
+1346-          totalQuestionsRequested: examD.totalQuestionsRequested, subjectWiseCount: examD.subjectWiseCount,
+1347-        },
+1348-        assignment: {
+1349:          assignmentType: assign.assignmentType, batch: assign.batch,
+1350:          multiBatch: assign.multiBatchEnabled ? assign.multiBatch : [],
+1351-          testSeriesId: assign.testSeriesId, notifyStudents: assign.notifyStudents,
+1352-        },
+1353-        postCreate: {
+--
+1424-          <AssignmentSelector a={assign} setA={setAssign} API={API} token={getToken()} />
+1425-          <PostCreateActions p={postC} setP={setPostC} />
+1426-
+1427:          <DuplicateCheckPanel texts={goodQs.map(q=>q.text)} batch={assign.batch} API={API} token={getToken()} />
+1428:          <PreSubmitChecklist questionsOk={goodQs.length>0} titleOk={!!examD.title.trim()} dateOk={!!examD.startTime} batchOk={assign.assignmentType==='individual'||!!assign.batch||!!assign.seriesName} />
+1429-          <button onClick={handleCreate} disabled={creating} style={{ ...S.bp, width:'100%', padding:14, fontSize:14, opacity:creating?0.6:1 }}>
+1430-            {creating ? '⟳ Creating Exam...' : `Create Exam (${goodQs.length} Qs) →`}
+1431-          </button>
+--
+1821-          totalQuestionsRequested: examD.totalQuestionsRequested, subjectWiseCount: examD.subjectWiseCount,
+1822-        },
+1823-        assignment: {
+1824:          assignmentType: assign.assignmentType, batch: assign.batch,
+1825:          multiBatch: assign.multiBatchEnabled ? assign.multiBatch : [],
+1826-          testSeriesId: assign.testSeriesId, notifyStudents: assign.notifyStudents,
+1827-        },
+1828-        postCreate: {
+--
+1875-          <ExamDetailsForm d={examD} setD={setExamD} totalParsed={goodQs.length} detectedSubjects={detectedSubjects} />
+1876-          <AssignmentSelector a={assign} setA={setAssign} API={API} token={getToken()} />
+1877-          <PostCreateActions p={postC} setP={setPostC} />
+1878:          <DuplicateCheckPanel texts={goodQs.map(q=>q.text)} batch={assign.batch} API={API} token={getToken()} />
+1879:          <PreSubmitChecklist questionsOk={goodQs.length>0} titleOk={!!examD.title.trim()} dateOk={!!examD.startTime} batchOk={assign.assignmentType==='individual'||!!assign.batch||!!assign.seriesName} />
+1880-          <button onClick={handleCreate} disabled={creating} style={{ ...S.bp, width:'100%', padding:14, fontSize:14, opacity:creating?0.6:1 }}>
+1881-            {creating ? '⟳ Creating Exam...' : `Create Exam (${goodQs.length} Qs) →`}
+1882-          </button>
+--
+2186-          totalQuestionsRequested: examD.totalQuestionsRequested, subjectWiseCount: examD.subjectWiseCount,
+2187-        },
+2188-        assignment: {
+2189:          assignmentType: assign.assignmentType, batch: assign.batch,
+2190:          multiBatch: assign.multiBatchEnabled ? assign.multiBatch : [],
+2191-          testSeriesId: assign.testSeriesId, notifyStudents: assign.notifyStudents,
+2192-        },
+2193-        postCreate: {
+--
+2240-          <ExamDetailsForm d={examD} setD={setExamD} totalParsed={goodQs.length} detectedSubjects={detectedSubjects} />
+2241-          <AssignmentSelector a={assign} setA={setAssign} API={API} token={getToken()} />
+2242-          <PostCreateActions p={postC} setP={setPostC} />
+2243:          <DuplicateCheckPanel texts={goodQs.map(q=>q.text)} batch={assign.batch} API={API} token={getToken()} />
+2244:          <PreSubmitChecklist questionsOk={goodQs.length>0} titleOk={!!examD.title.trim()} dateOk={!!examD.startTime} batchOk={assign.assignmentType==='individual'||!!assign.batch||!!assign.seriesName} />
+2245-          <button onClick={handleCreate} disabled={creating} style={{ ...S.bp, width:'100%', padding:14, fontSize:14, opacity:creating?0.6:1 }}>
+2246-            {creating ? '⟳ Creating Exam...' : `Create Exam (${goodQs.length} Qs) →`}
+2247-          </button>
+
+---- FILE: frontend/app/admin/x7k2p/CreateExamWizard.tsx ----
+38-  return <span style={{background:`${col}18`,border:`1px solid ${col}30`,color:col,borderRadius:8,padding:'2px 8px',fontSize:10,fontWeight:600}}>{l}</span>
+39-}
+40-
+41:interface Props { token:string; API:string; T:(m:string,t?:'s'|'e'|'w')=>void; fetchAll:()=>void; batches:any[]; testSeries:any[]; exams:any[]; questions:any[]; pendingTemplate?:any; onTemplateConsumed?:()=>void }
+42-
+43-const SUBJECTS = ['Physics','Chemistry','Biology','Math','GK','English','Other']
+44-const CATEGORIES = ['Full Mock','Chapter Test','Part Test','Grand Test','Mini Test','PYQ','Custom']
+45-const EXAM_TYPES = ['NEET','JEE','CUET','RBSE','CBSE','Custom']
+46-
+47:export default function CreateExamWizard({ token, API, T, fetchAll, batches, testSeries, exams, questions, pendingTemplate, onTemplateConsumed }:Props) {
+48-  const hdrs = { 'Content-Type':'application/json', Authorization:`Bearer ${token}` }
+49-
+50-  // ── Wizard step ──────────────────────────────────────────────────────────────
+--
+77-  const [sectionWise, setSectionWise] = useState(true)
+78-  const [watermark, setWatermark]     = useState(false)
+79-  const [liveQsRange, setLiveQsRange] = useState<{from:number;to:number;subject:string}[]>([{from:1,to:45,subject:'Physics'},{from:46,to:90,subject:'Chemistry'},{from:91,to:180,subject:'Biology'}])
+80:  const [assignType, setAssignType]   = useState<'batch'|'series'|'open'>('open')
+81:  const [batchId, setBatchId]         = useState('')
+82-  const [testSeriesId, setTestSeriesId] = useState('')
+83:  const [multiBatches, setMultiBatches] = useState<string[]>([])
+84-  const [formErrors, setFormErrors]   = useState<Record<string,string>>({})
+85-  const [creating, setCreating]       = useState(false)
+86-  const [templates, setTemplates]     = useState<any[]>([])
+--
+173-        duration, totalMarks, correctMarks, negativeMarks, startDate, endDate,
+174-        instructions, passwordEnabled, password, whitelist: [], waitingRoom,
+175-        waitingMinutes: waitingMins, reattempt, reattemptUnlimited, reviewWindow,
+176:        sectionWise, watermark, liveQsRange, assignType, batchId, testSeriesId, multiBatches, status: 'draft'
+177-      }
+178-      const r = await fetch(`${API}/api/exam-wizard/create`, { method:'POST', headers: hdrs, body: JSON.stringify(body) })
+179-      const d = await r.json()
+--
+381-    { label: 'Duration configured',    ok: duration > 0 },
+382-    { label: 'Marking scheme set',     ok: correctMarks > 0 },
+383-    { label: `Questions added (${(reviewData?.exam?.questions||[]).length}/${totalTarget})`, ok: (reviewData?.exam?.questions||[]).length >= totalTarget },
+384:    { label: 'Assignment configured',  ok: assignType === 'open' || !!batchId || !!testSeriesId },
+385-  ]
+386-  const checklistOk = checklist.every(c => c.ok)
+387-
+--
+667-                </div>
+668-              </div>
+669-
+670:              {/* Batch / Test Series assignment */}
+671-              <div style={cs}>
+672-                <div style={{fontWeight:700,fontSize:13,color:PRP,marginBottom:14}}>🏫 Assign To</div>
+673-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
+674:                  {([['open','🌐 Open','All students'],['batch','🏫 Batch','Specific batch'],['series','📚 Test Series','Series group']] as const).map(([v,l,d])=>(
+675:                    <div key={v} onClick={()=>{setAssignType(v);if(v!=='batch')setBatchId('');if(v!=='series')setTestSeriesId('')}} style={{padding:'10px',borderRadius:10,border:`1.5px solid ${assignType===v?PRP:BOR}`,background:assignType===v?`${PRP}12`:'transparent',cursor:'pointer',transition:'all 0.15s'}}>
+676-                      <div style={{fontSize:13,fontWeight:700,color:assignType===v?PRP:TS,marginBottom:2}}>{l}</div>
+677-                      <div style={{fontSize:10,color:DIM}}>{d}</div>
+678-                    </div>
+679-                  ))}
+680-                </div>
+681:                {assignType === 'batch' && (
+682:                  <Field label="Select Batch">
+683:                    <select value={batchId} onChange={e=>setBatchId(e.target.value)} style={inp}>
+684:                      <option value="">— Select Batch —</option>
+685:                      {batches.map((b:any)=><option key={b._id} value={b._id}>{b.name}{b.lifecycleStatus?` · ${b.lifecycleStatus}`:''}</option>)}
+686-                    </select>
+687-                  </Field>
+688-                )}
+--
+720-                    ['❓',`${totalQs} questions`],
+721-                    ['🏆',`${totalMarks} marks`],
+722-                    ['+',`+${correctMarks} / −${negativeMarks}`],
+723:                    ['🏫',assignType==='batch'?(batches.find((b:any)=>b._id===batchId)?.name||'Batch not chosen'):assignType==='series'?(testSeries.find((s:any)=>s._id===testSeriesId)?.name||'Series not chosen'):'Open Access'],
+724-                  ].map(([ico,val],i)=>(
+725-                    <div key={i} style={{display:'flex',gap:8,alignItems:'flex-start',padding:'5px 0',borderBottom:`1px solid ${BOR}`}}>
+726-                      <span style={{fontSize:12,flexShrink:0,color:DIM}}>{ico}</span>
+--
+1038-                    ['❓ Questions',`${(reviewData?.exam?.questions||[]).length} / ${totalTarget}`],
+1039-                    ['🏆 Total Marks',`${totalMarks}`],
+1040-                    ['✅/❌ Marking',`+${correctMarks} / −${negativeMarks}`],
+1041:                    ['🏫 Assignment',assignType==='open'?'Open Access':assignType==='batch'?(batches.find((b:any)=>b._id===batchId)?.name||'Batch'):(testSeries.find((s:any)=>s._id===testSeriesId)?.name||'Series')],
+1042-                    ['🔐 Password',passwordEnabled?'Set':'None'],
+1043-                    ['📊 Category',category],
+1044-                  ].map(([l,v])=>(
+--
+1101-                <div style={{fontSize:32,fontWeight:900,color:PHY}}>{reviewData.studentCount}</div>
+1102-                <div>
+1103-                  <div style={{fontWeight:700,fontSize:13,color:TS}}>Students will see this exam</div>
+1104:                  <div style={{fontSize:10,color:DIM}}>Based on {assignType==='batch'?'selected batch':'all students'}</div>
+1105-                </div>
+1106-              </div>
+1107-            </div>
+--
+1121-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+1122-              <div>
+1123-                <div style={{fontSize:13,color:TS,fontWeight:600}}>🔔 Notify Students on Publish</div>
+1124:                <div style={{fontSize:10,color:DIM,marginTop:2}}>Send notification to all students in assigned batch</div>
+1125-              </div>
+1126-              <Toggle on={notifyStudents} onChange={setNotifyStudents}/>
+1127-            </div>
+
+---- FILE: frontend/app/admin/x7k2p/AllExams.tsx ----
+76-  const [statusFilter, setStatusFilter] = useState<string[]>([])
+77-  const [categoryFilter, setCategoryFilter] = useState('')
+78-  const [subjectFilter, setSubjectFilter] = useState('')
+79:  const [batchFilter, setBatchFilter] = useState('')
+80-  const [seriesFilter, setSeriesFilter] = useState('')
+81-  const [dateStart, setDateStart] = useState('')
+82-  const [dateEnd, setDateEnd] = useState('')
+--
+89-  const [bulkMode, setBulkMode] = useState(false)
+90-  const [selectedIds, setSelectedIds] = useState<string[]>([])
+91-
+92:  const [filterOptions, setFilterOptions] = useState<any>({categories:[],subjects:[],batches:[],series:[]})
+93:  const [realBatches, setRealBatches] = useState<any[]>([]) // synced live from Batch Manager (/api/admin/batch-controls)
+94-  const [admins, setAdmins] = useState<any[]>([])
+95-
+96-  const [analyticsExam, setAnalyticsExam] = useState<any>(null)
+--
+124-
+125-  // ── Feature 31 — clone dialog, success toast, history, compare ──────────────
+126-  const [cloneDialogExam, setCloneDialogExam] = useState<any>(null)
+127:  const [cloneForm, setCloneForm] = useState<any>({newTitle:'',startTime:'',endTime:'',targetBatch:'',seriesName:''})
+128-  const [cloning, setCloning] = useState(false)
+129-  const [cloneSuccessToast, setCloneSuccessToast] = useState<any>(null)
+130-  const [cloneInfoExam, setCloneInfoExam] = useState<any>(null)
+--
+144-  useEffect(()=>{ const tm=setTimeout(()=>setSearch(searchInput),350); return ()=>clearTimeout(tm) },[searchInput])
+145-
+146-  // ── reset to page 1 whenever a filter changes ───────────────────────────────
+147:  useEffect(()=>{ setPage(1) },[search,statusFilter,categoryFilter,subjectFilter,batchFilter,seriesFilter,dateStart,dateEnd,sort,mine,viewAsAdmin,needsAttention])
+148-
+149-  const buildParams = useCallback((forExport?:boolean)=>{
+150-    const p = new URLSearchParams()
+--
+152-    if(statusFilter.length) p.set('status',statusFilter.join(','))
+153-    if(categoryFilter) p.set('category',categoryFilter)
+154-    if(subjectFilter) p.set('subject',subjectFilter)
+155:    if(batchFilter) p.set('batch',batchFilter)
+156-    if(seriesFilter) p.set('series',seriesFilter)
+157-    if(dateStart) p.set('startDate',dateStart)
+158-    if(dateEnd) p.set('endDate',dateEnd)
+--
+162-    if(needsAttention) p.set('needsAttention','true')
+163-    if(!forExport){ p.set('page',String(page)); p.set('limit','20') }
+164-    return p
+165:  },[search,statusFilter,categoryFilter,subjectFilter,batchFilter,seriesFilter,dateStart,dateEnd,sort,mine,viewAsAdmin,needsAttention,page])
+166-
+167-  const fetchExams = useCallback(async ()=>{
+168-    setLoading(true)
+--
+181-    try {
+182-      const r = await fetch(`${API}/api/exams-manage/filter-options`,{headers:{Authorization:`Bearer ${token}`}})
+183-      const d = await r.json()
+184:      if(d.success) setFilterOptions({categories:d.categories||[],subjects:d.subjects||[],batches:d.batches||[],series:d.series||[]})
+185-    } catch {}
+186-  },[API,token])
+187-
+188:  // ── synced live from the real Batch Manager — not just batch names already
+189:  // used on past exams, so a brand-new batch with zero exams still shows up ──
+190:  const fetchRealBatches = useCallback(async ()=>{
+191-    try {
+192:      const r = await fetch(`${API}/api/admin/batch-controls`,{headers:{Authorization:`Bearer ${token}`}})
+193-      const d = await r.json()
+194:      setRealBatches(d.batches||[])
+195-    } catch {}
+196-  },[API,token])
+197-
+--
+204-  },[API,token])
+205-
+206-  useEffect(()=>{ fetchFilterOptions() },[fetchFilterOptions])
+207:  useEffect(()=>{ fetchRealBatches() },[fetchRealBatches])
+208-  useEffect(()=>{ if(isSuperAdmin) fetchAdmins() },[isSuperAdmin,fetchAdmins])
+209-
+210-  // ── 33.15 — calendar view data (separate, wider, date-bounded fetch) ────────
+--
+254-  // ════════════════════════════════════════════════════════════════════════
+255-  const openCloneDialog = (exam:any) => {
+256-    setCloneDialogExam(exam)
+257:    setCloneForm({ newTitle: `Copy of ${exam.title}`, startTime:'', endTime:'', targetBatch: exam.batch||'', seriesName: exam.seriesName||'' })
+258-  }
+259-
+260-  const submitClone = async () => {
+--
+406-      title: exam.title||'', category: exam.category||'Full Mock', subject: exam.subject||'NEET', type: exam.type||'NEET',
+407-      duration: exam.duration||60, totalMarks: exam.totalMarks||0,
+408-      correctMarks: exam.markingScheme?.correct ?? 4, incorrectMarks: exam.markingScheme?.incorrect ?? -1,
+409:      batch: exam.batch||'', seriesName: exam.seriesName||'', watermark: !!exam.watermark,
+410-      customInstructions: exam.customInstructions||'', status: exam.status||'draft',
+411-      startTime: exam.schedule?.startTime ? new Date(exam.schedule.startTime).toISOString().slice(0,16) : '',
+412-      endTime: exam.schedule?.endTime ? new Date(exam.schedule.endTime).toISOString().slice(0,16) : ''
+--
+496-  }
+497-
+498-  const toggleStatusFilter = (s:string) => setStatusFilter(p=>p.includes(s)?p.filter(x=>x!==s):[...p,s])
+499:  const clearAllFilters = () => { setSearchInput(''); setStatusFilter([]); setCategoryFilter(''); setSubjectFilter(''); setBatchFilter(''); setSeriesFilter(''); setDateStart(''); setDateEnd(''); setSort('newest'); setMine(false); setViewAsAdmin(''); setNeedsAttention(false) }
+500:  const activeFilterCount = [statusFilter.length>0,!!categoryFilter,!!subjectFilter,!!batchFilter,!!seriesFilter,!!dateStart||!!dateEnd,mine,!!viewAsAdmin,needsAttention].filter(Boolean).length
+501-
+502-  return (
+503-    <div style={{fontFamily:'Inter,sans-serif'}}>
+--
+591-              </div>
+592-            </div>
+593-
+594:            {/* batch / series — 33.5 */}
+595-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+596-              <div>
+597:                <label style={lbl}>Batch</label>
+598:                <select value={batchFilter} onChange={e=>setBatchFilter(e.target.value)} style={inp}>
+599:                  <option value="">All Batches</option>
+600:                  {filterOptions.batches.map((b:string)=><option key={b} value={b}>{b}</option>)}
+601-                </select>
+602-              </div>
+603-              <div>
+--
+649-            {/* needs attention — 33.18 */}
+650-            <label style={{display:'flex',alignItems:'center',gap:7,fontSize:12,color:WRN,cursor:'pointer'}}>
+651-              <input type="checkbox" checked={needsAttention} onChange={e=>setNeedsAttention(e.target.checked)}/>
+652:              ⚠️ Needs Attention (no batch assigned / 0 questions)
+653-            </label>
+654-
+655-            {activeFilterCount>0 && <button onClick={clearAllFilters} style={{...bg_,fontSize:11,alignSelf:'flex-start' as any,color:DNG,borderColor:`${DNG}33`}}>✕ Clear All Filters</button>}
+--
+717-          {exams.map(e=>{
+718-            const meta = STATUS_META[e.status] || STATUS_META.draft
+719-            const cd = e.status==='scheduled' ? countdownLabel(e.schedule?.startTime, now) : null
+720:            const needsAttn = (!e.batch) || (e.questionCount===0)
+721-            const selected = selectedIds.includes(e._id)
+722-            const busy = busyId===e._id
+723-            return (
+--
+743-                      <Chip ico="👥" label={`${e.studentCount||0} students`} col={SUC}/>
+744-                      <Chip ico="❓" label={`${e.questionCount||0} Qs`} col={PRP}/>
+745-                      {e.category && <Chip ico="📐" label={e.category} col={DIM}/>}
+746:                      {e.batch && <Chip ico="📦" label={e.batch} col={DIM}/>}
+747-                      {e.clonedFrom && <Chip ico="🔗" label={`Source: ${e.clonedFrom.title||'…'}`} col={PRP}/>}
+748-                      {e.cloneCount>0 && (
+749-                        <span onClick={(ev:any)=>{ev.stopPropagation();openCloneInfo(e)}} style={{cursor:'pointer'}}>
+--
+909-                <div><label style={lbl}>New End Date/Time</label><input type="datetime-local" value={cloneForm.endTime} onChange={e=>setCloneForm((f:any)=>({...f,endTime:e.target.value}))} style={inp}/></div>
+910-              </div>
+911-              <div>
+912:                <label style={lbl}>Batch (change this to clone into a different batch)</label>
+913:                <select value={cloneForm.targetBatch} onChange={e=>setCloneForm((f:any)=>({...f,targetBatch:e.target.value}))} style={inp}>
+914:                  <option value="">— Open / No Batch —</option>
+915:                  {realBatches.map((b:any)=><option key={b._id} value={b.name}>{b.name}{b.status!=='active'?` (${b.status})`:''}</option>)}
+916-                </select>
+917-              </div>
+918-              <div>
+--
+983-                    <div style={{border:`1px solid ${BOR}`,borderRadius:8,overflow:'hidden'}}>
+984-                      {[
+985-                        {key:'category',label:'Category'},{key:'subject',label:'Subject'},{key:'type',label:'Exam Type'},
+986:                        {key:'duration',label:'Duration'},{key:'totalMarks',label:'Total Marks'},{key:'batch',label:'Batch'},
+987-                        {key:'seriesName',label:'Series'},{key:'status',label:'Status'}
+988-                      ].map((f,i)=>{
+989-                        const valA = compareData.examA[f.key] ?? '—'
+--
+1036-              </div>
+1037-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+1038-                <div>
+1039:                  <label style={lbl}>Batch</label>
+1040:                  <select value={editForm.batch} onChange={e=>setEditForm((f:any)=>({...f,batch:e.target.value}))} style={inp}>
+1041:                    <option value="">— Open / No Batch —</option>
+1042:                    {realBatches.map((b:any)=><option key={b._id} value={b.name}>{b.name}{b.status!=='active'?` (${b.status})`:''}</option>)}
+1043-                  </select>
+1044-                </div>
+1045-                <div>
+
+---- FILE: frontend/app/admin/x7k2p/Student360Preview.tsx ----
+225-                <div style={{fontSize:10.5, color:T.DIM, marginTop:2}}>{data.email}</div>
+226-                <div style={{display:'flex',gap:6,justifyContent:'center',marginTop:8,flexWrap:'wrap'}}>
+227-                  {data.verified && <Badge col={T.SUC}>✓ Verified</Badge>}
+228:                  {data.batch && <Badge col={T.ACC}>📚 {data.batch}</Badge>}
+229-                  {data.targetExam && <Badge col={T.GOLD}>🎯 {data.targetExam}</Badge>}
+230-                </div>
+231-              </div>
+
+---- FILE: frontend/app/admin/x7k2p/AdminAnnouncements.tsx ----
+54-  const [message, setMessage] = useState(''); const [messageHi, setMessageHi] = useState('')
+55-  const [showBilingual, setShowBilingual] = useState(false)
+56-  const [type, setType] = useState('update')
+57:  const [audienceMode, setAudienceMode] = useState<'all' | 'batch' | 'testseries' | 'students'>('all')
+58:  const [selBatchIds, setSelBatchIds] = useState<string[]>([])
+59-  const [selTestSeriesIds, setSelTestSeriesIds] = useState<string[]>([])
+60-  const [studentQuery, setStudentQuery] = useState('')
+61-  const [studentResults, setStudentResults] = useState<any[]>([])
+--
+71-  const msgRef = useRef<HTMLTextAreaElement>(null)
+72-
+73-  // ── Data ──
+74:  const [batches, setBatches] = useState<any[]>([])
+75-  const [templates, setTemplates] = useState<any[]>([])
+76-  const [stats, setStats] = useState<any>({ totalSent: 0, thisWeek: 0, avgReadRate: 0, scheduled: 0 })
+77-  const [history, setHistory] = useState<any[]>([])
+--
+86-  const headers = { Authorization: `Bearer ${token}` }
+87-  const jsonHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+88-
+89:  const loadBatches = () => fetch(`${API}/api/admin/announcements/batches`, { headers }).then(r => r.json()).then(d => setBatches(Array.isArray(d) ? d : [])).catch(() => {})
+90-  const loadTemplates = () => fetch(`${API}/api/admin/announcements/templates`, { headers }).then(r => r.json()).then(d => setTemplates(Array.isArray(d) ? d : [])).catch(() => {})
+91-  const loadStats = () => fetch(`${API}/api/admin/announcements/stats`, { headers }).then(r => r.json()).then(d => setStats(d)).catch(() => {})
+92-  const loadHistory = () => {
+--
+100-    fetch(`${API}/api/admin/announcements?${qs.toString()}`, { headers }).then(r => r.json()).then(d => setHistory(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setHistoryLoading(false))
+101-  }
+102-
+103:  useEffect(() => { if (token) { loadBatches(); loadTemplates(); loadStats(); loadHistory() } }, [token])
+104-  useEffect(() => { if (token) loadHistory() }, [fSearch, fType, fAudience, fDateFrom, fDateTo])
+105-
+106-  // ── Student smart-search (debounced) ──
+--
+131-
+132-  const resetCompose = () => {
+133-    setEditingId(null); setTitle(''); setTitleHi(''); setMessage(''); setMessageHi(''); setShowBilingual(false)
+134:    setType('update'); setAudienceMode('all'); setSelBatchIds([]); setSelTestSeriesIds([]); setSelStudents([]); setStudentQuery(''); setStudentResults([])
+135-    setSendVia('in-app'); setPinned(false); setImageUrl(''); setScheduleMode('now'); setScheduledAt(''); setExpiryDate('')
+136-  }
+137-
+138-  const buildAudience = () => {
+139:    if (audienceMode === 'batch') return { mode: 'batch', batchIds: selBatchIds }
+140-    if (audienceMode === 'testseries') return { mode: 'testseries', testSeriesIds: selTestSeriesIds }
+141-    if (audienceMode === 'students') return { mode: 'students', studentIds: selStudents.map(s => s._id) }
+142-    return { mode: 'all' }
+--
+144-
+145-  const doSend = async (asDraft = false) => {
+146-    if (!title.trim() || !message.trim()) { notify('Title and message are required', 'e'); return }
+147:    if (audienceMode === 'batch' && selBatchIds.length === 0) { notify('Select at least one batch', 'e'); return }
+148-    if (audienceMode === 'testseries' && selTestSeriesIds.length === 0) { notify('Select at least one test series', 'e'); return }
+149-    if (audienceMode === 'students' && selStudents.length === 0) { notify('Select at least one student', 'e'); return }
+150-    setSending(true)
+--
+174-    setExpiryDate(a.expiryDate ? String(a.expiryDate).slice(0, 10) : '')
+175-    const mode = a.audience?.mode || 'all'
+176-    setAudienceMode(mode)
+177:    setSelBatchIds(mode === 'batch' ? (a.audience.batchIds || []).map((b: any) => b._id || b) : [])
+178-    setSelTestSeriesIds(mode === 'testseries' ? (a.audience.testSeriesIds || []).map((b: any) => b._id || b) : [])
+179-    setSelStudents([])
+180-    window.scrollTo({ top: 0, behavior: 'smooth' })
+--
+217-    <ThemeCtx.Provider value={T}>
+218-      <div>
+219-        <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 22, fontWeight: 700, color: T.TS, margin: '0 0 4px' }}>📢 Announcements</div>
+220:        <div style={{ fontSize: 12, color: T.DIM, marginBottom: 16 }}>Send broadcasts to all students or specific batches</div>
+221-
+222-        {/* §1.1.3 PageHero-style banner */}
+223-        <div style={{ background: `linear-gradient(135deg, rgba(77,159,255,0.1), rgba(0,20,40,0.4))`, border: `1px solid ${T.BOR}`, borderRadius: 16, padding: '20px 22px', marginBottom: 16, display: 'flex', gap: 14, alignItems: 'center' }}>
+224-          <div style={{ fontSize: 34 }}>📢</div>
+225-          <div>
+226-            <div style={{ fontWeight: 800, fontSize: 15, color: T.TS }}>Platform Broadcast Center</div>
+227:            <div style={{ fontSize: 11.5, color: T.DIM, marginTop: 3 }}>Send announcements via in-app notifications, email, or both. Target all students, specific batches, or individual students. Schedule for later or save as a draft.</div>
+228-          </div>
+229-        </div>
+230-
+--
+280-          {/* Audience selector — visual cards (§1.2.2, §2.1.9, §3.1.2) — v2: 4 modes */}
+281-          <Lbl>Target Audience</Lbl>
+282-          <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+283:            {[{ v: 'all', l: '🌍 All Students' }, { v: 'batch', l: '🏫 Batches' }, { v: 'testseries', l: '🎯 Test Series' }, { v: 'students', l: '👤 Specific Students' }].map(a => (
+284-              <button key={a.v} onClick={() => setAudienceMode(a.v as any)} style={{
+285-                padding: '8px 14px', borderRadius: 10, border: `1.5px solid ${audienceMode === a.v ? T.ACC : T.BOR}`,
+286-                background: audienceMode === a.v ? 'rgba(77,159,255,0.15)' : 'transparent',
+--
+288-              }}>{a.l}</button>
+289-            ))}
+290-          </div>
+291:          {audienceMode === 'batch' && (
+292-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, marginBottom: 14, maxHeight: 220, overflowY: 'auto', padding: 4 }}>
+293:              {batches.length === 0 && <div style={{ fontSize: 11, color: T.DIM }}>No batches found.</div>}
+294:              {batches.map(b => {
+295:                const on = selBatchIds.includes(b._id)
+296-                return (
+297:                  <div key={b._id} onClick={() => setSelBatchIds(on ? selBatchIds.filter(x => x !== b._id) : [...selBatchIds, b._id])} style={{
+298-                    display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+299-                    border: `1.5px solid ${on ? T.ACC : T.BOR}`, background: on ? 'rgba(77,159,255,0.1)' : 'rgba(255,255,255,0.02)',
+300-                  }}>
+--
+310-          )}
+311-          {audienceMode === 'testseries' && (
+312-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, marginBottom: 14, maxHeight: 220, overflowY: 'auto', padding: 4 }}>
+313:              {batches.length === 0 && <div style={{ fontSize: 11, color: T.DIM }}>No test series found.</div>}
+314:              {batches.map(b => {
+315-                const on = selTestSeriesIds.includes(b._id)
+316-                return (
+317-                  <div key={b._id} onClick={() => setSelTestSeriesIds(on ? selTestSeriesIds.filter(x => x !== b._id) : [...selTestSeriesIds, b._id])} style={{
+--
+420-            <select value={fAudience} onChange={e => setFAudience(e.target.value)} style={inp}>
+421-              <option value="">All Audiences</option>
+422-              <option value="all">All Students</option>
+423:              <option value="batch">Batch</option>
+424-              <option value="testseries">Test Series</option>
+425-              <option value="students">Specific Students</option>
+426-            </select>
+--
+437-            </div>
+438-          ) : history.map(a => {
+439-            const ti = typeInfo(a.type)
+440:            const audLabel = a.audience?.mode === 'all' ? 'All Students' : a.audience?.mode === 'batch' ? `${(a.audience.batchIds || []).length} batch(es)` : a.audience?.mode === 'testseries' ? `${(a.audience.testSeriesIds || []).length} test series` : `${(a.audience.studentIds || []).length} student(s)`
+441-            return (
+442-              <div key={a._id} style={{
+443-                borderLeft: `4px solid ${a.type === 'urgent' ? T.DNG : a.pinned ? T.GOLD : ti.col}`,
+
+---- FILE: frontend/app/admin/x7k2p/EntryProctoringControlCenter.tsx ----
+85-  const [previewMins, setPreviewMins] = useState(20)
+86-  const [previewFlow, setPreviewFlow] = useState<any[]>([])
+87-  const [showCreate, setShowCreate] = useState(false)
+88:  const [newScope, setNewScope] = useState<{ type: string; examId: string; batchId: string; testSeriesId: string; name: string }>({ type: 'global', examId: '', batchId: '', testSeriesId: '', name: '' })
+89-  const [massApplyIds, setMassApplyIds] = useState('')
+90-
+91-  const notify = (m: string) => { setToast(m); setTimeout(() => setToast(null), 3000) }
+--
+112-    try {
+113-      const scope: any = { type: newScope.type }
+114-      if (newScope.type === 'exam') scope.examId = newScope.examId
+115:      if (newScope.type === 'batch') scope.batchId = newScope.batchId
+116-      if (newScope.type === 'series') scope.testSeriesId = newScope.testSeriesId
+117-      const d = await api('/policies', { method: 'POST', body: JSON.stringify({ name: newScope.name || undefined, scope }) })
+118-      notify('✅ Policy created')
+--
+487-            <select value={newScope.type} onChange={e => setNewScope(s => ({ ...s, type: e.target.value }))} style={{ ...inputStyle, marginBottom: 8 }}>
+488-              <option value="global">Global Default</option>
+489-              <option value="exam">Single Exam</option>
+490:              <option value="batch">Batch</option>
+491-              <option value="series">Test Series</option>
+492-            </select>
+493-            {newScope.type === 'exam' && <input placeholder="Exam ID" value={newScope.examId} onChange={e => setNewScope(s => ({ ...s, examId: e.target.value }))} style={{ ...inputStyle, marginBottom: 8 }} />}
+494:            {newScope.type === 'batch' && <input placeholder="Batch ID" value={newScope.batchId} onChange={e => setNewScope(s => ({ ...s, batchId: e.target.value }))} style={{ ...inputStyle, marginBottom: 8 }} />}
+495-            {newScope.type === 'series' && <input placeholder="Test Series ID" value={newScope.testSeriesId} onChange={e => setNewScope(s => ({ ...s, testSeriesId: e.target.value }))} style={{ ...inputStyle, marginBottom: 8 }} />}
+496-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+497-              <button onClick={createPolicy} style={btn(true)}>Create</button>
+
+---- FILE: frontend/app/profile/page.tsx ----
+411-            <span style={{fontSize:11,color:sub}}>ID: {me?.studentId || '—'}</span>
+412-          </div>
+413-          <div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
+414:            {ov?.batch && <span style={{fontSize:10,fontWeight:700,color:prim,background:theme.chipBg,padding:'3px 9px',borderRadius:99}}>📚 {ov.batch}</span>}
+415-            {targetExam && <span style={{fontSize:10,fontWeight:700,color:'#FFD700',background:'rgba(255,215,0,0.1)',padding:'3px 9px',borderRadius:99}}>🎯 {targetExam}</span>}
+416-          </div>
+417-        </div>
+--
+481-      <div style={{width:56,height:56,borderRadius:'50%',background: avatar?'transparent':`linear-gradient(135deg,${prim},#00D4FF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:800,color:'#fff',flexShrink:0,overflow:'hidden'}}>{avatar ? <img src={avatar} alt="avatar" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/> : initials}</div>
+482-      <div style={{flex:1,minWidth:140}}>
+483-        <div style={{fontWeight:800,fontSize:14,color: dm?'#F1F6FC':'#0F172A'}}>{me?.name}</div>
+484:        <div style={{fontSize:11,color: dm?'#8DA2C0':'#51607A'}}>ID: {me?.studentId||'—'} {ov?.batch?`· ${ov.batch}`:''}</div>
+485-        <div style={{fontSize:11,color: dm?'#8DA2C0':'#51607A'}}>{t('Target','लक्ष्य')}: {targetExam||'—'}</div>
+486-        {ov?.verified && <span style={{fontSize:9,fontWeight:700,color:'#00C48C'}}>✓ {t('Verified','सत्यापित')}</span>}
+487-      </div>
+
+---- FILE: frontend/app/my-exams/page.tsx ----
+40-  const chipBg = theme.chipBg || (theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(37,99,235,0.06)')
+41-
+42-  const [exams, setExams] = useState<any[]>([])
+43:  const [synced, setSynced] = useState<{ batches: string[]; series: string[] }>({ batches: [], series: [] })
+44-  const [loading, setLoading] = useState(true)
+45-  const [search, setSearch] = useState('')
+46-  const [statusFilter, setStatusFilter] = useState('all')
+47-  const [subjectFilter, setSubjectFilter] = useState('all')
+48:  const [batchFilter, setBatchFilter] = useState('all') // holds a batch name OR a series name
+49-  const [categoryFilter, setCategoryFilter] = useState('all')
+50-  const [previewExam, setPreviewExam] = useState<any>(null)
+51-  const [pwModal, setPwModal] = useState<any>(null)
+--
+59-      const saved = JSON.parse(localStorage.getItem('pr_myexams_filters') || '{}')
+60-      if (saved.statusFilter) setStatusFilter(saved.statusFilter)
+61-      if (saved.subjectFilter) setSubjectFilter(saved.subjectFilter)
+62:      if (saved.batchFilter) setBatchFilter(saved.batchFilter)
+63-      if (saved.categoryFilter) setCategoryFilter(saved.categoryFilter)
+64-      if (saved.search) setSearch(saved.search)
+65-    } catch (e) {}
+66-  }, [])
+67-  useEffect(() => {
+68:    localStorage.setItem('pr_myexams_filters', JSON.stringify({ statusFilter, subjectFilter, batchFilter, categoryFilter, search }))
+69:  }, [statusFilter, subjectFilter, batchFilter, categoryFilter, search])
+70-
+71-  const load = () => {
+72-    if (!token) return
+--
+75-      .then(d => {
+76-        if (d?.success) {
+77-          setExams(d.exams || [])
+78:          setSynced({ batches: d.syncedBatches || [], series: d.syncedSeries || [] })
+79-        }
+80-      })
+81-      .catch(() => {})
+--
+92-      if (statusFilter === 'completed' && !(e.derivedStatus === 'ended' || (e.activeAttemptId === null && e.performance))) return false
+93-      if (subjectFilter !== 'all' && e.subject !== subjectFilter) return false
+94-      if (categoryFilter !== 'all' && e.category !== categoryFilter) return false
+95:      // F52 v4 fix #2 — batchFilter now matches EITHER a batch name/multiBatch OR a series name
+96:      if (batchFilter !== 'all') {
+97:        const matchesBatch = e.batch === batchFilter || (e.multiBatch || []).includes(batchFilter)
+98:        const matchesSeries = e.seriesName === batchFilter
+99:        if (!matchesBatch && !matchesSeries) return false
+100-      }
+101-      return true
+102-    })
+103:  }, [exams, search, statusFilter, subjectFilter, batchFilter, categoryFilter])
+104-
+105-  const stats = useMemo(() => ({
+106-    total: exams.length,
+--
+193-  }
+194-
+195-  const subjects = useMemo(() => Array.from(new Set(exams.map(e => e.subject).filter(Boolean))), [exams])
+196:  // F52 v4 fix #2 — merged Batches + Test Series into one synced list for the dropdown
+197:  const batchesAndSeries = useMemo(() => Array.from(new Set([
+198:    ...synced.batches,
+199-    ...synced.series,
+200:    ...exams.map(e => e.batch).filter(Boolean),
+201-    ...exams.map(e => e.seriesName).filter(Boolean)
+202-  ])), [exams, synced])
+203-  const categories = useMemo(() => Array.from(new Set(exams.map(e => e.category).filter(Boolean))), [exams])
+--
+223-        ))}
+224-      </div>
+225-
+226:      {(synced.batches.length > 0 || synced.series.length > 0) && (
+227-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: sub, background: chipBg, border: `1px solid ${border}`, borderRadius: 10, padding: '8px 12px', marginBottom: 14 }}>
+228-          <span style={{ color: C.success }}>✅</span>
+229-          <span>
+230:            {t('Synced', 'Synced')}: {synced.batches.length > 0 && `${synced.batches.length} ${t('Batch(es)', 'Batch(es)')}`}
+231:            {synced.batches.length > 0 && synced.series.length > 0 && ' · '}
+232-            {synced.series.length > 0 && `${synced.series.length} ${t('Test Series', 'Test Series')}`}
+233-          </span>
+234-        </div>
+--
+261-            <option value="all">{t('All Subjects', 'All Subjects')}</option>
+262-            {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+263-          </select>
+264:          {/* F52 v4 fix #2 — renamed + merged Batches/Test Series dropdown */}
+265:          <select value={batchFilter} onChange={e => setBatchFilter(e.target.value)} style={{ ...selectStyle, flexShrink: 0 }}>
+266:            <option value="all">{t('All Batches/Test Series', 'All Batches/Test Series')}</option>
+267:            {batchesAndSeries.map(b => <option key={b} value={b}>{b}</option>)}
+268-          </select>
+269-          <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} style={{ ...selectStyle, flexShrink: 0 }}>
+270-            <option value="all">{t('All Categories', 'All Categories')}</option>
+271-            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+272-          </select>
+273-        </div>
+274:        {(search || statusFilter !== 'all' || subjectFilter !== 'all' || batchFilter !== 'all' || categoryFilter !== 'all') && (
+275-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+276-            {search && <span onClick={() => setSearch('')} style={{ cursor: 'pointer', fontSize: 11, background: chipBg, border: `1px solid ${border}`, padding: '3px 8px', borderRadius: 20, color: text }}>"{search}" ✕</span>}
+277-            {statusFilter !== 'all' && <span onClick={() => setStatusFilter('all')} style={{ cursor: 'pointer', fontSize: 11, background: chipBg, border: `1px solid ${border}`, padding: '3px 8px', borderRadius: 20, color: text }}>{statusFilter} ✕</span>}
+278-            {subjectFilter !== 'all' && <span onClick={() => setSubjectFilter('all')} style={{ cursor: 'pointer', fontSize: 11, background: chipBg, border: `1px solid ${border}`, padding: '3px 8px', borderRadius: 20, color: text }}>{subjectFilter} ✕</span>}
+279:            {batchFilter !== 'all' && <span onClick={() => setBatchFilter('all')} style={{ cursor: 'pointer', fontSize: 11, background: chipBg, border: `1px solid ${border}`, padding: '3px 8px', borderRadius: 20, color: text }}>{batchFilter} ✕</span>}
+280-            {categoryFilter !== 'all' && <span onClick={() => setCategoryFilter('all')} style={{ cursor: 'pointer', fontSize: 11, background: chipBg, border: `1px solid ${border}`, padding: '3px 8px', borderRadius: 20, color: text }}>{categoryFilter} ✕</span>}
+281:            <span onClick={() => { setSearch(''); setStatusFilter('all'); setSubjectFilter('all'); setBatchFilter('all'); setCategoryFilter('all') }} style={{ cursor: 'pointer', fontSize: 11, color: C.danger, padding: '3px 4px' }}>{t('Clear all', 'Sab clear karo')}</span>
+282-          </div>
+283-        )}
+284-      </div>
+--
+292-          </svg>
+293-          <div style={{ marginTop: 8 }}>{exams.length === 0 ? t('No exams scheduled yet', 'Abhi koi exam schedule nahi hai') : t('No exams match your filters', 'Filters se koi exam match nahi hua')}</div>
+294-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 10 }}>
+295:            {exams.length > 0 && <button onClick={() => { setSearch(''); setStatusFilter('all'); setSubjectFilter('all'); setBatchFilter('all'); setCategoryFilter('all') }} style={{ padding: '8px 16px', borderRadius: 8, border: `1px solid ${border}`, background: 'transparent', color: text, cursor: 'pointer' }}>{t('Reset Filters', 'Filters Reset Karo')}</button>}
+296-            <button onClick={() => { setLoading(true); load() }} style={{ padding: '8px 16px', borderRadius: 8, border: `1px solid ${border}`, background: 'transparent', color: text, cursor: 'pointer' }}>{t('↻ Refresh', '↻ Refresh')}</button>
+297-          </div>
+298-        </div>
+--
+316-                  <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{e.totalMarks} marks</span>
+317-                  {e.type && <span style={{ fontSize: 11, background: primary, padding: '3px 8px', borderRadius: 20, color: '#fff', fontWeight: 700 }}>{e.type}</span>}
+318-                  {e.category && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{e.category}</span>}
+319:                  {e.assignmentType && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{e.assignmentType === 'mini_test' ? t('Mini Test', 'Mini Test') : e.assignmentType === 'series' ? t('Series', 'Series') : e.assignmentType === 'batch' ? t('Batch', 'Batch') : t('Individual', 'Individual')}</span>}
+320:                  {e.batch && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: C.gold }}>{e.batch}</span>}
+321-                  {e.seriesName && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: C.gold }}>📚 {e.seriesName}</span>}
+322-                </div>
+323-                <div style={{ fontSize: 11, color: sub, marginBottom: 8 }}>{fmtTime(e.schedule?.startTime)}</div>
+
+
+===== E. page.tsx batch context =====
+1-'use client'
+2:import BatchManagerUltra from './BatchManagerUltra'
+3-import TestSeriesManagerUltra from './TestSeriesManagerUltra'
+4-import CreateExamWizard from './CreateExamWizard'
+5-import QBankStatsDashboard from './QBankStatsDashboard'
+6-import PreviewAllQuestions from './PreviewAllQuestions'
+7-import ExamTemplates from './ExamTemplates'
+--
+156-// ── API Base ──
+157-const API = process.env.NEXT_PUBLIC_API_URL || 'https://proverank.onrender.com'
+158-
+159-// ── TypeScript Interfaces ──
+160-interface Student { _id:string;name:string;email:string;phone?:string;role:string;createdAt:string;banned?:boolean;banReason?:string;group?:string;integrityScore?:number;loginHistory?:any[];parentEmail?:string;deleted?:boolean;deletedAt?:string;deleteReason?:string;city?:string;school?:string;dob?:string;targetExam?:string;qualifications?:string;_snapshot?:any }
+161:interface Exam { _id:string;title:string;scheduledAt:string;totalMarks:number;duration:number;status:string;attempts?:number;category?:string;password?:string;batch?:string;subject?:string }
+162-interface Question { _id:string;text:string;subject:string;chapter?:string;topic?:string;difficulty:string;type:string;options?:string[];correctAnswer?:string;explanation?:string;approvalStatus?:string;image?:string;optionImages?:string[] }
+163-interface Log { _id:string;action:string;by:string;at:string;detail:string }
+164-interface Flag { _id:string;studentName:string;examTitle:string;type:string;count:number;severity:string;at:string;integrityScore?:number }
+165-interface Ticket { _id:string;studentName:string;examTitle:string;type:string;status:string;createdAt:string;description:string }
+166-interface Feature { key:string;label:string;description:string;enabled:boolean }
+167-interface Notif { id:string;icon:string;msg:string;t:string;read:boolean }
+168-interface Snapshot { _id:string;studentName:string;imageUrl?:string;flagged:boolean;capturedAt:string;examTitle?:string }
+169:interface Batch { _id:string;name:string;studentCount:number;examCount:number;createdAt:string }
+170-interface AdminUser { _id:string;name:string;email:string;role:string;createdAt:string;active:boolean;frozen?:boolean;archived?:boolean;archivedAt?:string;archivedBy?:string;permissions?:any }
+171-interface Result { _id:string;studentName:string;examTitle:string;score:number;totalMarks:number;rank:number;percentile:number;submittedAt:string }
+172-
+173-// ── Default Feature Flags ──
+174-const DEF_FEATURES: Feature[] = [
+--
+358-const NAV_TABS=[
+359-  {label:'Dashboard',tab:'dashboard',icon:'📊'},{label:'Live Monitor',tab:'live_monitor',icon:'🔴'},
+360-  {label:'All Exams',tab:'exams',icon:'📋'},{label:'Create Exam',tab:'create_exam',icon:'➕'},
+361-  {label:'Question Bank',tab:'questions',icon:'📚'},{label:'Smart Generator',tab:'smart_gen',icon:'🤖'},
+362-  {label:'PYQ Bank',tab:'pyq',icon:'📜'},{label:'Bulk Upload',tab:'bulk_upload',icon:'📤'},
+363:  {label:'All Students',tab:'students',icon:'👥'},{label:'Batch Manager',tab:'batches',icon:'🗂️'},{label:'Test Series Management',tab:'test_series',icon:'📚'},
+364-  {label:'Anti-Cheat',tab:'anticheat',icon:'🛡️'},
+365-  {label:'Grievances',tab:'grievances',icon:'⚖️'},{label:'Announcements',tab:'announcements',icon:'📢'},
+366-  {label:'Email Templates',tab:'email_tmpl',icon:'📧'},{label:'Feature Flags',tab:'feature_flags',icon:'🚩'},
+367-  {label:'Branding',tab:'branding',icon:'🎨'},{label:'SEO Settings',tab:'seo',icon:'🔍'},
+368-  {label:'Maintenance',tab:'maintenance',icon:'🔧'},{label:'Backup',tab:'backup',icon:'💾'},
+--
+384-    {key:'navigation',label:'Tabs',icon:'🗂️'},
+385-    {key:'students',label:'Students',icon:'👥'},
+386-    {key:'admins',label:'Admins',icon:'👤'},
+387-    {key:'exams',label:'Exams',icon:'📋'},
+388-    {key:'questions',label:'Questions',icon:'📚'},
+389:    {key:'batches',label:'Batches',icon:'🗂️'},
+390-  ]
+391-
+392-  useEffect(()=>{
+393-    if(debRef.current) clearTimeout(debRef.current)
+394-    if(!q||q.length<2){setResults(null);return}
+--
+405-      }catch(e){}finally{setLoading(false)}
+406-    },350)
+407-  },[q])
+408-
+409-  const navResults=NAV_TABS.filter(t=>t.label.toLowerCase().includes(q.toLowerCase()))
+410:  const totalCount=(results?((results.students?.length||0)+(results.admins?.length||0)+(results.exams?.length||0)+(results.questions?.length||0)+(results.batches?.length||0)):0)+navResults.length
+411-
+412-  const S:any={
+413-    wrap:{position:'relative',width:'100%',maxWidth:720,margin:'0 auto'},
+414-    input:{width:'100%',padding:'14px 20px 14px 48px',background:'rgba(0,28,52,0.85)',border:'1.5px solid rgba(77,159,255,0.35)',borderRadius:14,color:'#E8F4FF',fontSize:15,fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box',backdropFilter:'blur(12px)'},
+415-    dropdown:{position:'relative',marginTop:8,background:'rgba(0,20,45,0.97)',border:'1px solid rgba(77,159,255,0.25)',borderRadius:16,boxShadow:'0 20px 60px rgba(0,0,0,0.6)',backdropFilter:'blur(20px)',zIndex:9999,maxHeight:520,overflowY:'auto'},
+--
+429-  return(
+430-    <div style={S.wrap}>
+431-      {/* Search Input */}
+432-      <div style={{position:'relative',display:'flex',alignItems:'center',marginBottom:32}}>
+433-        <span style={{position:'absolute',left:16,fontSize:20,color:'#4D9FFF',zIndex:1}}>🔎</span>
+434:        <input style={S.input} value={q} onChange={e=>setQ(e.target.value)} placeholder="Search tabs, students, exams, questions, batches, admins..."/>
+435-        {q.length>=2&&<span style={{position:'absolute',right:16,background:'rgba(77,159,255,0.2)',border:'1px solid rgba(77,159,255,0.3)',borderRadius:20,padding:'2px 10px',fontSize:11,color:'#4D9FFF',fontWeight:700}}>{loading?'…':totalCount+' results'}</span>}
+436-      </div>
+437-
+438-      {/* Empty State — Rich Content */}
+439-      {q.length<2&&(
+440-        <div>
+441-          {/* Stats Row */}
+442-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:28}}>
+443:            {[{icon:'👥',label:'Students',color:'#00C864'},{icon:'📋',label:'Exams',color:'#4D9FFF'},{icon:'📚',label:'Questions',color:'#964DFF'},{icon:'🗂️',label:'Batches',color:'#00C8C8'},{icon:'👤',label:'Admins',color:'#FFA500'},{icon:'🗂️',label:'Tabs',color:'#E8F4FF'}].map((s,i)=>(
+444-              <div key={i} style={{background:'rgba(0,28,52,0.7)',border:'1px solid rgba(77,159,255,0.15)',borderRadius:12,padding:'16px 12px',textAlign:'center',cursor:'pointer'}} onClick={()=>setActiveSection(s.label.toLowerCase())}>
+445-                <div style={{fontSize:28,marginBottom:6}}>{s.icon}</div>
+446-                <div style={{fontSize:12,color:s.color,fontWeight:600}}>{s.label}</div>
+447-              </div>
+448-            ))}
+--
+455-              <circle cx="34" cy="34" r="14" fill="none" stroke="rgba(77,159,255,0.3)" strokeWidth="1.5"/>
+456-              <line x1="50" y1="50" x2="68" y2="68" stroke="#4D9FFF" strokeWidth="3" strokeLinecap="round"/>
+457-              <circle cx="34" cy="34" r="5" fill="rgba(77,159,255,0.5)"/>
+458-            </svg>
+459-            <div style={{fontSize:16,color:'#E8F4FF',fontWeight:600,marginBottom:8}}>Global Search — M12</div>
+460:            <div style={{fontSize:12,color:'#6B8BAF',lineHeight:1.6}}>Type at least 2 characters to search across<br/>Students · Admins · Exams · Questions · Batches · Navigation Tabs</div>
+461-          </div>
+462-
+463-          {/* Quick Nav Tiles */}
+464-          <div style={{marginBottom:12}}>
+465-            <div style={{fontSize:11,color:'#4D9FFF',fontWeight:700,letterSpacing:1.2,textTransform:'uppercase',marginBottom:10}}>⚡ Quick Navigation</div>
+--
+557-                  <span style={S.chip('rgba(150,77,255,0.15)','#964DFF')}>Q</span>
+558-                </div>
+559-              ))}
+560-              <div style={S.divider}/>
+561-            </div>}
+562:            {show('batches')&&results?.batches?.length>0&&<div>
+563:              <div style={S.secTitle}>🗂️ Batches ({results.batches.length})</div>
+564:              {results.batches.map((b:any,i:number)=>(
+565:                <div key={i} style={S.item} onClick={()=>setTab('batches')}
+566-                  onMouseEnter={e=>(e.currentTarget.style.background='rgba(77,159,255,0.1)')}
+567-                  onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+568-                  <span style={{fontSize:18}}>🗂️</span>
+569-                  <div style={{flex:1}}><div style={S.label}>{b.name}</div><div style={S.sub}>{b.description||''}</div></div>
+570:                  <span style={S.chip('rgba(0,200,200,0.15)','#00C8C8')}>Batch</span>
+571-                </div>
+572-              ))}
+573-            </div>}
+574-          </div>}
+575-        </div>
+--
+646-
+647-
+648-
+649-
+650-
+651:// BatchDetailOverlay — S5/M3 Complete Batch Detail
+652-// ═══════════════════════════════════════════════════
+653:function BatchDetailOverlay({batch,token,API,onClose,onBatchDelete,onBatchRename,T}:{
+654:  batch:any,token:string,API:string,onClose:()=>void,
+655:  onBatchDelete:(id:string)=>void,onBatchRename:(id:string,name:string)=>void,
+656-  T:(m:string,t?:any)=>void
+657-}){
+658-  const[tab,setTab]=useState('overview')
+659-  const[students,setStudents]=useState<any[]>([])
+660-  const[exams,setExams]=useState<any[]>([])
+--
+682-  const inp2:any={width:'100%',padding:'10px 12px',background:'rgba(0,22,40,0.85)',border:'1.5px solid '+BOR2,borderRadius:10,color:TS,fontSize:13,outline:'none',boxSizing:'border-box'as const,fontFamily:'Inter,sans-serif'}
+683-  const cs2:any={background:CRD,border:'1px solid '+BOR,borderRadius:14,padding:18,marginBottom:14,backdropFilter:'blur(12px)'}
+684-  const sel2:any={padding:'10px 12px',background:'rgba(0,22,40,0.85)',border:'1.5px solid '+BOR2,borderRadius:10,color:TS,fontSize:13,outline:'none',fontFamily:'Inter,sans-serif'}
+685-
+686-  const loadAll=useCallback(async()=>{
+687:    if(!batch||!token)return
+688-    setLoading(true)
+689-    const h={Authorization:'Bearer '+token}
+690-    const gets=(u:string)=>fetch(API+u,{headers:h}).then(r=>r.ok?r.json():[]).catch(()=>[])
+691-    const[s,e,n,ae]=await Promise.all([
+692:      gets('/api/admin/batches/'+batch._id+'/students'),
+693:      gets('/api/admin/batches/'+batch._id+'/exams'),
+694:      gets('/api/admin/batches/'+batch._id+'/notes'),
+695:      gets('/api/admin/batches/all-exams'),
+696-    ])
+697-    setStudents(Array.isArray(s)?s:[])
+698-    setExams(Array.isArray(e)?e:[])
+699-    setNotes(Array.isArray(n)?n:[])
+700-    setAllExams(Array.isArray(ae)?ae:[])
+701-    setLoading(false)
+702:  },[batch,token,API])
+703-
+704:  useEffect(()=>{if(batch&&token){setTab('overview');loadAll()}},[batch,token,loadAll])
+705-
+706-  const addStudent=async()=>{
+707-    if(!addEmail.trim()){T('Enter email','e');return}
+708-    setAdding(true)
+709-    try{
+710:      const r=await fetch(API+'/api/admin/batches/'+batch._id+'/students/add',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({studentEmail:addEmail.trim()})})
+711-      const d=await r.json()
+712-      if(r.ok){T('Student added ✅','s');setAddEmail('');loadAll()}else T(d.message||'Failed','e')
+713-    }catch{T('Error','e')}finally{setAdding(false)}
+714-  }
+715-
+716-  const removeStudent=async(sid:string,name:string)=>{
+717:    if(!window.confirm('Remove '+name+' from batch?'))return
+718:    const r=await fetch(API+'/api/admin/batches/'+batch._id+'/students/'+sid,{method:'DELETE',headers:{Authorization:'Bearer '+token}})
+719-    if(r.ok){T('Removed','s');setStudents(p=>p.filter(s=>s._id!==sid))}else T('Failed','e')
+720-  }
+721-
+722-  const assignExam=async()=>{
+723-    if(!assignExamId){T('Select an exam','e');return}
+724:    const r=await fetch(API+'/api/admin/batches/'+batch._id+'/exams/assign',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({examId:assignExamId})})
+725-    if(r.ok){T('Exam assigned ✅','s');setAssignExamId('');loadAll()}else T('Failed','e')
+726-  }
+727-
+728-  const unassignExam=async(eid:string,title:string)=>{
+729:    if(!window.confirm('Unassign "'+title+'" from this batch?'))return
+730:    const r=await fetch(API+'/api/admin/batches/'+batch._id+'/exams/'+eid,{method:'DELETE',headers:{Authorization:'Bearer '+token}})
+731-    if(r.ok){T('Unassigned','s');setExams(p=>p.filter(e=>e._id!==eid))}else T('Failed','e')
+732-  }
+733-
+734-  const addNote=async()=>{
+735-    if(!noteTitle.trim()){T('Enter title','e');return}
+736-    setAddingNote(true)
+737-    try{
+738:      const r=await fetch(API+'/api/admin/batches/'+batch._id+'/notes',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({title:noteTitle.trim(),description:noteDesc,url:noteUrl,type:noteType,subject:noteSub})})
+739-      const d=await r.json()
+740-      if(r.ok){T('Material added ✅','s');setNoteTitle('');setNoteDesc('');setNoteUrl('');loadAll()}else T(d.message||'Failed','e')
+741-    }catch{T('Error','e')}finally{setAddingNote(false)}
+742-  }
+743-
+744-  const deleteNote=async(nid:string,title:string)=>{
+745-    if(!window.confirm('Delete "'+title+'"?'))return
+746:    const r=await fetch(API+'/api/admin/batches/'+batch._id+'/notes/'+nid,{method:'DELETE',headers:{Authorization:'Bearer '+token}})
+747-    if(r.ok){T('Deleted','s');setNotes(p=>p.filter(n=>n._id!==nid))}else T('Failed','e')
+748-  }
+749-
+750:  const renameBatch=async()=>{
+751-    if(!newName.trim())return
+752:    const r=await fetch(API+'/api/admin/batches/'+batch._id,{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({name:newName.trim()})})
+753-    const d=await r.json()
+754:    if(r.ok){T('Renamed ✅','s');onBatchRename(batch._id,newName.trim());setRenaming(false)}else T(d.message||'Failed','e')
+755-  }
+756-
+757:  const deleteBatch=async()=>{
+758:    if(!window.confirm('DELETE "'+batch.name+'"?\nAll students unassigned. Cannot be undone.'))return
+759:    const r=await fetch(API+'/api/admin/batches/'+batch._id,{method:'DELETE',headers:{Authorization:'Bearer '+token}})
+760:    if(r.ok){T('Deleted','s');onBatchDelete(batch._id)}else T('Failed','e')
+761-  }
+762-
+763-  const sendAnn=async()=>{
+764-    if(!annTitle||!annMsg){T('Fill all fields','e');return}
+765:    const r=await fetch(API+'/api/admin/announcements',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({title:annTitle,message:annMsg,batch:batch._id})})
+766-    if(r.ok){T('Sent ✅','s');setAnnTitle('');setAnnMsg('')}else T('Failed','e')
+767-  }
+768-
+769-  const exportCSV=()=>{
+770-    const rows=[['Name','Email','Phone','Joined'],...students.map(s=>[s.name||'',s.email||'',s.phone||'',s.createdAt?new Date(s.createdAt).toLocaleDateString():''])]
+771-    const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n')
+772:    const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='batch_'+batch.name+'.csv';a.click();T('Exported ✅','s')
+773-  }
+774-
+775-  const getNoteIcon=(type:string)=>{
+776-    const icons:any={pdf:'📄',video:'🎥',doc:'📝',link:'🔗',image:'🖼️',other:'📎'}
+777-    return icons[type]||'📎'
+--
+796-      <div style={{position:'sticky',top:0,background:'rgba(0,10,24,0.95)',backdropFilter:'blur(16px)',borderBottom:'1px solid '+BOR,padding:'12px 16px',zIndex:10}}>
+797-        <div style={{maxWidth:940,margin:'0 auto'}}>
+798-          <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:10}}>
+799-            <button onClick={onClose} style={{background:'rgba(77,159,255,0.1)',color:ACC,border:'1px solid '+BOR2,borderRadius:8,padding:'7px 12px',cursor:'pointer',fontSize:12,fontWeight:600,transition:'all 0.2s'}} className="bdt2">← Back</button>
+800-            <div style={{flex:1,minWidth:0}}>
+801:              <div style={{fontSize:17,fontWeight:800,fontFamily:'Playfair Display,serif',background:'linear-gradient(90deg,'+ACC+',#A8D4FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>📦 {batch.name}</div>
+802:              <div style={{display:'flex',alignItems:'center',gap:6,marginTop:1,flexWrap:'wrap'}}><span style={{fontSize:10,color:DIM,fontFamily:'monospace'}}>ID: {batch._id?.slice(-12)}...</span><span style={{fontSize:10,color:DIM}}>· {batch.createdAt?new Date(batch.createdAt).toLocaleDateString():'-'}</span></div>
+803-            </div>
+804-            <div style={{display:'flex',gap:4,flexShrink:0}}>
+805-              <span style={{fontSize:10,background:'rgba(77,159,255,0.1)',color:ACC,padding:'3px 8px',borderRadius:16,border:'1px solid '+BOR2}}>👥{students.length}</span>
+806-              <span style={{fontSize:10,background:'rgba(0,196,140,0.1)',color:SUC,padding:'3px 8px',borderRadius:16,border:'1px solid rgba(0,196,140,0.25)'}}>📝{exams.length}</span>
+807-              <span style={{fontSize:10,background:'rgba(167,139,250,0.1)',color:PRP,padding:'3px 8px',borderRadius:16,border:'1px solid rgba(167,139,250,0.25)'}}>📚{notes.length}</span>
+--
+907-        </div>}
+908-
+909-        {/* ── EXAMS ── */}
+910-        {!loading&&tab==='exams'&&<div style={{animation:'bds 0.3s ease'}}>
+911-          <div style={cs2}>
+912:            <div style={{fontWeight:700,fontSize:13,color:TS,marginBottom:10}}>📌 Assign Exam to Batch</div>
+913-            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+914-              <select value={assignExamId} onChange={e=>setAssignExamId(e.target.value)} style={{...sel2,flex:1,maxWidth:380}}>
+915-                <option value="">— Select exam to assign —</option>
+916-                {unassignedExams.map(e=><option key={e._id} value={e._id}>{e.title}</option>)}
+917-              </select>
+--
+1009-        </div>}
+1010-
+1011-        {/* ── ANALYTICS ── */}
+1012-        {!loading&&tab==='analytics'&&<div style={{animation:'bds 0.3s ease'}}>
+1013-          <div style={cs2}>
+1014:            <div style={{fontWeight:700,fontSize:13,color:TS,marginBottom:14}}>📈 Batch Analytics</div>
+1015-            {[{l:'Active Students',v:students.filter(s=>!s.banned).length,t:Math.max(students.length,1),c:SUC},{l:'Banned Students',v:students.filter(s=>s.banned).length,t:Math.max(students.length,1),c:DNG},{l:'Exams Assigned',v:exams.length,t:Math.max(allExams.length,1),c:WRN},{l:'Materials Added',v:notes.length,t:Math.max(notes.length,1),c:PRP}].map(x=>(
+1016-              <div key={x.l} style={{marginBottom:14}}>
+1017-                <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}><span style={{fontSize:12,color:TS,fontWeight:600}}>{x.l}</span><span style={{fontSize:11,color:DIM}}>{x.v}</span></div>
+1018-                <div style={{background:'rgba(255,255,255,0.06)',borderRadius:8,height:10,overflow:'hidden'}}>
+1019-                  <div style={{width:Math.round(x.v/x.t*100)+'%',height:'100%',background:'linear-gradient(90deg,'+x.c+','+x.c+'88)',borderRadius:8,transition:'width 1s ease'}}/>
+--
+1037-
+1038-        {/* ── ANNOUNCE ── */}
+1039-        {!loading&&tab==='announce'&&<div style={{animation:'bds 0.3s ease'}}>
+1040-          <div style={cs2}>
+1041-            <div style={{fontWeight:700,fontSize:13,color:TS,marginBottom:4}}>📢 Send Announcement</div>
+1042:            <div style={{fontSize:11,color:DIM,marginBottom:14}}>To all <strong style={{color:ACC}}>{students.length} students</strong> in "{batch.name}"</div>
+1043-            <div style={{marginBottom:10}}>
+1044-              <label style={{display:'block',fontSize:10,color:DIM,marginBottom:4,fontWeight:600,textTransform:'uppercase',letterSpacing:0.5}}>Title</label>
+1045-              <input value={annTitle} onChange={e=>setAnnTitle(e.target.value)} placeholder="e.g. Test Tomorrow at 10 AM" style={inp2}/>
+1046-            </div>
+1047-            <div style={{marginBottom:16}}>
+--
+1058-        </div>}
+1059-
+1060-        {/* ── SETTINGS ── */}
+1061-        {!loading&&tab==='settings'&&<div style={{animation:'bds 0.3s ease'}}>
+1062-          <div style={cs2}>
+1063:            <div style={{fontWeight:700,fontSize:13,color:TS,marginBottom:10}}>✏️ Rename Batch</div>
+1064-            {!renaming?
+1065-              <div style={{display:'flex',gap:10,alignItems:'center'}}>
+1066:                <span style={{fontSize:15,fontWeight:700,color:ACC,flex:1}}>"{batch.name}"</span>
+1067:                <button onClick={()=>{setRenaming(true);setNewName(batch.name)}} style={bp2} className="bdt2">✏️ Rename</button>
+1068-              </div>:
+1069-              <div>
+1070:                <input value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&renameBatch()} style={{...inp2,marginBottom:10}}/>
+1071-                <div style={{display:'flex',gap:8}}>
+1072:                  <button onClick={renameBatch} style={bp2} className="bdt2">💾 Save</button>
+1073-                  <button onClick={()=>setRenaming(false)} style={{background:'rgba(77,159,255,0.1)',color:ACC,border:'1px solid '+BOR2,borderRadius:8,padding:'9px 16px',cursor:'pointer',fontSize:12}} className="bdt2">Cancel</button>
+1074-                </div>
+1075-              </div>}
+1076-          </div>
+1077-          <div style={cs2}>
+1078:            <div style={{fontWeight:700,fontSize:13,color:TS,marginBottom:10}}>ℹ️ Batch Info</div>
+1079:            {([['Batch ID',batch._id],['Name',batch.name],['Students',students.length],['Exams',exams.length],['Materials',notes.length],['Created',batch.createdAt?new Date(batch.createdAt).toLocaleString():'-']] as [string,any][]).map(([k,v])=>(
+1080-              <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid '+BOR,flexWrap:'wrap',gap:4}}>
+1081-                <span style={{fontSize:11,color:DIM,fontWeight:600}}>{k}</span>
+1082-                <span style={{fontSize:11,color:TS,fontFamily:'monospace'}}>{String(v)}</span>
+1083-              </div>
+1084-            ))}
+1085-          </div>
+1086-          <div style={{...cs2,border:'1px solid rgba(255,77,77,0.25)',background:'rgba(255,77,77,0.03)'}}>
+1087-            <div style={{fontWeight:700,fontSize:13,color:DNG,marginBottom:4}}>🚨 Danger Zone</div>
+1088:            <div style={{fontSize:11,color:DIM,marginBottom:12}}>Permanently deletes this batch and unassigns all students.</div>
+1089:            <button onClick={deleteBatch} style={{...bd2,padding:'10px 20px',fontSize:13}} className="bdt2">🗑️ Delete This Batch</button>
+1090-          </div>
+1091-        </div>}
+1092-      </div>
+1093-          <AdminWelcomeBanner /></div>
+1094-  )
+--
+1128-  const [logs,setLogs]=useState<Log[]>([])
+1129-  const [tickets,setTickets]=useState<Ticket[]>([])
+1130-  const [snapshots,setSnapshots]=useState<Snapshot[]>([])
+1131-  const [features,setFeatures]=useState<Feature[]>(DEF_FEATURES)
+1132-  const [stats,setStats]=useState<any>(null)
+1133:  const [batches,setBatches]=useState<Batch[]>([])
+1134-  const [testSeries,setTestSeries]=useState<any[]>([])
+1135:  const [selectedBatch,setSelectedBatch]=useState<any>(null)
+1136-  const [adminUsers,setAdminUsers]=useState<AdminUser[]>([])
+1137-  const [results,setResults]=useState<Result[]>([])
+1138-  const [notifs,setNotifs]=useState<Notif[]>([])
+1139-
+1140-  // Search/filter states
+--
+1154-  const [profileLogs,setProfileLogs]=useState([] as any[]);
+1155-  const [showProfileModal,setShowProfileModal]=useState(false);
+1156-  const [profileLoading,setProfileLoading]=useState(false);const eDateR=useRef('')
+1157-  const eMarksR=useRef('720');const eDurR=useRef('200')
+1158-  const eCatR=useRef('Full Mock');const ePassR=useRef('')
+1159:  const eBatchR=useRef('');const eInstrR=useRef('')
+1160-  const [eStep,setEStep]=useState(1)
+1161-  const [createdEId,setCreatedEId]=useState('')
+1162-  const [createdETitle,setCreatedETitle]=useState('')
+1163-  const [qMeth,setQMeth]=useState<'copypaste'|'excel'|'pdf'|'manual'>('copypaste')
+1164-  const cpTxtR=useRef('');const cpKeyR=useRef('')
+--
+1313-
+1314-  // Permissions
+1315-  const [perms,setPerms]=useState({
+1316-  create_exam:false,edit_exam:false,delete_exam:false,clone_exam:false,bulk_exam:false,
+1317-  manage_questions:false,bulk_upload:false,ai_questions:false,pyq_access:false,
+1318:  view_students:false,ban_student:false,impersonate:false,export_data:false,batch_transfer:false,
+1319-  download_reports:false,
+1320-  send_announcements:false,manage_doubts:false,manage_grievances:false,answer_key_challenge:false,
+1321-  manage_features:false,manage_branding:false,view_audit_logs:false,view_snapshots:false,manage_backup:false,manage_admins:false,
+1322-});
+1323-const [selectedPermAdmin,setSelectedPermAdmin]=useState(null);
+--
+1326-  // Admin creation refs
+1327-  const admNameR=useRef('');const admEmailR=useRef('');const admPassR=useRef('')
+1328-  const [admRole,setAdmRole]=useState('admin')
+1329-  const [creatingAdm,setCreatingAdm]=useState(false)
+1330-
+1331:  // Batch management
+1332:  const batchNameR=useRef('')
+1333:  const [creatingBatch,setCreatingBatch]=useState(false)
+1334:  const [batchTransStdId,setBatchTransStdId]=useState('')
+1335:  const [batchTransTo,setBatchTransTo]=useState('')
+1336-
+1337-  // AI Smart Generator
+1338-  const aiTopicR=useRef('');const aiChapR=useRef('')
+1339-  const [aiCount,setAiCount]=useState('10')
+1340-  const [aiSubj,setAiSubj]=useState('Physics')
+--
+1432-      getFirst(`${API}/api/admin/manage/audit`,`${API}/api/admin/audit`),
+1433-      getFirst(`${API}/api/admin/manage/tickets`,`${API}/api/admin/tickets`),
+1434-      getFirst(`${API}/api/admin/manage/snapshots`,`${API}/api/admin/snapshots`),
+1435-      get(`${API}/api/admin/features`),
+1436-    fetch(`${API}/api/admin/notifications`,{headers:{Authorization:`Bearer ${getToken()}`}}).then(r=>r.json()),
+1437:      getFirst(`${API}/api/admin/batches`,`${API}/api/admin/manage/batches`),
+1438-      get(`${API}/api/admin/manage/admins`),
+1439-      getFirst(`${API}/api/results`,`${API}/api/admin/results`),
+1440-      get(`${API}/api/admin/maintenance`),
+1441-      getFirst(`${API}/api/admin/test-series-manager?limit=200`,`${API}/api/testseries`),
+1442-    ])
+--
+1451-    if(Array.isArray(al))setLogs(al)
+1452-    if(Array.isArray(tk))setTickets(tk)
+1453-    if(Array.isArray(sn))setSnapshots(sn)
+1454-    if(Array.isArray(nf))setNotifs(nf)
+1455-else if(nf?.notifications&&Array.isArray(nf.notifications))setNotifs(nf.notifications)
+1456:    if(Array.isArray(bt))setBatches(bt)
+1457-    if(tsr&&Array.isArray(tsr.series))setTestSeries(tsr.series)
+1458-    else if(Array.isArray(tsr))setTestSeries(tsr)
+1459:    // Auto-open batch from URL (refresh fix)
+1460-    if(typeof window!=='undefined'){
+1461:      const _bid=new URLSearchParams(window.location.search).get('batch')
+1462-      if(_bid){
+1463-        setTimeout(()=>{
+1464:          setSelectedBatch((prev:any)=>{
+1465-            if(prev)return prev
+1466-            const _found=(Array.isArray(bt)?bt:[]).find((b:any)=>b._id===_bid)
+1467-            return _found||prev
+1468-          })
+1469-        },100)
+--
+1494-  const createExamS1=useCallback(async()=>{
+1495-    const title=eTitleR.current,date=eDateR.current
+1496-    if(!title||!date){T('Exam title and date are both required.','e');return}
+1497-    setCreatingE(true)
+1498-    try{
+1499:      const body={title,scheduledAt:new Date(date).toISOString(),totalMarks:parseInt(eMarksR.current)||720,duration:parseInt(eDurR.current)||200,subject:'NEET',type:'NEET',difficulty:'Mixed',category:eCatR.current||'Full Mock',batch:eBatchR.current||undefined,customInstructions:eInstrR.current||undefined,password:ePassR.current||undefined}
+1500-      const res=await fetch(`${API}/api/exams`,{method:'POST',headers:{...(()=>({'Content-Type':'application/json',Authorization:`Bearer ${token}`}))()},body:JSON.stringify(body)})
+1501-      if(res.ok||res.status===201){
+1502-        const d=await res.json()
+1503-        const eid=d?.exam?._id||d?.exam?.id||d?._id||d?.id||d?.examId||''
+1504-        const etitle=d?.exam?.title||d?.title||title
+--
+2125-      else T('Failed to save AI questions.','e')
+2126-    } catch{T('Network error.','e')}
+2127-    setAiSaving(false)
+2128-  },[aiResult,token,T,fetchAll])
+2129-
+2130:  // ══ BATCH ══
+2131:  const createBatch=useCallback(async()=>{
+2132:    if(!batchNameR.current){T('Enter a batch name.','e');return}
+2133:    setCreatingBatch(true)
+2134-    try{
+2135:      const res=await fetch(`${API}/api/admin/batches`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({name:batchNameR.current})})
+2136:      if(res.ok){T('Batch created.');batchNameR.current='';const r=await fetch(`${API}/api/admin/batches`,{headers:{Authorization:`Bearer ${token}`}});if(r.ok)setBatches(await r.json())}
+2137:      else T('Failed to create batch.','e')
+2138-    } catch{T('Network error.','e')}
+2139:    setCreatingBatch(false)
+2140-  },[token,T])
+2141-
+2142:  const batchTransfer=useCallback(async()=>{
+2143:    if(!batchTransStdId||!batchTransTo){T('Student ID and target batch required.','e');return}
+2144-    try{
+2145:      const res=await fetch(`${API}/api/admin/manage/batch-transfer`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({studentId:batchTransStdId,toBatch:batchTransTo})})
+2146-      if(res.ok)T('Student transferred successfully.')
+2147-      else T('Transfer failed.','e')
+2148-    } catch{T('Network error.','e')}
+2149:  },[batchTransStdId,batchTransTo,token,T])
+2150-
+2151-  // ══ ADMIN CREATE ══
+2152-  const createAdmin=useCallback(async()=>{
+2153-    if(!admNameR.current||!admEmailR.current||!admPassR.current){T('Name, email and password all required.','e');return}
+2154-    setCreatingAdm(true)
+--
+2276-    {id:'smart_gen',ico:'🤖',lbl:'Smart Generator',grp:'Questions'},
+2277-    {id:'ai_explain',ico:'💡',lbl:'AI Explanation',grp:'Questions'},
+2278-    {id:'creation_studio',ico:'⚡',lbl:'Content Forge',grp:'Questions'},
+2279-    {id:'pyq_bank',ico:'📚',lbl:'PYQ Bank',grp:'Questions'},
+2280-    {id:'students',ico:'👥',lbl:'Students',grp:'Students'},
+2281:    {id:'batches',ico:'📦',lbl:'Batch Management',grp:'Students'},
+2282-    {id:'test_series',ico:'📚',lbl:'Test Series Management',grp:'Students'},
+2283-    {id:'admins',ico:'🛡️',lbl:'Admins',grp:'Admin'},
+2284-    {id:'permissions',ico:'🔐',lbl:'Permissions',grp:'Admin'},
+2285-    {id:'reports',ico:'📊',lbl:'Reports & Export',grp:'Results'},
+2286-    {id:'cheating',ico:'🚨',lbl:'Anti-Cheat Logs',grp:'Proctoring'},
+--
+2313-    edit_exam:['exams'],delete_exam:['exams'],clone_exam:['exams'],
+2314-    manage_questions:['questions'],
+2315-    ai_questions:['smart_gen'],
+2316-    pyq_access:['pyq_bank'],
+2317-    view_students:['students'],ban_student:['students'],impersonate:['students'],
+2318:    batch_transfer:['batches','test_series'],
+2319-    download_reports:['reports'],
+2320-    export_data:['reports'],
+2321-    send_announcements:['announcements'],
+2322-    manage_doubts:['tickets'],
+2323-    manage_grievances:['tickets'],
+--
+2346-  const markOneRead=async(id:string,notif?:any)=>{const tk=getToken();if(notif)setNotifDetail(notif);if(!tk)return;try{await fetch(`${API}/api/admin/notifications/mark-read`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${tk}`},body:JSON.stringify({id})});setNotifs((prev:any[])=>prev.map((n:any)=>n._id===id?{...n,isRead:true}:n));}catch(e){}};
+2347-
+2348-  return (
+2349-    <div style={{background:BG_GRAD,minHeight:'100vh',color:TS,fontFamily:'Inter,sans-serif',position:'relative'}}>
+2350-{/* BD_OVERLAY_INJECTED */}
+2351:{selectedBatch!=null&&<BatchDetailOverlay batch={selectedBatch} token={token} API={API} onClose={()=>{setSelectedBatch(null);if(typeof window!=='undefined')window.history.pushState(null,'','/admin/x7k2p')}} onBatchDelete={(id:string)=>{setBatches((p:Batch[])=>p.filter((b:Batch)=>b._id!==id));setSelectedBatch(null)}} onBatchRename={(id:string,name:string)=>{setBatches((p:Batch[])=>p.map((b:Batch)=>b._id===id?{...b,name}:b));setSelectedBatch((p:any)=>({...p,name}))}} T={T}/>}
+2352-
+2353-
+2354-      {/* Particles Background */}
+2355-      <GalaxyBg />
+2356-
+--
+2619-                      {[['➕ Exam','create_exam'],['❓ Question','questions'],['📢 Announce','announcements'],['💾 Backup','backup']].map(([l,t])=>(
+2620-                        <button key={String(t)} onClick={()=>_setTab(String(t))} style={{...bg_,textAlign:'center',fontSize:11,padding:'8px 6px'}}>{String(l)}</button>
+2621-                      ))}
+2622-                    </div>
+2623-                    <div style={{marginTop:10,fontSize:11,color:DIM,display:'flex',gap:12}}>
+2624:                      <span>📦 {(batches||[]).length} Batches</span>
+2625-                      <span>🛡️ {(adminUsers||[]).length} Admins</span>
+2626-                    </div>
+2627-                  </div>
+2628-                </div>
+2629-              </div>
+--
+2792-            <CreateExamWizard
+2793-              token={typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''}
+2794-              API={API}
+2795-              T={T}
+2796-              fetchAll={fetchAll}
+2797:              batches={batches||[]}
+2798-              testSeries={testSeries||[]}
+2799-              exams={exams||[]}
+2800-              questions={questions||[]}
+2801-              pendingTemplate={pendingTemplate}
+2802-              onTemplateConsumed={()=>setPendingTemplate(null)}
+--
+3782-            </div>
+3783-          )}
+3784-
+3785-          {/* ══ SMART GENERATOR ══ */}
+3786-          {tab==='smart_gen'&&(
+3787:            <SmartPaperGen API={API} token={typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''} batches={batches||[]} testSeries={testSeries||[]} />
+3788-          )}
+3789-
+3790-          {/* ══ AI EXPLANATION GENERATOR ══ */}
+3791-          {tab==='ai_explain'&&(
+3792-            <AIExplainTab API={API} token={typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''} />
+--
+4180-              )}
+4181-            </div>
+4182-          )}
+4183-
+4184-
+4185:          {/* == BATCHES == (FPR1 Ultra SaaS Upgrade) */}
+4186:          {tab==='batches'&&(<BatchManagerUltra token={token} API={API}/>)}
+4187-          {tab==='test_series'&&(<TestSeriesManagerUltra token={token} API={API}/>)}
+4188-                    {/* ══ ADMINS ══ */}
+4189-          {showProfileModal&&(
+4190-                <div onClick={()=>setShowProfileModal(false)} style={{position:'fixed' as const,top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.82)',backdropFilter:'blur(6px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:16}}>
+4191-                  <div onClick={e=>e.stopPropagation()} style={{background:'linear-gradient(135deg,rgba(5,10,24,0.99),rgba(8,16,36,0.98))',border:'1.5px solid rgba(0,180,255,0.25)',borderRadius:20,padding:'28px 24px',maxWidth:520,width:'100%',maxHeight:'88vh',overflowY:'auto' as const,boxShadow:'0 24px 80px rgba(0,180,255,0.12)'}}>
+--
+4479-                    {g:'👥 Student Management',c:'#00C48C',bg:'rgba(0,196,140,0.06)',brd:'rgba(0,196,140,0.16)',p:[
+4480-                      {k:'view_students',l:'View Students',d:'Access student list, profiles and details'},
+4481-                      {k:'ban_student',l:'Ban / Unban Student',d:'Restrict or restore student account access (M1)'},
+4482-                      {k:'impersonate',l:'Impersonate Student',d:'Login as any student for debugging (M4)'},
+4483-                      {k:'export_data',l:'Export Data (CSV)',d:'Download student and results data reports (S67)'},
+4484:                      {k:'batch_transfer',l:'Batch Transfer',d:'Move students between batches (M3)'},
+4485-                    ]},
+4486-                    {g:'📊 Results & Analytics',c:'#FFB84D',bg:'rgba(255,184,77,0.06)',brd:'rgba(255,184,77,0.16)',p:[
+4487-                      {k:'download_reports',l:'Download Reports',d:'Export PDF / CSV performance reports (S14)'},
+4488-                    ]},
+4489-                    {g:'📢 Communication',c:'#FF6B6B',bg:'rgba(255,107,107,0.06)',brd:'rgba(255,107,107,0.16)',p:[
+--
+4808-                </div>
+4809-              </div>
+4810-              <div style={cs}>
+4811-                <div style={{fontWeight:700,marginBottom:10,fontSize:13}}>📤 Send Manual Notification</div>
+4812-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+4813:                  <div><label style={lbl}>Target</label><SSelect val='all' onChange={()=>{}} opts={[{v:'all',l:'All Students'},{v:'batch',l:'Specific Batch'}]} style={{...inp}}/></div>
+4814-                  <div><label style={lbl}>Channel</label><SSelect val='both' onChange={()=>{}} opts={[{v:'whatsapp',l:'WhatsApp Only'},{v:'sms',l:'SMS Only'},{v:'both',l:'Both'}]} style={{...inp}}/></div>
+4815-                  <div style={{gridColumn:'1/-1'}}><label style={lbl}>Message</label><STextarea init='' onSet={()=>{}} ph='Message text (160 chars for SMS)…' rows={3} style={{...inp,resize:'vertical'}}/></div>
+4816-                </div>
+4817-                <button onClick={()=>T('Notifications sent successfully.')} style={{...bp}}>📤 Send Notification</button>
+4818-              </div>
+
+===== F. StudentShell.tsx batch context =====
+47-    {id:'pyq-bank',icon:'📚',en:'PYQ Bank',hi:'पिछले वर्ष के प्रश्न',href:'/pyq-bank'},
+48-  ]},
+49-  {label:'Results & Progress',labelHi:'परिणाम और प्रगति',items:[
+50-    {id:'attempt-history',icon:'🕐',en:'Attempt History',hi:'परीक्षा इतिहास',href:'/attempt-history'},
+51-  ]},
+52:  {label:'Batches & Store',labelHi:'बैच और स्टोर',items:[
+53:    {id:'my-batches',icon:'📚',en:'My Batches & Test Series',hi:'मेरे बैच और टेस्ट सीरीज',href:'/dashboard/my-batches'},
+54:    {id:'test-series',icon:'📚',en:'Batches & Test Series',hi:'बैच और टेस्ट सीरीज',href:'/dashboard/test-series'},
+55-    {id:'store',icon:'🛒',en:'Store',hi:'स्टोर',href:'/dashboard/store'},
+56-  ]},
+57-  {label:'Communication',labelHi:'संचार',items:[
+58-    {id:'announcements',icon:'📢',en:'Announcements',hi:'घोषणाएं',href:'/announcements'},
+59-    {id:'doubt',icon:'💬',en:'Doubt & Query',hi:'संदेह और प्रश्न',href:'/doubt'},
