@@ -54,8 +54,7 @@ export default function AdminAnnouncements({ token, toast, theme }: { token: str
   const [message, setMessage] = useState(''); const [messageHi, setMessageHi] = useState('')
   const [showBilingual, setShowBilingual] = useState(false)
   const [type, setType] = useState('update')
-  const [audienceMode, setAudienceMode] = useState<'all' | 'batch' | 'testseries' | 'students'>('all')
-  const [selBatchIds, setSelBatchIds] = useState<string[]>([])
+  const [audienceMode, setAudienceMode] = useState<'all' | 'testseries' | 'students'>('all')
   const [selTestSeriesIds, setSelTestSeriesIds] = useState<string[]>([])
   const [studentQuery, setStudentQuery] = useState('')
   const [studentResults, setStudentResults] = useState<any[]>([])
@@ -71,7 +70,7 @@ export default function AdminAnnouncements({ token, toast, theme }: { token: str
   const msgRef = useRef<HTMLTextAreaElement>(null)
 
   // ── Data ──
-  const [batches, setBatches] = useState<any[]>([])
+  const [seriesList, setSeriesList] = useState<any[]>([])
   const [templates, setTemplates] = useState<any[]>([])
   const [stats, setStats] = useState<any>({ totalSent: 0, thisWeek: 0, avgReadRate: 0, scheduled: 0 })
   const [history, setHistory] = useState<any[]>([])
@@ -86,7 +85,7 @@ export default function AdminAnnouncements({ token, toast, theme }: { token: str
   const headers = { Authorization: `Bearer ${token}` }
   const jsonHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
 
-  const loadBatches = () => fetch(`${API}/api/admin/announcements/batches`, { headers }).then(r => r.json()).then(d => setBatches(Array.isArray(d) ? d : [])).catch(() => {})
+  const loadSeries = () => fetch(`${API}/api/admin/announcements/series`, { headers }).then(r => r.json()).then(d => setSeriesList(Array.isArray(d) ? d : [])).catch(() => {})
   const loadTemplates = () => fetch(`${API}/api/admin/announcements/templates`, { headers }).then(r => r.json()).then(d => setTemplates(Array.isArray(d) ? d : [])).catch(() => {})
   const loadStats = () => fetch(`${API}/api/admin/announcements/stats`, { headers }).then(r => r.json()).then(d => setStats(d)).catch(() => {})
   const loadHistory = () => {
@@ -100,7 +99,7 @@ export default function AdminAnnouncements({ token, toast, theme }: { token: str
     fetch(`${API}/api/admin/announcements?${qs.toString()}`, { headers }).then(r => r.json()).then(d => setHistory(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setHistoryLoading(false))
   }
 
-  useEffect(() => { if (token) { loadBatches(); loadTemplates(); loadStats(); loadHistory() } }, [token])
+  useEffect(() => { if (token) { loadSeries(); loadTemplates(); loadStats(); loadHistory() } }, [token])
   useEffect(() => { if (token) loadHistory() }, [fSearch, fType, fAudience, fDateFrom, fDateTo])
 
   // ── Student smart-search (debounced) ──
@@ -131,12 +130,11 @@ export default function AdminAnnouncements({ token, toast, theme }: { token: str
 
   const resetCompose = () => {
     setEditingId(null); setTitle(''); setTitleHi(''); setMessage(''); setMessageHi(''); setShowBilingual(false)
-    setType('update'); setAudienceMode('all'); setSelBatchIds([]); setSelTestSeriesIds([]); setSelStudents([]); setStudentQuery(''); setStudentResults([])
+    setType('update'); setAudienceMode('all'); setSelTestSeriesIds([]); setSelStudents([]); setStudentQuery(''); setStudentResults([])
     setSendVia('in-app'); setPinned(false); setImageUrl(''); setScheduleMode('now'); setScheduledAt(''); setExpiryDate('')
   }
 
   const buildAudience = () => {
-    if (audienceMode === 'batch') return { mode: 'batch', batchIds: selBatchIds }
     if (audienceMode === 'testseries') return { mode: 'testseries', testSeriesIds: selTestSeriesIds }
     if (audienceMode === 'students') return { mode: 'students', studentIds: selStudents.map(s => s._id) }
     return { mode: 'all' }
@@ -144,7 +142,6 @@ export default function AdminAnnouncements({ token, toast, theme }: { token: str
 
   const doSend = async (asDraft = false) => {
     if (!title.trim() || !message.trim()) { notify('Title and message are required', 'e'); return }
-    if (audienceMode === 'batch' && selBatchIds.length === 0) { notify('Select at least one batch', 'e'); return }
     if (audienceMode === 'testseries' && selTestSeriesIds.length === 0) { notify('Select at least one test series', 'e'); return }
     if (audienceMode === 'students' && selStudents.length === 0) { notify('Select at least one student', 'e'); return }
     setSending(true)
@@ -174,7 +171,6 @@ export default function AdminAnnouncements({ token, toast, theme }: { token: str
     setExpiryDate(a.expiryDate ? String(a.expiryDate).slice(0, 10) : '')
     const mode = a.audience?.mode || 'all'
     setAudienceMode(mode)
-    setSelBatchIds(mode === 'batch' ? (a.audience.batchIds || []).map((b: any) => b._id || b) : [])
     setSelTestSeriesIds(mode === 'testseries' ? (a.audience.testSeriesIds || []).map((b: any) => b._id || b) : [])
     setSelStudents([])
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -217,14 +213,14 @@ export default function AdminAnnouncements({ token, toast, theme }: { token: str
     <ThemeCtx.Provider value={T}>
       <div>
         <div style={{ fontFamily: 'Playfair Display,serif', fontSize: 22, fontWeight: 700, color: T.TS, margin: '0 0 4px' }}>📢 Announcements</div>
-        <div style={{ fontSize: 12, color: T.DIM, marginBottom: 16 }}>Send broadcasts to all students or specific batches</div>
+        <div style={{ fontSize: 12, color: T.DIM, marginBottom: 16 }}>Send broadcasts to all students or specific test series</div>
 
         {/* §1.1.3 PageHero-style banner */}
         <div style={{ background: `linear-gradient(135deg, rgba(77,159,255,0.1), rgba(0,20,40,0.4))`, border: `1px solid ${T.BOR}`, borderRadius: 16, padding: '20px 22px', marginBottom: 16, display: 'flex', gap: 14, alignItems: 'center' }}>
           <div style={{ fontSize: 34 }}>📢</div>
           <div>
             <div style={{ fontWeight: 800, fontSize: 15, color: T.TS }}>Platform Broadcast Center</div>
-            <div style={{ fontSize: 11.5, color: T.DIM, marginTop: 3 }}>Send announcements via in-app notifications, email, or both. Target all students, specific batches, or individual students. Schedule for later or save as a draft.</div>
+            <div style={{ fontSize: 11.5, color: T.DIM, marginTop: 3 }}>Send announcements via in-app notifications, email, or both. Target all students, specific test series, or individual students. Schedule for later or save as a draft.</div>
           </div>
         </div>
 
@@ -280,7 +276,7 @@ export default function AdminAnnouncements({ token, toast, theme }: { token: str
           {/* Audience selector — visual cards (§1.2.2, §2.1.9, §3.1.2) — v2: 4 modes */}
           <Lbl>Target Audience</Lbl>
           <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-            {[{ v: 'all', l: '🌍 All Students' }, { v: 'batch', l: '🏫 Batches' }, { v: 'testseries', l: '🎯 Test Series' }, { v: 'students', l: '👤 Specific Students' }].map(a => (
+            {[{ v: 'all', l: '🌍 All Students' }, { v: 'testseries', l: '🎯 Test Series' }, { v: 'students', l: '👤 Specific Students' }].map(a => (
               <button key={a.v} onClick={() => setAudienceMode(a.v as any)} style={{
                 padding: '8px 14px', borderRadius: 10, border: `1.5px solid ${audienceMode === a.v ? T.ACC : T.BOR}`,
                 background: audienceMode === a.v ? 'rgba(77,159,255,0.15)' : 'transparent',
@@ -288,30 +284,10 @@ export default function AdminAnnouncements({ token, toast, theme }: { token: str
               }}>{a.l}</button>
             ))}
           </div>
-          {audienceMode === 'batch' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, marginBottom: 14, maxHeight: 220, overflowY: 'auto', padding: 4 }}>
-              {batches.length === 0 && <div style={{ fontSize: 11, color: T.DIM }}>No batches found.</div>}
-              {batches.map(b => {
-                const on = selBatchIds.includes(b._id)
-                return (
-                  <div key={b._id} onClick={() => setSelBatchIds(on ? selBatchIds.filter(x => x !== b._id) : [...selBatchIds, b._id])} style={{
-                    display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
-                    border: `1.5px solid ${on ? T.ACC : T.BOR}`, background: on ? 'rgba(77,159,255,0.1)' : 'rgba(255,255,255,0.02)',
-                  }}>
-                    <input type="checkbox" checked={on} readOnly style={{ accentColor: T.ACC }} />
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: T.TS, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>🏫 {b.name}</div>
-                      <div style={{ fontSize: 10, color: T.DIM }}>{b.studentCount} students · {b.examType}</div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
           {audienceMode === 'testseries' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, marginBottom: 14, maxHeight: 220, overflowY: 'auto', padding: 4 }}>
-              {batches.length === 0 && <div style={{ fontSize: 11, color: T.DIM }}>No test series found.</div>}
-              {batches.map(b => {
+              {seriesList.length === 0 && <div style={{ fontSize: 11, color: T.DIM }}>No test series found.</div>}
+              {seriesList.map(b => {
                 const on = selTestSeriesIds.includes(b._id)
                 return (
                   <div key={b._id} onClick={() => setSelTestSeriesIds(on ? selTestSeriesIds.filter(x => x !== b._id) : [...selTestSeriesIds, b._id])} style={{
@@ -420,7 +396,6 @@ export default function AdminAnnouncements({ token, toast, theme }: { token: str
             <select value={fAudience} onChange={e => setFAudience(e.target.value)} style={inp}>
               <option value="">All Audiences</option>
               <option value="all">All Students</option>
-              <option value="batch">Batch</option>
               <option value="testseries">Test Series</option>
               <option value="students">Specific Students</option>
             </select>
@@ -437,7 +412,7 @@ export default function AdminAnnouncements({ token, toast, theme }: { token: str
             </div>
           ) : history.map(a => {
             const ti = typeInfo(a.type)
-            const audLabel = a.audience?.mode === 'all' ? 'All Students' : a.audience?.mode === 'batch' ? `${(a.audience.batchIds || []).length} batch(es)` : a.audience?.mode === 'testseries' ? `${(a.audience.testSeriesIds || []).length} test series` : `${(a.audience.studentIds || []).length} student(s)`
+            const audLabel = a.audience?.mode === 'all' ? 'All Students' : a.audience?.mode === 'testseries' ? `${(a.audience.testSeriesIds || []).length} test series` : `${(a.audience.studentIds || []).length} student(s)`
             return (
               <div key={a._id} style={{
                 borderLeft: `4px solid ${a.type === 'urgent' ? T.DNG : a.pinned ? T.GOLD : ti.col}`,

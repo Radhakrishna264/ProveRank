@@ -28,7 +28,6 @@ const EntryPolicyTemplate = require('../models/EntryPolicyTemplate');
 const EntryControlLog = require('../models/EntryControlLog');
 const Exam = require('../models/Exam');
 let Announcement; try { Announcement = require('../models/Announcement'); } catch (e) { Announcement = null; }
-let Batch; try { Batch = require('../models/Batch'); } catch (e) { Batch = null; }
 let TestSeries; try { TestSeries = require('../models/TestSeries'); } catch (e) { TestSeries = null; }
 let User; try { User = require('../models/User'); } catch (e) { User = null; }
 
@@ -107,11 +106,6 @@ async function findApplicablePolicy(examId) {
   let policy = await EntryProctoringPolicy.findOne({ status: 'published', 'scope.type': 'exam', 'scope.examId': examId }).sort({ version: -1 }).lean();
   if (policy) return { exam, policy, resolvedFrom: 'exam' };
 
-  const batchTargets = [exam.batch, ...(exam.multiBatch || [])].filter(Boolean);
-  if (batchTargets.length) {
-    policy = await EntryProctoringPolicy.findOne({ status: 'published', 'scope.type': 'batch', 'scope.batchId': { $in: batchTargets.map(toId).filter(Boolean) } }).sort({ version: -1 }).lean();
-    if (policy) return { exam, policy, resolvedFrom: 'batch' };
-  }
   if (exam.testSeriesId) {
     policy = await EntryProctoringPolicy.findOne({ status: 'published', 'scope.type': 'series', 'scope.testSeriesId': exam.testSeriesId }).sort({ version: -1 }).lean();
     if (policy) return { exam, policy, resolvedFrom: 'series' };
@@ -220,11 +214,10 @@ adminRouter.get('/overview/:policyId', verifyToken, isAdmin, async (req, res) =>
 adminRouter.get('/policies', verifyToken, isAdmin, async (req, res) => {
   try {
     await promoteScheduledPolicies();
-    const { scopeType, examId, batchId, testSeriesId, status, search } = req.query;
+    const { scopeType, examId, testSeriesId, status, search } = req.query;
     const filter = {};
     if (scopeType) filter['scope.type'] = scopeType;
     if (examId) filter['scope.examId'] = toId(examId);
-    if (batchId) filter['scope.batchId'] = toId(batchId);
     if (testSeriesId) filter['scope.testSeriesId'] = toId(testSeriesId);
     if (status) filter.status = status;
     if (search) filter.name = { $regex: search, $options: 'i' };
@@ -606,13 +599,12 @@ adminRouter.get('/policies/:id/broadcasts', verifyToken, isAdmin, async (req, re
 adminRouter.post('/broadcasts', verifyToken, isAdmin, async (req, res) => {
   try {
     if (!Announcement) return res.status(501).json({ error: 'Announcement model unavailable' });
-    const { examId, batchId, broadcastType, title, message, channel, scheduledAt } = req.body;
+    const { examId, broadcastType, title, message, channel, scheduledAt } = req.body;
     if (!title || !message) return res.status(400).json({ error: 'title and message required' });
     const validTypes = ['waiting_room_announcement', 'instruction_update', 'consent_reminder', 'camera_reminder', 'fullscreen_reminder', 'join_window_warning', 'emergency_notice'];
     if (!validTypes.includes(broadcastType)) return res.status(400).json({ error: 'Invalid broadcastType' });
 
     let audience = { mode: 'all' };
-    if (batchId) audience = { mode: 'batch', batchIds: [batchId] };
 
     const status = scheduledAt && new Date(scheduledAt) > new Date() ? 'scheduled' : 'sent';
     const doc = await Announcement.create({
@@ -712,7 +704,7 @@ adminRouter.get('/analytics/failure-summary', verifyToken, isAdmin, async (req, 
 // STUDENT ROUTES — /api/entry-proctoring
 // ══════════════════════════════════════════════════════════════════
 
-// Effective (resolved) policy for a given exam — exam → batch → series → global → schema defaults
+// Effective (resolved) policy for a given exam — exam → series → global → schema defaults
 studentRouter.get('/effective/:examId', verifyToken, async (req, res) => {
   try {
     const { exam, policy, resolvedFrom } = await findApplicablePolicy(req.params.examId);

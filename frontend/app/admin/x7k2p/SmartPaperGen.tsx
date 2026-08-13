@@ -52,8 +52,7 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 }
 
 // ═══ MAIN COMPONENT ═══
-export default function SmartPaperGen({ API, token, batches, testSeries }: { API: string; token: string; batches?: any[]; testSeries?: any[] }) {
-  const uaeBatches = batches || [];
+export default function SmartPaperGen({ API, token, testSeries }: { API: string; token: string; testSeries?: any[] }) {
   const uaeTestSeries = testSeries || [];
   const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('pr_token') || '' : token;
 
@@ -97,8 +96,7 @@ export default function SmartPaperGen({ API, token, batches, testSeries }: { API
   // ── 17.11 Use as Exam modal
   const [showUAE,     setShowUAE]       = useState(false);
   const [uaeTitle,    setUaeTitle]      = useState('');
-  const [uaeAssignType, setUaeAssignType] = useState<'open'|'batch'|'series'>('open');
-  const [uaeBatchId,    setUaeBatchId]    = useState('');
+  const [uaeAssignType, setUaeAssignType] = useState<'open'|'series'>('open');
   const [uaeTestSeriesId, setUaeTestSeriesId] = useState('');
   const [uaeType,     setUaeType]       = useState('Full Mock');
   const [uaeStartDate, setUaeStartDate] = useState(''); // F57 FIX — Smart AI Generator start date
@@ -268,7 +266,6 @@ export default function SmartPaperGen({ API, token, batches, testSeries }: { API
           answerKey:        paper.answerKey,
           examTitle:        uaeTitle || paper.meta.examTitle,
           assignType:       uaeAssignType,
-          batchId:          uaeBatchId,
           testSeriesId:     uaeTestSeriesId,
           type:             uaeType,
           selectedSetLabel: uaeSet,
@@ -1010,18 +1007,12 @@ export default function SmartPaperGen({ API, token, batches, testSeries }: { API
 
             <label style={S.label}>Assign To (optional, 17.11)</label>
             <div style={{ display:'flex', gap:8, marginBottom:12 }}>
-              {([['open','🌐 Open'],['batch','🏫 Batch'],['series','📚 Test Series']] as const).map(([v,l]) => (
-                <button key={v} onClick={() => { setUaeAssignType(v); if (v!=='batch') setUaeBatchId(''); if (v!=='series') setUaeTestSeriesId(''); }} style={{ flex:1, padding:'8px', borderRadius:8, border:`1px solid ${uaeAssignType===v ? '#6366F1':'rgba(255,255,255,0.1)'}`, background: uaeAssignType===v ? 'rgba(99,102,241,0.2)':'rgba(255,255,255,0.04)', color: uaeAssignType===v ? '#A5B4FC':'#64748B', cursor:'pointer', fontWeight:700, fontSize:11 }}>
+              {([['open','🌐 Open'],['series','📚 Test Series']] as const).map(([v,l]) => (
+                <button key={v} onClick={() => { setUaeAssignType(v); if (v!=='series') setUaeTestSeriesId(''); }} style={{ flex:1, padding:'8px', borderRadius:8, border:`1px solid ${uaeAssignType===v ? '#6366F1':'rgba(255,255,255,0.1)'}`, background: uaeAssignType===v ? 'rgba(99,102,241,0.2)':'rgba(255,255,255,0.04)', color: uaeAssignType===v ? '#A5B4FC':'#64748B', cursor:'pointer', fontWeight:700, fontSize:11 }}>
                   {l}
                 </button>
               ))}
             </div>
-            {uaeAssignType === 'batch' && (
-              <select value={uaeBatchId} onChange={e => setUaeBatchId(e.target.value)} style={{ ...S.inp, marginBottom:12 }}>
-                <option value="">— Select Batch —</option>
-                {uaeBatches.map((b:any) => <option key={b._id} value={b._id}>{b.name}{b.lifecycleStatus?` · ${b.lifecycleStatus}`:''}</option>)}
-              </select>
-            )}
             {uaeAssignType === 'series' && (
               <select value={uaeTestSeriesId} onChange={e => setUaeTestSeriesId(e.target.value)} style={{ ...S.inp, marginBottom:12 }}>
                 <option value="">— Select Test Series —</option>

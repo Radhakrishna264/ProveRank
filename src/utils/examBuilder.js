@@ -1,6 +1,5 @@
 const Question = require('../models/Question');
 const Exam = require('../models/Exam');
-const Batch = require('../models/Batch');
 const TestSeries = require('../models/TestSeries');
 const StudentNotification = require('../models/StudentNotification');
 const User = require('../models/User');
@@ -64,7 +63,7 @@ function orderAndBuildSections(list) {
  *                          schedule, customInstructions, password, whitelistEnabled, waitingRoomEnabled,
  *                          waitingRoomMinutes, reattemptCount, unlimitedAttempts, reviewWindow,
  *                          watermark, totalQuestionsRequested, subjectWiseCount }
- *   assignment        - { assignmentType, batch, multiBatch, seriesName, notifyStudents }
+ *   assignment        - { assignmentType, seriesName, notifyStudents }
  *   postCreate         - { scheduledPublish, isTemplate, status }
  *   sourceMeta        - { sourceType, fileName, uploadedAt, pageCount, totalParsed, totalErrors, totalDuplicates }
  *   createdBy         - user id
@@ -147,8 +146,6 @@ async function createExamFromQuestions({ parsedQuestions, examDetails, assignmen
     password: examDetails.password || '',
     schedule: examDetails.schedule || {},
     category,
-    batch: assignmentType === 'batch' ? (assignment.batch || '') : '',
-    multiBatch: assignment.multiBatch || [],
     assignmentType,
     testSeriesId: assignmentType === 'series' ? (assignment.testSeriesId || null) : null,
     seriesName: resolvedSeriesName,
@@ -185,37 +182,18 @@ async function createExamFromQuestions({ parsedQuestions, examDetails, assignmen
 
   await Question.updateMany({ _id: { $in: inserted.map(d => d._id) } }, { $inc: { usageCount: 1 } }).catch(() => {});
 
-  // 🔧 FIX (Assign System) — link the exam back into the Batch/TestSeries so it actually
-  // "uploads" into that batch/series (same fix applied to Create Exam wizard + Smart Paper Gen).
+  // 🔧 FIX (Assign System) — link the exam back into the TestSeries so it actually
+  // "uploads" into that series (same fix applied to Create Exam wizard + Smart Paper Gen).
   try {
-    if (assignmentType === 'batch' && assignment.batch) {
-      await Batch.findByIdAndUpdate(assignment.batch, { $addToSet: { exams: exam._id } });
-    } else if (assignmentType === 'series' && assignment.testSeriesId) {
+    if (assignmentType === 'series' && assignment.testSeriesId) {
       await TestSeries.findByIdAndUpdate(assignment.testSeriesId, { $addToSet: { tests: exam._id } });
     }
-    if (assignment.multiBatch && assignment.multiBatch.length) {
-      await Batch.updateMany({ _id: { $in: assignment.multiBatch } }, { $addToSet: { exams: exam._id } });
-    }
   } catch (linkErr) {
-    console.error('Assign-link warning (exam created but batch/series link failed):', linkErr.message);
+    console.error('Assign-link warning (exam created but series link failed):', linkErr.message);
   }
 
-  // F19B.8.6 / F20B.8.6 / F21B.11.6 — Notify Students toggle
+  // F19B.8.6 / F20B.8.6 / F21B.11.6 — Notify Students toggle (batch-based notify removed)
   let notifiedCount = 0;
-  if (assignment.notifyStudents && assignment.batch) {
-    try {
-      const students = await User.find({ batch: assignment.batch, role: 'student' }).select('_id');
-      const notifs = students.map(s => ({
-        userId: s._id,
-        batchId: assignment.batch,
-        type: 'batch_update', // reuse existing enum value (no model changes needed)
-        title: 'New Exam Published',
-        message: `A new exam "${exam.title}" has been added to your batch.`,
-        link: `/exam/${exam._id}`,
-      }));
-      if (notifs.length > 0) { await StudentNotification.insertMany(notifs); notifiedCount = notifs.length; }
-    } catch (e) { /* notification failure should never block exam creation */ }
-  }
 
   return { exam, questionsCreated: inserted.length, notifiedCount };
 }

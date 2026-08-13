@@ -5,7 +5,7 @@ const mongoose = require('mongoose')
 const { verifyToken } = require('../middleware/auth')
 const Announcement = require('../models/Announcement')
 const User = require('../models/User')
-const Batch = require('../models/Batch')
+const TestSeries = require('../models/TestSeries')
 
 // ══════════════════════════════════════════════════════════════
 // Helpers
@@ -28,12 +28,11 @@ async function resolveAudience(audience) {
   if (!audience || audience.mode === 'all') {
     return User.find({ role: 'student', banned: { $ne: true } }, 'name email').lean()
   }
-  if (audience.mode === 'batch' || audience.mode === 'testseries') {
-    const ids = (audience.mode === 'batch' ? audience.batchIds : audience.testSeriesIds || audience.batchIds) || []
-    const filtered = ids.filter(Boolean)
-    if (!filtered.length) return []
-    const batches = await Batch.find({ _id: { $in: filtered } }, 'students').lean()
-    const studentIds = [...new Set(batches.flatMap(b => (b.students || []).map(String)))]
+  if (audience.mode === 'testseries') {
+    const ids = (audience.testSeriesIds || []).filter(Boolean)
+    if (!ids.length) return []
+    const series = await TestSeries.find({ _id: { $in: ids } }, 'students').lean()
+    const studentIds = [...new Set(series.flatMap(s => (s.students || []).map(String)))]
     if (!studentIds.length) return []
     return User.find({ _id: { $in: studentIds }, role: 'student', banned: { $ne: true } }, 'name email').lean()
   }
@@ -99,8 +98,8 @@ studentRouter.get('/', verifyToken, async (req, res) => {
     const uid = toObjectId(req.user.id)
     if (!uid) return res.status(400).json({ message: 'Invalid user' })
 
-    const myBatches = await Batch.find({ students: uid }, '_id').lean()
-    const myBatchIds = myBatches.map(b => b._id)
+    const mySeries = await TestSeries.find({ students: uid }, '_id').lean()
+    const mySeriesIds = mySeries.map(s => s._id)
     const now = new Date()
 
     const list = await Announcement.find({
@@ -109,8 +108,7 @@ studentRouter.get('/', verifyToken, async (req, res) => {
         { $or: [{ expiryDate: null }, { expiryDate: { $gte: now } }] }, // F42B §3.9 expiry check
         { $or: [
             { 'audience.mode': 'all' },
-            { 'audience.mode': 'batch', 'audience.batchIds': { $in: myBatchIds } },
-            { 'audience.mode': 'testseries', 'audience.testSeriesIds': { $in: myBatchIds } },
+            { 'audience.mode': 'testseries', 'audience.testSeriesIds': { $in: mySeriesIds } },
             { 'audience.mode': 'students', 'audience.studentIds': uid },
         ] },
       ],
@@ -137,8 +135,8 @@ studentRouter.get('/unread-count', verifyToken, async (req, res) => {
     await promoteScheduled()
     const uid = toObjectId(req.user.id)
     if (!uid) return res.status(400).json({ count: 0 })
-    const myBatches = await Batch.find({ students: uid }, '_id').lean()
-    const myBatchIds = myBatches.map(b => b._id)
+    const mySeries = await TestSeries.find({ students: uid }, '_id').lean()
+    const mySeriesIds = mySeries.map(s => s._id)
     const now = new Date()
     const count = await Announcement.countDocuments({
       status: 'sent',
@@ -147,8 +145,7 @@ studentRouter.get('/unread-count', verifyToken, async (req, res) => {
         { $or: [{ expiryDate: null }, { expiryDate: { $gte: now } }] },
         { $or: [
             { 'audience.mode': 'all' },
-            { 'audience.mode': 'batch', 'audience.batchIds': { $in: myBatchIds } },
-            { 'audience.mode': 'testseries', 'audience.testSeriesIds': { $in: myBatchIds } },
+            { 'audience.mode': 'testseries', 'audience.testSeriesIds': { $in: mySeriesIds } },
             { 'audience.mode': 'students', 'audience.studentIds': uid },
         ] },
       ],
@@ -173,8 +170,8 @@ studentRouter.post('/read-all', verifyToken, async (req, res) => {
   try {
     const uid = toObjectId(req.user.id)
     if (!uid) return res.status(400).json({ message: 'Invalid user' })
-    const myBatches = await Batch.find({ students: uid }, '_id').lean()
-    const myBatchIds = myBatches.map(b => b._id)
+    const mySeries = await TestSeries.find({ students: uid }, '_id').lean()
+    const mySeriesIds = mySeries.map(s => s._id)
     const now = new Date()
     await Announcement.updateMany({
       status: 'sent',
@@ -183,8 +180,7 @@ studentRouter.post('/read-all', verifyToken, async (req, res) => {
         { $or: [{ expiryDate: null }, { expiryDate: { $gte: now } }] },
         { $or: [
             { 'audience.mode': 'all' },
-            { 'audience.mode': 'batch', 'audience.batchIds': { $in: myBatchIds } },
-            { 'audience.mode': 'testseries', 'audience.testSeriesIds': { $in: myBatchIds } },
+            { 'audience.mode': 'testseries', 'audience.testSeriesIds': { $in: mySeriesIds } },
             { 'audience.mode': 'students', 'audience.studentIds': uid },
         ] },
       ],
@@ -214,11 +210,11 @@ function requireAdminOrSuper(req, res, next) {
   next()
 }
 
-// GET /batches — audience picker: batches/test series with live student counts (F42A §1.2.2 / §3.1.2)
-adminRouter.get('/batches', verifyToken, requireAdminOrSuper, async (req, res) => {
+// GET /series — audience picker: test series with live student counts (F42A §1.2.2 / §3.1.2)
+adminRouter.get('/series', verifyToken, requireAdminOrSuper, async (req, res) => {
   try {
-    const batches = await Batch.find({ status: { $ne: 'inactive' } }, 'name examType students').lean()
-    res.json(batches.map(b => ({ _id: b._id, name: b.name, examType: b.examType, studentCount: (b.students || []).length })))
+    const series = await TestSeries.find({ status: { $ne: 'inactive' } }, 'name title examType students').lean()
+    res.json(series.map(s => ({ _id: s._id, name: s.name || s.title, examType: s.examType, studentCount: (s.students || []).length })))
   } catch (err) { res.status(500).json({ message: err.message }) }
 })
 
@@ -275,7 +271,7 @@ adminRouter.get('/', verifyToken, requireAdminOrSuper, async (req, res) => {
       if (dateFrom) q.createdAt.$gte = new Date(dateFrom)
       if (dateTo) q.createdAt.$lte = new Date(dateTo + 'T23:59:59')
     }
-    const list = await Announcement.find(q).populate('audience.batchIds', 'name').sort({ createdAt: -1 }).limit(200).lean()
+    const list = await Announcement.find(q).populate('audience.testSeriesIds', 'name').sort({ createdAt: -1 }).limit(200).lean()
     const out = list.map(a => ({
       ...a,
       readCount: (a.readBy || []).length,
@@ -303,12 +299,7 @@ adminRouter.post('/', verifyToken, requireAdminOrSuper, async (req, res) => {
     const { title, titleHi, message, messageHi, type, sendVia, pinned, imageUrl, scheduledAt, expiryDate, saveAsDraft, templateName } = req.body
     if (!title || !message) return res.status(400).json({ message: 'Title and message are required' })
 
-    // Legacy-compat: existing BatchDetailOverlay widget & old compose form
-    // send { batch: 'all' | batchId } instead of a full audience object.
     let audience = req.body.audience
-    if (!audience && req.body.batch !== undefined) {
-      audience = req.body.batch === 'all' || !req.body.batch ? { mode: 'all' } : { mode: 'batch', batchIds: [req.body.batch] }
-    }
     if (!audience || !audience.mode) audience = { mode: 'all' }
 
     let status = 'sent'

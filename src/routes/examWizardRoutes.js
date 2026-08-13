@@ -17,7 +17,6 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
 const getExam     = () => mongoose.model('Exam');
 const getQuestion = () => mongoose.model('Question');
 const getUser     = () => mongoose.model('User');
-const getBatch      = () => mongoose.model('Batch');
 const getTestSeries = () => mongoose.model('TestSeries');
 
 function parseAnswerKey(text = '') {
@@ -112,7 +111,7 @@ router.post('/exam-wizard/create', verifyToken, isAdmin, async (req, res) => {
       instructions, passwordEnabled, password,
       whitelist, waitingRoom, waitingMinutes,
       reattempt, reattemptUnlimited, reviewWindow, sectionWise, watermark,
-      liveQsRange, assignType, batchId, testSeriesId, multiBatches,
+      liveQsRange, assignType, testSeriesId,
       status
     } = req.body;
 
@@ -157,12 +156,9 @@ router.post('/exam-wizard/create', verifyToken, isAdmin, async (req, res) => {
       sectionWise: sectionWise || false,
       watermark: watermark || false,
       liveQsRange: liveQsRange || [],
-      // 🔧 FIX — batch/multiBatch/testSeriesId now match actual Exam schema field names
-      batch: assignType === 'batch' ? (batchId || '') : '',
-      multiBatch: multiBatches || [],
       testSeriesId: assignType === 'series' ? (testSeriesId || null) : null,
       seriesName: resolvedSeriesName,
-      assignmentType: assignType === 'batch' ? 'batch' : assignType === 'series' ? 'series' : 'individual',
+      assignmentType: assignType === 'series' ? 'series' : 'individual',
       status: status || 'draft',
       questions: [],
       createdBy: req.user.id,
@@ -170,18 +166,15 @@ router.post('/exam-wizard/create', verifyToken, isAdmin, async (req, res) => {
 
     const exam = await Exam.create(examData);
 
-    // 🔧 FIX (Assign System) — link the exam back into the Batch/TestSeries so it actually
-    // "uploads" into that batch/series (previously this reverse-link never happened).
+    // 🔧 FIX (Assign System) — link the exam back into the TestSeries so it actually
+    // "uploads" into that series (previously this reverse-link never happened).
     try {
-      if (assignType === 'batch' && batchId) {
-        const Batch = getBatch();
-        await Batch.findByIdAndUpdate(batchId, { $addToSet: { exams: exam._id } });
-      } else if (assignType === 'series' && testSeriesId) {
+      if (assignType === 'series' && testSeriesId) {
         const TestSeries = getTestSeries();
         await TestSeries.findByIdAndUpdate(testSeriesId, { $addToSet: { tests: exam._id } });
       }
     } catch (linkErr) {
-      console.error('Assign-link warning (exam created but batch/series link failed):', linkErr.message);
+      console.error('Assign-link warning (exam created but series link failed):', linkErr.message);
     }
 
     res.status(201).json({ success: true, message: 'Exam created!', exam, examId: exam._id });
@@ -359,11 +352,7 @@ router.get('/exam-wizard/:id/review', verifyToken, isAdmin, async (req, res) => 
     const Exam = getExam();
     const exam = await Exam.findById(req.params.id).populate('questions', 'text subject chapter difficulty type options correct explanation image').lean();
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
-    // Student count if batch assigned
     let studentCount = 0;
-    try {
-      if (exam.batch) { const User = getUser(); studentCount = await User.countDocuments({ role: 'student', batch: exam.batch }); }
-    } catch {}
     res.json({ success: true, exam, studentCount });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -435,7 +424,7 @@ router.post('/exam-wizard/:id/notify-students', verifyToken, isAdmin, async (req
     try {
       const Notification = mongoose.model('Notification');
       const User = getUser();
-      const filter = exam.batch ? { role: 'student', batch: exam.batch } : { role: 'student' };
+      const filter = { role: 'student' };
       const students = await User.find(filter).select('_id');
       const notifs = students.map(s => ({ user: s._id, title: `New Exam: ${exam.title}`, message: `A new exam "${exam.title}" has been scheduled. Duration: ${exam.duration} min.`, type: 'exam', examId: exam._id }));
       if (notifs.length) await Notification.insertMany(notifs, { ordered: false });

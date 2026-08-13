@@ -4,7 +4,6 @@ const router = express.Router();
 const Exam = require('../models/Exam');
 const User = require('../models/User');
 const Attempt = require('../models/Attempt');
-const Batch = require('../models/Batch');
 let TestSeries;
 try { TestSeries = require('../models/TestSeries'); } catch (e) { TestSeries = null; }
 const { verifyToken } = require('../middleware/auth');
@@ -30,14 +29,9 @@ function pushChat(examId, msg) {
 async function getEnrollment(studentId) {
   const userDoc = await User.collection.findOne({ _id: new mongoose.Types.ObjectId(studentId) });
   const ids = (userDoc && userDoc.enrolledBatches) || [];
-  const [batches, series] = await Promise.all([
-    Batch.find({ _id: { $in: ids } }).select('_id name').lean(),
-    TestSeries ? TestSeries.find({ _id: { $in: ids } }).select('_id title name').lean() : Promise.resolve([])
-  ]);
+  const series = TestSeries ? await TestSeries.find({ _id: { $in: ids } }).select('_id title name').lean() : [];
   return {
     userDoc,
-    batchIds: batches.map(b => String(b._id)),
-    batchNames: batches.map(b => b.name).filter(Boolean),
     seriesIds: series.map(s => String(s._id)),
     seriesNames: series.map(s => s.title || s.name).filter(Boolean)
   };
@@ -55,21 +49,10 @@ function canSeeExam(exam, studentId, student, enrollment) {
   if (Array.isArray(exam.whitelist) && exam.whitelist.length > 0) {
     return exam.whitelist.some(id => String(id) === String(studentId));
   }
-  // F54 FIX — an exam can be linked to BOTH a series and a batch at once.
-  // Previously assignmentType==='series' short-circuited and skipped the
-  // batch check entirely, hiding the exam from batch-only-enrolled students.
-  // Now check series AND batch independently — visible if EITHER matches.
   if (exam.testSeriesId && enrollment.seriesIds.includes(String(exam.testSeriesId))) {
     return true;
   }
-  const hasBatchTarget = !!exam.batch || (exam.multiBatch && exam.multiBatch.length > 0);
-  if (hasBatchTarget) {
-    const targets = [exam.batch, ...(exam.multiBatch || [])].filter(Boolean).map(String);
-    if (targets.some(t => enrollment.batchIds.includes(t) || enrollment.batchNames.includes(t))) {
-      return true;
-    }
-  }
-  return false; // F52/F54 — not linked to any enrolled batch or series, so must NOT show on My Exams
+  return false; // not linked to any enrolled series, so must NOT show on My Exams
 }
 
 // ══ Helper: compute full exam state (status, join window, waiting-room ══
@@ -200,8 +183,6 @@ router.get('/my-exams', verifyToken, async (req, res) => {
         category: e.category,
         type: e.type || 'NEET',
         assignmentType: e.assignmentType || 'individual',
-        batch: e.batch,
-        multiBatch: e.multiBatch,
         testSeriesId: e.testSeriesId || null,
         seriesName: e.seriesName || '',
         schedule: e.schedule,
@@ -219,7 +200,6 @@ router.get('/my-exams', verifyToken, async (req, res) => {
     res.json({
       success: true,
       exams: result,
-      syncedBatches: enrollment.batchNames,
       syncedSeries: enrollment.seriesNames
     });
   } catch (err) {

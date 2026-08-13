@@ -38,13 +38,13 @@ function Badge({l,col}:{l:string;col:string}){
   return <span style={{background:`${col}18`,border:`1px solid ${col}30`,color:col,borderRadius:8,padding:'2px 8px',fontSize:10,fontWeight:600}}>{l}</span>
 }
 
-interface Props { token:string; API:string; T:(m:string,t?:'s'|'e'|'w')=>void; fetchAll:()=>void; batches:any[]; testSeries:any[]; exams:any[]; questions:any[]; pendingTemplate?:any; onTemplateConsumed?:()=>void }
+interface Props { token:string; API:string; T:(m:string,t?:'s'|'e'|'w')=>void; fetchAll:()=>void; testSeries:any[]; exams:any[]; questions:any[]; pendingTemplate?:any; onTemplateConsumed?:()=>void }
 
 const SUBJECTS = ['Physics','Chemistry','Biology','Math','GK','English','Other']
 const CATEGORIES = ['Full Mock','Chapter Test','Part Test','Grand Test','Mini Test','PYQ','Custom']
 const EXAM_TYPES = ['NEET','JEE','CUET','RBSE','CBSE','Custom']
 
-export default function CreateExamWizard({ token, API, T, fetchAll, batches, testSeries, exams, questions, pendingTemplate, onTemplateConsumed }:Props) {
+export default function CreateExamWizard({ token, API, T, fetchAll, testSeries, exams, questions, pendingTemplate, onTemplateConsumed }:Props) {
   const hdrs = { 'Content-Type':'application/json', Authorization:`Bearer ${token}` }
 
   // ── Wizard step ──────────────────────────────────────────────────────────────
@@ -77,10 +77,8 @@ export default function CreateExamWizard({ token, API, T, fetchAll, batches, tes
   const [sectionWise, setSectionWise] = useState(true)
   const [watermark, setWatermark]     = useState(false)
   const [liveQsRange, setLiveQsRange] = useState<{from:number;to:number;subject:string}[]>([{from:1,to:45,subject:'Physics'},{from:46,to:90,subject:'Chemistry'},{from:91,to:180,subject:'Biology'}])
-  const [assignType, setAssignType]   = useState<'batch'|'series'|'open'>('open')
-  const [batchId, setBatchId]         = useState('')
+  const [assignType, setAssignType]   = useState<'series'|'open'>('open')
   const [testSeriesId, setTestSeriesId] = useState('')
-  const [multiBatches, setMultiBatches] = useState<string[]>([])
   const [formErrors, setFormErrors]   = useState<Record<string,string>>({})
   const [creating, setCreating]       = useState(false)
   const [templates, setTemplates]     = useState<any[]>([])
@@ -173,7 +171,7 @@ export default function CreateExamWizard({ token, API, T, fetchAll, batches, tes
         duration, totalMarks, correctMarks, negativeMarks, startDate, endDate,
         instructions, passwordEnabled, password, whitelist: [], waitingRoom,
         waitingMinutes: waitingMins, reattempt, reattemptUnlimited, reviewWindow,
-        sectionWise, watermark, liveQsRange, assignType, batchId, testSeriesId, multiBatches, status: 'draft'
+        sectionWise, watermark, liveQsRange, assignType, testSeriesId, status: 'draft'
       }
       const r = await fetch(`${API}/api/exam-wizard/create`, { method:'POST', headers: hdrs, body: JSON.stringify(body) })
       const d = await r.json()
@@ -381,7 +379,7 @@ export default function CreateExamWizard({ token, API, T, fetchAll, batches, tes
     { label: 'Duration configured',    ok: duration > 0 },
     { label: 'Marking scheme set',     ok: correctMarks > 0 },
     { label: `Questions added (${(reviewData?.exam?.questions||[]).length}/${totalTarget})`, ok: (reviewData?.exam?.questions||[]).length >= totalTarget },
-    { label: 'Assignment configured',  ok: assignType === 'open' || !!batchId || !!testSeriesId },
+    { label: 'Assignment configured',  ok: assignType === 'open' || !!testSeriesId },
   ]
   const checklistOk = checklist.every(c => c.ok)
 
@@ -667,25 +665,17 @@ export default function CreateExamWizard({ token, API, T, fetchAll, batches, tes
                 </div>
               </div>
 
-              {/* Batch / Test Series assignment */}
+              {/* Test Series assignment */}
               <div style={cs}>
                 <div style={{fontWeight:700,fontSize:13,color:PRP,marginBottom:14}}>🏫 Assign To</div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
-                  {([['open','🌐 Open','All students'],['batch','🏫 Batch','Specific batch'],['series','📚 Test Series','Series group']] as const).map(([v,l,d])=>(
-                    <div key={v} onClick={()=>{setAssignType(v);if(v!=='batch')setBatchId('');if(v!=='series')setTestSeriesId('')}} style={{padding:'10px',borderRadius:10,border:`1.5px solid ${assignType===v?PRP:BOR}`,background:assignType===v?`${PRP}12`:'transparent',cursor:'pointer',transition:'all 0.15s'}}>
+                  {([['open','🌐 Open','All students'],['series','📚 Test Series','Series group']] as const).map(([v,l,d])=>(
+                    <div key={v} onClick={()=>{setAssignType(v);if(v!=='series')setTestSeriesId('')}} style={{padding:'10px',borderRadius:10,border:`1.5px solid ${assignType===v?PRP:BOR}`,background:assignType===v?`${PRP}12`:'transparent',cursor:'pointer',transition:'all 0.15s'}}>
                       <div style={{fontSize:13,fontWeight:700,color:assignType===v?PRP:TS,marginBottom:2}}>{l}</div>
                       <div style={{fontSize:10,color:DIM}}>{d}</div>
                     </div>
                   ))}
                 </div>
-                {assignType === 'batch' && (
-                  <Field label="Select Batch">
-                    <select value={batchId} onChange={e=>setBatchId(e.target.value)} style={inp}>
-                      <option value="">— Select Batch —</option>
-                      {batches.map((b:any)=><option key={b._id} value={b._id}>{b.name}{b.lifecycleStatus?` · ${b.lifecycleStatus}`:''}</option>)}
-                    </select>
-                  </Field>
-                )}
                 {assignType === 'series' && (
                   <Field label="Select Test Series">
                     <select value={testSeriesId} onChange={e=>setTestSeriesId(e.target.value)} style={inp}>
@@ -720,7 +710,7 @@ export default function CreateExamWizard({ token, API, T, fetchAll, batches, tes
                     ['❓',`${totalQs} questions`],
                     ['🏆',`${totalMarks} marks`],
                     ['+',`+${correctMarks} / −${negativeMarks}`],
-                    ['🏫',assignType==='batch'?(batches.find((b:any)=>b._id===batchId)?.name||'Batch not chosen'):assignType==='series'?(testSeries.find((s:any)=>s._id===testSeriesId)?.name||'Series not chosen'):'Open Access'],
+                    ['🏫',assignType==='series'?(testSeries.find((s:any)=>s._id===testSeriesId)?.name||'Series not chosen'):'Open Access'],
                   ].map(([ico,val],i)=>(
                     <div key={i} style={{display:'flex',gap:8,alignItems:'flex-start',padding:'5px 0',borderBottom:`1px solid ${BOR}`}}>
                       <span style={{fontSize:12,flexShrink:0,color:DIM}}>{ico}</span>
@@ -1038,7 +1028,7 @@ export default function CreateExamWizard({ token, API, T, fetchAll, batches, tes
                     ['❓ Questions',`${(reviewData?.exam?.questions||[]).length} / ${totalTarget}`],
                     ['🏆 Total Marks',`${totalMarks}`],
                     ['✅/❌ Marking',`+${correctMarks} / −${negativeMarks}`],
-                    ['🏫 Assignment',assignType==='open'?'Open Access':assignType==='batch'?(batches.find((b:any)=>b._id===batchId)?.name||'Batch'):(testSeries.find((s:any)=>s._id===testSeriesId)?.name||'Series')],
+                    ['🏫 Assignment',assignType==='open'?'Open Access':(testSeries.find((s:any)=>s._id===testSeriesId)?.name||'Series')],
                     ['🔐 Password',passwordEnabled?'Set':'None'],
                     ['📊 Category',category],
                   ].map(([l,v])=>(
@@ -1101,7 +1091,7 @@ export default function CreateExamWizard({ token, API, T, fetchAll, batches, tes
                 <div style={{fontSize:32,fontWeight:900,color:PHY}}>{reviewData.studentCount}</div>
                 <div>
                   <div style={{fontWeight:700,fontSize:13,color:TS}}>Students will see this exam</div>
-                  <div style={{fontSize:10,color:DIM}}>Based on {assignType==='batch'?'selected batch':'all students'}</div>
+                  <div style={{fontSize:10,color:DIM}}>Based on {assignType==='series'?'selected test series':'all students'}</div>
                 </div>
               </div>
             </div>
@@ -1121,7 +1111,7 @@ export default function CreateExamWizard({ token, API, T, fetchAll, batches, tes
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <div>
                 <div style={{fontSize:13,color:TS,fontWeight:600}}>🔔 Notify Students on Publish</div>
-                <div style={{fontSize:10,color:DIM,marginTop:2}}>Send notification to all students in assigned batch</div>
+                <div style={{fontSize:10,color:DIM,marginTop:2}}>Send notification to all students in assigned test series</div>
               </div>
               <Toggle on={notifyStudents} onChange={setNotifyStudents}/>
             </div>

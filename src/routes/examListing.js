@@ -51,7 +51,7 @@ function visibilityFilter(req) {
 }
 
 function buildFilter(req) {
-  const { search, status, category, subject, batch, series, startDate, endDate, needsAttention } = req.query
+  const { search, status, category, subject, series, startDate, endDate, needsAttention } = req.query
   const filter = visibilityFilter(req)
   filter.isArchived = { $ne: true } // Feature 34 — archived exams only show in the Recycle Bin (/trash)
   if (search && String(search).trim()) filter.title = new RegExp(String(search).trim(), 'i')
@@ -61,7 +61,6 @@ function buildFilter(req) {
   }
   if (category) filter.category = category
   if (subject) filter.subject = subject
-  if (batch) filter.batch = batch
   if (series) filter.seriesName = series
   if (startDate || endDate) {
     filter['schedule.startTime'] = {}
@@ -69,7 +68,7 @@ function buildFilter(req) {
     if (endDate) filter['schedule.startTime'].$lte = new Date(endDate)
   }
   if (needsAttention === 'true') {
-    filter.$or = [{ batch: '' }, { batch: null }, { questions: { $size: 0 } }]
+    filter.$or = [{ questions: { $size: 0 } }]
   }
   return filter
 }
@@ -80,17 +79,15 @@ function buildFilter(req) {
 router.get('/filter-options', verifyToken, isAdmin, async (req, res) => {
   try {
     const filter = req.user.role === 'superadmin' ? {} : { createdBy: req.user.id }
-    const [categories, subjects, batches, series] = await Promise.all([
+    const [categories, subjects, series] = await Promise.all([
       Exam.distinct('category', filter),
       Exam.distinct('subject', filter),
-      Exam.distinct('batch', filter),
       Exam.distinct('seriesName', filter)
     ])
     res.json({
       success: true,
       categories: categories.filter(Boolean),
       subjects: subjects.filter(Boolean),
-      batches: batches.filter(Boolean),
       series: series.filter(Boolean)
     })
   } catch (err) { res.status(500).json({ success: false, message: err.message }) }
@@ -132,7 +129,7 @@ router.get('/list', verifyToken, isAdmin, async (req, res) => {
 
     const total = await Exam.countDocuments(filter)
     const exams = await Exam.find(filter)
-      .select('title category subject type duration totalMarks status batch seriesName schedule createdAt isPinned questions createdBy markingScheme assignmentType clonedFrom')
+      .select('title category subject type duration totalMarks status seriesName schedule createdAt isPinned questions createdBy markingScheme assignmentType clonedFrom')
       .sort(finalSort).skip(skip).limit(limit)
       .populate('createdBy', 'name email')
       .populate('clonedFrom', 'title')
@@ -307,7 +304,6 @@ router.put('/:id/quick-edit', verifyToken, isAdmin, async (req, res) => {
     if (b.subject !== undefined) exam.subject = b.subject
     if (b.type !== undefined) exam.type = b.type
     if (b.totalMarks !== undefined) exam.totalMarks = parseInt(b.totalMarks) || exam.totalMarks
-    if (b.batch !== undefined) exam.batch = b.batch
     if (b.seriesName !== undefined) exam.seriesName = b.seriesName
     if (b.watermark !== undefined) exam.watermark = !!b.watermark
     if (b.customInstructions !== undefined) exam.customInstructions = b.customInstructions
@@ -418,7 +414,7 @@ router.get('/export', verifyToken, isAdmin, async (req, res) => {
   try {
     const filter = buildFilter(req)
     const exams = await Exam.find(filter)
-      .select('title category subject type duration totalMarks status batch seriesName schedule createdAt isPinned questions')
+      .select('title category subject type duration totalMarks status seriesName schedule createdAt isPinned questions')
       .lean()
 
     const rows = exams.map(e => ({
@@ -429,7 +425,6 @@ router.get('/export', verifyToken, isAdmin, async (req, res) => {
       'Duration (min)': e.duration,
       'Total Marks': e.totalMarks,
       Status: e.status,
-      Batch: e.batch,
       Series: e.seriesName,
       'Start Time': e.schedule && e.schedule.startTime ? new Date(e.schedule.startTime).toLocaleString() : '',
       'End Time': e.schedule && e.schedule.endTime ? new Date(e.schedule.endTime).toLocaleString() : '',
@@ -496,12 +491,6 @@ router.post('/:id/clone-advanced', verifyToken, isAdmin, async (req, res) => {
     // F63 FIX — 'unlimited' is a separate boolean field, not a -1 sentinel (see quick-edit route)
     if (b.unlimitedAttempts !== undefined) obj.unlimitedAttempts = !!b.unlimitedAttempts
 
-    // 31.8 — clone to a different batch if provided, else keep original's batch
-    if (b.targetBatch !== undefined) {
-      obj.batch = b.targetBatch
-      obj.multiBatch = []
-      if (b.targetBatch) obj.assignmentType = 'batch'
-    }
     // F61 FIX — clone to a different test series (previously only wrote a stray
     // 'seriesName' string, not the real testSeriesId, so the copy never actually
     // linked to the series the same way normal assign does).
@@ -516,13 +505,9 @@ router.post('/:id/clone-advanced', verifyToken, isAdmin, async (req, res) => {
 
     const cloned = await Exam.create(obj)
 
-    // F61 FIX — reverse-link the clone into Batch.exams / TestSeries.tests so it
+    // F61 FIX — reverse-link the clone into TestSeries.tests so it
     // immediately shows up in the Assigned list, mirroring the normal assign flow.
     try {
-      if (b.targetBatch) {
-        const Batch = require('../models/Batch')
-        await Batch.updateOne({ _id: b.targetBatch }, { $addToSet: { exams: cloned._id } })
-      }
       if (b.targetSeries) {
         const TestSeries = require('../models/TestSeries')
         await TestSeries.updateOne({ _id: b.targetSeries }, { $addToSet: { tests: cloned._id } })

@@ -76,7 +76,6 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
   const [statusFilter, setStatusFilter] = useState<string[]>([])
   const [categoryFilter, setCategoryFilter] = useState('')
   const [subjectFilter, setSubjectFilter] = useState('')
-  const [batchFilter, setBatchFilter] = useState('')
   const [seriesFilter, setSeriesFilter] = useState('')
   const [dateStart, setDateStart] = useState('')
   const [dateEnd, setDateEnd] = useState('')
@@ -89,8 +88,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
   const [bulkMode, setBulkMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
-  const [filterOptions, setFilterOptions] = useState<any>({categories:[],subjects:[],batches:[],series:[]})
-  const [realBatches, setRealBatches] = useState<any[]>([]) // synced live from Batch Manager (/api/admin/batch-controls)
+  const [filterOptions, setFilterOptions] = useState<any>({categories:[],subjects:[],series:[]})
   const [admins, setAdmins] = useState<any[]>([])
 
   const [analyticsExam, setAnalyticsExam] = useState<any>(null)
@@ -124,7 +122,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
 
   // ── Feature 31 — clone dialog, success toast, history, compare ──────────────
   const [cloneDialogExam, setCloneDialogExam] = useState<any>(null)
-  const [cloneForm, setCloneForm] = useState<any>({newTitle:'',startTime:'',endTime:'',targetBatch:'',seriesName:''})
+  const [cloneForm, setCloneForm] = useState<any>({newTitle:'',startTime:'',endTime:'',seriesName:''})
   const [cloning, setCloning] = useState(false)
   const [cloneSuccessToast, setCloneSuccessToast] = useState<any>(null)
   const [cloneInfoExam, setCloneInfoExam] = useState<any>(null)
@@ -144,7 +142,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
   useEffect(()=>{ const tm=setTimeout(()=>setSearch(searchInput),350); return ()=>clearTimeout(tm) },[searchInput])
 
   // ── reset to page 1 whenever a filter changes ───────────────────────────────
-  useEffect(()=>{ setPage(1) },[search,statusFilter,categoryFilter,subjectFilter,batchFilter,seriesFilter,dateStart,dateEnd,sort,mine,viewAsAdmin,needsAttention])
+  useEffect(()=>{ setPage(1) },[search,statusFilter,categoryFilter,subjectFilter,seriesFilter,dateStart,dateEnd,sort,mine,viewAsAdmin,needsAttention])
 
   const buildParams = useCallback((forExport?:boolean)=>{
     const p = new URLSearchParams()
@@ -152,7 +150,6 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
     if(statusFilter.length) p.set('status',statusFilter.join(','))
     if(categoryFilter) p.set('category',categoryFilter)
     if(subjectFilter) p.set('subject',subjectFilter)
-    if(batchFilter) p.set('batch',batchFilter)
     if(seriesFilter) p.set('series',seriesFilter)
     if(dateStart) p.set('startDate',dateStart)
     if(dateEnd) p.set('endDate',dateEnd)
@@ -162,7 +159,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
     if(needsAttention) p.set('needsAttention','true')
     if(!forExport){ p.set('page',String(page)); p.set('limit','20') }
     return p
-  },[search,statusFilter,categoryFilter,subjectFilter,batchFilter,seriesFilter,dateStart,dateEnd,sort,mine,viewAsAdmin,needsAttention,page])
+  },[search,statusFilter,categoryFilter,subjectFilter,seriesFilter,dateStart,dateEnd,sort,mine,viewAsAdmin,needsAttention,page])
 
   const fetchExams = useCallback(async ()=>{
     setLoading(true)
@@ -181,17 +178,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
     try {
       const r = await fetch(`${API}/api/exams-manage/filter-options`,{headers:{Authorization:`Bearer ${token}`}})
       const d = await r.json()
-      if(d.success) setFilterOptions({categories:d.categories||[],subjects:d.subjects||[],batches:d.batches||[],series:d.series||[]})
-    } catch {}
-  },[API,token])
-
-  // ── synced live from the real Batch Manager — not just batch names already
-  // used on past exams, so a brand-new batch with zero exams still shows up ──
-  const fetchRealBatches = useCallback(async ()=>{
-    try {
-      const r = await fetch(`${API}/api/admin/batch-controls`,{headers:{Authorization:`Bearer ${token}`}})
-      const d = await r.json()
-      setRealBatches(d.batches||[])
+      if(d.success) setFilterOptions({categories:d.categories||[],subjects:d.subjects||[],series:d.series||[]})
     } catch {}
   },[API,token])
 
@@ -204,7 +191,6 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
   },[API,token])
 
   useEffect(()=>{ fetchFilterOptions() },[fetchFilterOptions])
-  useEffect(()=>{ fetchRealBatches() },[fetchRealBatches])
   useEffect(()=>{ if(isSuperAdmin) fetchAdmins() },[isSuperAdmin,fetchAdmins])
 
   // ── 33.15 — calendar view data (separate, wider, date-bounded fetch) ────────
@@ -254,7 +240,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
   // ════════════════════════════════════════════════════════════════════════
   const openCloneDialog = (exam:any) => {
     setCloneDialogExam(exam)
-    setCloneForm({ newTitle: `Copy of ${exam.title}`, startTime:'', endTime:'', targetBatch: exam.batch||'', seriesName: exam.seriesName||'' })
+    setCloneForm({ newTitle: `Copy of ${exam.title}`, startTime:'', endTime:'', seriesName: exam.seriesName||'' })
   }
 
   const submitClone = async () => {
@@ -406,7 +392,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
       title: exam.title||'', category: exam.category||'Full Mock', subject: exam.subject||'NEET', type: exam.type||'NEET',
       duration: exam.duration||60, totalMarks: exam.totalMarks||0,
       correctMarks: exam.markingScheme?.correct ?? 4, incorrectMarks: exam.markingScheme?.incorrect ?? -1,
-      batch: exam.batch||'', seriesName: exam.seriesName||'', watermark: !!exam.watermark,
+      seriesName: exam.seriesName||'', watermark: !!exam.watermark,
       customInstructions: exam.customInstructions||'', status: exam.status||'draft',
       startTime: exam.schedule?.startTime ? new Date(exam.schedule.startTime).toISOString().slice(0,16) : '',
       endTime: exam.schedule?.endTime ? new Date(exam.schedule.endTime).toISOString().slice(0,16) : ''
@@ -496,8 +482,8 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
   }
 
   const toggleStatusFilter = (s:string) => setStatusFilter(p=>p.includes(s)?p.filter(x=>x!==s):[...p,s])
-  const clearAllFilters = () => { setSearchInput(''); setStatusFilter([]); setCategoryFilter(''); setSubjectFilter(''); setBatchFilter(''); setSeriesFilter(''); setDateStart(''); setDateEnd(''); setSort('newest'); setMine(false); setViewAsAdmin(''); setNeedsAttention(false) }
-  const activeFilterCount = [statusFilter.length>0,!!categoryFilter,!!subjectFilter,!!batchFilter,!!seriesFilter,!!dateStart||!!dateEnd,mine,!!viewAsAdmin,needsAttention].filter(Boolean).length
+  const clearAllFilters = () => { setSearchInput(''); setStatusFilter([]); setCategoryFilter(''); setSubjectFilter(''); setSeriesFilter(''); setDateStart(''); setDateEnd(''); setSort('newest'); setMine(false); setViewAsAdmin(''); setNeedsAttention(false) }
+  const activeFilterCount = [statusFilter.length>0,!!categoryFilter,!!subjectFilter,!!seriesFilter,!!dateStart||!!dateEnd,mine,!!viewAsAdmin,needsAttention].filter(Boolean).length
 
   return (
     <div style={{fontFamily:'Inter,sans-serif'}}>
@@ -591,15 +577,8 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
               </div>
             </div>
 
-            {/* batch / series — 33.5 */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-              <div>
-                <label style={lbl}>Batch</label>
-                <select value={batchFilter} onChange={e=>setBatchFilter(e.target.value)} style={inp}>
-                  <option value="">All Batches</option>
-                  {filterOptions.batches.map((b:string)=><option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
+            {/* series — 33.5 */}
+            <div>
               <div>
                 <label style={lbl}>Test Series</label>
                 <select value={seriesFilter} onChange={e=>setSeriesFilter(e.target.value)} style={inp}>
@@ -649,7 +628,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
             {/* needs attention — 33.18 */}
             <label style={{display:'flex',alignItems:'center',gap:7,fontSize:12,color:WRN,cursor:'pointer'}}>
               <input type="checkbox" checked={needsAttention} onChange={e=>setNeedsAttention(e.target.checked)}/>
-              ⚠️ Needs Attention (no batch assigned / 0 questions)
+              ⚠️ Needs Attention (0 questions)
             </label>
 
             {activeFilterCount>0 && <button onClick={clearAllFilters} style={{...bg_,fontSize:11,alignSelf:'flex-start' as any,color:DNG,borderColor:`${DNG}33`}}>✕ Clear All Filters</button>}
@@ -717,7 +696,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
           {exams.map(e=>{
             const meta = STATUS_META[e.status] || STATUS_META.draft
             const cd = e.status==='scheduled' ? countdownLabel(e.schedule?.startTime, now) : null
-            const needsAttn = (!e.batch) || (e.questionCount===0)
+            const needsAttn = (e.questionCount===0)
             const selected = selectedIds.includes(e._id)
             const busy = busyId===e._id
             return (
@@ -743,7 +722,6 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                       <Chip ico="👥" label={`${e.studentCount||0} students`} col={SUC}/>
                       <Chip ico="❓" label={`${e.questionCount||0} Qs`} col={PRP}/>
                       {e.category && <Chip ico="📐" label={e.category} col={DIM}/>}
-                      {e.batch && <Chip ico="📦" label={e.batch} col={DIM}/>}
                       {e.clonedFrom && <Chip ico="🔗" label={`Source: ${e.clonedFrom.title||'…'}`} col={PRP}/>}
                       {e.cloneCount>0 && (
                         <span onClick={(ev:any)=>{ev.stopPropagation();openCloneInfo(e)}} style={{cursor:'pointer'}}>
@@ -909,13 +887,6 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                 <div><label style={lbl}>New End Date/Time</label><input type="datetime-local" value={cloneForm.endTime} onChange={e=>setCloneForm((f:any)=>({...f,endTime:e.target.value}))} style={inp}/></div>
               </div>
               <div>
-                <label style={lbl}>Batch (change this to clone into a different batch)</label>
-                <select value={cloneForm.targetBatch} onChange={e=>setCloneForm((f:any)=>({...f,targetBatch:e.target.value}))} style={inp}>
-                  <option value="">— Open / No Batch —</option>
-                  {realBatches.map((b:any)=><option key={b._id} value={b.name}>{b.name}{b.status!=='active'?` (${b.status})`:''}</option>)}
-                </select>
-              </div>
-              <div>
                 <label style={lbl}>Test Series / Mini Series (optional)</label>
                 <input list="series-suggestions" value={cloneForm.seriesName} onChange={e=>setCloneForm((f:any)=>({...f,seriesName:e.target.value}))} style={inp} placeholder="Leave blank, or pick/type a series name"/>
               </div>
@@ -983,7 +954,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                     <div style={{border:`1px solid ${BOR}`,borderRadius:8,overflow:'hidden'}}>
                       {[
                         {key:'category',label:'Category'},{key:'subject',label:'Subject'},{key:'type',label:'Exam Type'},
-                        {key:'duration',label:'Duration'},{key:'totalMarks',label:'Total Marks'},{key:'batch',label:'Batch'},
+                        {key:'duration',label:'Duration'},{key:'totalMarks',label:'Total Marks'},
                         {key:'seriesName',label:'Series'},{key:'status',label:'Status'}
                       ].map((f,i)=>{
                         const valA = compareData.examA[f.key] ?? '—'
@@ -1034,14 +1005,6 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                 <div><label style={lbl}>Start Time</label><input type="datetime-local" value={editForm.startTime} onChange={e=>setEditForm((f:any)=>({...f,startTime:e.target.value}))} style={inp}/></div>
                 <div><label style={lbl}>End Time</label><input type="datetime-local" value={editForm.endTime} onChange={e=>setEditForm((f:any)=>({...f,endTime:e.target.value}))} style={inp}/></div>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-                <div>
-                  <label style={lbl}>Batch</label>
-                  <select value={editForm.batch} onChange={e=>setEditForm((f:any)=>({...f,batch:e.target.value}))} style={inp}>
-                    <option value="">— Open / No Batch —</option>
-                    {realBatches.map((b:any)=><option key={b._id} value={b.name}>{b.name}{b.status!=='active'?` (${b.status})`:''}</option>)}
-                  </select>
-                </div>
                 <div>
                   <label style={lbl}>Test Series / Mini Series</label>
                   <input list="series-suggestions" value={editForm.seriesName} onChange={e=>setEditForm((f:any)=>({...f,seriesName:e.target.value}))} style={inp} placeholder="Leave blank, or pick/type a series name"/>

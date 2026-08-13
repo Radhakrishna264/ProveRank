@@ -110,30 +110,8 @@ router.post('/:examId/submit', verifyToken, async (req, res) => {
       unattemptedCount,
       attemptNumber: attemptCount + 1
     });
-try {
-  if (req.user && req.user.id) {
-    const mongoose = require('mongoose');
-    const User = require('../models/User');
-    const Exam = require('../models/Exam');
-    const exam = await Exam.findById(req.body.examId || req.params.examId).lean();
-    if (exam && exam.batch) {
-      const Batch = mongoose.model('Batch');
-      // F58 FIX — exam.batch is normally an ObjectId string (per Assign System fix),
-      // not a batch name. Try ID lookup first, fall back to legacy name-regex lookup.
-      let batchDoc = mongoose.Types.ObjectId.isValid(exam.batch) ? await Batch.findById(exam.batch).lean() : null;
-      if (!batchDoc) batchDoc = await Batch.findOne({ name: { $regex: exam.batch, $options: 'i' } }).lean();
-      if (batchDoc) {
-        const userDoc = await User.collection.findOne({ _id: new mongoose.Types.ObjectId(req.user.id) });
-        const meta = userDoc?.enrolledBatchesMeta || [];
-        const mIdx = meta.findIndex(m => m.batchId && m.batchId.toString() === batchDoc._id.toString());
-        if (mIdx >= 0) {
-          await User.collection.updateOne({ _id: new mongoose.Types.ObjectId(req.user.id) }, { $inc: { [`enrolledBatchesMeta.${mIdx}.testsCompleted`]: 1 } });
-          console.log('Progress synced for batch:', batchDoc.name);
-        }
-      }
-    }
-  }
-} catch(e) { /* silent */ }
+// (Batch progress-sync removed — Batch system deprecated. Test Series
+// equivalent can be added here later if needed.)
 
 
     // Rank recalculation
