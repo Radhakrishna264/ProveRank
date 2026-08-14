@@ -1009,6 +1009,7 @@ export default function AllExams({ token, API, T, onCreateNew }: Props) {
                   <label style={lbl}>Test Series / Mini Series</label>
                   <input list="series-suggestions" value={editForm.seriesName} onChange={e=>setEditForm((f:any)=>({...f,seriesName:e.target.value}))} style={inp} placeholder="Leave blank, or pick/type a series name"/>
                 </div>
+              </div>
               <div>
                 <label style={lbl}>Status</label>
                 <select value={editForm.status} onChange={e=>setEditForm((f:any)=>({...f,status:e.target.value}))} style={inp}>

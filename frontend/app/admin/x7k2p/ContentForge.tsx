@@ -65,10 +65,7 @@ interface ExamDetailsState {
 }
 
 interface AssignmentState {
-  assignmentType: 'batch' | 'series' | 'individual';
-  batch: string;
-  multiBatchEnabled: boolean;
-  multiBatch: string[];
+  assignmentType: 'series' | 'individual';
   testSeriesId: string;
   notifyStudents: boolean;
 }
@@ -93,7 +90,7 @@ function defaultExamDetails(): ExamDetailsState {
   };
 }
 function defaultAssignment(): AssignmentState {
-  return { assignmentType: 'individual', batch: '', multiBatchEnabled: false, multiBatch: [], testSeriesId: '', notifyStudents: false };
+  return { assignmentType: 'individual', testSeriesId: '', notifyStudents: false };
 }
 function defaultPostCreate(): PostCreateState {
   return { scheduledPublishEnabled: false, publishAt: '', isTemplate: false, publishNow: false };
@@ -570,18 +567,14 @@ function ExamDetailsForm({ d, setD, totalParsed, detectedSubjects }: { d:ExamDet
 // ═══════════════════════════════════════════════════════
 function AssignmentSelector({ a, setA, API, token }: { a:AssignmentState; setA:React.Dispatch<React.SetStateAction<AssignmentState>>; API:string; token:string }) {
   const upd = (patch: Partial<AssignmentState>) => setA(prev => ({ ...prev, ...patch }));
-  const [batches, setBatches] = useState<{_id:string; name:string; studentCount?:number}[]>([]);
   const [seriesList, setSeriesList] = useState<{_id:string; name:string; title?:string; lifecycleStatus?:string}[]>([]);
 
   useEffect(() => {
-    fetch(`${API}/api/admin/batches`, { headers:{ Authorization:`Bearer ${token}` } })
-      .then(r=>r.json()).then(d=>setBatches(d.batches||d||[])).catch(()=>{});
     fetch(`${API}/api/content-forge/series`, { headers:{ Authorization:`Bearer ${token}` } })
       .then(r=>r.json()).then(d=>setSeriesList(d.series||[])).catch(()=>{});
   }, [API, token]);
 
   const cards: { key:AssignmentState['assignmentType']; icon:string; label:string }[] = [
-    { key:'batch', icon:'🏫', label:'Assign to Batch' },
     { key:'series', icon:'📚', label:'Test Series' },
     { key:'individual', icon:'👤', label:'Individual / Open' },
   ];
@@ -589,7 +582,7 @@ function AssignmentSelector({ a, setA, API, token }: { a:AssignmentState; setA:R
   return (
     <div style={{ ...S.card }}>
       <div style={{ fontSize:13, fontWeight:800, color:C.ts, marginBottom:14 }}>🎯 Step — Assignment</div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:14 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:8, marginBottom:14 }}>
         {cards.map(c=>(
           <div key={c.key} onClick={()=>upd({assignmentType:c.key})}
             style={{ textAlign:'center', padding:'14px 8px', borderRadius:12, cursor:'pointer',
@@ -603,27 +596,6 @@ function AssignmentSelector({ a, setA, API, token }: { a:AssignmentState; setA:R
         ))}
       </div>
 
-      {a.assignmentType==='batch' && (
-        <div style={{ marginBottom:10 }}>
-          <label style={S.lbl}>Batch</label>
-          <select value={a.batch} onChange={e=>upd({batch:e.target.value})} style={S.inp}>
-            <option value="">— Select Batch —</option>
-            {batches.map(b=><option key={b._id} value={b._id}>{b.name} {b.studentCount?`(${b.studentCount} students)`:''}</option>)}
-          </select>
-          {a.assignmentType==='batch' && (
-            <div style={{ marginTop:8, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span style={{ fontSize:11, color:C.dim }}>Multi-batch assign</span>
-              <Toggle on={a.multiBatchEnabled} onClick={()=>upd({multiBatchEnabled:!a.multiBatchEnabled})} />
-            </div>
-          )}
-          {a.multiBatchEnabled && a.assignmentType==='batch' && (
-            <select multiple value={a.multiBatch} onChange={e=>upd({multiBatch:Array.from(e.target.selectedOptions).map(o=>o.value)})} style={{ ...S.inp, height:90, marginTop:6 }}>
-              {batches.map(b=><option key={b._id} value={b._id}>{b.name}</option>)}
-            </select>
-          )}
-        </div>
-      )}
-
       {a.assignmentType==='series' && (
         <div style={{ marginBottom:10 }}>
           <label style={S.lbl}>Test Series</label>
@@ -631,27 +603,17 @@ function AssignmentSelector({ a, setA, API, token }: { a:AssignmentState; setA:R
             <option value="">— Select Test Series —</option>
             {seriesList.map(s=><option key={s._id} value={s._id}>{s.name||s.title}{s.lifecycleStatus?` · ${s.lifecycleStatus}`:''}</option>)}
           </select>
-          <label style={{ ...S.lbl, marginTop:8 }}>Batch (optional)</label>
-          <select value={a.batch} onChange={e=>upd({batch:e.target.value})} style={S.inp}>
-            <option value="">— Select Batch —</option>
-            {batches.map(b=><option key={b._id} value={b._id}>{b.name}</option>)}
-          </select>
         </div>
       )}
 
       {a.assignmentType==='individual' && (
-        <div style={{ fontSize:11, color:C.dim }}>No batch restriction — exam will be open to all students.</div>
+        <div style={{ fontSize:11, color:C.dim }}>Open to all students — no test series restriction.</div>
       )}
 
       <div style={{ marginTop:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <span style={{ fontSize:11, color:C.dim }}>🔔 Notify students in batch</span>
+        <span style={{ fontSize:11, color:C.dim }}>🔔 Notify students on publish</span>
         <Toggle on={a.notifyStudents} onClick={()=>upd({notifyStudents:!a.notifyStudents})} />
       </div>
-      {a.notifyStudents && a.batch && (
-        <div style={{ marginTop:6, fontSize:10, color:C.gold }}>
-          🔔 {batches.find(b=>b._id===a.batch)?.studentCount ?? '?'} students in selected batch will be notified
-        </div>
-      )}
     </div>
   );
 }
@@ -745,12 +707,12 @@ function QuestionPreviewCard({ q, index, accent, onEdit, onDelete, onMoveUp, onM
 }
 
 // ═══ Pre-submit checklist (19B.35 / 20B.43) ═══
-function PreSubmitChecklist({ questionsOk, titleOk, dateOk, batchOk }: { questionsOk:boolean; titleOk:boolean; dateOk:boolean; batchOk:boolean }) {
+function PreSubmitChecklist({ questionsOk, titleOk, dateOk, assignOk }: { questionsOk:boolean; titleOk:boolean; dateOk:boolean; assignOk:boolean }) {
   const items = [
     { ok:questionsOk, label:'Questions' },
     { ok:titleOk, label:'Title' },
     { ok:dateOk, label:'Schedule' },
-    { ok:batchOk, label:'Assignment' },
+    { ok:assignOk, label:'Assignment' },
   ];
   return (
     <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginBottom:10 }}>
@@ -761,9 +723,9 @@ function PreSubmitChecklist({ questionsOk, titleOk, dateOk, batchOk }: { questio
   );
 }
 
-// F19B.4.7 / F20B.3.7 / F21B.7.6 — Duplicate-in-exam/batch check (wires the backend
+// F19B.4.7 / F20B.3.7 / F21B.7.6 — Duplicate check (wires the backend
 // /check-duplicates endpoint into the UI, shared across all 3 Create-Exam wizards)
-function DuplicateCheckPanel({ texts, batch, API, token }: { texts:string[]; batch:string; API:string; token:string }) {
+function DuplicateCheckPanel({ texts, API, token }: { texts:string[]; API:string; token:string }) {
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<{text:string; inSameBatch:boolean}[]|null>(null);
 
@@ -773,7 +735,7 @@ function DuplicateCheckPanel({ texts, batch, API, token }: { texts:string[]; bat
     try {
       const res = await fetch(`${API}/api/content-forge/check-duplicates`, {
         method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
-        body: JSON.stringify({ texts, batch }),
+        body: JSON.stringify({ texts }),
       });
       const d = await res.json();
       setResult(d.duplicates || []);
@@ -784,12 +746,12 @@ function DuplicateCheckPanel({ texts, batch, API, token }: { texts:string[]; bat
   return (
     <div style={{ marginBottom:10 }}>
       <button onClick={runCheck} disabled={checking||texts.length===0} style={{ ...S.bg, fontSize:11, opacity:checking?0.6:1 }}>
-        {checking ? '⟳ Checking...' : '🔍 Check Duplicates (vs Question Bank & this batch)'}
+        {checking ? '⟳ Checking...' : '🔍 Check Duplicates (vs Question Bank)'}
       </button>
       {result && (
         result.length === 0
           ? <div style={{ marginTop:6, fontSize:11, color:C.suc }}>✅ No duplicates found</div>
-          : <div style={{ marginTop:6, fontSize:11, color:C.wrn }}>⚠️ {result.length} question(s) already exist {result.some(r=>r.inSameBatch)?'(some in this batch!)':'elsewhere in Question Bank'}</div>
+          : <div style={{ marginTop:6, fontSize:11, color:C.wrn }}>⚠️ {result.length} question(s) already exist in Question Bank</div>
       )}
     </div>
   );
@@ -840,7 +802,7 @@ function MethodSubHome({ onNav, title, subtitle, qbView, examView, accent }: {
   const isMobile = useIsMobile();
   const cards = [
     { icon:'📚', title:'Upload to QB / PYQ Bank', sub:'Parse → auto-sync answers & explanations → bulk save to Question Bank or PYQ Bank', grad:`linear-gradient(135deg,${accent}22,${accent}11)`, bor:`${accent}55`, view:qbView },
-    { icon:'🎯', title:'Create Exam', sub:'Parse → build full exam with sections, marking scheme, schedule & batch assignment', grad:'linear-gradient(135deg,#A78BFA22,#7C3AED11)', bor:'rgba(167,139,250,0.3)', view:examView },
+    { icon:'🎯', title:'Create Exam', sub:'Parse → build full exam with sections, marking scheme, schedule & assignment', grad:'linear-gradient(135deg,#A78BFA22,#7C3AED11)', bor:'rgba(167,139,250,0.3)', view:examView },
   ];
   return (
     <div style={{ maxWidth:760, margin:'0 auto' }}>
@@ -1346,8 +1308,7 @@ function CopyPasteCreateExamView({ API, token, onNav }: { API:string; token:stri
           totalQuestionsRequested: examD.totalQuestionsRequested, subjectWiseCount: examD.subjectWiseCount,
         },
         assignment: {
-          assignmentType: assign.assignmentType, batch: assign.batch,
-          multiBatch: assign.multiBatchEnabled ? assign.multiBatch : [],
+          assignmentType: assign.assignmentType,
           testSeriesId: assign.testSeriesId, notifyStudents: assign.notifyStudents,
         },
         postCreate: {
@@ -1424,8 +1385,8 @@ function CopyPasteCreateExamView({ API, token, onNav }: { API:string; token:stri
           <AssignmentSelector a={assign} setA={setAssign} API={API} token={getToken()} />
           <PostCreateActions p={postC} setP={setPostC} />
 
-          <DuplicateCheckPanel texts={goodQs.map(q=>q.text)} batch={assign.batch} API={API} token={getToken()} />
-          <PreSubmitChecklist questionsOk={goodQs.length>0} titleOk={!!examD.title.trim()} dateOk={!!examD.startTime} batchOk={assign.assignmentType==='individual'||!!assign.batch||!!assign.seriesName} />
+          <DuplicateCheckPanel texts={goodQs.map(q=>q.text)} API={API} token={getToken()} />
+          <PreSubmitChecklist questionsOk={goodQs.length>0} titleOk={!!examD.title.trim()} dateOk={!!examD.startTime} assignOk={assign.assignmentType==='individual'||!!assign.testSeriesId} />
           <button onClick={handleCreate} disabled={creating} style={{ ...S.bp, width:'100%', padding:14, fontSize:14, opacity:creating?0.6:1 }}>
             {creating ? '⟳ Creating Exam...' : `Create Exam (${goodQs.length} Qs) →`}
           </button>
@@ -1821,8 +1782,7 @@ function ExcelCreateExamView({ API, token, onNav }: { API:string; token:string; 
           totalQuestionsRequested: examD.totalQuestionsRequested, subjectWiseCount: examD.subjectWiseCount,
         },
         assignment: {
-          assignmentType: assign.assignmentType, batch: assign.batch,
-          multiBatch: assign.multiBatchEnabled ? assign.multiBatch : [],
+          assignmentType: assign.assignmentType,
           testSeriesId: assign.testSeriesId, notifyStudents: assign.notifyStudents,
         },
         postCreate: {
@@ -1875,8 +1835,8 @@ function ExcelCreateExamView({ API, token, onNav }: { API:string; token:string; 
           <ExamDetailsForm d={examD} setD={setExamD} totalParsed={goodQs.length} detectedSubjects={detectedSubjects} />
           <AssignmentSelector a={assign} setA={setAssign} API={API} token={getToken()} />
           <PostCreateActions p={postC} setP={setPostC} />
-          <DuplicateCheckPanel texts={goodQs.map(q=>q.text)} batch={assign.batch} API={API} token={getToken()} />
-          <PreSubmitChecklist questionsOk={goodQs.length>0} titleOk={!!examD.title.trim()} dateOk={!!examD.startTime} batchOk={assign.assignmentType==='individual'||!!assign.batch||!!assign.seriesName} />
+          <DuplicateCheckPanel texts={goodQs.map(q=>q.text)} API={API} token={getToken()} />
+          <PreSubmitChecklist questionsOk={goodQs.length>0} titleOk={!!examD.title.trim()} dateOk={!!examD.startTime} assignOk={assign.assignmentType==='individual'||!!assign.testSeriesId} />
           <button onClick={handleCreate} disabled={creating} style={{ ...S.bp, width:'100%', padding:14, fontSize:14, opacity:creating?0.6:1 }}>
             {creating ? '⟳ Creating Exam...' : `Create Exam (${goodQs.length} Qs) →`}
           </button>
@@ -2186,8 +2146,7 @@ function PDFCreateExamView({ API, token, onNav }: { API:string; token:string; on
           totalQuestionsRequested: examD.totalQuestionsRequested, subjectWiseCount: examD.subjectWiseCount,
         },
         assignment: {
-          assignmentType: assign.assignmentType, batch: assign.batch,
-          multiBatch: assign.multiBatchEnabled ? assign.multiBatch : [],
+          assignmentType: assign.assignmentType,
           testSeriesId: assign.testSeriesId, notifyStudents: assign.notifyStudents,
         },
         postCreate: {
@@ -2240,8 +2199,8 @@ function PDFCreateExamView({ API, token, onNav }: { API:string; token:string; on
           <ExamDetailsForm d={examD} setD={setExamD} totalParsed={goodQs.length} detectedSubjects={detectedSubjects} />
           <AssignmentSelector a={assign} setA={setAssign} API={API} token={getToken()} />
           <PostCreateActions p={postC} setP={setPostC} />
-          <DuplicateCheckPanel texts={goodQs.map(q=>q.text)} batch={assign.batch} API={API} token={getToken()} />
-          <PreSubmitChecklist questionsOk={goodQs.length>0} titleOk={!!examD.title.trim()} dateOk={!!examD.startTime} batchOk={assign.assignmentType==='individual'||!!assign.batch||!!assign.seriesName} />
+          <DuplicateCheckPanel texts={goodQs.map(q=>q.text)} API={API} token={getToken()} />
+          <PreSubmitChecklist questionsOk={goodQs.length>0} titleOk={!!examD.title.trim()} dateOk={!!examD.startTime} assignOk={assign.assignmentType==='individual'||!!assign.testSeriesId} />
           <button onClick={handleCreate} disabled={creating} style={{ ...S.bp, width:'100%', padding:14, fontSize:14, opacity:creating?0.6:1 }}>
             {creating ? '⟳ Creating Exam...' : `Create Exam (${goodQs.length} Qs) →`}
           </button>
