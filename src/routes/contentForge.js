@@ -259,15 +259,10 @@ router.post('/paste/create-exam', verifyToken, isAdmin, async (req, res) => {
 
 router.post('/check-duplicates', verifyToken, isAdmin, async (req, res) => {
   try {
-    const { texts, batch } = req.body;
+    const { texts } = req.body;
     if (!Array.isArray(texts) || texts.length === 0) return res.json({ success: true, duplicates: [] });
-    const existing = await Question.find({ text: { $in: texts } }).select('text sourceExam');
-    let sameBatchExamIds = new Set();
-    if (batch) {
-      const exams = await Exam.find({ $or: [{ batch }, { multiBatch: batch }] }).select('_id');
-      sameBatchExamIds = new Set(exams.map(e => String(e._id)));
-    }
-    const duplicates = existing.map(e => ({ text: e.text, inSameBatch: sameBatchExamIds.has(String(e.sourceExam)) }));
+    const existing = await Question.find({ text: { $in: texts } }).select('text');
+    const duplicates = existing.map(e => ({ text: e.text }));
     res.json({ success: true, duplicates });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });

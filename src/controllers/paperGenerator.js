@@ -4,7 +4,6 @@
 // ═══════════════════════════════════════════════════════════════
 const Question = require('../models/Question');
 const Exam     = require('../models/Exam');
-const Batch      = require('../models/Batch');
 const TestSeries = require('../models/TestSeries');
 
 // 17.18 — In-memory saved templates (upgradeable to DB later)
@@ -318,7 +317,7 @@ exports.generatePaper = async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 exports.useAsExam = async (req, res) => {
   try {
-    const { sets, meta, answerKey, examTitle, assignType, batchId, testSeriesId, type, targetType, selectedSetLabel, startDate, endDate } = req.body;
+    const { sets, meta, answerKey, examTitle, assignType, testSeriesId, type, targetType, selectedSetLabel, startDate, endDate } = req.body;
 
     if (!sets || sets.length === 0)
       return res.status(400).json({ success: false, message: 'No sets provided' });
@@ -381,11 +380,9 @@ exports.useAsExam = async (req, res) => {
         incorrect:   (meta.markingScheme && meta.markingScheme.incorrect)   || -1,
         unattempted: (meta.markingScheme && meta.markingScheme.unattempted) || 0
       },
-      // 🔧 FIX — batch/testSeriesId now match real Exam schema fields, resolved via proper IDs
-      batch:          assignType === 'batch'  ? (batchId || '') : '',
       testSeriesId:   assignType === 'series' ? (testSeriesId || null) : null,
       seriesName:     resolvedSeriesName,
-      assignmentType: assignType === 'batch' ? 'batch' : assignType === 'series' ? 'series' : 'individual',
+      assignmentType: assignType === 'series' ? 'series' : 'individual',
       category:   type     || 'Full Mock',
       type:       (meta.mode || 'Custom').toUpperCase(),
       // F57 FIX — Smart AI Generator had no schedule field at all; exam always
@@ -400,16 +397,14 @@ exports.useAsExam = async (req, res) => {
     const qIds = primarySet.questions.map(q => q.questionId);
     await Question.updateMany({ _id: { $in: qIds } }, { $inc: { usageCount: 1 } });
 
-    // 🔧 FIX (Assign System) — link the exam back into the Batch/TestSeries so it actually
-    // "uploads" into that batch/series (same fix as the main Create Exam wizard).
+    // 🔧 FIX (Assign System) — link the exam back into the TestSeries so it actually
+    // "uploads" into that series (same fix as the main Create Exam wizard).
     try {
-      if (assignType === 'batch' && batchId) {
-        await Batch.findByIdAndUpdate(batchId, { $addToSet: { exams: exam._id } });
-      } else if (assignType === 'series' && testSeriesId) {
+      if (assignType === 'series' && testSeriesId) {
         await TestSeries.findByIdAndUpdate(testSeriesId, { $addToSet: { tests: exam._id } });
       }
     } catch (linkErr) {
-      console.error('Assign-link warning (exam created but batch/series link failed):', linkErr.message);
+      console.error('Assign-link warning (exam created but series link failed):', linkErr.message);
     }
 
     return res.json({ success: true, message: 'Exam created! ✅', exam: { _id: exam._id, title: exam.title }, examId: exam._id });

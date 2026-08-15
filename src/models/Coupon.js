@@ -1,13 +1,13 @@
 // ══════════════════════════════════════════════════════════════════
-// Coupon — scoped ONLY to a single Batch or single TestSeries via
-// scopeType + scopeId. No global coupon manager. Uniqueness of `code`
-// is enforced within (scopeType, scopeId) only, among non-deleted docs.
+// Coupon — scoped ONLY to a single TestSeries via scopeType + scopeId.
+// No global coupon manager. Uniqueness of `code` is enforced within
+// (scopeType, scopeId) only, among non-deleted docs.
 // ══════════════════════════════════════════════════════════════════
 const mongoose = require('mongoose');
 
 const CouponSchema = new mongoose.Schema({
   code: { type: String, required: true, uppercase: true, trim: true },
-  scopeType: { type: String, required: true, enum: ['batch', 'series'] },
+  scopeType: { type: String, required: true, enum: ['series'] },
   scopeId: { type: mongoose.Schema.Types.ObjectId, required: true },
 
   type: { type: String, required: true, enum: ['percent', 'flat'], default: 'percent' },

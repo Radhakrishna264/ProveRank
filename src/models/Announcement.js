@@ -23,9 +23,8 @@ const AnnouncementSchema = new mongoose.Schema({
   type: { type: String, enum: ['exam', 'update', 'result', 'maintenance', 'urgent'], default: 'update' }, // F42A §2.1.1 (v2: +maintenance)
 
   audience: {
-    mode:         { type: String, enum: ['all', 'batch', 'testseries', 'students'], default: 'all' }, // F42A §1.2.2 / §2.1.9 (v2: +testseries)
-    batchIds:     [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }],   // multi-select batches
-    testSeriesIds:[{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }],   // multi-select test series (same underlying collection, tracked separately)
+    mode:         { type: String, enum: ['all', 'testseries', 'students'], default: 'all' }, // F42A §1.2.2 / §2.1.9 (v2: +testseries)
+    testSeriesIds:[{ type: mongoose.Schema.Types.ObjectId, ref: 'TestSeries' }],   // multi-select test series
     studentIds:   [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],    // specific students
   },
 
@@ -53,7 +52,7 @@ const AnnouncementSchema = new mongoose.Schema({
     ackAt:  { type: Date, default: Date.now },
   }],
 
-  // F42A §2.3.2 per-batch/email delivery status
+  // F42A §2.3.2 per-series/email delivery status
   emailStats: {
     sent:      { type: Number, default: 0 },
     delivered: { type: Number, default: 0 },
@@ -74,7 +73,7 @@ const AnnouncementSchema = new mongoose.Schema({
 }, { timestamps: true })
 
 AnnouncementSchema.index({ status: 1, createdAt: -1 })
-AnnouncementSchema.index({ 'audience.batchIds': 1 })
+AnnouncementSchema.index({ 'audience.testSeriesIds': 1 })
 AnnouncementSchema.index({ 'audience.studentIds': 1 })
 AnnouncementSchema.index({ examId: 1, createdAt: -1 })
 

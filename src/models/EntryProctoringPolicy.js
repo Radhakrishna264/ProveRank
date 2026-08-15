@@ -2,7 +2,7 @@
 // F53–57-B — Entry & Proctoring Control Center — Policy model
 // One policy = the full entry-flow configuration (waiting room,
 // instructions, T&C, webcam, fullscreen, join rules) for a given
-// scope (global default / exam / batch / test series / custom).
+// scope (global default / exam / test series / custom).
 // ══════════════════════════════════════════════════════════════════
 const mongoose = require('mongoose');
 
@@ -38,9 +38,8 @@ const EntryProctoringPolicySchema = new mongoose.Schema({
 
   // ── 4.2 Scope ──
   scope: {
-    type: { type: String, enum: ['global', 'exam', 'batch', 'series', 'subject_group', 'custom'], default: 'global' },
+    type: { type: String, enum: ['global', 'exam', 'series', 'subject_group', 'custom'], default: 'global' },
     examId: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam', default: null },
-    batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', default: null },
     testSeriesId: { type: mongoose.Schema.Types.ObjectId, ref: 'TestSeries', default: null },
     subjectGroup: { type: String, default: '' },
     customRuleSet: { type: mongoose.Schema.Types.Mixed, default: null }
@@ -185,7 +184,7 @@ const EntryProctoringPolicySchema = new mongoose.Schema({
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, { timestamps: true });
 
-EntryProctoringPolicySchema.index({ 'scope.type': 1, 'scope.examId': 1, 'scope.batchId': 1, 'scope.testSeriesId': 1 });
+EntryProctoringPolicySchema.index({ 'scope.type': 1, 'scope.examId': 1, 'scope.testSeriesId': 1 });
 EntryProctoringPolicySchema.index({ status: 1, scheduledPublishAt: 1 });
 
 module.exports = mongoose.models.EntryProctoringPolicy || mongoose.model('EntryProctoringPolicy', EntryProctoringPolicySchema);

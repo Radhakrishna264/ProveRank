@@ -17,7 +17,7 @@ async function getAdminId(userId) {
 router.post('/create', verifyToken, isAdmin, async (req, res) => {
   try {
     const adminId = await getAdminId(req.user.id);
-    const { examId, setLabel, batchId, sectionTimers } = req.body;
+    const { examId, setLabel, sectionTimers } = req.body;
     if (!examId) return res.status(400).json({ message: 'examId required' });
 
     const exam = await Exam.findById(examId).lean();
@@ -62,7 +62,6 @@ router.post('/create', verifyToken, isAdmin, async (req, res) => {
       versionCode: vCode,
       socketRoomId: `exam_room_${examId}_${vCode}`,
       setLabel: setLabel || 'Default',
-      batchId: batchId || null,
       questionSnapshot,
       totalQuestions: questionSnapshot.length,
       sectionTimers: sectionTimers || defaultSectionTimers,
