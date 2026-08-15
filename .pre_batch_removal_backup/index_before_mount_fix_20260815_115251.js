@@ -157,18 +157,6 @@ const adminNotificationRoutes = require('./routes/adminNotificationRoutes');
 app.use('/api/student/notifications', studentNotificationRoutes);
 app.use('/api/admin/notifications', adminNotificationRoutes);
 
-// ── Restored Test Series routes (correct anchor: server.listen) ──
-const studentBatchRoutes = require('./routes/studentBatches');
-app.use('/api/student/batches', studentBatchRoutes);
-const studentBatchExtrasRoutes = require('./routes/studentBatchExtras');
-app.use('/api/student/batch-extras', studentBatchExtrasRoutes);
-const studentBatchUltraRoutes = require('./routes/studentBatchUltra');
-app.use('/api/student/batch-ultra', studentBatchUltraRoutes);
-const myBatchesRoutes = require('./routes/myBatches');
-app.use('/api/my-batches', myBatchesRoutes);
-const batchActivityRoutes = require('./routes/batchActivityRoutes');
-app.use('/api/batch-activity', batchActivityRoutes);
-
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`ProveRank server running at http://0.0.0.0:${PORT}`);
 });

@@ -50,7 +50,6 @@ const NAV_GROUPS=[
     {id:'attempt-history',icon:'🕐',en:'Attempt History',hi:'परीक्षा इतिहास',href:'/attempt-history'},
   ]},
   {label:'Test Series & Store',labelHi:'टेस्ट सीरीज और स्टोर',items:[
-    {id:'my-batches',icon:'📚',en:'My Test Series',hi:'मेरी टेस्ट सीरीज',href:'/dashboard/my-batches'},
     {id:'test-series',icon:'📚',en:'Test Series',hi:'टेस्ट सीरीज',href:'/dashboard/test-series'},
     {id:'store',icon:'🛒',en:'Store',hi:'स्टोर',href:'/dashboard/store'},
   ]},
