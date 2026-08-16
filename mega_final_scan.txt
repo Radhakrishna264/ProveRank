@@ -1,0 +1,330 @@
+===== A. batch-workspace callers =====
+src/routes/examWizardRoutes.js:369:    // examFlow.js / studentBatchWorkspace.js already filter for.
+src/routes/examWizardRoutes.js:403:    // (examFlow.js / studentBatchWorkspace.js) reads exam.schedule.startTime.
+src/routes/testSeriesManagerUltra.js:588:    // and Batch/Series Workspace (studentBatchWorkspace.js) can see this exam.
+
+===== B. batch-controls callers =====
+
+===== C. batch-manager callers =====
+frontend/app/admin/x7k2p/TestSeriesManagerUltra.tsx:1380:  const assetsBase = base.replace('/api/admin/batch-manager', '/api/admin/banner-assets').replace('/api/admin/test-series-manager', '/api/admin/banner-assets')
+
+===== D. full backend batch sweep =====
+src/routes/examFeatures.js
+src/routes/announcements.js
+src/routes/antiCheatRoutes.js
+src/routes/auth.js
+src/routes/entryProctoringControl.js
+src/routes/examFlow.js
+src/routes/examListing.js
+src/routes/examSubmission.js
+src/routes/examWizardRoutes.js
+src/routes/studentProfilePreview.js
+src/routes/testSeriesManagerUltra.js
+src/routes/studentBatches.js
+src/routes/studentBatchExtras.js
+src/routes/studentBatchUltra.js
+src/routes/myBatches.js
+src/routes/batchActivityRoutes.js
+src/models/Review.js
+src/models/StudentNotification.js
+src/models/User.js
+src/models/TestSeries.js
+src/models/Banner.js
+src/models/BannerAuditLog.js
+src/models/BatchActivity.js
+src/models/BatchPayment.js
+src/models/Exam.js
+src/controllers/uploadController.js
+src/utils/groqAI.js
+src/utils/examBuilder.js
+src/index.js
+
+===== E. full frontend batch sweep =====
+frontend/app/dashboard/test-series/page.tsx
+frontend/app/dashboard/my-batches/page.tsx
+frontend/app/admin/x7k2p/AIExplainTab.tsx
+frontend/app/admin/x7k2p/ContentForge.tsx
+frontend/app/admin/x7k2p/Student360Preview.tsx
+frontend/app/admin/x7k2p/TestSeriesManagerUltra.tsx
+frontend/app/admin/x7k2p/page.tsx
+frontend/app/profile/page.tsx
+frontend/app/my-exams/page.tsx
+frontend/src/components/StudentShell.tsx
+
+===== F. dangling deleted-model references =====
+
+===== G. admin frontend batch files =====
+frontend/app/admin/x7k2p/AIExplainTab.tsx
+frontend/app/admin/x7k2p/Student360Preview.tsx
+frontend/app/admin/x7k2p/TestSeriesManagerUltra.tsx
+frontend/app/admin/x7k2p/page.tsx
+
+===== H. index.js current mounts =====
+1:require('dotenv').config();
+2:const express    = require('express');
+5:const applySecurityMiddleware = require('./middleware/security').applySecurityMiddleware;
+6:const { apiLimiter, uploadLimiter } = require('./middleware/rateLimiter');
+7:const { checkJWTExpiry } = require('./middleware/loginProtection');
+9:const http       = require('http');
+10:const cors       = require('cors');
+11:const helmet     = require('helmet');
+12:const mongoose   = require('mongoose');
+13:const { initSocket } = require('./config/socket');
+16:const authRoutes             = require('./routes/auth');
+17:const adminRoutes            = require('./routes/admin');
+18:const examPatchRoutes = require('./routes/exam_patch');
+19:const examRoutes             = require('./routes/exam');
+20:const examExtraRoutes        = require('./routes/examExtra');
+21:const questionRoutes         = require('./routes/question');
+22:const uploadRoutes           = require('./routes/upload');
+23:const excelUploadRoutes      = require('./routes/excelUpload');
+24:const paperGeneratorRoutes   = require('./routes/paperGenerator');
+25:const pdfRoutes              = require('./routes/pdfRoutes');
+28:const examFeaturesRoutes     = require('./routes/examFeatures');
+29:const examPaperRoutes = require('./routes/examPaper');
+30:const pyqBankAdminRoutes = require('./routes/pyqBankAdmin');
+31:const adminSystemRoutes      = require('./routes/adminSystem');
+32:const adminMonitoringRoutes = require('./routes/adminMonitoringRoutes');
+33:require('./models/AdminNotification');
+34:require('./models/Challenge');
+35:require('./models/ReEvaluation');
+36:require('./models/Grievance');
+37:require('./models/QuestionVersion');
+38:require('./models/QuestionError');
+39:require('./models/ExamTemplate');      // Feature 29 — Exam Templates
+40:require('./models/TemplateCategory');  // Feature 29.10 — custom categories
+41:require('./models/Doubt');
+42:const questionStatsRoutes = require('./routes/questionStatsRoutes');
+43:const examWizardRoutes = require('./routes/examWizardRoutes');
+44:const questionDeleteRoutes = require('./routes/questionDeleteRoutes');
+45:const adminQuestionMgmtRoutes = require('./routes/adminQuestionMgmtRoutes');
+46:const adminResultRoutes = require('./routes/adminResultRoutes');
+47:const adminManagementRoutes  = require('./routes/adminManagement');
+48:const studentProfilePreviewRoutes = require('./routes/studentProfilePreview'); // F38B
+49:const questionFeaturesRoutes = require('./routes/questionFeatures');
+50:const materialRoutes = require('./routes/materialRoutes');
+51:const twoFactorRoutes        = require('./routes/twoFactor');
+56:try { questionAIRoutes       = require('./routes/questionAI'); } catch(e) {}
+57:try { questionAdvancedRoutes = require('./routes/questionAdvanced'); } catch(e) {}
+58:try { questionExtraRoutes    = require('./routes/questionExtra'); } catch(e) {}
+59:try { examSubmissionRoutes   = require('./routes/examSubmission'); } catch(e) {}
+60:try { permissionTestRoutes   = require('./routes/permissionTest'); } catch(e) {}
+68:app.use(helmet());
+69:app.use(cors({
+82:app.use('/api', apiLimiter);
+83:app.use('/api/excel', uploadLimiter);
+84:app.use('/api/upload', uploadLimiter);
+85:app.use('/api', checkJWTExpiry);
+87:app.use(express.json({limit:'1mb'}));
+100:app.use('/api/auth', authRoutes);
+101:app.use('/api/auth', twoFactorRoutes);
+104:app.use('/api', questionDeleteRoutes)
+105:app.use('/api', examWizardRoutes);
+106:app.use('/api/exam-templates', require('./routes/examTemplates')); // Feature 29 — Exam Templates
+108:app.use('/api', questionStatsRoutes);
+110:app.use('/api/admin/manage', adminManagementRoutes);  // S37/S72/S38/S93/M4
+111:app.use('/api/admin/student-preview', studentProfilePreviewRoutes); // F38B — Superadmin-only 360° preview
+112:app.use('/api/admin', adminSystemRoutes);
+113:app.use('/api/admin', adminMonitoringRoutes);  // Phase 6.2
+114:app.use('/api/admin', adminResultRoutes);       // Phase 6.3
+115:app.use('/api/admin', adminQuestionMgmtRoutes); // Phase 6.4              // S66/N21
+116:app.use('/api/admin', adminRoutes);
+119:app.use('/api/materials', materialRoutes);
+120:app.use('/api/questions', questionFeaturesRoutes);     // AI-1/AI-2/S33/S35/MCQ/MSQ
+121:app.use('/api/questions', questionRoutes);
+122:if (questionAIRoutes)       app.use('/api/questions-advanced', questionAIRoutes);
+123:if (questionAdvancedRoutes) app.use('/api/questions-advanced', questionAdvancedRoutes);
+124:if (questionExtraRoutes)    app.use('/api/questions', questionExtraRoutes);
+127:app.use('/api/exams', examFeaturesRoutes);
+128:const examFlowRoutes = require('./routes/examFlow');
+129:app.use('/api/exams', examFlowRoutes);
+130:app.use('/api/exams', examRoutes);
+131:app.use('/api/exams-manage', require('./routes/examListing')); // Feature 33 — All Exams List/Filter/Search
+132:app.use('/api/exams', examPatchRoutes);
+134:app.use('/api/exam-paper', examPaperRoutes);
+135:app.use('/api/exams', examExtraRoutes);
+136:if (examSubmissionRoutes) app.use('/api/exams', examSubmissionRoutes);
+139:app.use('/api/upload', uploadRoutes);
+140:app.use('/api/excel', excelUploadRoutes);
+141:app.use('/api/paper', paperGeneratorRoutes);
+142:app.use('/api/pdf', pdfRoutes);
+143:app.use('/api/exam-instances', require('./routes/examInstance'));
+144:const attemptRoutes = require('./routes/attemptRoutes');
+145:app.use('/api/attempts', attemptRoutes);
+146:if (permissionTestRoutes) app.use('/api/permission', permissionTestRoutes);
+151:const { studentAnnouncementRoutes, adminAnnouncementRoutes } = require('./routes/announcements'); // F42A/F42B
+152:app.use('/api/announcements', studentAnnouncementRoutes);          // F42B — student-facing
+153:app.use('/api/admin/announcements', adminAnnouncementRoutes);      // F42A — admin-facing
+155:const studentNotificationRoutes = require('./routes/studentNotificationRoutes');
+156:const adminNotificationRoutes = require('./routes/adminNotificationRoutes');
+157:app.use('/api/student/notifications', studentNotificationRoutes);
+158:app.use('/api/admin/notifications', adminNotificationRoutes);
+161:const studentBatchRoutes = require('./routes/studentBatches');
+162:app.use('/api/student/batches', studentBatchRoutes);
+163:const studentBatchExtrasRoutes = require('./routes/studentBatchExtras');
+164:app.use('/api/student/batch-extras', studentBatchExtrasRoutes);
+165:const studentBatchUltraRoutes = require('./routes/studentBatchUltra');
+166:app.use('/api/student/batch-ultra', studentBatchUltraRoutes);
+167:const myBatchesRoutes = require('./routes/myBatches');
+168:app.use('/api/my-batches', myBatchesRoutes);
+169:const batchActivityRoutes = require('./routes/batchActivityRoutes');
+170:app.use('/api/batch-activity', batchActivityRoutes);
+177:const sessionRoutes = require('./routes/sessionRoutes');
+178:const faceRoutes = require('./routes/faceRoutes');
+179:const audioRoutes = require('./routes/audioRoutes');
+180:const webcamRoutes = require('./routes/webcamRoutes');
+181:const antiCheatRoutes = require('./routes/antiCheatRoutes');
+182:const resultRoutes = require('./routes/resultRoutes');
+183:app.use('/api/session', sessionRoutes);
+184:app.use('/api/face', faceRoutes);
+185:app.use('/api/audio', audioRoutes);
+186:app.use('/api/webcam', webcamRoutes);
+187:app.use('/api/anticheat', antiCheatRoutes);
+188:app.use('/api/results', resultRoutes);
+189:app.use('/api/admin', require('./routes/adminDashboardRoutes'));
+190:const { adminEntryProctoringRoutes, studentEntryProctoringRoutes } = require('./routes/entryProctoringControl');
+191:const adminStoreRoutes   = require('./routes/adminStore');
+192:const studentStoreRoutes = require('./routes/studentStore');
+193:const paymentRoutes = require('./routes/payment');
+194:const brandingRoutes = require('./routes/brandingRoutes')
+195:app.use('/api/admin', brandingRoutes)
+196:app.use('/api/admin/entry-proctoring', adminEntryProctoringRoutes);
+197:app.use('/api/entry-proctoring', studentEntryProctoringRoutes);
+198:app.use('/api/admin/email', require('./routes/emailSend'))
+199:app.use('/api/admin/store',  adminStoreRoutes);
+200:const testSeriesManagerUltraRoutes = require('./routes/testSeriesManagerUltra');
+201:app.use('/api/admin/test-series-manager', testSeriesManagerUltraRoutes);
+202:const bannerAssetsRoutes = require('./routes/bannerAssets');
+203:app.use('/api/admin/banner-assets', bannerAssetsRoutes);
+204:app.use('/api/store/payment', paymentRoutes);
+205:app.use('/api/store',        studentStoreRoutes);
+208:const contentForgeRoutes = require('./routes/contentForge');
+209:app.use('/api/content-forge', contentForgeRoutes)
+210:app.use('/api/pyq-bank', pyqBankAdminRoutes);
+
+===== I. models folder listing =====
+total 256
+drwxr-xr-x 1 runner runner 1514 Aug 16 01:12 .
+drwxr-xr-x 1 runner runner  166 Aug 12 11:35 ..
+-rw-r--r-- 1 runner runner  906 Mar  2 10:29 ActivityLog.js
+-rw-r--r-- 1 runner runner  751 Mar  8 07:34 AdminNotification.js
+-rw-r--r-- 1 runner runner 4295 Aug 14 10:48 Announcement.js
+-rw-r--r-- 1 runner runner  971 Mar  8 03:00 AntiCheatLog.js
+-rw-r--r-- 1 runner runner 2429 Jul 29 11:44 Attempt.js
+-rw-r--r-- 1 runner runner  997 Mar  8 03:08 AudioLog.js
+-rw-r--r-- 1 runner runner 1050 Jun 27 15:34 AuditLog.js
+-rw-r--r-- 1 runner runner  772 Jul 16 11:55 BannerAuditLog.js
+-rw-r--r-- 1 runner runner 4792 Aug 16 01:12 Banner.js
+-rw-r--r-- 1 runner runner  988 Jul 21 09:18 BannerTemplate.js
+-rw-r--r-- 1 runner runner  645 Jul 17 12:36 BatchActivity.js
+-rw-r--r-- 1 runner runner  877 Aug 12 11:35 BatchPayment.js
+-rw-r--r-- 1 runner runner  951 Jul 21 09:18 BrandKit.js
+-rw-r--r-- 1 runner runner  479 Jun  6 20:17 Cart.js
+-rw-r--r-- 1 runner runner  675 Mar  8 07:49 Challenge.js
+-rw-r--r-- 1 runner runner  932 Jun 19 05:00 ContentForgeImportLog.js
+-rw-r--r-- 1 runner runner 3431 Aug 14 10:48 Coupon.js
+-rw-r--r-- 1 runner runner  660 Mar  8 07:55 Doubt.js
+-rw-r--r-- 1 runner runner  513 May  9 09:13 EmailTemplate.js
+-rw-r--r-- 1 runner runner 1923 Jul 28 03:01 EntryControlLog.js
+-rw-r--r-- 1 runner runner 2601 Jul 28 03:01 EntryPolicyTemplate.js
+-rw-r--r-- 1 runner runner 9218 Aug 14 10:48 EntryProctoringPolicy.js
+-rw-r--r-- 1 runner runner 1434 Aug 16 01:12 ExamInstance.js
+-rw-r--r-- 1 runner runner 4529 Aug 12 11:35 Exam.js
+-rw-r--r-- 1 runner runner 4105 Jun 25 06:43 ExamTemplate.js
+-rw-r--r-- 1 runner runner  539 Mar  2 07:31 ExcelUpload.js
+-rw-r--r-- 1 runner runner 1191 Mar  8 03:14 FaceLog.js
+-rw-r--r-- 1 runner runner  365 Mar 16 10:57 FeatureFlag.js
+-rw-r--r-- 1 runner runner  500 Mar  8 07:49 Grievance.js
+-rw-r--r-- 1 runner runner  477 Jun 11 11:35 Material.js
+-rw-r--r-- 1 runner runner 3004 Jun  7 16:28 Order.js
+-rw-r--r-- 1 runner runner 3231 Jun  7 11:23 Product.js
+-rw-r--r-- 1 runner runner  804 Jun  6 20:17 ProductReview.js
+-rw-r--r-- 1 runner runner  554 Jun 22 15:48 PYQExamCard.js
+-rw-r--r-- 1 runner runner  583 Jun 22 15:48 PYQYearCard.js
+-rw-r--r-- 1 runner runner  802 Mar  8 07:55 QuestionError.js
+-rw-r--r-- 1 runner runner 4215 Jun 23 01:54 Question.js
+-rw-r--r-- 1 runner runner  369 Mar  8 07:55 QuestionVersion.js
+-rw-r--r-- 1 runner runner  601 Mar  8 07:49 ReEvaluation.js
+-rw-r--r-- 1 runner runner 1083 Mar  2 12:46 Result.js
+-rw-r--r-- 1 runner runner  702 Aug 16 01:12 Review.js
+-rw-r--r-- 1 runner runner  885 Jul 21 09:18 SavedAsset.js
+-rw-r--r-- 1 runner runner  881 Aug 16 01:12 SeriesNote.js
+-rw-r--r-- 1 runner runner 1195 Mar  8 03:18 SessionLog.js
+-rw-r--r-- 1 runner runner  554 May  9 03:05 Settings.js
+-rw-r--r-- 1 runner runner  668 Aug 16 01:12 StudentNotification.js
+-rw-r--r-- 1 runner runner  679 Jun 25 06:43 TemplateCategory.js
+-rw-r--r-- 1 runner runner  833 Jul 24 12:03 TestSeriesAuditLog.js
+-rw-r--r-- 1 runner runner 6153 Jul 25 04:36 TestSeries.js
+-rw-r--r-- 1 runner runner  464 Jul 16 11:55 TestSeriesTemplate.js
+-rw-r--r-- 1 runner runner 6537 Aug 13 01:22 User.js
+-rw-r--r-- 1 runner runner 7124 Aug 13 01:22 User.js.bak_1786584126
+-rw-r--r-- 1 runner runner 1070 Mar  8 03:05 WebcamLog.js
+-rw-r--r-- 1 runner runner  340 Jun  6 20:17 Wishlist.js
+
+===== J. routes folder listing =====
+total 984
+drwxr-xr-x 1 runner runner   2092 Aug 15 06:34 .
+drwxr-xr-x 1 runner runner    166 Aug 12 11:35 ..
+-rw-r--r-- 1 runner runner  11591 Aug  2 06:08 adminDashboardRoutes.js
+-rw-r--r-- 1 runner runner   9975 May 18 05:38 admin.js
+-rw-r--r-- 1 runner runner  15255 May 18 09:43 adminManagement.js
+-rw-r--r-- 1 runner runner  13971 Aug  3 01:50 adminMonitoringRoutes.js
+-rw-r--r-- 1 runner runner   4614 May 27 00:31 adminNotificationRoutes.js
+-rw-r--r-- 1 runner runner  15327 Aug 14 10:52 adminQuestionMgmtRoutes.js
+-rw-r--r-- 1 runner runner  16704 Mar  8 07:49 adminResultRoutes.js
+-rw-r--r-- 1 runner runner  21827 Jun  8 10:49 adminStore.js
+-rw-r--r-- 1 runner runner  15027 Aug 13 23:29 adminSystem.js
+-rw-r--r-- 1 runner runner  20345 Aug 13 23:29 announcements.js
+-rw-r--r-- 1 runner runner   6590 Aug 12 11:35 antiCheatRoutes.js
+-rw-r--r-- 1 runner runner  17488 Aug  3 01:50 attemptRoutes.js
+-rw-r--r-- 1 runner runner   7111 Mar  8 03:12 audioRoutes.js
+-rw-r--r-- 1 runner runner  38171 Aug 12 11:35 auth.js
+-rw-r--r-- 1 runner runner   1043 Mar  3 09:36 auth_login_fix.js
+-rw-r--r-- 1 runner runner  34816 Jul 23 23:17 bannerAssets.js
+-rw-r--r-- 1 runner runner   2027 Aug 15 06:34 batchActivityRoutes.js
+-rw-r--r-- 1 runner runner   1135 May  9 03:11 brandingRoutes.js
+-rw-r--r-- 1 runner runner  17412 Aug 14 10:48 contentForge.js
+-rw-r--r-- 1 runner runner   3246 May  9 10:46 emailSend.js
+-rw-r--r-- 1 runner runner  42268 Aug 13 23:29 entryProctoringControl.js
+-rw-r--r-- 1 runner runner   2989 Mar  1 13:16 examExtra.js
+-rw-r--r-- 1 runner runner   6674 Aug 16 01:12 examFeatures.js
+-rw-r--r-- 1 runner runner  21046 Aug 13 23:29 examFlow.js
+-rw-r--r-- 1 runner runner   8272 Aug 14 10:48 examInstance.js
+-rw-r--r-- 1 runner runner  10206 Aug 16 01:12 exam.js
+-rw-r--r-- 1 runner runner  38473 Aug 13 23:29 examListing.js
+-rw-r--r-- 1 runner runner   8191 Mar  3 00:39 examPaper.js
+-rw-r--r-- 1 runner runner   4499 Aug  1 06:42 exam_patch.js
+-rw-r--r-- 1 runner runner   4077 Aug 13 23:29 examSubmission.js
+-rw-r--r-- 1 runner runner  18145 Jun 25 06:43 examTemplates.js
+-rw-r--r-- 1 runner runner  32063 Aug 13 23:29 examWizardRoutes.js
+-rw-r--r-- 1 runner runner   4836 Mar  2 07:33 excelUpload.js
+-rw-r--r-- 1 runner runner  10899 Mar  8 03:15 faceRoutes.js
+-rw-r--r-- 1 runner runner    207 Jun 28 15:24 index.js
+-rw-r--r-- 1 runner runner   8614 Jun 13 01:34 materialRoutes.js
+-rw-r--r-- 1 runner runner  15329 Aug 15 06:34 myBatches.js
+-rw-r--r-- 1 runner runner   1029 Jun 14 18:09 paperGenerator.js
+-rw-r--r-- 1 runner runner  10036 Jun 10 06:21 payment.js
+-rw-r--r-- 1 runner runner   2263 Mar  2 09:57 pdfRoutes.js
+-rw-r--r-- 1 runner runner    387 Mar  2 12:26 permissionTest.js
+-rw-r--r-- 1 runner runner  21948 Jun 23 00:25 pyqBankAdmin.js
+-rw-r--r-- 1 runner runner   8487 Mar  2 06:55 questionAdvanced.js
+-rw-r--r-- 1 runner runner  15746 Mar  2 06:57 questionAI.js
+-rw-r--r-- 1 runner runner  13802 Jun 23 01:54 questionDeleteRoutes.js
+-rw-r--r-- 1 runner runner   8400 Mar  2 06:51 questionExtra.js
+-rw-r--r-- 1 runner runner  31810 Jun 16 23:48 questionFeatures.js
+-rw-r--r-- 1 runner runner  10151 Jun  5 03:06 question.js
+-rw-r--r-- 1 runner runner  10035 Jun 24 13:47 questionStatsRoutes.js
+-rw-r--r-- 1 runner runner   5883 May 24 21:39 resultRoutes.js
+-rw-r--r-- 1 runner runner  14794 Mar  8 03:19 sessionRoutes.js
+-rw-r--r-- 1 runner runner  10282 Aug 15 06:25 studentBatches.js
+-rw-r--r-- 1 runner runner  10839 Aug 15 06:25 studentBatchExtras.js
+-rw-r--r-- 1 runner runner   7164 Aug 15 06:25 studentBatchUltra.js
+-rw-r--r-- 1 runner runner   1755 May 24 10:57 studentNotificationRoutes.js
+-rw-r--r-- 1 runner runner   9797 Aug 12 11:35 studentProfilePreview.js
+-rw-r--r-- 1 runner runner   9384 Aug  8 12:41 studentProfilePreview.js.bak_1786192868
+-rw-r--r-- 1 runner runner  18849 Jun  8 10:49 studentStore.js
+-rw-r--r-- 1 runner runner 116680 Aug 16 01:12 testSeriesManagerUltra.js
+-rw-r--r-- 1 runner runner   4415 Jul 11 00:25 twoFactor.js
+-rw-r--r-- 1 runner runner   2836 Mar 12 02:08 upload.js
+-rw-r--r-- 1 runner runner   1201 Mar  3 03:16 uploadRoutes.js
+-rw-r--r-- 1 runner runner   8323 Mar  8 03:05 webcamRoutes.js

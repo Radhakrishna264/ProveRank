@@ -165,7 +165,6 @@ interface Ticket { _id:string;studentName:string;examTitle:string;type:string;st
 interface Feature { key:string;label:string;description:string;enabled:boolean }
 interface Notif { id:string;icon:string;msg:string;t:string;read:boolean }
 interface Snapshot { _id:string;studentName:string;imageUrl?:string;flagged:boolean;capturedAt:string;examTitle?:string }
-interface Batch { _id:string;name:string;studentCount:number;examCount:number;createdAt:string }
 interface AdminUser { _id:string;name:string;email:string;role:string;createdAt:string;active:boolean;frozen?:boolean;archived?:boolean;archivedAt?:string;archivedBy?:string;permissions?:any }
 interface Result { _id:string;studentName:string;examTitle:string;score:number;totalMarks:number;rank:number;percentile:number;submittedAt:string }
 
@@ -670,8 +669,7 @@ const [topStudents,setTopStudents]=useState<{rank:number,name:string,bestScore:n
   const [snapshots,setSnapshots]=useState<Snapshot[]>([])
   const [features,setFeatures]=useState<Feature[]>(DEF_FEATURES)
   const [stats,setStats]=useState<any>(null)
-  const [batches,setBatches]=useState<Batch[]>([])
-  const [testSeries,setTestSeries]=useState<any[]>([])
+    const [testSeries,setTestSeries]=useState<any[]>([])
   const [adminUsers,setAdminUsers]=useState<AdminUser[]>([])
   const [results,setResults]=useState<Result[]>([])
   const [notifs,setNotifs]=useState<Notif[]>([])
@@ -2118,7 +2116,7 @@ const confirmAndAdd=useCallback(async()=>{
                       ))}
                     </div>
                     <div style={{marginTop:10,fontSize:11,color:DIM,display:'flex',gap:12}}>
-                      <span>📦 {(batches||[]).length} Batches</span>
+                      
                       <span>🛡️ {(adminUsers||[]).length} Admins</span>
                     </div>
                   </div>

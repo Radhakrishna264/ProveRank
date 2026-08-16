@@ -35,10 +35,8 @@ const examSchema = new mongoose.Schema({
   audioMonitoringEnabled: { type: Boolean, default: false },
   status: { type: String, enum: ['draft', 'scheduled', 'live', 'ended'], default: 'draft' },
 
-  batch:    { type: String, default: '' },
-  multiBatch: [{ type: String, default: [] }],
 
-  assignmentType: { type: String, enum: ['batch', 'series', 'mini_test', 'individual'], default: 'individual' },
+  assignmentType: { type: String, enum: ['series', 'mini_test', 'individual'], default: 'individual' },
   seriesName: { type: String, default: '' },
   testSeriesId: { type: mongoose.Schema.Types.ObjectId, ref: 'TestSeries', default: null },
 

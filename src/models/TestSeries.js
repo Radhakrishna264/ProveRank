@@ -26,7 +26,7 @@ const TestSeriesSchema = new mongoose.Schema({
   syllabus: { type: String },
   subject: { type: String, default: 'All Subjects' },
   students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  notes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'BatchNote' }],
+  notes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SeriesNote' }],
 
   // ── FPR2 Ultra SaaS fields ──
   seriesCode: { type: String, unique: true, sparse: true },
