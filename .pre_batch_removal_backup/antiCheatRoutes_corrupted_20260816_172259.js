@@ -26,11 +26,6 @@ const userSchema = new mongoose.Schema({
   medium:             { type: String, default: '' },
   batch:              { type: String, default: '' },
 
-  // ── F38: 2FA (TOTP) ────────────────────────────────────────────
-  twoFactorEnabled:     { type: Boolean, default: false },
-  twoFactorSecret:      { type: String, default: null },
-  twoFactorTempSecret:  { type: String, default: null },
-
   // ── F38: Login health / device tracking ─────────────────────────
   failedLoginAttempts: { type: Number, default: 0 },
   lastFailedLoginAt:   { type: Date, default: null },
@@ -129,13 +124,6 @@ const userSchema = new mongoose.Schema({
   activeSessionToken: { type: String, default: null },
   termsAcceptedAt:    { type: Date,    default: null },
   termsVersion:        { type: String, default: null },
-
-  // F37 — Checklist + XP
-  checklist: {
-    pyqExplored:      { type: Boolean, default: false },
-    analyticsVisited: { type: Boolean, default: false },
-  },
-  xp: { type: Number, default: 0 },
 
   // ══════════════════════════════════════════════════════════
   // F52-F57 v2 — Waiting Room resume tracking (Rule 1.15.3/1.15.4)
