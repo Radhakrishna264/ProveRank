@@ -45,7 +45,7 @@ const BannerSchema = new mongoose.Schema({
 
   // ── FPR3 Ultra SaaS Publish-Gate fields ──
   linkedBatchId: { type: mongoose.Schema.Types.ObjectId, default: null },
-  linkedType: { type: String, default: 'none', enum: ['batch', 'series', 'none'] },
+  linkedType: { type: String, default: 'none', enum: ['series', 'none'] },
   status: { type: String, default: 'draft', enum: ['draft', 'ready', 'scheduled', 'published', 'archived', 'removed', 'replaced'] },
   syncState: { type: String, default: 'synced', enum: ['synced', 'pending_sync', 'conflict', 'manual_override', 'ready_to_publish'] },
   qualityScore: { type: Number, default: 0 },

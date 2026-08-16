@@ -23,7 +23,6 @@ const PERM_LABELS: Record<string, string> = {
   manageBackup: '💾 Backup',
   manageBranding: '🎨 Branding',
   manageFeatureFlags: '🚩 Feature Flags',
-  manageBatches: '🎓 Batch Mgmt',
   viewLiveMonitor: '🔴 Live Monitor',
   managePermissions: '🔒 Permissions',
   manageTemplates: '📄 Templates',

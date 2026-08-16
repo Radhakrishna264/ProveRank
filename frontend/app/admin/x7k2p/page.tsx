@@ -2291,7 +2291,7 @@ const confirmAndAdd=useCallback(async()=>{
               API={API}
               T={T}
               fetchAll={fetchAll}
-              batches={batches||[]}
+             
               testSeries={testSeries||[]}
               exams={exams||[]}
               questions={questions||[]}
@@ -3281,7 +3281,7 @@ return <div key={j} style={{fontSize:12,padding:'4px 8px',borderRadius:6,marginB
 
           {/* ══ SMART GENERATOR ══ */}
           {tab==='smart_gen'&&(
-            <SmartPaperGen API={API} token={typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''} batches={batches||[]} testSeries={testSeries||[]} />
+            <SmartPaperGen API={API} token={typeof window!=='undefined'?localStorage.getItem('pr_token')||'':''} testSeries={testSeries||[]} />
           )}
 
           {/* ══ AI EXPLANATION GENERATOR ══ */}

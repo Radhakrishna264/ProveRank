@@ -40,12 +40,12 @@ function MyExamsContent() {
   const chipBg = theme.chipBg || (theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(37,99,235,0.06)')
 
   const [exams, setExams] = useState<any[]>([])
-  const [synced, setSynced] = useState<{ batches: string[]; series: string[] }>({ batches: [], series: [] })
+  const [synced, setSynced] = useState<{ series: string[] }>({ series: [] })
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [subjectFilter, setSubjectFilter] = useState('all')
-  const [batchFilter, setBatchFilter] = useState('all') // holds a batch name OR a series name
+  const [seriesFilter, setSeriesFilter] = useState('all') // holds a series name
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [previewExam, setPreviewExam] = useState<any>(null)
   const [pwModal, setPwModal] = useState<any>(null)
@@ -59,14 +59,14 @@ function MyExamsContent() {
       const saved = JSON.parse(localStorage.getItem('pr_myexams_filters') || '{}')
       if (saved.statusFilter) setStatusFilter(saved.statusFilter)
       if (saved.subjectFilter) setSubjectFilter(saved.subjectFilter)
-      if (saved.batchFilter) setBatchFilter(saved.batchFilter)
+      if (saved.seriesFilter) setSeriesFilter(saved.seriesFilter)
       if (saved.categoryFilter) setCategoryFilter(saved.categoryFilter)
       if (saved.search) setSearch(saved.search)
     } catch (e) {}
   }, [])
   useEffect(() => {
-    localStorage.setItem('pr_myexams_filters', JSON.stringify({ statusFilter, subjectFilter, batchFilter, categoryFilter, search }))
-  }, [statusFilter, subjectFilter, batchFilter, categoryFilter, search])
+    localStorage.setItem('pr_myexams_filters', JSON.stringify({ statusFilter, subjectFilter, seriesFilter, categoryFilter, search }))
+  }, [statusFilter, subjectFilter, seriesFilter, categoryFilter, search])
 
   const load = () => {
     if (!token) return
@@ -75,7 +75,7 @@ function MyExamsContent() {
       .then(d => {
         if (d?.success) {
           setExams(d.exams || [])
-          setSynced({ batches: d.syncedBatches || [], series: d.syncedSeries || [] })
+          setSynced({ series: d.syncedSeries || [] })
         }
       })
       .catch(() => {})
@@ -92,15 +92,12 @@ function MyExamsContent() {
       if (statusFilter === 'completed' && !(e.derivedStatus === 'ended' || (e.activeAttemptId === null && e.performance))) return false
       if (subjectFilter !== 'all' && e.subject !== subjectFilter) return false
       if (categoryFilter !== 'all' && e.category !== categoryFilter) return false
-      // F52 v4 fix #2 — batchFilter now matches EITHER a batch name/multiBatch OR a series name
-      if (batchFilter !== 'all') {
-        const matchesBatch = e.batch === batchFilter || (e.multiBatch || []).includes(batchFilter)
-        const matchesSeries = e.seriesName === batchFilter
-        if (!matchesBatch && !matchesSeries) return false
+      if (seriesFilter !== 'all') {
+        if (e.seriesName !== seriesFilter) return false
       }
       return true
     })
-  }, [exams, search, statusFilter, subjectFilter, batchFilter, categoryFilter])
+  }, [exams, search, statusFilter, subjectFilter, seriesFilter, categoryFilter])
 
   const stats = useMemo(() => ({
     total: exams.length,
@@ -193,11 +190,8 @@ function MyExamsContent() {
   }
 
   const subjects = useMemo(() => Array.from(new Set(exams.map(e => e.subject).filter(Boolean))), [exams])
-  // F52 v4 fix #2 — merged Batches + Test Series into one synced list for the dropdown
-  const batchesAndSeries = useMemo(() => Array.from(new Set([
-    ...synced.batches,
+  const seriesOptions = useMemo(() => Array.from(new Set([
     ...synced.series,
-    ...exams.map(e => e.batch).filter(Boolean),
     ...exams.map(e => e.seriesName).filter(Boolean)
   ])), [exams, synced])
   const categories = useMemo(() => Array.from(new Set(exams.map(e => e.category).filter(Boolean))), [exams])
@@ -223,12 +217,12 @@ function MyExamsContent() {
         ))}
       </div>
 
-      {(synced.batches.length > 0 || synced.series.length > 0) && (
+      {synced.series.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: sub, background: chipBg, border: `1px solid ${border}`, borderRadius: 10, padding: '8px 12px', marginBottom: 14 }}>
           <span style={{ color: C.success }}>✅</span>
           <span>
-            {t('Synced', 'Synced')}: {synced.batches.length > 0 && `${synced.batches.length} ${t('Batch(es)', 'Batch(es)')}`}
-            {synced.batches.length > 0 && synced.series.length > 0 && ' · '}
+            {t('Synced', 'Synced')}: 
+
             {synced.series.length > 0 && `${synced.series.length} ${t('Test Series', 'Test Series')}`}
           </span>
         </div>
@@ -262,23 +256,23 @@ function MyExamsContent() {
             {subjects.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           {/* F52 v4 fix #2 — renamed + merged Batches/Test Series dropdown */}
-          <select value={batchFilter} onChange={e => setBatchFilter(e.target.value)} style={{ ...selectStyle, flexShrink: 0 }}>
-            <option value="all">{t('All Batches/Test Series', 'All Batches/Test Series')}</option>
-            {batchesAndSeries.map(b => <option key={b} value={b}>{b}</option>)}
+          <select value={seriesFilter} onChange={e => setSeriesFilter(e.target.value)} style={{ ...selectStyle, flexShrink: 0 }}>
+            <option value="all">{t('All Test Series', 'All Test Series')}</option>
+            {seriesOptions.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
           <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} style={{ ...selectStyle, flexShrink: 0 }}>
             <option value="all">{t('All Categories', 'All Categories')}</option>
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
-        {(search || statusFilter !== 'all' || subjectFilter !== 'all' || batchFilter !== 'all' || categoryFilter !== 'all') && (
+        {(search || statusFilter !== 'all' || subjectFilter !== 'all' || seriesFilter !== 'all' || categoryFilter !== 'all') && (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
             {search && <span onClick={() => setSearch('')} style={{ cursor: 'pointer', fontSize: 11, background: chipBg, border: `1px solid ${border}`, padding: '3px 8px', borderRadius: 20, color: text }}>"{search}" ✕</span>}
             {statusFilter !== 'all' && <span onClick={() => setStatusFilter('all')} style={{ cursor: 'pointer', fontSize: 11, background: chipBg, border: `1px solid ${border}`, padding: '3px 8px', borderRadius: 20, color: text }}>{statusFilter} ✕</span>}
             {subjectFilter !== 'all' && <span onClick={() => setSubjectFilter('all')} style={{ cursor: 'pointer', fontSize: 11, background: chipBg, border: `1px solid ${border}`, padding: '3px 8px', borderRadius: 20, color: text }}>{subjectFilter} ✕</span>}
-            {batchFilter !== 'all' && <span onClick={() => setBatchFilter('all')} style={{ cursor: 'pointer', fontSize: 11, background: chipBg, border: `1px solid ${border}`, padding: '3px 8px', borderRadius: 20, color: text }}>{batchFilter} ✕</span>}
+            {seriesFilter !== 'all' && <span onClick={() => setSeriesFilter('all')} style={{ cursor: 'pointer', fontSize: 11, background: chipBg, border: `1px solid ${border}`, padding: '3px 8px', borderRadius: 20, color: text }}>{seriesFilter} ✕</span>}
             {categoryFilter !== 'all' && <span onClick={() => setCategoryFilter('all')} style={{ cursor: 'pointer', fontSize: 11, background: chipBg, border: `1px solid ${border}`, padding: '3px 8px', borderRadius: 20, color: text }}>{categoryFilter} ✕</span>}
-            <span onClick={() => { setSearch(''); setStatusFilter('all'); setSubjectFilter('all'); setBatchFilter('all'); setCategoryFilter('all') }} style={{ cursor: 'pointer', fontSize: 11, color: C.danger, padding: '3px 4px' }}>{t('Clear all', 'Sab clear karo')}</span>
+            <span onClick={() => { setSearch(''); setStatusFilter('all'); setSubjectFilter('all'); setSeriesFilter('all'); setCategoryFilter('all') }} style={{ cursor: 'pointer', fontSize: 11, color: C.danger, padding: '3px 4px' }}>{t('Clear all', 'Sab clear karo')}</span>
           </div>
         )}
       </div>
@@ -292,7 +286,7 @@ function MyExamsContent() {
           </svg>
           <div style={{ marginTop: 8 }}>{exams.length === 0 ? t('No exams scheduled yet', 'Abhi koi exam schedule nahi hai') : t('No exams match your filters', 'Filters se koi exam match nahi hua')}</div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 10 }}>
-            {exams.length > 0 && <button onClick={() => { setSearch(''); setStatusFilter('all'); setSubjectFilter('all'); setBatchFilter('all'); setCategoryFilter('all') }} style={{ padding: '8px 16px', borderRadius: 8, border: `1px solid ${border}`, background: 'transparent', color: text, cursor: 'pointer' }}>{t('Reset Filters', 'Filters Reset Karo')}</button>}
+            {exams.length > 0 && <button onClick={() => { setSearch(''); setStatusFilter('all'); setSubjectFilter('all'); setSeriesFilter('all'); setCategoryFilter('all') }} style={{ padding: '8px 16px', borderRadius: 8, border: `1px solid ${border}`, background: 'transparent', color: text, cursor: 'pointer' }}>{t('Reset Filters', 'Filters Reset Karo')}</button>}
             <button onClick={() => { setLoading(true); load() }} style={{ padding: '8px 16px', borderRadius: 8, border: `1px solid ${border}`, background: 'transparent', color: text, cursor: 'pointer' }}>{t('↻ Refresh', '↻ Refresh')}</button>
           </div>
         </div>
@@ -316,8 +310,7 @@ function MyExamsContent() {
                   <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{e.totalMarks} marks</span>
                   {e.type && <span style={{ fontSize: 11, background: primary, padding: '3px 8px', borderRadius: 20, color: '#fff', fontWeight: 700 }}>{e.type}</span>}
                   {e.category && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{e.category}</span>}
-                  {e.assignmentType && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{e.assignmentType === 'mini_test' ? t('Mini Test', 'Mini Test') : e.assignmentType === 'series' ? t('Series', 'Series') : e.assignmentType === 'batch' ? t('Batch', 'Batch') : t('Individual', 'Individual')}</span>}
-                  {e.batch && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: C.gold }}>{e.batch}</span>}
+                  {e.assignmentType && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: sub }}>{e.assignmentType === 'mini_test' ? t('Mini Test', 'Mini Test') : e.assignmentType === 'series' ? t('Series', 'Series') : t('Individual', 'Individual')}</span>}
                   {e.seriesName && <span style={{ fontSize: 11, background: chipBg, padding: '3px 8px', borderRadius: 20, color: C.gold }}>📚 {e.seriesName}</span>}
                 </div>
                 <div style={{ fontSize: 11, color: sub, marginBottom: 8 }}>{fmtTime(e.schedule?.startTime)}</div>

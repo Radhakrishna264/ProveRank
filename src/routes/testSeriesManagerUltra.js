@@ -14,10 +14,10 @@ const User     = require('../models/User');
 const Coupon   = require('../models/Coupon');
 const Banner   = require('../models/Banner');
 const BannerAuditLog = require('../models/BannerAuditLog');
-let TestSeriesAuditLog, TestSeriesTemplate, BatchNote;
+let TestSeriesAuditLog, TestSeriesTemplate, SeriesNote;
 try { TestSeriesAuditLog = require('../models/TestSeriesAuditLog'); } catch (e) { TestSeriesAuditLog = null; }
 try { TestSeriesTemplate  = require('../models/TestSeriesTemplate'); } catch (e) { TestSeriesTemplate = null; }
-try { BatchNote      = require('../models/BatchNote'); } catch (e) { BatchNote = null; }
+try { SeriesNote      = require('../models/SeriesNote'); } catch (e) { SeriesNote = null; }
 let StudentNotification;
 try { StudentNotification = require('../models/StudentNotification'); } catch (e) { StudentNotification = null; }
 
@@ -1254,17 +1254,17 @@ router.get('/:id/banner/audit', auth, isAdmin, async (req, res) => {
 // ══════════════════════════════════════════════════════════════════
 router.get('/:id/materials', auth, isAdmin, async (req, res) => {
   try {
-    if (!BatchNote) return res.json({ materials: [] });
-    const materials = await BatchNote.find({ series: req.params.id }).sort({ pinned: -1, createdAt: -1 }).lean();
+    if (!SeriesNote) return res.json({ materials: [] });
+    const materials = await SeriesNote.find({ series: req.params.id }).sort({ pinned: -1, createdAt: -1 }).lean();
     res.json({ materials });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/:id/materials', auth, isAdmin, async (req, res) => {
   try {
-    if (!BatchNote) return res.status(500).json({ error: 'Materials model unavailable' });
+    if (!SeriesNote) return res.status(500).json({ error: 'Materials model unavailable' });
     const { title, type, url, category, expiryDate } = req.body;
-    const note = await BatchNote.create({ series: req.params.id, title, type, url, subject: category || 'General', expiryDate: expiryDate ? new Date(expiryDate) : null, pinned: false, version: 1, createdBy: req.user.id });
+    const note = await SeriesNote.create({ series: req.params.id, title, type, url, subject: category || 'General', expiryDate: expiryDate ? new Date(expiryDate) : null, pinned: false, version: 1, createdBy: req.user.id });
     await logAudit({ seriesId: req.params.id, field: 'materials', action: 'material_added', newValue: { title }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true, material: note });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1272,9 +1272,9 @@ router.post('/:id/materials', auth, isAdmin, async (req, res) => {
 
 router.put('/:id/materials/:noteId', auth, isAdmin, async (req, res) => {
   try {
-    if (!BatchNote) return res.status(500).json({ error: 'Materials model unavailable' });
+    if (!SeriesNote) return res.status(500).json({ error: 'Materials model unavailable' });
     const { pinned, category, expiryDate, title } = req.body;
-    const note = await BatchNote.findById(req.params.noteId);
+    const note = await SeriesNote.findById(req.params.noteId);
     if (!note) return res.status(404).json({ error: 'Material not found' });
     if (pinned !== undefined) note.pinned = pinned;
     if (category !== undefined) note.subject = category;
@@ -1287,7 +1287,7 @@ router.put('/:id/materials/:noteId', auth, isAdmin, async (req, res) => {
 
 router.delete('/:id/materials/:noteId', auth, isAdmin, async (req, res) => {
   try {
-    if (BatchNote) await BatchNote.findByIdAndDelete(req.params.noteId);
+    if (SeriesNote) await SeriesNote.findByIdAndDelete(req.params.noteId);
     await logAudit({ seriesId: req.params.id, field: 'materials', action: 'material_deleted', newValue: { noteId: req.params.noteId }, changedBy: req.user.id, changedByName: req.user.name });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1461,7 +1461,7 @@ async function gatherSnapshotExtras(series) {
     if (b) bannerSnap = { id: b._id, title: b.title, tagline: b.tagline, status: b.status, primaryColor: b.primaryColor };
   } catch (e) {}
   try { couponIds = (await Coupon.find({ scopeType: 'series', scopeId: series._id, isDeleted: false }).select('_id code status').lean()).map(c => ({ id: c._id, code: c.code, status: c.status })); } catch (e) {}
-  try { if (BatchNote) materialsCount = await BatchNote.countDocuments({ batch: series._id }); } catch (e) {}
+  try { if (SeriesNote) materialsCount = await SeriesNote.countDocuments({ series: series._id }); } catch (e) {}
   try { let A; try { A = mongoose.model('Announcement'); } catch (e) { A = null; } if (A) announcementsCount = await A.countDocuments({ seriesId: series._id }); } catch (e) {}
   return { banner: bannerSnap, coupons: couponIds, examsCount: (series.tests && series.tests.length) || 0, exams: (series.tests || []).map(String), materialsCount, announcementsCount };
 }
@@ -1471,7 +1471,7 @@ async function buildPublishChecklist(series) {
   const examCount = (series.tests && series.tests.length) || 0;
   const bannerGate = await checkBannerGate(series._id);
   let materialsCount = 0;
-  try { if (BatchNote) materialsCount = await BatchNote.countDocuments({ batch: series._id }); } catch (e) {}
+  try { if (SeriesNote) materialsCount = await SeriesNote.countDocuments({ series: series._id }); } catch (e) {}
   let announcementsCount = 0;
   try {
     let Announcement; try { Announcement = mongoose.model('Announcement'); } catch (e) { Announcement = null; }

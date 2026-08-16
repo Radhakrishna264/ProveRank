@@ -85,7 +85,7 @@ export default function EntryProctoringControlCenter() {
   const [previewMins, setPreviewMins] = useState(20)
   const [previewFlow, setPreviewFlow] = useState<any[]>([])
   const [showCreate, setShowCreate] = useState(false)
-  const [newScope, setNewScope] = useState<{ type: string; examId: string; batchId: string; testSeriesId: string; name: string }>({ type: 'global', examId: '', batchId: '', testSeriesId: '', name: '' })
+  const [newScope, setNewScope] = useState<{ type: string; examId: string; testSeriesId: string; name: string }>({ type: 'global', examId: '', testSeriesId: '', name: '' })
   const [massApplyIds, setMassApplyIds] = useState('')
 
   const notify = (m: string) => { setToast(m); setTimeout(() => setToast(null), 3000) }
@@ -112,7 +112,6 @@ export default function EntryProctoringControlCenter() {
     try {
       const scope: any = { type: newScope.type }
       if (newScope.type === 'exam') scope.examId = newScope.examId
-      if (newScope.type === 'batch') scope.batchId = newScope.batchId
       if (newScope.type === 'series') scope.testSeriesId = newScope.testSeriesId
       const d = await api('/policies', { method: 'POST', body: JSON.stringify({ name: newScope.name || undefined, scope }) })
       notify('✅ Policy created')
@@ -487,11 +486,9 @@ export default function EntryProctoringControlCenter() {
             <select value={newScope.type} onChange={e => setNewScope(s => ({ ...s, type: e.target.value }))} style={{ ...inputStyle, marginBottom: 8 }}>
               <option value="global">Global Default</option>
               <option value="exam">Single Exam</option>
-              <option value="batch">Batch</option>
               <option value="series">Test Series</option>
             </select>
             {newScope.type === 'exam' && <input placeholder="Exam ID" value={newScope.examId} onChange={e => setNewScope(s => ({ ...s, examId: e.target.value }))} style={{ ...inputStyle, marginBottom: 8 }} />}
-            {newScope.type === 'batch' && <input placeholder="Batch ID" value={newScope.batchId} onChange={e => setNewScope(s => ({ ...s, batchId: e.target.value }))} style={{ ...inputStyle, marginBottom: 8 }} />}
             {newScope.type === 'series' && <input placeholder="Test Series ID" value={newScope.testSeriesId} onChange={e => setNewScope(s => ({ ...s, testSeriesId: e.target.value }))} style={{ ...inputStyle, marginBottom: 8 }} />}
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <button onClick={createPolicy} style={btn(true)}>Create</button>

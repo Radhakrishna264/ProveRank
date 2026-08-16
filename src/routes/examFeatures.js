@@ -3,6 +3,7 @@ const router = express.Router();
 const { verifyToken, isSuperAdmin, isAdmin } = require('../middleware/auth');
 const Exam = require('../models/Exam');
 const User = require('../models/User');
+const TestSeries = require('../models/TestSeries');
 
 // ── S5: SERIES / BATCH SYSTEM ────────────────────────────────
 router.post('/series', verifyToken, isAdmin, async (req, res) => {
@@ -16,7 +17,7 @@ router.post('/series', verifyToken, isAdmin, async (req, res) => {
 
 router.get('/series', verifyToken, async (req, res) => {
   try {
-    const series = await Exam.distinct('batch');
+    const series = await TestSeries.distinct('name');
     res.json({ success: true, series });
   } catch(err) { res.status(500).json({ message: err.message }); }
 });

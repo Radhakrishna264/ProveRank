@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const ReviewSchema = new mongoose.Schema({
-  batchId:     { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', required: true },
+  batchId:     { type: mongoose.Schema.Types.ObjectId, ref: 'TestSeries', required: true },
   studentId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true },
   studentName: { type: String, default: 'Student' },
   rating:      { type: Number, required: true, min: 1, max: 5 },

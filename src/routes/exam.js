@@ -23,9 +23,8 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
 // GET ALL EXAMS
 router.get('/', verifyToken, async (req, res) => {
   try {
-    const { batch, category, status } = req.query;
+    const { category, status } = req.query;
     const filter = {};
-    if (batch) filter.batch = batch;
     if (category) filter.category = category;
     if (status) filter.status = status;
     const exams = await Exam.find(filter).populate('createdBy', 'name email');

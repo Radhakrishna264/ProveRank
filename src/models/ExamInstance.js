@@ -12,7 +12,6 @@ const examInstanceSchema = new mongoose.Schema({
   examId: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam', required: true },
   versionCode: { type: String, unique: true, sparse: true },
   setLabel: { type: String, enum: ['Set-A', 'Set-B', 'Set-C', 'Set-D', 'Default'], default: 'Default' },
-  batchId: { type: mongoose.Schema.Types.ObjectId, default: null },
   questionSnapshot: [{
     questionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Question' },
     subject: String,

@@ -4,7 +4,7 @@ const StudentNotificationSchema = new mongoose.Schema({
   type:    { type: String, enum: ['price_drop','batch_update','trial_expiry','general'], default: 'general' },
   title:   { type: String, required: true },
   message: { type: String, required: true },
-  batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
+  batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'TestSeries' },
   isRead:  { type: Boolean, default: false },
   link:    { type: String, default: '/dashboard/test-series' },
 }, { timestamps: true });
